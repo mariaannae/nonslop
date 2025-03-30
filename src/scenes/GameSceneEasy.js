@@ -18,6 +18,17 @@ export default class GameSceneEasy extends Phaser.Scene {
         
     }
 
+    // Add this method if it doesn't exist
+    shutdown() {
+        // Clean up event listeners
+        if (this.scrollWheelEvent) {
+            this.input.off('wheel', this.scrollWheelEvent);
+        }
+        
+        // Clean up any other resources
+        super.shutdown();
+    }
+
 
     // Method to create the fails counter
     createFailsCounter() {
@@ -337,34 +348,34 @@ export default class GameSceneEasy extends Phaser.Scene {
     
         // **Updated Chat Prompt Format**
         // **Updated Chat Prompt Format**
-    const messages = [
-        {
-            "role": "system",
-            "content": "You are an expert writing evaluator. Your job is to assess user-generated text based on three key criteria:\n"
-        },
-        {
-            "role": "user",
-            "content": `User was given the prompt: "${promptForEvaluation}"  
-                        Here is their response: "${userInput}"  
-                        
-                        Evaluate the response based on:  
-                        - Relevance to the given prompt.  
-                        - Grammatical correctness. Please consider only technical correctness and not stylistic choices.
-                        - General coherence. Does this writing make sense?
-                        
-                        Provide output in this strict format:  
-                        
-                        Overall Rating: [One-word summary]  
-                        Relevance Score: X/5 - [Short reason]  
-                        Grammar Score: X/5 - [Short reason]  
-                        Coherence Score: X/5 - [Short reason]  
-                        
-                        If Grammar Score < 5, list grammar mistakes in this format:  
-                        - Incorrect: "[Exact incorrect phrase]" → Correct: "[Corrected version]"  
-                        
-                        Only return the labeled scores and grammar corrections if applicable. Do not include explanations beyond the given format. Do not perform a plagiarism check. Be sure to give at least one specific example if there are grammar errors. You can even just quote it.`
-        }
-    ];
+        const messages = [
+            {
+                "role": "system",
+                "content": "You are an expert writing evaluator. Your job is to assess user-generated text based on three key criteria:\n"
+            },
+            {
+                "role": "user",
+                "content": `User was given the prompt: "${promptForEvaluation}"  
+                            Here is their response: "${userInput}"  
+                            
+                            Evaluate the response based on:  
+                            - Relevance to the given prompt.  
+                            - Grammatical correctness. Please consider only technical correctness and not stylistic choices.
+                            - General coherence. Does this writing make sense?
+                            
+                            Provide output in this strict format:  
+                            
+                            Overall Rating: [One-word summary]  
+                            Relevance Score: X/5 - [Short reason]  
+                            Grammar Score: X/5 - [Short reason]  
+                            Coherence Score: X/5 - [Short reason]  
+                            
+                            If Grammar Score < 5, list grammar mistakes in this format:  
+                            - Incorrect: "[Exact incorrect phrase]" → Correct: "[Corrected version]"  
+                            
+                            Only return the labeled scores and grammar corrections if applicable. Do not include explanations beyond the given format. Do not perform a plagiarism check. Be sure to give at least one specific example if there are grammar errors. You can even just quote it.`
+            }
+        ];
 
 
         //try {
@@ -406,11 +417,77 @@ export default class GameSceneEasy extends Phaser.Scene {
             };
 
             saveInteraction(interaction, "userSubmissions"); // save interaction to Firebase
-
-
-
     }
 
+    addScrollIndicator() {
+        // Remove any existing indicator
+        if (this.scrollIndicator) {
+            this.scrollIndicator.destroy();
+        }
+        
+        // Create scroll indicator
+        this.scrollIndicator = this.add.text(
+            this.cameras.main.centerX,
+            this.outputBoxInfo.y + this.outputBoxInfo.height - 15,
+            "▼ Scroll for more ▼",
+            {
+                fontFamily: 'Nunito',
+                fontSize: '16px',
+                fill: '#ffffff',
+                backgroundColor: '#4b237a',
+                padding: { x: 8, y: 4 }
+            }
+        ).setOrigin(0.5, 0.5)
+         .setDepth(11)
+         .setAlpha(0.8);
+        
+        // Add animation to make it more noticeable
+        this.tweens.add({
+            targets: this.scrollIndicator,
+            alpha: { from: 0.8, to: 1 },
+            y: '+=5',
+            duration: 800,
+            yoyo: true,
+            repeat: -1
+        });
+    }
+
+
+
+    addScrollEvent() {
+        // Remove any existing event
+        if (this.scrollWheelEvent) {
+            this.input.off('wheel', this.scrollWheelEvent);
+        }
+        
+        // Define the scroll event handler
+        this.scrollWheelEvent = (pointer, gameObjects, deltaX, deltaY) => {
+            // Only scroll if we have enough content to scroll
+            if (!this.outputText || !this.outputBoxInfo) return;
+            
+            const textHeight = this.outputText.height;
+            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
+            
+            if (textHeight <= boxHeight) return;
+            
+            // Calculate min and max scroll positions
+            const minY = this.outputBoxInfo.y + this.outputBoxInfo.padding;
+            const maxY = minY - (textHeight - boxHeight);
+            
+            // Apply scroll movement (negative deltaY means scroll down)
+            this.outputTextContainer.y -= deltaY * 0.5; // adjust speed
+            
+            // Clamp position
+            this.outputTextContainer.y = Phaser.Math.Clamp(
+                this.outputTextContainer.y,
+                maxY,
+                minY
+            );
+        };
+        
+        // Add the event listener
+        this.input.on('wheel', this.scrollWheelEvent);
+    }
 
 
     updateOutputText(responseText) {
@@ -418,58 +495,50 @@ export default class GameSceneEasy extends Phaser.Scene {
             this.createOutputTextBox();
         }
     
-        // ✅ Update the text content
-        this.outputText.setText(responseText);
-    
-        const textHeight = this.outputText.height + 40;
-        const minHeight = 100;
-        const maxHeight = this.cameras.main.height * 0.4;
-        const newHeight = Phaser.Math.Clamp(textHeight, minHeight, maxHeight);
-    
-        // ✅ Ensure the box is positioned correctly
-        const outputBoxY = Math.min(
-            this.doneButton.y + this.doneButton.displayHeight / 2 + 40 + newHeight / 2,
-            this.cameras.main.height - 40
-        );
-    
-        // ✅ Make sure output box is visible
-        this.outputTextBox.setAlpha(1);
-        this.outputText.setAlpha(1);
-    
-        // ✅ Clear and redraw the output text box with the new size
-        this.outputTextBox.clear();
-        this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
-        this.outputTextBox.fillRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2,
-            outputBoxY - newHeight / 2,
-            this.uiBoxWidth,
-            newHeight,
-            CORNER_RADIUS
-        );
-        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
-        this.outputTextBox.strokeRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2,
-            outputBoxY - newHeight / 2,
-            this.cameras.main.width * 5 / 6,
-            newHeight,
-            CORNER_RADIUS
-        );
-    
-        // ✅ Adjust the text position
-        this.outputText.y = outputBoxY - newHeight / 2 + 20;
-    
-        // ✅ Ensure text is drawn above other UI elements
-        this.outputText.setDepth(10);
-        this.outputTextBox.setDepth(9);
-
-        //this.ensureEverythingFits(outputBoxY + newHeight / 2);
+        // Update the text content
+        if (this.outputText) {
+            this.outputText.setText(responseText);
+            
+            // Calculate if scrolling is needed
+            const textHeight = this.outputText.height;
+            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
+            const needsScrolling = textHeight > boxHeight;
+            
+            // Make all elements visible
+            this.outputTextBox.setAlpha(1);
+            this.outputTextContainer.setAlpha(1);
+            
+            // Show scroll indicator if needed
+            if (needsScrolling) {
+                this.addScrollIndicator();
+            } else if (this.scrollIndicator) {
+                this.scrollIndicator.destroy();
+                this.scrollIndicator = null;
+            }
+            
+            // Reset scroll position
+            this.outputTextContainer.y = this.outputBoxInfo.y + this.outputBoxInfo.padding;
+        } else {
+            // If output text doesn't exist, recreate the output box
+            this.createOutputTextBox();
+            this.outputText.setText(responseText);
+        }
     }
     
-    
-    
-    
     createOutputTextBox() {
-        if (this.outputTextBox) return;
+        // Clear any existing output box and text container
+        if (this.outputTextBox) {
+            this.outputTextBox.destroy();
+        }
+        if (this.outputTextContainer) {
+            this.outputTextContainer.destroy();
+        }
+        if (this.outputText) {
+            this.outputText.destroy();
+        }
+        if (this.scrollMask) {
+            this.scrollMask.destroy();
+        }
     
         const outputBoxWidth = this.uiBoxWidth;
         const lineHeight = 24;
@@ -477,19 +546,14 @@ export default class GameSceneEasy extends Phaser.Scene {
         const padding = 30;
         const outputBoxHeight = numLines * lineHeight + padding * 2;
         
-    
+        // Position calculation
         let outputBoxY = this.doneButton 
             ? this.doneButton.y + this.doneButton.displayHeight / 2 + 40 + outputBoxHeight / 2
             : this.cameras.main.height - outputBoxHeight - 40;
     
-        // ✅ Remove existing box if it exists (prevents duplicate rendering)
-        if (this.outputTextBox) {
-            this.outputTextBox.destroy();
-        }
-    
-        // ✅ Create new output box with rounded corners
+        // Create new output box with rounded corners
         this.outputTextBox = this.add.graphics();
-        this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
+        this.outputTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
         this.outputTextBox.fillRoundedRect(
             this.cameras.main.centerX - outputBoxWidth / 2,
             outputBoxY - outputBoxHeight / 2,
@@ -505,17 +569,17 @@ export default class GameSceneEasy extends Phaser.Scene {
             outputBoxHeight,
             CORNER_RADIUS
         );
-        this.add.existing(this.outputTextBox); // Ensure it is added to the scene
-    
-        // ✅ Remove existing text if it exists (prevents duplicates)
-        if (this.outputText) {
-            this.outputText.destroy();
-        }
-    
-        // ✅ Create output text inside the box
-        this.outputText = this.add.text(
+        this.add.existing(this.outputTextBox);
+        
+        // Create a container for scrollable content
+        this.outputTextContainer = this.add.container(
             this.cameras.main.centerX - outputBoxWidth / 2 + padding,
-            outputBoxY - outputBoxHeight / 2 + padding,
+            outputBoxY - outputBoxHeight / 2 + padding
+        );
+        
+        // Create text inside container
+        this.outputText = this.add.text(
+            0, 0,
             "Press 'DONE' to see how you did.",
             {
                 fontFamily: 'Nunito',
@@ -526,16 +590,44 @@ export default class GameSceneEasy extends Phaser.Scene {
                 lineSpacing: 5
             }
         ).setOrigin(0, 0);
-    
-        // ✅ Slide-in Animation
+        
+        // Add text to container
+        this.outputTextContainer.add(this.outputText);
+        
+        // Create mask for clipping text that goes outside the box
+        const maskGraphics = this.make.graphics();
+        maskGraphics.fillRect(
+            this.cameras.main.centerX - outputBoxWidth / 2 + 5,
+            outputBoxY - outputBoxHeight / 2 + 5,
+            outputBoxWidth - 10,
+            outputBoxHeight - 10
+        );
+        this.scrollMask = maskGraphics.createGeometryMask();
+        this.outputTextContainer.setMask(this.scrollMask);
+        
+        // Store reference to box position and dimensions for scrolling
+        this.outputBoxInfo = {
+            x: this.cameras.main.centerX - outputBoxWidth / 2,
+            y: outputBoxY - outputBoxHeight / 2,
+            width: outputBoxWidth,
+            height: outputBoxHeight,
+            padding: padding
+        };
+        
+        // Set depth
+        this.outputTextBox.setDepth(9);
+        this.outputTextContainer.setDepth(10);
+        
+        // Set initial state
         this.tweens.add({
-            targets: [this.outputTextBox, this.outputText],
+            targets: [this.outputTextBox, this.outputTextContainer],
             alpha: 1,
             duration: 500,
             ease: 'Sine.InOut'
         });
-        // ✅ Force Phaser to recognize this object
-        this.add.existing(this.outputTextBox);
+        
+        // Add wheel event for scrolling (only active when needed)
+        this.addScrollEvent();
     }
     
     
@@ -1049,10 +1141,12 @@ export default class GameSceneEasy extends Phaser.Scene {
                 this.generateAISuggestions(this.userInput.trim());
             } else if (event.key === "Tab") {
                 // Accept autocomplete suggestion
+                this.failCount += 1;
                 event.preventDefault(); // Prevent default tab behavior
                 const autocomplete = this.generateAutocomplete();
                 if (autocomplete) {
                     this.userInput += autocomplete;
+                    
                     
                     // If the autocomplete ended a word, add a space
                     if (!this.userInput.endsWith(" ")) {

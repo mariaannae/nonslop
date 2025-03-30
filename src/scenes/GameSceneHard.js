@@ -14,10 +14,12 @@ export default class GameSceneHard extends Phaser.Scene {
         this.inputText = null; 
         this.levelValue = 1;
         this.baseFontSize = 22;
-        this.failCounter = 0;
+        this.failCount = 0;
         this.autocompleteText = null; 
         
     }
+
+
 
     // Method to create the fails counter
     createFailsCounter() {
@@ -72,7 +74,7 @@ export default class GameSceneHard extends Phaser.Scene {
         // );
         
         // Text display
-        this.failsText = this.add.text(0, 0, `FAILS: ${this.failCounter}`, {
+        this.failsText = this.add.text(0, 0, `FAILS: ${this.failCount}`, {
             foFamily: 'Fredoka',
             fontSize: '22px',
             fontWeight: "700",
@@ -92,7 +94,7 @@ export default class GameSceneHard extends Phaser.Scene {
     // Add this method to update the counter
     updateFailsCounter() {
         if (this.failsText) {
-            this.failsText.setText(`FAILS: ${this.failCounter}`);this.tweens.add({
+            this.failsText.setText(`FAILS: ${this.failCount}`);this.tweens.add({
                 targets: this.failsCounter,
                 scaleX: { from: 1, to: 1.2 },
                 scaleY: { from: 1, to: 1.2 },
@@ -376,6 +378,16 @@ export default class GameSceneHard extends Phaser.Scene {
     }
 
     
+    // Add this method if it doesn't exist
+    shutdown() {
+        // Clean up event listeners
+        if (this.scrollWheelEvent) {
+            this.input.off('wheel', this.scrollWheelEvent);
+        }
+        
+        // Clean up any other resources
+        super.shutdown();
+    }
 
 
     updateOutputText(responseText) {
@@ -383,76 +395,132 @@ export default class GameSceneHard extends Phaser.Scene {
             this.createOutputTextBox();
         }
     
-        // ✅ Update the text content
-        this.outputText.setText(responseText);
-    
-        const textHeight = this.outputText.height + 40;
-        const minHeight = 100;
-        const maxHeight = this.cameras.main.height * 0.4;
-        const newHeight = Phaser.Math.Clamp(textHeight, minHeight, maxHeight);
-    
-        // ✅ Ensure the box is positioned correctly
-        const outputBoxY = Math.min(
-            this.doneButton.y + this.doneButton.displayHeight / 2 + 40 + newHeight / 2,
-            this.cameras.main.height - 40
-        );
-    
-        // ✅ Make sure output box is visible
-        this.outputTextBox.setAlpha(1);
-        this.outputText.setAlpha(1);
-    
-        // ✅ Clear and redraw the output text box with the new size
-        this.outputTextBox.clear();
-        this.outputTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
-        this.outputTextBox.fillRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2,
-            outputBoxY - newHeight / 2,
-            this.uiBoxWidth,
-            newHeight,
-            CORNER_RADIUS
-        );
-        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
-        this.outputTextBox.strokeRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2,
-            outputBoxY - newHeight / 2,
-            this.cameras.main.width * 5 / 6,
-            newHeight,
-            CORNER_RADIUS
-        );
-    
-        // ✅ Adjust the text position
-        this.outputText.y = outputBoxY - newHeight / 2 + 20;
-    
-        // ✅ Ensure text is drawn above other UI elements
-        this.outputText.setDepth(10);
-        this.outputTextBox.setDepth(9);
-
-        //this.ensureEverythingFits(outputBoxY + newHeight / 2);
+        // Update the text content
+        if (this.outputText) {
+            this.outputText.setText(responseText);
+            
+            // Calculate if scrolling is needed
+            const textHeight = this.outputText.height;
+            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
+            const needsScrolling = textHeight > boxHeight;
+            
+            // Make all elements visible
+            this.outputTextBox.setAlpha(1);
+            this.outputTextContainer.setAlpha(1);
+            
+            // Show scroll indicator if needed
+            if (needsScrolling) {
+                this.addScrollIndicator();
+            } else if (this.scrollIndicator) {
+                this.scrollIndicator.destroy();
+                this.scrollIndicator = null;
+            }
+            
+            // Reset scroll position
+            this.outputTextContainer.y = this.outputBoxInfo.y + this.outputBoxInfo.padding;
+        } else {
+            // If output text doesn't exist, recreate the output box
+            this.createOutputTextBox();
+            this.outputText.setText(responseText);
+        }
     }
-    
-    
-    
-    
+
+    addScrollEvent() {
+        // Remove any existing event
+        if (this.scrollWheelEvent) {
+            this.input.off('wheel', this.scrollWheelEvent);
+        }
+        
+        // Define the scroll event handler
+        this.scrollWheelEvent = (pointer, gameObjects, deltaX, deltaY) => {
+            // Only scroll if we have enough content to scroll
+            if (!this.outputText || !this.outputBoxInfo) return;
+            
+            const textHeight = this.outputText.height;
+            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
+            
+            if (textHeight <= boxHeight) return;
+            
+            // Calculate min and max scroll positions
+            const minY = this.outputBoxInfo.y + this.outputBoxInfo.padding;
+            const maxY = minY - (textHeight - boxHeight);
+            
+            // Apply scroll movement (negative deltaY means scroll down)
+            this.outputTextContainer.y -= deltaY * 0.5; // adjust speed
+            
+            // Clamp position
+            this.outputTextContainer.y = Phaser.Math.Clamp(
+                this.outputTextContainer.y,
+                maxY,
+                minY
+            );
+        };
+        
+        // Add the event listener
+        this.input.on('wheel', this.scrollWheelEvent);
+    }
+
+    addScrollIndicator() {
+        // Remove any existing indicator
+        if (this.scrollIndicator) {
+            this.scrollIndicator.destroy();
+        }
+        
+        // Create scroll indicator
+        this.scrollIndicator = this.add.text(
+            this.cameras.main.centerX,
+            this.outputBoxInfo.y + this.outputBoxInfo.height - 15,
+            "▼ Scroll for more ▼",
+            {
+                fontFamily: 'Nunito',
+                fontSize: '16px',
+                fill: '#ffffff',
+                backgroundColor: '#4b237a',
+                padding: { x: 8, y: 4 }
+            }
+        ).setOrigin(0.5, 0.5)
+         .setDepth(11)
+         .setAlpha(0.8);
+        
+        // Add animation to make it more noticeable
+        this.tweens.add({
+            targets: this.scrollIndicator,
+            alpha: { from: 0.8, to: 1 },
+            y: '+=5',
+            duration: 800,
+            yoyo: true,
+            repeat: -1
+        });
+    }
+        
+        
     createOutputTextBox() {
-        if (this.outputTextBox) return;
-    
+        // Clear any existing output box and text container
+        if (this.outputTextBox) {
+            this.outputTextBox.destroy();
+        }
+        if (this.outputTextContainer) {
+            this.outputTextContainer.destroy();
+        }
+        if (this.outputText) {
+            this.outputText.destroy();
+        }
+        if (this.scrollMask) {
+            this.scrollMask.destroy();
+        }
+
         const outputBoxWidth = this.uiBoxWidth;
         const lineHeight = 24;
         const numLines = 4;
         const padding = 30;
         const outputBoxHeight = numLines * lineHeight + padding * 2;
         
-    
+        // Position calculation
         let outputBoxY = this.doneButton 
             ? this.doneButton.y + this.doneButton.displayHeight / 2 + 40 + outputBoxHeight / 2
             : this.cameras.main.height - outputBoxHeight - 40;
-    
-        // ✅ Remove existing box if it exists (prevents duplicate rendering)
-        if (this.outputTextBox) {
-            this.outputTextBox.destroy();
-        }
-    
-        // ✅ Create new output box with rounded corners
+
+        // Create new output box with rounded corners
         this.outputTextBox = this.add.graphics();
         this.outputTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
         this.outputTextBox.fillRoundedRect(
@@ -470,17 +538,17 @@ export default class GameSceneHard extends Phaser.Scene {
             outputBoxHeight,
             CORNER_RADIUS
         );
-        this.add.existing(this.outputTextBox); // Ensure it is added to the scene
-    
-        // ✅ Remove existing text if it exists (prevents duplicates)
-        if (this.outputText) {
-            this.outputText.destroy();
-        }
-    
-        // ✅ Create output text inside the box
-        this.outputText = this.add.text(
+        this.add.existing(this.outputTextBox);
+        
+        // Create a container for scrollable content
+        this.outputTextContainer = this.add.container(
             this.cameras.main.centerX - outputBoxWidth / 2 + padding,
-            outputBoxY - outputBoxHeight / 2 + padding,
+            outputBoxY - outputBoxHeight / 2 + padding
+        );
+        
+        // Create text inside container
+        this.outputText = this.add.text(
+            0, 0,
             "Press 'DONE' to see how you did.",
             {
                 fontFamily: 'Nunito',
@@ -491,16 +559,44 @@ export default class GameSceneHard extends Phaser.Scene {
                 lineSpacing: 5
             }
         ).setOrigin(0, 0);
-    
-        // ✅ Slide-in Animation
+        
+        // Add text to container
+        this.outputTextContainer.add(this.outputText);
+        
+        // Create mask for clipping text that goes outside the box
+        const maskGraphics = this.make.graphics();
+        maskGraphics.fillRect(
+            this.cameras.main.centerX - outputBoxWidth / 2 + 5,
+            outputBoxY - outputBoxHeight / 2 + 5,
+            outputBoxWidth - 10,
+            outputBoxHeight - 10
+        );
+        this.scrollMask = maskGraphics.createGeometryMask();
+        this.outputTextContainer.setMask(this.scrollMask);
+        
+        // Store reference to box position and dimensions for scrolling
+        this.outputBoxInfo = {
+            x: this.cameras.main.centerX - outputBoxWidth / 2,
+            y: outputBoxY - outputBoxHeight / 2,
+            width: outputBoxWidth,
+            height: outputBoxHeight,
+            padding: padding
+        };
+        
+        // Set depth
+        this.outputTextBox.setDepth(9);
+        this.outputTextContainer.setDepth(10);
+        
+        // Set initial state
         this.tweens.add({
-            targets: [this.outputTextBox, this.outputText],
+            targets: [this.outputTextBox, this.outputTextContainer],
             alpha: 1,
             duration: 500,
             ease: 'Sine.InOut'
         });
-        // ✅ Force Phaser to recognize this object
-        this.add.existing(this.outputTextBox);
+        
+        // Add wheel event for scrolling (only active when needed)
+        this.addScrollEvent();
     }
     
     
@@ -862,7 +958,7 @@ export default class GameSceneHard extends Phaser.Scene {
             this.updateCursor();
 
             // Increment fail counter
-            this.failCounter++;
+            this.failCount++;
             this.updateFailsCounter();
         }
         // Example interaction data structure
@@ -1011,9 +1107,11 @@ export default class GameSceneHard extends Phaser.Scene {
                 if (!this.userInput.endsWith(" ")) {
                     this.userInput += " ";
                 }
-                
-                this.generateAISuggestions(this.userInput.trim());
+              
+            this.checkAndExplodeWord();
+            this.generateAISuggestions(this.userInput.trim());
             }
+
         } else if (event.key.length === 1) {
             this.userInput += event.key;
         } else if (event.key === "Backspace") {
@@ -1164,43 +1262,59 @@ export default class GameSceneHard extends Phaser.Scene {
     }
     
     
-    // === Helper Function to Update Text with Blinking Cursor ===
+  // Modify the updateCursor method to add safety checks
     updateCursor() {
-        if (!this.inputText || !this.autocompleteText) return;
-        
-        // Generate autocomplete suggestion
-        let autocomplete = this.generateAutocomplete();
-        
-        // Update the main input text with cursor
-        if (this.inputActive) {
-            // Active state - block cursor
-            this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : " "));
-        } else {
-            // Default state - underscore cursor
-            this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : ""));
+        // First check if inputText and autocompleteText exist and are valid
+        if (!this.inputText || !this.autocompleteText || 
+            !this.inputText.active || !this.autocompleteText.active) {
+            return;
         }
         
-        // Force a proper re-render of the text
-        this.inputText.updateText();
-        
-        // Use the raw text width without the cursor for more accurate positioning
-        const rawTextWidth = this.inputText.width - (this.cursorVisible ? 10 : 0);
-        
-        // Position autocomplete text immediately after input text content (not including cursor)
-        this.autocompleteText.setPosition(
-            this.inputText.x + rawTextWidth,
-            this.inputText.y
-        );
-        
-        // Update the autocomplete text
-        this.autocompleteText.setText(autocomplete || "");
-        
-        // Force redraw of autocomplete text
-        this.autocompleteText.updateText();
-        
-        // Ensure both text objects are visible and at the correct depth
-        this.inputText.setVisible(true).setDepth(25);
-        this.autocompleteText.setVisible(true).setDepth(25);
+        try {
+            // Generate autocomplete suggestion
+            let autocomplete = this.generateAutocomplete();
+            
+            // Update the main input text with cursor
+            if (this.inputActive) {
+                // Active state - block cursor
+                this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : " "));
+            } else {
+                // Default state - underscore cursor
+                this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : ""));
+            }
+            
+            // Force a proper re-render of the text - wrapped in try/catch for safety
+            try {
+                this.inputText.updateText();
+            } catch (e) {
+                console.warn("Error updating input text:", e);
+            }
+            
+            // Use the raw text width without the cursor for more accurate positioning
+            const rawTextWidth = this.inputText.width - (this.cursorVisible ? 10 : 0);
+            
+            // Position autocomplete text immediately after input text content (not including cursor)
+            this.autocompleteText.setPosition(
+                this.inputText.x + rawTextWidth,
+                this.inputText.y
+            );
+            
+            // Update the autocomplete text
+            this.autocompleteText.setText(autocomplete || "");
+            
+            // Force redraw of autocomplete text
+            try {
+                this.autocompleteText.updateText();
+            } catch (e) {
+                console.warn("Error updating autocomplete text:", e);
+            }
+            
+            // Ensure both text objects are visible and at the correct depth
+            this.inputText.setVisible(true).setDepth(25);
+            this.autocompleteText.setVisible(true).setDepth(25);
+        } catch (error) {
+            console.warn("Error in updateCursor:", error);
+        }
     }
      
 
