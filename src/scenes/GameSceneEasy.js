@@ -112,7 +112,6 @@ export default class GameSceneEasy extends Phaser.Scene {
         if (!this.scoreDisplay) {
             this.createFailsCounter();
         }
-        console.log("COUNTER: ", this.failCount);
 
         // Get the word count from the input text
         const wordsInInput = this.userInput.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -120,7 +119,6 @@ export default class GameSceneEasy extends Phaser.Scene {
         
         // Calculate score using the formula: (words_in_input - fails) * 10 - fails^10
         //const score = (wordsInInput - this.failCount) * 10 - (this.failCount * 10);
-        //console.log("wordinput: ", wordsInInput);
 
 
         if (this.failsText) {
@@ -463,8 +461,6 @@ export default class GameSceneEasy extends Phaser.Scene {
         
 
     async evaluateText(userInput) {
-
-
         console.log("Evaluating user input:", userInput);
     
 
@@ -1879,15 +1875,15 @@ export default class GameSceneEasy extends Phaser.Scene {
         );
 
         // Calculate position for bottom-left corner button (mirroring feedback button)
-        const easyButtonX = buttonWidth / 2 + padding;
-        const easyButtonY = this.cameras.main.height - buttonHeight / 2 - padding;
+        const hardButtonX = buttonWidth / 2 + padding;
+        const hardButtonY = this.cameras.main.height - buttonHeight / 2 - padding;
 
         // Create the Easy Mode button
-        this.easyButton = this.createButton(
+        this.hardButton = this.createButton(
             "HARD", 
             () => this.onHardModeClick(), 
-            easyButtonX, 
-            easyButtonY
+            hardButtonX, 
+            hardButtonY
         );
 
         
@@ -1964,10 +1960,8 @@ export default class GameSceneEasy extends Phaser.Scene {
             }
 
             let options = reply.choices[0].logprobs.content[0].top_logprobs;
-            console.log("options: ", options);
             
             options.sort((a, b) => b.logprob - a.logprob);
-            console.log("Sorted Options:", options);
 
             const filteredOptions = options
                 .map(choice => choice.token.trim())            // Trim whitespace
