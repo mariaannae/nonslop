@@ -11,6 +11,21 @@ export default class FeedbackScene extends Phaser.Scene {
         this.llmEngine = null;       
     }
 
+    update() {
+        if (!this.llmEngine) {
+            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
+            this.llmEngine = this.registry.get('llmEngine');
+    
+            if (!this.llmEngine) {
+                console.warn("LLM Engine missing entirely. Returning to Preloader...");
+                this.scene.start('PreloaderScene');
+            } else {
+                console.log("Successfully recovered LLM Engine from registry.");
+            }
+        }
+    }
+    
+
     addButtonClickEffects() {
         // Apply to all buttons
         

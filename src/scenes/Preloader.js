@@ -672,6 +672,7 @@ export default class Preloader extends Phaser.Scene {
     
     // === Start Game Function (Handles Difficulty) ===
     startGame(llmEngine, difficulty) {
+        this.registry.set('llmEngine', llmEngine);
         console.log(`Starting GameSceneHard in ${difficulty} mode...`);
         if (difficulty === "easy") {
             this.scene.start('InstructionScene', { mode: "easy", llmEngine: llmEngine });

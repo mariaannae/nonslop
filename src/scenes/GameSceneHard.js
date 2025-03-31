@@ -19,6 +19,21 @@ export default class GameSceneHard extends Phaser.Scene {
         
     }
 
+    update() {
+        if (!this.llmEngine) {
+            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
+            this.llmEngine = this.registry.get('llmEngine');
+    
+            if (!this.llmEngine) {
+                console.warn("LLM Engine missing entirely. Returning to Preloader...");
+                this.scene.start('PreloaderScene');
+            } else {
+                console.log("Successfully recovered LLM Engine from registry.");
+            }
+        }
+    }
+    
+
 
     // Method to create the fails counter
     createFailsCounter() {
