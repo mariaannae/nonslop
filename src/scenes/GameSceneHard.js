@@ -93,7 +93,7 @@ export default class GameSceneHard extends Phaser.Scene {
     // Add this method to update the counter
     updateFailsCounter() {
         if (this.failsText) {
-            this.failsText.setText(`SCORE: ${this.failCount}`);this.tweens.add({
+            this.failsText.setText(`SCORE: -${this.failCount}`);this.tweens.add({
                 targets: this.failsCounter,
                 scaleX: { from: 1, to: 1.2 },
                 scaleY: { from: 1, to: 1.2 },
