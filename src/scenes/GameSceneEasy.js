@@ -198,7 +198,9 @@ export default class GameSceneEasy extends Phaser.Scene {
         this.scene.start('FeedbackScene', {mode: this.mode, llmEngine: this.llmEngine});
     }
     
-    
+    onHardModeClick() {
+        this.scene.start('GameSceneHard', {mode: 'hard', llmEngine: this.llmEngine});
+    }
 
     createButton(label, callback, centerX, centerY) {
 
@@ -249,7 +251,7 @@ export default class GameSceneEasy extends Phaser.Scene {
         // === Button Text ===
         const buttonText = this.add.text(0, 0, label, {
             fontFamily: 'Fredoka',
-            fontSize: '22px',
+            fontSize: '18px',
             fontWeight: "700",
             color: COLORS_TEXT.WHITE,
             align: 'center'
@@ -1145,13 +1147,9 @@ export default class GameSceneEasy extends Phaser.Scene {
                 event.preventDefault(); // Prevent default tab behavior
                 const autocomplete = this.generateAutocomplete();
                 if (autocomplete) {
-                    this.userInput += autocomplete;
+                    this.userInput += autocomplete.trim();
                     
                     
-                    // If the autocomplete ended a word, add a space
-                    if (!this.userInput.endsWith(" ")) {
-                        this.userInput += " ";
-                    }
                     
                     this.generateAISuggestions(this.userInput.trim());
                 }
@@ -1262,43 +1260,93 @@ export default class GameSceneEasy extends Phaser.Scene {
         });
     }
     
-    // === Helper Function to Update Text with Blinking Cursor ===
     updateCursor() {
         if (!this.inputText || !this.autocompleteText) return;
-        
-        // Generate autocomplete suggestion
-        let autocomplete = this.generateAutocomplete();
-        
-        // Update the main input text with cursor
-        if (this.inputActive) {
-            // Active state - block cursor
-            this.inputText.setText(this.userInput + (this.cursorVisible ? "▌" : " "));
-        } else {
-            // Default state - underscore cursor
+        try {
+            // Get autocomplete suggestion
+            const autocomplete = this.generateAutocomplete();
+            
+            // Update main input text with cursor
+            // We'll use a consistent text without the cursor for measurements
+            const userInputOnly = this.userInput;
             this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : ""));
+            
+            // Hide autocomplete text by default
+            this.autocompleteText.setVisible(false).setText("");
+            
+            if (autocomplete && autocomplete.length > 0) {
+                // Get wordWrap width from inputText style
+                const wrapWidth = this.inputText.style.wordWrapWidth;
+                const fontSize = parseInt(this.inputText.style.fontSize, 10);
+                const lineHeight = fontSize * 1.2;
+                const inputX = this.inputText.x;
+                const inputY = this.inputText.y;
+                
+                // Split text manually into wrapped lines - using userInputOnly for consistent measurement
+                const words = userInputOnly.split(/(\s+)/);
+                const lines = [];
+                let currentLine = "";
+                
+                // Create temporary text for measurement
+                let tempText = this.add.text(0, 0, "", {
+                    fontFamily: this.inputText.style.fontFamily,
+                    fontSize: this.inputText.style.fontSize,
+                }).setVisible(false);
+                
+                // Calculate wrapped lines
+                words.forEach(word => {
+                    const testLine = currentLine + word;
+                    tempText.setText(testLine);
+                    if (tempText.width > wrapWidth && currentLine !== "") {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = testLine;
+                    }
+                });
+                lines.push(currentLine);
+                tempText.destroy();
+                
+                // Get cursor position (end of last wrapped line)
+                const cursorLineIndex = lines.length - 1;
+                const cursorY = inputY + cursorLineIndex * lineHeight;
+                
+                // Measure width of last line - this is the key part that needs to be stable
+                const measureText = this.add.text(0, 0, lines[cursorLineIndex], {
+                    fontFamily: this.inputText.style.fontFamily,
+                    fontSize: this.inputText.style.fontSize,
+                }).setVisible(false);
+                let cursorX = inputX + measureText.width;
+                measureText.destroy();
+                
+                // If cursorX exceeds wrapWidth, move to next line
+                if (cursorX - inputX >= wrapWidth) {
+                    cursorX = inputX;
+                    cursorY += lineHeight;
+                }
+                
+                // Store the position for stability - this prevents recalculation on every frame
+                if (!this._lastCursorPos || 
+                    this._lastUserInput !== userInputOnly) {
+                    this._lastCursorPos = { x: cursorX, y: cursorY };
+                    this._lastUserInput = userInputOnly;
+                }
+                
+                // Use stored position instead of recalculating every time
+                this.autocompleteText.setPosition(
+                    this._lastCursorPos.x, 
+                    this._lastCursorPos.y
+                );
+                this.autocompleteText.setText(autocomplete);
+                this.autocompleteText.setVisible(true);
+            } else {
+                // Clear cached position when no autocomplete
+                this._lastCursorPos = null;
+                this._lastUserInput = null;
+            }
+        } catch (error) {
+            console.error("Error in updateCursor:", error);
         }
-        
-        // Force a proper re-render of the text
-        this.inputText.updateText();
-        
-        // Use the raw text width without the cursor for more accurate positioning
-        const rawTextWidth = this.inputText.width - (this.cursorVisible ? 10 : 0);
-        
-        // Position autocomplete text immediately after input text content
-        this.autocompleteText.setPosition(
-            this.inputText.x + rawTextWidth,
-            this.inputText.y
-        );
-        
-        // Update the autocomplete text
-        this.autocompleteText.setText(autocomplete || "");
-        
-        // Force redraw of autocomplete text
-        this.autocompleteText.updateText();
-        
-        // Ensure both text objects are visible and at the correct depth
-        this.inputText.setVisible(true).setDepth(25);
-        this.autocompleteText.setVisible(true).setDepth(25);
     }
     
 
@@ -1314,7 +1362,7 @@ export default class GameSceneEasy extends Phaser.Scene {
         if (words.length === 0) return;
         
         // POSITIONING: Move suggestions closer to the prompt box
-        const startY = this.promptBoxY - 60; // Position between menu and prompt box
+        const startY = this.promptBoxY - 40; // Position between menu and prompt box
         
         // Calculate total width needed
         const baseSpacing = 20;
@@ -1338,7 +1386,7 @@ export default class GameSceneEasy extends Phaser.Scene {
         wordObjects.forEach(({ word, width }, index) => {
             // Create colored box with simple color (no conversion)
             let wordBox = this.add.graphics();
-            wordBox.fillStyle(COLORS_HEX.TURQUOISE, 1);
+            wordBox.fillStyle(COLORS_HEX.RED, 1);
             wordBox.fillRoundedRect(-width / 2, -20, width, 40, 10);
             
             // Add border
@@ -1532,6 +1580,10 @@ export default class GameSceneEasy extends Phaser.Scene {
         if (this.feedbackButton) {
             this.feedbackButton.setDepth(10);
         }
+        if (this.easyButton) {
+            this.easyButton.setDepth(10);
+        }
+        
     }
 
     // Add this to your create method for debugging if needed
@@ -1592,12 +1644,23 @@ export default class GameSceneEasy extends Phaser.Scene {
 
         // Create your new button
         this.feedbackButton = this.createButton(
-            "feedback", 
+            "FEEDBACK", 
             () => this.onFeedbackClick(), 
             newButtonX, 
             newButtonY
         );
 
+        // Calculate position for bottom-left corner button (mirroring feedback button)
+        const easyButtonX = buttonWidth / 2 + padding;
+        const easyButtonY = this.cameras.main.height - buttonHeight / 2 - padding;
+
+        // Create the Easy Mode button
+        this.easyButton = this.createButton(
+            "HARD", 
+            () => this.onHardModeClick(), 
+            easyButtonX, 
+            easyButtonY
+        );
 
 
 
@@ -1654,7 +1717,7 @@ export default class GameSceneEasy extends Phaser.Scene {
     
         console.log("Generating AI suggestions for:", userInput);
     
-        try {
+        //try {
             const reply = await this.llmEngine.completions.create({
                 prompt: userInput,
                 echo: false,
@@ -1677,22 +1740,23 @@ export default class GameSceneEasy extends Phaser.Scene {
             console.log("Sorted Options:", options);
 
             const filteredOptions = options
-                .filter(choice => !stopwords.includes(choice.token.trim().toLowerCase()))
-                .slice(0, this.topKValue);  // pick top-K after filtering
+                .map(choice => choice.token.trim())            // Trim whitespace
+                .filter(token => token !== '')                 // Remove empty strings (including just spaces)
+                .filter(token => !stopwords.includes(token.toLowerCase())); // Remove stopwords
 
-            console.log("filtered Options:", filteredOptions);
+            // Deduplicate words (ensure uniqueness)
+            const uniqueSuggestedWords = Array.from(new Set(filteredOptions))
+                .slice(0, this.topKValue);  // Limit to top K after deduplication
 
-            let suggestedWords = filteredOptions
-                .map(choice => choice.token.trim())
     
-            console.log("AI Suggested Words:", suggestedWords);
+            console.log("AI Suggested Words:", uniqueSuggestedWords);
 
-            this.aiSuggestedWords = suggestedWords;
+            this.aiSuggestedWords = uniqueSuggestedWords;
     
-            this.showSuggestions(suggestedWords);
-        } catch (error) {
-            console.error("Error generating text:", error);
-        }
+            this.showSuggestions(uniqueSuggestedWords);
+        // } catch (error) {
+        //     console.error("Error generating text:", error);
+        // }
     }
     
     

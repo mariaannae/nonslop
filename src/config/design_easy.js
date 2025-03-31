@@ -12,7 +12,7 @@ export const COLORS_TEXT = {
     ERROR: '#e63946', // Cherry red
     WHITE: '#FFFFFF',
     BLACK: '#000000',
-    RED: '#e71d36', // Bright tomato red
+    RED: 'ff0000', // Bright tomato red
     BLUE: '#90e0ef', // Sky blue
     BLUE_BACKGROUND: "#1a2639", // Dark navy
 };
@@ -31,7 +31,7 @@ export const COLORS_HEX = {
     ERROR: 0xe63946, // Cherry red
     WHITE: 0xFFFFFF,
     BLACK: 0x000000,
-    RED: 0xe71d36, // Bright tomato red
+    RED: 0xff0000, // Bright tomato red
     BLUE: 0x90e0ef, // Sky blue
     BLUE_BACKGROUND: 0x1a2639, // Dark navy
 };

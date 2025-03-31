@@ -164,6 +164,10 @@ export default class GameSceneHard extends Phaser.Scene {
             ease: 'Sine.InOut'
         });
     }
+
+    onEasyModeClick() {
+        this.scene.start('GameSceneEasy', {mode: 'easy', llmEngine: this.llmEngine});
+    }
     
     onFeedbackClick(){
         this.scene.start('FeedbackScene', {mode: this.mode, llmEngine: this.llmEngine});
@@ -218,7 +222,7 @@ export default class GameSceneHard extends Phaser.Scene {
         // === Button Text ===
         const buttonText = this.add.text(0, 0, label, {
             fontFamily: 'Fredoka',
-            fontSize: '22px',
+            fontSize: '18px',
             fontWeight: "700",
             color: COLORS_TEXT.WHITE,
             align: 'center'
@@ -1049,7 +1053,7 @@ export default class GameSceneHard extends Phaser.Scene {
             fontFamily: "Nunito",
             fontSize: "20px",
             fill: "#000",
-            wordWrap: { width: textBoxWidth - padding * 2 },
+            wordWrap: { width: textBoxWidth - padding * 2 - 10 },
             align: "left"
         }
     ).setOrigin(0, 0);
@@ -1091,6 +1095,7 @@ export default class GameSceneHard extends Phaser.Scene {
         }, 3000);
 
         if (event.key === " ") {
+            console.log("keydown llm: ", this.llmEngine);
             if (!this.userInput.trim()) return;
             this.userInput += " ";
             // Check for AI-suggested word match
@@ -1101,12 +1106,8 @@ export default class GameSceneHard extends Phaser.Scene {
             event.preventDefault(); // Prevent default tab behavior
             const autocomplete = this.generateAutocomplete();
             if (autocomplete) {
-                this.userInput += autocomplete;
+                this.userInput += autocomplete.trim();
                 
-                // If the autocomplete ended a word, add a space
-                if (!this.userInput.endsWith(" ")) {
-                    this.userInput += " ";
-                }
               
             this.checkAndExplodeWord();
             this.generateAISuggestions(this.userInput.trim());
@@ -1261,62 +1262,97 @@ export default class GameSceneHard extends Phaser.Scene {
         return "";
     }
     
-    
-  // Modify the updateCursor method to add safety checks
+
     updateCursor() {
-        // First check if inputText and autocompleteText exist and are valid
-        if (!this.inputText || !this.autocompleteText || 
-            !this.inputText.active || !this.autocompleteText.active) {
-            return;
-        }
-        
+        if (!this.inputText || !this.autocompleteText) return;
         try {
-            // Generate autocomplete suggestion
-            let autocomplete = this.generateAutocomplete();
+            // Get autocomplete suggestion
+            const autocomplete = this.generateAutocomplete();
             
-            // Update the main input text with cursor
-            if (this.inputActive) {
-                // Active state - block cursor
-                this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : " "));
+            // Update main input text with cursor
+            // We'll use a consistent text without the cursor for measurements
+            const userInputOnly = this.userInput;
+            this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : ""));
+            
+            // Hide autocomplete text by default
+            this.autocompleteText.setVisible(false).setText("");
+            
+            if (autocomplete && autocomplete.length > 0) {
+                // Get wordWrap width from inputText style
+                const wrapWidth = this.inputText.style.wordWrapWidth;
+                const fontSize = parseInt(this.inputText.style.fontSize, 10);
+                const lineHeight = fontSize * 1.2;
+                const inputX = this.inputText.x;
+                const inputY = this.inputText.y;
+                
+                // Split text manually into wrapped lines - using userInputOnly for consistent measurement
+                const words = userInputOnly.split(/(\s+)/);
+                const lines = [];
+                let currentLine = "";
+                
+                // Create temporary text for measurement
+                let tempText = this.add.text(0, 0, "", {
+                    fontFamily: this.inputText.style.fontFamily,
+                    fontSize: this.inputText.style.fontSize,
+                }).setVisible(false);
+                
+                // Calculate wrapped lines
+                words.forEach(word => {
+                    const testLine = currentLine + word;
+                    tempText.setText(testLine);
+                    if (tempText.width > wrapWidth && currentLine !== "") {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = testLine;
+                    }
+                });
+                lines.push(currentLine);
+                tempText.destroy();
+                
+                // Get cursor position (end of last wrapped line)
+                const cursorLineIndex = lines.length - 1;
+                const cursorY = inputY + cursorLineIndex * lineHeight;
+                
+                // Measure width of last line - this is the key part that needs to be stable
+                const measureText = this.add.text(0, 0, lines[cursorLineIndex], {
+                    fontFamily: this.inputText.style.fontFamily,
+                    fontSize: this.inputText.style.fontSize,
+                }).setVisible(false);
+                let cursorX = inputX + measureText.width;
+                measureText.destroy();
+                
+                // If cursorX exceeds wrapWidth, move to next line
+                if (cursorX - inputX >= wrapWidth) {
+                    cursorX = inputX;
+                    cursorY += lineHeight;
+                }
+                
+                // Store the position for stability - this prevents recalculation on every frame
+                if (!this._lastCursorPos || 
+                    this._lastUserInput !== userInputOnly) {
+                    this._lastCursorPos = { x: cursorX, y: cursorY };
+                    this._lastUserInput = userInputOnly;
+                }
+                
+                // Use stored position instead of recalculating every time
+                this.autocompleteText.setPosition(
+                    this._lastCursorPos.x, 
+                    this._lastCursorPos.y
+                );
+                this.autocompleteText.setText(autocomplete);
+                this.autocompleteText.setVisible(true);
             } else {
-                // Default state - underscore cursor
-                this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : ""));
+                // Clear cached position when no autocomplete
+                this._lastCursorPos = null;
+                this._lastUserInput = null;
             }
-            
-            // Force a proper re-render of the text - wrapped in try/catch for safety
-            try {
-                this.inputText.updateText();
-            } catch (e) {
-                console.warn("Error updating input text:", e);
-            }
-            
-            // Use the raw text width without the cursor for more accurate positioning
-            const rawTextWidth = this.inputText.width - (this.cursorVisible ? 10 : 0);
-            
-            // Position autocomplete text immediately after input text content (not including cursor)
-            this.autocompleteText.setPosition(
-                this.inputText.x + rawTextWidth,
-                this.inputText.y
-            );
-            
-            // Update the autocomplete text
-            this.autocompleteText.setText(autocomplete || "");
-            
-            // Force redraw of autocomplete text
-            try {
-                this.autocompleteText.updateText();
-            } catch (e) {
-                console.warn("Error updating autocomplete text:", e);
-            }
-            
-            // Ensure both text objects are visible and at the correct depth
-            this.inputText.setVisible(true).setDepth(25);
-            this.autocompleteText.setVisible(true).setDepth(25);
         } catch (error) {
-            console.warn("Error in updateCursor:", error);
+            console.error("Error in updateCursor:", error);
         }
     }
-     
+    
+    
 
    
 
@@ -1333,7 +1369,7 @@ export default class GameSceneHard extends Phaser.Scene {
         if (words.length === 0) return;
         
         // POSITIONING: Move suggestions closer to the prompt box
-        const startY = this.promptBoxY - 60; // Position between menu and prompt box
+        const startY = this.promptBoxY - 40; // Position between menu and prompt box
         
         // Calculate total width needed
         const baseSpacing = 20;
@@ -1357,7 +1393,7 @@ export default class GameSceneHard extends Phaser.Scene {
         wordObjects.forEach(({ word, width }, index) => {
             // Create colored box with simple color (no conversion)
             let wordBox = this.add.graphics();
-            wordBox.fillStyle(COLORS_HEX.PERIWINKLE, 1);
+            wordBox.fillStyle(COLORS_HEX.RED, 1);
             wordBox.fillRoundedRect(-width / 2, -20, width, 40, 10);
             
             // Add border
@@ -1448,6 +1484,7 @@ export default class GameSceneHard extends Phaser.Scene {
             console.log("llmEngine successfully received in GameSceneHard.");
         }
         this.llmEngine = data.llmEngine || null;
+        console.log("llmEngine in GameSceneHard:", this.llmEngine);
 
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
@@ -1543,6 +1580,9 @@ export default class GameSceneHard extends Phaser.Scene {
         if (this.feedbackButton) {
             this.feedbackButton.setDepth(10);
         }
+        if (this.easyButton) {
+            this.easyButton.setDepth(10);
+        }
     }
 
     async create() {
@@ -1593,10 +1633,22 @@ export default class GameSceneHard extends Phaser.Scene {
 
         // Create your new button
         this.feedbackButton = this.createButton(
-            "feedback", 
+            "FEEDBACK", 
             () => this.onFeedbackClick(), 
             newButtonX, 
             newButtonY
+        );
+
+        // Calculate position for bottom-left corner button (mirroring feedback button)
+        const easyButtonX = buttonWidth / 2 + padding;
+        const easyButtonY = this.cameras.main.height - buttonHeight / 2 - padding;
+
+        // Create the Easy Mode button
+        this.easyButton = this.createButton(
+            "EASY", 
+            () => this.onEasyModeClick(), 
+            easyButtonX, 
+            easyButtonY
         );
 
 
@@ -1653,8 +1705,8 @@ export default class GameSceneHard extends Phaser.Scene {
         }
     
         console.log("Generating AI suggestions for:", userInput);
-    
-        try {
+        console.log(this.llmEngine);
+        //try {
             const reply = await this.llmEngine.completions.create({
                 prompt: userInput,
                 echo: false,
@@ -1674,21 +1726,24 @@ export default class GameSceneHard extends Phaser.Scene {
             options.sort((a, b) => b.logprob - a.logprob);
 
             const filteredOptions = options
-                .filter(choice => !stopwords.includes(choice.token.trim().toLowerCase()))
-                .slice(0, this.topKValue);  // pick top-K after filtering
+                .map(choice => choice.token.trim())            // Trim whitespace
+                .filter(token => token !== '')                 // Remove empty strings (including just spaces)
+                .filter(token => !stopwords.includes(token.toLowerCase())); // Remove stopwords
 
-            let suggestedWords = filteredOptions
-                .map(choice => choice.token.trim())
-    
-    
-            console.log("AI Suggested Words:", suggestedWords);
+            // Deduplicate words (ensure uniqueness)
+            const uniqueSuggestedWords = Array.from(new Set(filteredOptions))
+                .slice(0, this.topKValue);  // Limit to top K after deduplication
 
-            this.aiSuggestedWords = suggestedWords;
     
-            this.showSuggestions(suggestedWords);
-        } catch (error) {
-            console.error("Error generating text:", error);
-        }
+    
+            console.log("AI Suggested Words:", uniqueSuggestedWords);
+
+            this.aiSuggestedWords = uniqueSuggestedWords;
+    
+            this.showSuggestions(uniqueSuggestedWords);
+        // } catch (error) {
+        //     console.error("Error generating text:", error);
+        // }
     }
     
     

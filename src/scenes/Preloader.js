@@ -68,74 +68,145 @@ export default class Preloader extends Phaser.Scene {
         });
     }
 
-        createOutputTextBox(text) {
-            this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-            const outputBoxWidth = this.uiBoxWidth;
-            const lineHeight = 24;
-            const numLines = 17;
-            const padding = 30;
-            const outputBoxHeight = numLines * lineHeight + padding * 2;
-            
-           
-            const outputBoxY = this.errorText.y + outputBoxHeight/2 + 70;// - outputBoxHeight - 10;
+    showInstructions() {
+
+        const text = "Easy: You can use AI-suggested words, but you'll lose points. Your score will be based on the percentage of typed words that were AI-suggested.\n\nHard: You can only use your own words. No AI suggestions allowed. Your score will be based on the number of times you attempt to use an AI-suggested word.\n\nMake your choice.";
+        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        const outputBoxWidth = this.uiBoxWidth;
+        const lineHeight = 24;
+        const numLines = 9;
+        const padding = 30;
+        const outputBoxHeight = numLines * lineHeight + padding * 2;
         
-            // ✅ Remove existing box if it exists (prevents duplicate rendering)
-            if (this.outputTextBox) {
-                this.outputTextBox.destroy();
-            }
-        
-            // ✅ Create new output box with rounded corners
-            this.outputTextBox = this.add.graphics();
-            this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
-            this.outputTextBox.fillRoundedRect(
-                this.cameras.main.centerX - outputBoxWidth / 2,
-                outputBoxY - outputBoxHeight / 2,
-                outputBoxWidth,
-                outputBoxHeight,
-                CORNER_RADIUS
-            );
-            this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
-            this.outputTextBox.strokeRoundedRect(
-                this.cameras.main.centerX - outputBoxWidth / 2,
-                outputBoxY - outputBoxHeight / 2,
-                outputBoxWidth,
-                outputBoxHeight,
-                CORNER_RADIUS
-            );
-            this.add.existing(this.outputTextBox); // Ensure it is added to the scene
-        
-            // ✅ Remove existing text if it exists (prevents duplicates)
-            if (this.outputText) {
-                this.outputText.destroy();
-            }
-        
-            // ✅ Create output text inside the box
-            this.outputText = this.add.text(
-                this.cameras.main.centerX - outputBoxWidth / 2 + padding,
-                outputBoxY - outputBoxHeight / 2 + padding,
-                text,
-                {
-                    fontFamily: 'Nunito',
-                    fontSize: `${lineHeight}px`,
-                    fill: '#ffffff',
-                    wordWrap: { width: outputBoxWidth - padding * 2 },
-                    align: 'left',
-                    lineSpacing: 5
-                }
-            ).setOrigin(0, 0);
-        
-            // ✅ Slide-in Animation
-            this.tweens.add({
-                targets: [this.outputTextBox, this.outputText],
-                alpha: 1,
-                duration: 500,
-                ease: 'Sine.InOut'
-            });
-            // ✅ Force Phaser to recognize this object
-            this.add.existing(this.outputTextBox);
-            this.outputTextBox.setDepth(100);
-            this.outputText.setDepth(101);
+        //console.log(this);
+        const outputBoxY = this.playButtons[0].y + outputBoxHeight/2 + 70;// - outputBoxHeight - 10;
+    
+        // ✅ Remove existing box if it exists (prevents duplicate rendering)
+        if (this.outputTextBox) {
+            this.outputTextBox.destroy();
         }
+    
+        // ✅ Create new output box with rounded corners
+        this.outputTextBox = this.add.graphics();
+        this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
+        this.outputTextBox.fillRoundedRect(
+            this.cameras.main.centerX - outputBoxWidth / 2,
+            outputBoxY - outputBoxHeight / 2,
+            outputBoxWidth,
+            outputBoxHeight,
+            CORNER_RADIUS
+        );
+        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
+        this.outputTextBox.strokeRoundedRect(
+            this.cameras.main.centerX - outputBoxWidth / 2,
+            outputBoxY - outputBoxHeight / 2,
+            outputBoxWidth,
+            outputBoxHeight,
+            CORNER_RADIUS
+        );
+        this.add.existing(this.outputTextBox); // Ensure it is added to the scene
+    
+        // ✅ Remove existing text if it exists (prevents duplicates)
+        if (this.outputText) {
+            this.outputText.destroy();
+        }
+    
+        // ✅ Create output text inside the box
+        this.outputText = this.add.text(
+            this.cameras.main.centerX - outputBoxWidth / 2 + padding,
+            outputBoxY - outputBoxHeight / 2 + padding,
+            text,
+            {
+                fontFamily: 'Nunito',
+                fontSize: `${lineHeight}px`,
+                fill: '#ffffff',
+                wordWrap: { width: outputBoxWidth - padding * 2 },
+                align: 'left',
+                lineSpacing: 5
+            }
+        ).setOrigin(0, 0);
+    
+        // ✅ Slide-in Animation
+        this.tweens.add({
+            targets: [this.outputTextBox, this.outputText],
+            alpha: 1,
+            duration: 500,
+            ease: 'Sine.InOut'
+        });
+        // ✅ Force Phaser to recognize this object
+        this.add.existing(this.outputTextBox);
+        this.outputTextBox.setDepth(100);
+        this.outputText.setDepth(101);
+    }
+
+    createOutputTextBox(text) {
+        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        const outputBoxWidth = this.uiBoxWidth;
+        const lineHeight = 24;
+        const numLines = 17;
+        const padding = 30;
+        const outputBoxHeight = numLines * lineHeight + padding * 2;
+        
+        
+        const outputBoxY = this.errorText.y + outputBoxHeight/2 + 70;// - outputBoxHeight - 10;
+    
+        // ✅ Remove existing box if it exists (prevents duplicate rendering)
+        if (this.outputTextBox) {
+            this.outputTextBox.destroy();
+        }
+    
+        // ✅ Create new output box with rounded corners
+        this.outputTextBox = this.add.graphics();
+        this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
+        this.outputTextBox.fillRoundedRect(
+            this.cameras.main.centerX - outputBoxWidth / 2,
+            outputBoxY - outputBoxHeight / 2,
+            outputBoxWidth,
+            outputBoxHeight,
+            CORNER_RADIUS
+        );
+        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
+        this.outputTextBox.strokeRoundedRect(
+            this.cameras.main.centerX - outputBoxWidth / 2,
+            outputBoxY - outputBoxHeight / 2,
+            outputBoxWidth,
+            outputBoxHeight,
+            CORNER_RADIUS
+        );
+        this.add.existing(this.outputTextBox); // Ensure it is added to the scene
+    
+        // ✅ Remove existing text if it exists (prevents duplicates)
+        if (this.outputText) {
+            this.outputText.destroy();
+        }
+    
+        // ✅ Create output text inside the box
+        this.outputText = this.add.text(
+            this.cameras.main.centerX - outputBoxWidth / 2 + padding,
+            outputBoxY - outputBoxHeight / 2 + padding,
+            text,
+            {
+                fontFamily: 'Nunito',
+                fontSize: `${lineHeight}px`,
+                fill: '#ffffff',
+                wordWrap: { width: outputBoxWidth - padding * 2 },
+                align: 'left',
+                lineSpacing: 5
+            }
+        ).setOrigin(0, 0);
+    
+        // ✅ Slide-in Animation
+        this.tweens.add({
+            targets: [this.outputTextBox, this.outputText],
+            alpha: 1,
+            duration: 500,
+            ease: 'Sine.InOut'
+        });
+        // ✅ Force Phaser to recognize this object
+        this.add.existing(this.outputTextBox);
+        this.outputTextBox.setDepth(100);
+        this.outputText.setDepth(101);
+    }
 
 
     async create() {
@@ -325,13 +396,15 @@ export default class Preloader extends Phaser.Scene {
 
     // === Check if Both Progress and LLM are Done ===
     checkIfReady(llmEngine) {
-        const screenWidth = this.cameras.main.width;
-        const margin = 100;
-        const offset = 220;
+
+   
+
         if (this.progress >= 1 && this.llmLoaded) {
             saveInteraction("LLM successfully loaded", "preloader");
+            console.log(this);
             // Show Play Button Only When Both Are Ready
-            this.showPlayButtons(screenWidth / 2, margin + offset * 1.4 + 100, llmEngine);
+            this.showPlayButtons(llmEngine);
+            this.showInstructions();
         }
     }
 
@@ -388,13 +461,13 @@ export default class Preloader extends Phaser.Scene {
     
     
 
-    showPlayButtons(x, y, llmEngine) {
+    showPlayButtons(llmEngine) {
         if (this.playButton) return; // Prevent duplicate buttons
 
 
         const buttonWidth = Phaser.Math.Clamp(this.cameras.main.width * 0.1, this.cameras.main.width * 0.07, 220); // 10% of screen width
         const buttonHeight = buttonWidth * 0.4; // Maintain aspect ratio
-        const buttonSpacing = buttonWidth*.1;
+        const buttonSpacing = buttonWidth*1.1;;
 
         // === Create Function to Generate Buttons ===
         const createButton = (label, offsetX, onClick) => {
@@ -410,7 +483,7 @@ export default class Preloader extends Phaser.Scene {
         
             // ✅ Dynamically Position Buttons
             const centerX = this.cameras.main.centerX;
-            const centerY = this.loadingText.y + this.loadingText.height + this.cameras.main.width*.14; // Position below progress bar
+            const centerY = this.loadingText.y + this.loadingText.height + this.cameras.main.width*.10; // Position below progress bar
             const x = centerX + offsetX;
             const y = centerY;
             
@@ -518,8 +591,8 @@ export default class Preloader extends Phaser.Scene {
         
     
         // === Create Two Buttons ===
-        const easyButton = createButton("EASY", -buttonWidth - buttonSpacing / 2, () => this.startGame(llmEngine, "easy"));
-        const hardButton = createButton("HARD", buttonWidth + buttonSpacing / 2, () => this.startGame(llmEngine, "hard"));
+        const easyButton = createButton("EASY", -buttonWidth/2 - buttonSpacing / 2, () => this.startGame(llmEngine, "easy"));
+        const hardButton = createButton("HARD", buttonWidth/2 + buttonSpacing / 2, () => this.startGame(llmEngine, "hard"));
     
         this.playButtons = [easyButton, hardButton];
     }
@@ -528,10 +601,10 @@ export default class Preloader extends Phaser.Scene {
     startGame(llmEngine, difficulty) {
         console.log(`Starting GameSceneHard in ${difficulty} mode...`);
         if (difficulty === "easy") {
-            this.scene.start('GameSceneEasy', { llmEngine });
+            this.scene.start('InstructionScene', { mode: "easy", llmEngine: llmEngine });
         }
         else if (difficulty === "hard") {
-            this.scene.start('GameSceneHard', { llmEngine });
+            this.scene.start('InstructionScene', {mode: "hard", llmEngine: llmEngine });
         }
     }
     

@@ -1,7 +1,7 @@
 export const COLORS_TEXT = {
     BACKGROUND: '#1a0933', //dark, nearly black
-    BUTTONFILL: '#ac46c5',
-    BUTTONOVERLAY: '#e056fd', // Lighter purple highlight
+    BUTTONFILL: "#D12390", //'#262B8C', // Bright teal
+    BUTTONOVERLAY: '#e056fd', // Light teal highlight
     PURPLE: '#311648',
     LIGHTPINK: '#E3B6B0',   
     TURQUOISE: '#44C4C4',
@@ -12,7 +12,7 @@ export const COLORS_TEXT = {
     ERROR: '#FF0000',
     WHITE: '#FFFFFF',
     BLACK: '#000000',
-    RED: '#ff5252', // Vibrant red
+    RED: '#ff0000', // Vibrant red
     BLUE: '#00bcd4', // Bright cyan blue
     BLUE_BACKGROUND: "#0a1b29", //dark, nearly black
 
@@ -20,8 +20,8 @@ export const COLORS_TEXT = {
 
 export const COLORS_HEX = {
     BACKGROUND: 0x1a0933, //dark, nearly black
-    BUTTONFILL: 0xac46c5,
-    BUTTONOVERLAY: 0xe056fd, // Lighter purple highlight
+    BUTTONFILL: 0xD12390, // Bright teal
+    BUTTONOVERLAY: 0xe056fd, // Light teal highlight
     PURPLE: 0x311648,
     LIGHTPINK: 0xE3B6B0,
     TURQUOISE: 0x44C4C4,
@@ -32,7 +32,7 @@ export const COLORS_HEX = {
     ERROR: 0xFF0000,
     WHITE: 0xFFFFFF,
     BLACK: 0x000000,
-    RED: 0xff5252, // Vibrant red
+    RED: 0xff0000, // Vibrant red
     BLUE: 0x00bcd4, // Bright cyan blue
     BLUE_BACKGROUND: 0x0a1b29//0x1a0933, //dark, nearly black
 };
