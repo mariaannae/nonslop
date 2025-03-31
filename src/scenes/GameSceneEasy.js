@@ -1334,6 +1334,22 @@ export default class GameSceneEasy extends Phaser.Scene {
             this.activeTimeout = setTimeout(() => {
                 this.inputActive = false;
             }, 3000);
+
+
+            // Check for special keys that should be ignored
+            const ignoreKeys = [
+                'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 
+                'Tab', 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 
+                'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
+                'NumLock', 'ScrollLock', 'Pause', 'Insert', 'Home', 
+                'PageUp', 'Delete', 'End', 'PageDown', 'ArrowRight', 
+                'ArrowLeft', 'ArrowDown', 'ArrowUp'
+            ];
+            
+            if (ignoreKeys.includes(event.key)) {
+                // Ignore these keys entirely
+                return;
+            }
     
             if (event.key === " ") {
                 if (!this.userInput.trim()) return;
