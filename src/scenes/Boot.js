@@ -59,7 +59,7 @@ export default class Boot extends Phaser.Scene
         // ✅ Check if Firebase auth is ready
         try {
             const userId = await waitForAuth();
-            console.log("Auth complete, userId:", userId);
+            //console.log("Auth complete, userId:", userId);
             this.scene.start('Preloader');
         } catch (error) {
             console.error("Auth failed:", error);

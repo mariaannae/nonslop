@@ -51,7 +51,6 @@ export default class InstructionScene extends Phaser.Scene {
     }    
     addButtonClickEffects() {
         // Apply to all buttons
-        console.log("adding button click effects");
         const buttons = [this.doneButton];
         
         buttons.forEach(button => {

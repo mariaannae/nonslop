@@ -1208,7 +1208,6 @@ export default class GameSceneHard extends Phaser.Scene {
         }, 3000);
 
         if (event.key === " ") {
-            console.log("keydown llm: ", this.llmEngine);
             if (!this.userInput.trim()) return;
             this.userInput += " ";
             // Check for AI-suggested word match
@@ -1597,7 +1596,6 @@ export default class GameSceneHard extends Phaser.Scene {
             console.log("llmEngine successfully received in GameSceneHard.");
         }
         this.llmEngine = data.llmEngine || null;
-        console.log("llmEngine in GameSceneHard:", this.llmEngine);
 
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
@@ -1893,8 +1891,7 @@ export default class GameSceneHard extends Phaser.Scene {
         }
     
         console.log("Generating AI suggestions for:", userInput);
-        console.log(this.llmEngine);
-        //try {
+            //try {
             const reply = await this.llmEngine.completions.create({
                 prompt: userInput,
                 echo: false,

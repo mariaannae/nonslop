@@ -13,7 +13,7 @@ export default class FeedbackScene extends Phaser.Scene {
 
     addButtonClickEffects() {
         // Apply to all buttons
-        console.log("adding button click effects");
+        
         const buttons = [this.doneButton];
         
         buttons.forEach(button => {
@@ -193,8 +193,7 @@ export default class FeedbackScene extends Phaser.Scene {
     }
     
     onDoneButtonClick() {
-        console.log("Logging feedback...");
-        
+                
         const interaction = this.userInput;
 
         saveInteraction(interaction, 'feedback');
