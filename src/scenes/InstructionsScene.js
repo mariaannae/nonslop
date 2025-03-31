@@ -49,6 +49,76 @@ export default class InstructionScene extends Phaser.Scene {
             ease: 'Sine.InOut'
         });
     }    
+    addButtonClickEffects() {
+        // Apply to all buttons
+        console.log("adding button click effects");
+        const buttons = [this.doneButton];
+        
+        buttons.forEach(button => {
+          if (!button) return;
+          
+          // Add click listener for particle effect
+          button.setInteractive();
+          
+          // Replace any existing click handlers with a new one that includes particles
+          button.off('pointerdown');
+          button.on('pointerdown', (pointer) => {
+            // Create the particle effect
+            this.createButtonClickParticles(button.x, button.y);
+            
+            // Simulate button press animation
+            this.tweens.add({
+              targets: button,
+              scaleX: 0.95,
+              scaleY: 0.95,
+              duration: 100,
+              yoyo: true,
+              ease: "Quad.Out",
+              onComplete: () => {
+                // Call the appropriate button function based on button type
+                this.onDoneButtonClick();
+              }
+            });
+          });
+        });
+      }
+      
+    createButtonClickParticles(x, y) {
+    // Number of particles
+    const particleCount = 12;
+    
+    for (let i = 0; i < particleCount; i++) {
+        // Create a particle
+        const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
+        
+        // Random angle for particle direction
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 3;
+        const distance = 30 + Math.random() * 30;
+        
+        // Randomize particle color based on easy mode theme
+        const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        particle.setFillStyle(color, 0.8);
+        
+        // Set particle depth above buttons
+        particle.setDepth(20);
+        
+        // Animate the particle
+        this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: { from: 1, to: 0.1 },
+        duration: 600 + Math.random() * 400,
+        ease: 'Quad.Out',
+        onComplete: () => {
+            particle.destroy();
+        }
+        });
+    }
+    }
 
     createButton(label, callback, centerX, centerY) {
 
@@ -152,7 +222,7 @@ export default class InstructionScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "Welcome to NON-SLOP. This game is designed to help us examine the way we work with AI writing assistants, and encourage us to use them to become more unique rather than more generic. You already know what easy and hard mode are. On the next page, you'll find the following elements:\n\n-Text box where you can enter your input. This input should be a response to the prompt provided. It be evaluated for relevance.\n\n- Suggested text. This is provided by Qwen 2.5 0.5B, using in-browser inference. You're supposed to avoid it. You know, to be unique.\n- 'DONE' button to submit your input. This will send your input to chatGPT-4o-mini for feedback, and provide scores for grammar, relevance, and general coherence.\n- 'RESET' button to clear your text and start over, possibly with a new prompt.\n- 'Prompt Level' slider - the prompts get harder as the level goes up.\n- 'Top K' slider - this controls the number of AI suggestions you have to avoid when writing.\n- 'Feedback' button - please use it! Log bugs, give suggestions!\n\nWe should also tell you that the AI suggestions are filtered for stopwords using the NLTK list. So you can write 'and' as many times as you want. But every now and then, the AI only suggests stopwords and they're all filtered out, so you don't have to avoid any words at all. Lucky you.\n\n\nDisclaimer: Any and all input can and will be stored and used for research. But don't worry, it's completely anonymous, so nobody will come for you if you're a terrible writer. With these restrictions, you probably will be.";
+        const defaultText = "Welcome to NON-SLOP. This game is designed to help us examine the way we work with AI writing assistants, and encourage us to use them to become more unique rather than more generic. You already know what easy and hard mode are. On the next page, you'll find the following elements:\n\n-Text box where you can enter your input. This input should be a response to the prompt provided. It be evaluated for relevance.\n\n- Suggested text. This is provided by Qwen 2.5 0.5B, using in-browser inference. You're supposed to avoid it. You know, to be unique.\n- 'DONE' button to submit your input. This will send your input to chatGPT-4o-mini for feedback, and provide scores for grammar, relevance, and general coherence.\n- 'RESET' button to clear your text and start over, possibly with a new prompt.\n- 'Prompt Level' slider - the prompts get harder as the level goes up.\n- 'Top K' slider - this controls the number of AI suggestions you have to avoid when writing.\n- 'Feedback' button - please use it! Log bugs, give suggestions!\n-Button to switch between easy and hard modes. Self explanatory.\n\nWe should also tell you that the AI suggestions are filtered for stopwords using the NLTK list. So you can write 'and' as many times as you want. But every now and then, the AI only suggests stopwords and they're all filtered out, so you don't have to avoid any words at all. Lucky you.\n\n\nDisclaimer: Any and all input can and will be stored and used for research. But don't worry, it's completely anonymous, so nobody will come for you if you're a terrible writer. With these restrictions, you probably will be.";
 
         this.promptText = this.add.text(
             this.cameras.main.centerX, 
@@ -243,7 +313,7 @@ export default class InstructionScene extends Phaser.Scene {
         this.doneButton = this.createButton("PLAY", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
         this.doneButton.setDepth(102);
 
-       
+        this.addButtonClickEffects();
         
         this.inputActive = false;
     

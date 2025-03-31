@@ -67,6 +67,77 @@ export default class Preloader extends Phaser.Scene {
             ease: 'Sine.InOut'
         });
     }
+    
+    addButtonClickEffects() {
+        // Apply to all buttons
+        const buttons = this.playButtons;
+        
+        buttons.forEach(button => {
+          if (!button) return;
+          
+          // Add click listener for particle effect
+          button.setInteractive();
+          
+          // Replace any existing click handlers with a new one that includes particles
+          button.off('pointerdown');
+          button.on('pointerdown', (pointer) => {
+            // Create the particle effect
+            this.createButtonClickParticles(button.x, button.y);
+            
+            // Simulate button press animation
+            this.tweens.add({
+              targets: button,
+              scaleX: 0.95,
+              scaleY: 0.95,
+              duration: 100,
+              yoyo: true,
+              ease: "Quad.Out",
+              onComplete: () => {
+                // Call the appropriate button function based on button type
+                if (button === buttons[0]) this.startGame(this.llmEngine, "easy");
+                else if (button === buttons[1]) this.startGame(this.llmEngine, "hard");
+              }
+            });
+          });
+        });
+      }
+      
+    createButtonClickParticles(x, y) {
+    // Number of particles
+    const particleCount = 12;
+    
+    for (let i = 0; i < particleCount; i++) {
+        // Create a particle
+        const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
+        
+        // Random angle for particle direction
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 3;
+        const distance = 30 + Math.random() * 30;
+        
+        // Randomize particle color based on easy mode theme
+        const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        particle.setFillStyle(color, 0.8);
+        
+        // Set particle depth above buttons
+        particle.setDepth(20);
+        
+        // Animate the particle
+        this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: { from: 1, to: 0.1 },
+        duration: 600 + Math.random() * 400,
+        ease: 'Quad.Out',
+        onComplete: () => {
+            particle.destroy();
+        }
+        });
+    }
+    }
 
     showInstructions() {
 
@@ -403,7 +474,9 @@ export default class Preloader extends Phaser.Scene {
             saveInteraction("LLM successfully loaded", "preloader");
             console.log(this);
             // Show Play Button Only When Both Are Ready
+            this.llmEngine = llmEngine;
             this.showPlayButtons(llmEngine);
+            this.addButtonClickEffects();
             this.showInstructions();
         }
     }

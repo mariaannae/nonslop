@@ -1,39 +1,22 @@
-export const COLORS_TEXT = {
-    BACKGROUND: '#081026', // Navy blue background
-    BUTTONFILL: "#D12390", //'#262B8C', // Bright teal
-    BUTTONOVERLAY: '#e056fd', // Light teal highlight
-    PURPLE: '#3a506b', // Slate blue-gray
-    LIGHTPINK: '#ffd166', // Warm yellow/gold
-    TURQUOISE: '#06d6a0', // Mint green
-    PERIWINKLE: '#118ab2', // Ocean blue
-    PINK: '#ef476f', // Coral pink
-    MIDPURPLE: '#3d5a80', // Steel blue
-    YELLOW: '#ffd60a', // Bright yellow
-    ERROR: '#e63946', // Cherry red
-    WHITE: '#FFFFFF',
-    BLACK: '#000000',
-    RED: 'ff0000', // Bright tomato red
-    BLUE: '#90e0ef', // Sky blue
-    BLUE_BACKGROUND: "#1a2639", // Dark navy
+// In your design_hard.js file
+export const COLORS_HEX = {
+    BACKGROUND: 0x13091e,
+    BOXOUTLINE: 0x81d4fa,//0x64d2ba, // 0xffd166, gold    
+    BLUE_BACKGROUND: 0x2a1646,
+    MIDPURPLE: 0x7b56a5,    // Mid-purple for borders
+    RED: 0xff5d8f,          // Changed to rose
+    YELLOW: 0xffd866,       // Changed to gold
+    WHITE: 0xffffff,
+    BUTTONFILL: 0xD12390, 
+    BUTTONOVERLAY: 0xe056fd, 
 };
 
-export const COLORS_HEX = {
-    BACKGROUND: 0x081026, // Navy blue background
-    BUTTONFILL: 0xD12390, // Bright teal
-    BUTTONOVERLAY: 0xe056fd, // Light teal highlight
-    PURPLE: 0x3a506b, // Slate blue-gray
-    LIGHTPINK: 0xffd166, // Warm yellow/gold
-    TURQUOISE: 0x06d6a0, // Mint green
-    PERIWINKLE: 0x118ab2, // Ocean blue
-    PINK: 0xef476f, // Coral pink
-    MIDPURPLE: 0xEF3DF2, // Steel blue
-    YELLOW: 0xffd60a, // Bright yellow
-    ERROR: 0xe63946, // Cherry red
-    WHITE: 0xFFFFFF,
-    BLACK: 0x000000,
-    RED: 0xff0000, // Bright tomato red
-    BLUE: 0x90e0ef, // Sky blue
-    BLUE_BACKGROUND: 0x1a2639, // Dark navy
+export const COLORS_TEXT = {
+    WHITE: '#ffffff',
+    OFFWHITE: '#e0e0e0',    // New soft white
+    YELLOW: '#ffd866',      // Changed to gold
+    HIGHLIGHT: '#ffe7aa',   // New light gold for emphasis
+    SUCCESS: '#64d2ba'      // New teal for success messages
 };
 
 export const OUTLINE_WIDTH = 4; // Consistent outline width for all UI elements

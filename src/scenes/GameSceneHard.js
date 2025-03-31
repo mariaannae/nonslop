@@ -20,7 +20,6 @@ export default class GameSceneHard extends Phaser.Scene {
     }
 
 
-
     // Method to create the fails counter
     createFailsCounter() {
         // Use the imported constants instead of local variables
@@ -74,7 +73,7 @@ export default class GameSceneHard extends Phaser.Scene {
         // );
         
         // Text display
-        this.failsText = this.add.text(0, 0, `FAILS: ${this.failCount}`, {
+        this.failsText = this.add.text(0, 0, `SCORE: ${this.failCount}`, {
             foFamily: 'Fredoka',
             fontSize: '22px',
             fontWeight: "700",
@@ -94,7 +93,7 @@ export default class GameSceneHard extends Phaser.Scene {
     // Add this method to update the counter
     updateFailsCounter() {
         if (this.failsText) {
-            this.failsText.setText(`FAILS: ${this.failCount}`);this.tweens.add({
+            this.failsText.setText(`SCORE: ${this.failCount}`);this.tweens.add({
                 targets: this.failsCounter,
                 scaleX: { from: 1, to: 1.2 },
                 scaleY: { from: 1, to: 1.2 },
@@ -141,12 +140,27 @@ export default class GameSceneHard extends Phaser.Scene {
                 return;
             }
     
-            let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, "#13091e");
-            grd.addColorStop(1, "#3a1f5d");
+            // Create a more complex gradient with multiple color stops
+            let grd = ctx.createRadialGradient(
+                width * 0.3, height * 0.3, 0,          // Start circle
+                width * 0.5, height * 0.5, width * 0.8  // End circle
+            );
+            
+            // Multiple color stops for more depth
+            grd.addColorStop(0, "#1f0c33");  // Deep purple center
+            grd.addColorStop(0.4, "#2a1145"); // Mid purple
+            grd.addColorStop(0.8, "#3a1f5d"); // Lighter purple
+            grd.addColorStop(1, "#321b4a");   // Slightly darker edge for depth
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
+            
+            // Add a subtle noise texture
+            this.addNoiseTexture(ctx, width, height, 0.03);
+            
+            // Add subtle star/particle effect
+            this.addStarParticles(ctx, width, height);
+            
             gradientCanvas.refresh();
         }
     
@@ -155,15 +169,114 @@ export default class GameSceneHard extends Phaser.Scene {
             .setDisplaySize(width, height)
             .setDepth(-1);
     
+        // More subtle pulse animation
         this.tweens.add({
             targets: this.background,
-            alpha: { from: 0.8, to: 1 },
-            duration: 4000,
+            alpha: { from: 0.95, to: 1 },
+            duration: 5000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+        });
+        
+        // Add a secondary floating effect
+        this.tweens.add({
+            targets: this.background,
+            scaleX: { from: 1, to: 1.05 },
+            scaleY: { from: 1, to: 1.05 },
+            duration: 15000,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.InOut'
         });
     }
+    
+    // Add subtle noise texture to break up the solid gradient
+    addNoiseTexture(ctx, width, height, opacity) {
+        for (let x = 0; x < width; x += 2) {
+            for (let y = 0; y < height; y += 2) {
+                if (Math.random() > 0.95) {
+                    const alpha = Math.random() * opacity;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    ctx.fillRect(x, y, 2, 2);
+                }
+            }
+        }
+    }
+    
+    // Add subtle star particles to the background
+    addStarParticles(ctx, width, height) {
+        // Add 50-100 small "stars" of varying sizes
+        for (let i = 0; i < 75; i++) {
+            const x = Math.random() * width;
+            const y = Math.random() * height;
+            const size = Math.random() * 2 + 0.5;
+            const alpha = Math.random() * 0.5 + 0.2;
+            
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Add a few larger "glow" effects
+        for (let i = 0; i < 10; i++) {
+            const x = Math.random() * width;
+            const y = Math.random() * height;
+            const size = Math.random() * 40 + 20;
+            const alpha = Math.random() * 0.05 + 0.01; // Very subtle
+            
+            const glow = ctx.createRadialGradient(x, y, 0, x, y, size);
+            glow.addColorStop(0, `rgba(180, 120, 255, ${alpha})`); // Purple glow
+            glow.addColorStop(1, 'rgba(180, 120, 255, 0)');
+            
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    createFloatingParticles() {
+        // Create a particle container
+        this.particleContainer = this.add.container(0, 0);
+        this.particleContainer.setDepth(-0.5); // Between background and UI
+        
+        // Create 15-25 floating particles
+        for (let i = 0; i < 20; i++) {
+            const x = Math.random() * this.cameras.main.width;
+            const y = Math.random() * this.cameras.main.height;
+            const size = Math.random() * 4 + 2;
+            const alpha = Math.random() * 0.3 + 0.1;
+            
+            // Create a soft glow particle
+            const particle = this.add.graphics();
+            particle.fillStyle(0xb47aff, alpha); // Soft purple
+            particle.fillCircle(0, 0, size);
+            
+            // Add slight glow effect
+            const glow = this.add.graphics();
+            glow.fillStyle(0xb47aff, alpha * 0.5);
+            glow.fillCircle(0, 0, size * 2);
+            
+            const particleContainer = this.add.container(x, y, [glow, particle]);
+            this.particleContainer.add(particleContainer);
+            
+            // Add floating animation
+            this.tweens.add({
+                targets: particleContainer,
+                y: y + (Math.random() * 100 - 50),
+                x: x + (Math.random() * 100 - 50),
+                alpha: { from: alpha, to: alpha * 0.5 },
+                duration: 5000 + Math.random() * 10000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.InOut',
+                delay: Math.random() * 3000 // Stagger the animations
+            });
+        }
+    }
+    
 
     onEasyModeClick() {
         this.scene.start('GameSceneEasy', {mode: 'easy', llmEngine: this.llmEngine});
@@ -280,7 +393,7 @@ export default class GameSceneHard extends Phaser.Scene {
     }
     
 
-    onResetRuttonClick() {
+    onResetButtonClick() {
         console.log("Reset button clicked! Clearing text...");
         
         if (typeof this.clearInputTextBox !== "function") {
@@ -636,10 +749,10 @@ export default class GameSceneHard extends Phaser.Scene {
         menuBarBorder.fillStyle(COLORS_HEX.MIDPURPLE, 1);
         menuBarBorder.fillRect(0, menuBarHeight - OUTLINE_WIDTH, this.cameras.main.width, OUTLINE_WIDTH);
     
-        // === Add Title ("(UNSLOP)") to the Left ===
+        // === Add Title ("(NON-SLOP)") to the Left ===
         const titleText = this.add.text(
             padding, menuBarHeight / 2, 
-            "(UNSLOP)", 
+            "(NON-SLOP)", 
             { fontFamily: 'barcade3d', fontSize: '50px', color: COLORS_TEXT.YELLOW }
         ).setOrigin(0, 0.5);
     
@@ -649,7 +762,7 @@ export default class GameSceneHard extends Phaser.Scene {
         const levelLabel = this.add.text(
             levelLabelX, menuBarHeight / 2, 
             `Prompt Level: ${this.levelValue}`, 
-            { fontFamily: 'Nunito', fontSize: '20px', fill: '#ffffff' }
+            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
     
         const levelSliderWidth = 120;
@@ -690,7 +803,7 @@ export default class GameSceneHard extends Phaser.Scene {
         const topKLabel = this.add.text(
             topKLabelX, topKLabelY, 
             `Top K: ${this.topKValue}`,
-            { fontFamily: 'Nunito', fontSize: '20px', fill: '#ffffff' }
+            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
     
         const sliderWidth = 120;
@@ -1051,7 +1164,7 @@ export default class GameSceneHard extends Phaser.Scene {
         "_",
         {
             fontFamily: "Nunito",
-            fontSize: "20px",
+            fontSize: "22px",
             fill: "#000",
             wordWrap: { width: textBoxWidth - padding * 2 - 10 },
             align: "left"
@@ -1065,7 +1178,7 @@ export default class GameSceneHard extends Phaser.Scene {
         "",
         {
             fontFamily: "Nunito",
-            fontSize: "20px",
+            fontSize: "22px",
             fill: "#ff0000", // Red color
             wordWrap: { width: textBoxWidth - padding * 2 },
             align: "left"
@@ -1452,7 +1565,7 @@ export default class GameSceneHard extends Phaser.Scene {
         // Create the explosion text with higher depth to appear above input box
         const explosion = this.add.text(x, y, word, {
             fontFamily: 'Nunito',
-            fontSize: '20px', 
+            fontSize: '22px', 
             fill: '#ff0000', 
             fontStyle: 'bold'
         }).setOrigin(0.5);
@@ -1585,12 +1698,86 @@ export default class GameSceneHard extends Phaser.Scene {
         }
     }
 
+    addButtonClickEffects() {
+        // Apply to all buttons
+        const buttons = [this.resetButton, this.doneButton, this.easyButton, this.feedbackButton];
+        
+        buttons.forEach(button => {
+          if (!button) return;
+          
+          // Add click listener for particle effect
+          button.setInteractive();
+          
+          // Replace any existing click handlers with a new one that includes particles
+          button.off('pointerdown');
+          button.on('pointerdown', (pointer) => {
+            // Create the particle effect
+            this.createButtonClickParticles(button.x, button.y);
+            
+            // Simulate button press animation
+            this.tweens.add({
+              targets: button,
+              scaleX: 0.95,
+              scaleY: 0.95,
+              duration: 100,
+              yoyo: true,
+              ease: "Quad.Out",
+              onComplete: () => {
+                // Call the appropriate button function based on button type
+                if (button === this.resetButton) this.onResetButtonClick();
+                else if (button === this.doneButton) this.onDoneButtonClick();
+                else if (button === this.hardButton) this.onHardModeClick();
+                else if (button === this.feedbackButton) this.onFeedbackClick();
+              }
+            });
+          });
+        });
+      }
+      
+    createButtonClickParticles(x, y) {
+        // Number of particles
+        const particleCount = 12;
+        
+        for (let i = 0; i < particleCount; i++) {
+          // Create a particle
+          const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
+          
+          // Random angle for particle direction
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 2 + Math.random() * 3;
+          const distance = 30 + Math.random() * 30;
+          
+          // Randomize particle color based on easy mode theme
+          const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          particle.setFillStyle(color, 0.8);
+          
+          // Set particle depth above buttons
+          particle.setDepth(20);
+          
+          // Animate the particle
+          this.tweens.add({
+            targets: particle,
+            x: x + Math.cos(angle) * distance,
+            y: y + Math.sin(angle) * distance,
+            alpha: 0,
+            scale: { from: 1, to: 0.1 },
+            duration: 600 + Math.random() * 400,
+            ease: 'Quad.Out',
+            onComplete: () => {
+              particle.destroy();
+            }
+          });
+        }
+      }
+
     async create() {
         //this.add.image(400, 300, 'background'); // Example background
         //this.cameras.main.setBackgroundColor('#13091e');
         this.cameras.main.scrollY = 0; // ✅ Ensures the camera starts at the top
 
         this.createBackgroundEffect();
+        this.createFloatingParticles();
         //this.createBackgroundPattern();
 
         const screenWidth = this.cameras.main.width;
@@ -1624,7 +1811,7 @@ export default class GameSceneHard extends Phaser.Scene {
 
 
         this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
-        this.resetButton = this.createButton("RESET", () => this.onResetRuttonClick(), buttonCenterX - 120, buttonCenterY);
+        this.resetButton = this.createButton("RESET", () => this.onResetButtonClick(), buttonCenterX - 120, buttonCenterY);
 
         // Calculate position for bottom-right corner button
         const padding = 20;
@@ -1658,7 +1845,7 @@ export default class GameSceneHard extends Phaser.Scene {
         this.createOutputTextBox(); //
 
         this.inputActive = false;
-
+        this.addButtonClickEffects(); // Add click effects to buttons
 
         // Ensure all elements are properly visible
         this.ensureProperLayering();
@@ -1668,6 +1855,7 @@ export default class GameSceneHard extends Phaser.Scene {
 
     }
 
+    
 
     
     handleUserInput() {

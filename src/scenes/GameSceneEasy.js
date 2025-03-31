@@ -18,6 +18,8 @@ export default class GameSceneEasy extends Phaser.Scene {
         
     }
 
+
+
     // Add this method if it doesn't exist
     shutdown() {
         // Clean up event listeners
@@ -155,11 +157,11 @@ export default class GameSceneEasy extends Phaser.Scene {
         }
     }
 
-    createBackgroundEffect() {
+    createEasyModeBackground() {
         let width = this.cameras.main.width;
         let height = this.cameras.main.height;
         
-        let gradientTextureKey = 'gradientBackground';
+        let gradientTextureKey = 'easyModeBackground';
     
         if (!this.textures.exists(gradientTextureKey)) {
             let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
@@ -170,12 +172,25 @@ export default class GameSceneEasy extends Phaser.Scene {
                 return;
             }
     
+            // Enhanced diagonal gradient with more color variation
             let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, "#13091e");
-            grd.addColorStop(1, "#3a1f5d");
-    
+            grd.addColorStop(0, "#251a3f");   // Slightly darker start
+            grd.addColorStop(0.3, "#2d1f4c");  // Mid-purple
+            grd.addColorStop(0.7, "#362758");  // Mid-to-light purple
+            grd.addColorStop(1, "#3d2c64");   // Slightly lighter end
+            
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
+            
+            // Add more noticeable but still subtle noise texture
+            this.addEnhancedNoise(ctx, width, height, 0.04);
+            
+            // Add more stars/particles
+            this.addModerateDensityParticles(ctx, width, height);
+            
+            // Add several subtle glow areas
+            this.addSubtleGlowAreas(ctx, width, height);
+            
             gradientCanvas.refresh();
         }
     
@@ -184,14 +199,125 @@ export default class GameSceneEasy extends Phaser.Scene {
             .setDisplaySize(width, height)
             .setDepth(-1);
     
+        // More noticeable animation
         this.tweens.add({
             targets: this.background,
-            alpha: { from: 0.8, to: 1 },
-            duration: 4000,
+            alpha: { from: 0.95, to: 1 },
+            duration: 6000,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.InOut'
         });
+        
+        // Slight breathing effect for the background
+        this.tweens.add({
+            targets: this.background,
+            scaleX: { from: 1, to: 1.03 },
+            scaleY: { from: 1, to: 1.03 },
+            duration: 8000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+        });
+        
+        // Add dynamic floating particles on top of the background
+        this.createDynamicFloatingParticles();
+    }
+    
+    // Add slightly more visible noise
+    addEnhancedNoise(ctx, width, height, opacity) {
+        for (let x = 0; x < width; x += 3) {
+            for (let y = 0; y < height; y += 3) {
+                if (Math.random() > 0.93) {  // Slightly more noise points
+                    const alpha = Math.random() * opacity;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+    }
+    
+    // Add moderate density particles (more than before, but not overwhelming)
+    addModerateDensityParticles(ctx, width, height) {
+        // Add 75-90 stars (more than before)
+        for (let i = 0; i < 85; i++) {
+            const x = Math.random() * width;
+            const y = Math.random() * height;
+            const size = Math.random() * 1.8 + 0.4;  // Slightly larger
+            const alpha = Math.random() * 0.2 + 0.1;  // Slightly more visible
+            
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    // Add several subtle glow areas for visual interest
+    addSubtleGlowAreas(ctx, width, height) {
+        // Add 4-6 larger glow areas
+        const glowPositions = [
+            {x: width * 0.2, y: height * 0.2, size: 120, color: [180, 200, 255]},  // Top left
+            {x: width * 0.8, y: height * 0.3, size: 150, color: [190, 170, 255]},  // Top right
+            {x: width * 0.3, y: height * 0.7, size: 130, color: [200, 180, 255]},  // Bottom left
+            {x: width * 0.7, y: height * 0.8, size: 140, color: [170, 190, 255]},  // Bottom right
+            {x: width * 0.5, y: height * 0.5, size: 180, color: [190, 190, 255]},  // Center
+        ];
+        
+        glowPositions.forEach(glow => {
+            const alpha = Math.random() * 0.06 + 0.04;  // Slightly more visible
+            
+            const gradientGlow = ctx.createRadialGradient(
+                glow.x, glow.y, 0, 
+                glow.x, glow.y, glow.size
+            );
+            gradientGlow.addColorStop(0, `rgba(${glow.color[0]}, ${glow.color[1]}, ${glow.color[2]}, ${alpha})`);
+            gradientGlow.addColorStop(1, `rgba(${glow.color[0]}, ${glow.color[1]}, ${glow.color[2]}, 0)`);
+            
+            ctx.fillStyle = gradientGlow;
+            ctx.beginPath();
+            ctx.arc(glow.x, glow.y, glow.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+    
+    // Add dynamic floating particles
+    createDynamicFloatingParticles() {
+        // Create a particle container
+        this.particleContainer = this.add.container(0, 0);
+        this.particleContainer.setDepth(-0.5);
+        
+        // Create 15-20 particles
+        for (let i = 0; i < 18; i++) {
+            const x = Math.random() * this.cameras.main.width;
+            const y = Math.random() * this.cameras.main.height;
+            const size = Math.random() * 3 + 1.5;
+            const alpha = Math.random() * 0.3 + 0.1;
+            
+            const particle = this.add.graphics();
+            particle.fillStyle(0x90caf9, alpha * 0.7);  // Match with UI outline color for cohesion
+            particle.fillCircle(0, 0, size);
+            
+            const glow = this.add.graphics();
+            glow.fillStyle(0x90caf9, alpha * 0.3);
+            glow.fillCircle(0, 0, size * 2);
+            
+            const particleContainer = this.add.container(x, y, [glow, particle]);
+            this.particleContainer.add(particleContainer);
+            
+            // Add gentle floating animation
+            this.tweens.add({
+                targets: particleContainer,
+                y: y + (Math.random() * 70 - 35),
+                x: x + (Math.random() * 70 - 35),
+                alpha: { from: alpha, to: alpha * 0.6 },
+                duration: 7000 + Math.random() * 8000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.InOut',
+                delay: Math.random() * 3000
+            });
+        }
     }
 
     onFeedbackClick(){
@@ -319,7 +445,7 @@ export default class GameSceneEasy extends Phaser.Scene {
         }
     }
 
-    onResetRuttonClick() {
+    onResetButtonClick() {
         console.log("Reset button clicked! Clearing text...");
         this.failCount = 0;
         
@@ -555,7 +681,7 @@ export default class GameSceneEasy extends Phaser.Scene {
     
         // Create new output box with rounded corners
         this.outputTextBox = this.add.graphics();
-        this.outputTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
+        this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
         this.outputTextBox.fillRoundedRect(
             this.cameras.main.centerX - outputBoxWidth / 2,
             outputBoxY - outputBoxHeight / 2,
@@ -563,7 +689,7 @@ export default class GameSceneEasy extends Phaser.Scene {
             outputBoxHeight,
             CORNER_RADIUS
         );
-        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
+        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BOXOUTLINE, 1);
         this.outputTextBox.strokeRoundedRect(
             this.cameras.main.centerX - outputBoxWidth / 2,
             outputBoxY - outputBoxHeight / 2,
@@ -645,7 +771,49 @@ export default class GameSceneEasy extends Phaser.Scene {
         particles.setDepth(button.depth - 1);
         return particles;
       }
+    // Add this method to your Easy mode scene
+    enhanceEasyModeButtons() {
+        // Apply to all buttons in the scene
+        const buttons = [this.resetButton, this.doneButton, this.hardButton, this.feedbackButton];
+        
+        buttons.forEach(button => {
+        if (!button) return; // Skip if button doesn't exist
+        
+        // Find button background graphics in the container
+        const buttonBg = button.list.find(item => item.type === 'Graphics' && item.fillStyle);
+        if (!buttonBg) return;
+        
+        // Create a new gradient overlay graphic
+        const glowOverlay = this.add.graphics();
+        
+        // Get button dimensions (assuming buttonWidth and buttonHeight are available)
+        const width = buttonWidth;
+        const height = buttonHeight;
+        
+        // Create gradient with golden glow
+        glowOverlay.fillStyle(0xffd700, 0.5); // Gold color with low opacity
+        glowOverlay.fillRoundedRect(
+            -width / 2, -height / 2, 
+            width, height / 1.5, // Cover top portion for gradient effect
+            BUTTON_CORNER_RADIUS
+        );
+        
+        // Add subtle animation
+        this.tweens.add({
+            targets: glowOverlay,
+            alpha: { from: 0.2, to: 0.4 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+        });
+        
+        // Add to button container at position 2 (above background, below text)
+        button.addAt(glowOverlay, 2);
+        });
+    }
     
+    // Call this in your create() method after creating all buttons
     
 
     createMenuBar() {
@@ -678,7 +846,7 @@ export default class GameSceneEasy extends Phaser.Scene {
         const levelLabel = this.add.text(
             levelLabelX, menuBarHeight / 2, 
             `Prompt Level: ${this.levelValue}`, 
-            { fontFamily: 'Nunito', fontSize: '20px', fill: '#ffffff' }
+            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
     
         const levelSliderWidth = 120;
@@ -719,7 +887,7 @@ export default class GameSceneEasy extends Phaser.Scene {
         const topKLabel = this.add.text(
             topKLabelX, topKLabelY, 
             `Top K: ${this.topKValue}`,
-            { fontFamily: 'Nunito', fontSize: '20px', fill: '#ffffff' }
+            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
     
         const sliderWidth = 120;
@@ -767,7 +935,43 @@ export default class GameSceneEasy extends Phaser.Scene {
         menuBarShadow.fillRect(0, menuBarHeight, this.cameras.main.width, 10);
         menuBarShadow.setDepth(this.menuBar.depth - 1);
     }
-    
+    addMenuDivider() {
+        // Create gradient for divider line
+        const divider = this.add.graphics();
+        
+        // Get screen width
+        const width = this.cameras.main.width;
+        
+        // Create a gradient line that fades at the edges
+        const lineY = this.menuBarHeight; // Position below menu bar
+        
+        // First create a thin solid line
+        divider.lineStyle(2, 0x90caf9, 0.7); // Match your Easy mode blue color
+        divider.beginPath();
+        divider.moveTo(0, lineY);
+        divider.lineTo(width, lineY);
+        divider.strokePath();
+        
+        // Add decorative accents (small dots) along the line
+        for (let x = width * 0.1; x < width * 0.9; x += width / 15) {
+          divider.fillStyle(0xffd700, 0.6); // Gold accent dots
+          divider.fillCircle(x, lineY, 1.5);
+        }
+        
+        // Add larger accent at center
+        divider.fillStyle(0xffd700, 0.8);
+        divider.fillCircle(width / 2, lineY, 2.5);
+        
+        // Add subtle animation
+        this.tweens.add({
+          targets: divider,
+          alpha: { from: 0.7, to: 1 },
+          duration: 3000,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.InOut'
+        });
+      }
 
 
     createPromptTextBox() {
@@ -817,7 +1021,7 @@ export default class GameSceneEasy extends Phaser.Scene {
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.MIDPURPLE, 1);
+        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BOXOUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
@@ -949,7 +1153,7 @@ export default class GameSceneEasy extends Phaser.Scene {
             CORNER_RADIUS
         );
     
-        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
+        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BOXOUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
@@ -1092,7 +1296,7 @@ export default class GameSceneEasy extends Phaser.Scene {
             "_",
             {
                 fontFamily: "Nunito",
-                fontSize: "20px",
+                fontSize: "22px",
                 fill: "#000",
                 wordWrap: { width: textBoxWidth - padding * 2 },
                 align: "left"
@@ -1106,7 +1310,7 @@ export default class GameSceneEasy extends Phaser.Scene {
             "",
             {
                 fontFamily: "Nunito",
-                fontSize: "20px",
+                fontSize: "22px",
                 fill: "#ff0000", // Red color
                 wordWrap: { width: textBoxWidth - padding * 2 },
                 align: "left"
@@ -1143,12 +1347,13 @@ export default class GameSceneEasy extends Phaser.Scene {
                 this.generateAISuggestions(this.userInput.trim());
             } else if (event.key === "Tab") {
                 // Accept autocomplete suggestion
-                this.failCount += 1;
-                event.preventDefault(); // Prevent default tab behavior
+
                 const autocomplete = this.generateAutocomplete();
                 if (autocomplete) {
                     this.userInput += autocomplete.trim();
-                    
+                    this.failCount += 1;
+                    this.updateFailsCounter();
+                    event.preventDefault(); // Prevent default tab behavior
                     
                     
                     this.generateAISuggestions(this.userInput.trim());
@@ -1443,7 +1648,7 @@ export default class GameSceneEasy extends Phaser.Scene {
     createExplosionEffect(word, x, y) {
         const explosion = this.add.text(x, y, word, {
             fontFamily: 'Nunito',
-            fontSize: '20px', 
+            fontSize: '22px', 
             fill: '#ff0000', 
             fontStyle: 'bold'
         }).setOrigin(0.5);
@@ -1478,65 +1683,6 @@ export default class GameSceneEasy extends Phaser.Scene {
         this.outputText = null;
     }
 
-    createBackgroundPattern() {
-        const patternKey = 'patternCanvas';
-
-        if (!this.textures.exists(patternKey)) {
-            const pattern = this.textures.createCanvas(patternKey, 100, 100);
-            const ctx = pattern.getContext();
-    
-            if (!ctx) {
-                console.error(`Failed to create canvas texture: ${patternKey}`);
-                return;
-            }
-        
-        
-        // Draw pattern base with dark navy blue
-        ctx.fillStyle = '#1a2639'; // Dark navy blue background
-        ctx.fillRect(0, 0, 100, 100);
-        
-        // Random dots in a teal accent color
-        for (let i = 0; i < 15; i++) {
-            // Vary the size of dots
-            const dotSize = 1 + Math.random() * 2;
-            
-            // Use a mix of teal accent colors
-            const dotColors = ['#06d6a0', '#0099aa', '#118ab2', '#00b4d8'];
-            const randomColor = dotColors[Math.floor(Math.random() * dotColors.length)];
-            
-            ctx.fillStyle = randomColor;
-            ctx.beginPath();
-            ctx.arc(Math.random() * 100, Math.random() * 100, dotSize, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        // Add a few slightly larger accent dots
-        for (let i = 0; i < 5; i++) {
-            ctx.fillStyle = '#48cae4'; // Light teal
-            ctx.globalAlpha = 0.5; // Make them semi-transparent
-            ctx.beginPath();
-            ctx.arc(Math.random() * 100, Math.random() * 100, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1.0; // Reset transparency
-        }
-        
-        pattern.refresh();
-        }
-        
-        // Add pattern as background
-        const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'patternCanvas')
-            .setOrigin(0)
-            .setDepth(-2);
-            
-        // Add subtle movement
-        this.tweens.add({
-            targets: bg,
-            tilePositionX: { from: 0, to: 100 },
-            tilePositionY: { from: 0, to: 100 },
-            duration: 20000,
-            repeat: -1
-        });
-    }
 
       
     // Add this to your create() method after creating all elements
@@ -1598,9 +1744,90 @@ export default class GameSceneEasy extends Phaser.Scene {
         }
     }
 
+    addButtonClickEffects() {
+        // Apply to all buttons
+        const buttons = [this.resetButton, this.doneButton, this.hardButton, this.feedbackButton];
+        
+        buttons.forEach(button => {
+          if (!button) return;
+          
+          // Add click listener for particle effect
+          button.setInteractive();
+          
+          // Replace any existing click handlers with a new one that includes particles
+          button.off('pointerdown');
+          button.on('pointerdown', (pointer) => {
+            // Create the particle effect
+            this.createButtonClickParticles(button.x, button.y);
+            
+            // Simulate button press animation
+            this.tweens.add({
+              targets: button,
+              scaleX: 0.95,
+              scaleY: 0.95,
+              duration: 100,
+              yoyo: true,
+              ease: "Quad.Out",
+              onComplete: () => {
+                // Call the appropriate button function based on button type
+                if (button === this.resetButton) this.onResetButtonClick();
+                else if (button === this.doneButton) this.onDoneButtonClick();
+                else if (button === this.hardButton) this.onHardModeClick();
+                else if (button === this.feedbackButton) this.onFeedbackClick();
+              }
+            });
+          });
+        });
+      }
+      
+      createButtonClickParticles(x, y) {
+        // Number of particles
+        const particleCount = 12;
+        
+        for (let i = 0; i < particleCount; i++) {
+          // Create a particle
+          const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
+          
+          // Random angle for particle direction
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 2 + Math.random() * 3;
+          const distance = 30 + Math.random() * 30;
+          
+          // Randomize particle color based on easy mode theme
+          const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          particle.setFillStyle(color, 0.8);
+          
+          // Set particle depth above buttons
+          particle.setDepth(20);
+          
+          // Animate the particle
+          this.tweens.add({
+            targets: particle,
+            x: x + Math.cos(angle) * distance,
+            y: y + Math.sin(angle) * distance,
+            alpha: 0,
+            scale: { from: 1, to: 0.1 },
+            duration: 600 + Math.random() * 400,
+            ease: 'Quad.Out',
+            onComplete: () => {
+              particle.destroy();
+            }
+          });
+        }
+      }
+
     async create() {
         this.cameras.main.scrollY = 0; // ✅ Ensures the camera starts at the top
-        this.createBackgroundPattern();
+        //this.createBackgroundEffect();
+        //this.createFloatingParticles();
+
+        // Clear any existing background elements
+        if (this.background) this.background.destroy();
+        if (this.particleContainer) this.particleContainer.destroy();
+        this.createEasyModeBackground();
+        //this.createEasyModeFloatingParticles();
+        //this.createSubtleFloatingParticles();
 
         const margin = 100;
         const titleSize = '120px';
@@ -1609,6 +1836,7 @@ export default class GameSceneEasy extends Phaser.Scene {
 
         
         this.createMenuBar();
+        this.addMenuDivider();
         
         // Clear existing prompt box if it exists
         if (this.promptTextBox) {
@@ -1636,7 +1864,7 @@ export default class GameSceneEasy extends Phaser.Scene {
 
 
         this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
-        this.resetButton = this.createButton("RESET", () => this.onResetRuttonClick(), buttonCenterX - 120, buttonCenterY);
+        this.resetButton = this.createButton("RESET", () => this.onResetButtonClick(), buttonCenterX - 120, buttonCenterY);
         // Calculate position for bottom-right corner button
         const padding = 20;
         const newButtonX = this.cameras.main.width - buttonWidth / 2 - padding;
@@ -1662,21 +1890,23 @@ export default class GameSceneEasy extends Phaser.Scene {
             easyButtonY
         );
 
-
+        
 
 
 
         this.createFailsCounter();
 
         this.createOutputTextBox(); //
+        this.createB
 
         this.inputActive = false;
 
-
+        
         // Ensure all elements are properly visible
         this.ensureProperLayering();
         this.ensureTextVisibility(); 
-
+        this.enhanceEasyModeButtons();
+        this.addButtonClickEffects(); // Add click effects to buttons
     }
 
 
