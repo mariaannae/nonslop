@@ -1225,7 +1225,7 @@ export default class GameSceneHard extends Phaser.Scene {
             // Check for special keys that should be ignored
         const ignoreKeys = [
             'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 
-            'Tab', 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 
+            'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 
             'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
             'NumLock', 'ScrollLock', 'Pause', 'Insert', 'Home', 
             'PageUp', 'Delete', 'End', 'PageDown', 'ArrowRight', 
