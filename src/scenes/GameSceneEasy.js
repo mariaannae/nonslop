@@ -19,6 +19,20 @@ export default class GameSceneEasy extends Phaser.Scene {
     }
 
 
+    update() {
+        //console.log("in update")
+        if (!this.llmEngine) {
+            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
+            this.llmEngine = this.registry.get('llmEngine');
+    
+            if (!this.llmEngine) {
+                console.warn("LLM Engine missing entirely. Returning to Preloader...");
+                this.scene.start('PreloaderScene');
+            } else {
+                console.log("Successfully recovered LLM Engine from registry.");
+            }
+        }
+    }
 
     // Add this method if it doesn't exist
     shutdown() {
@@ -1486,7 +1500,7 @@ export default class GameSceneEasy extends Phaser.Scene {
             // Update main input text with cursor
             // We'll use a consistent text without the cursor for measurements
             const userInputOnly = this.userInput;
-            this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : ""));
+            this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : " "));
             
             // Hide autocomplete text by default
             this.autocompleteText.setVisible(false).setText("");
@@ -1958,6 +1972,19 @@ export default class GameSceneEasy extends Phaser.Scene {
         }
     
         console.log("Generating AI suggestions for:", userInput);
+
+        //confirm llmEngine wasn't cleaned up by mistake
+        if (!this.llmEngine) {
+            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
+            this.llmEngine = this.registry.get('llmEngine');
+    
+            if (!this.llmEngine) {
+                console.warn("LLM Engine missing entirely. Returning to Preloader...");
+                this.scene.start('PreloaderScene');
+            } else {
+                console.log("Successfully recovered LLM Engine from registry.");
+            }
+        }
     
         //try {
             const reply = await this.llmEngine.completions.create({

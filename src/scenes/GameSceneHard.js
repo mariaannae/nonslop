@@ -1414,7 +1414,7 @@ export default class GameSceneHard extends Phaser.Scene {
             // Update main input text with cursor
             // We'll use a consistent text without the cursor for measurements
             const userInputOnly = this.userInput;
-            this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : ""));
+            this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : " "));
             
             // Hide autocomplete text by default
             this.autocompleteText.setVisible(false).setText("");
@@ -1918,6 +1918,18 @@ export default class GameSceneHard extends Phaser.Scene {
         if (!userInput.trim()) {
             console.warn("Skipping AI suggestion generation: Empty input.");
             return; // ✅ Prevents function from running on empty input
+        }
+
+        if (!this.llmEngine) {
+            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
+            this.llmEngine = this.registry.get('llmEngine');
+    
+            if (!this.llmEngine) {
+                console.warn("LLM Engine missing entirely. Returning to Preloader...");
+                this.scene.start('PreloaderScene');
+            } else {
+                console.log("Successfully recovered LLM Engine from registry.");
+            }
         }
     
         console.log("Generating AI suggestions for:", userInput);
