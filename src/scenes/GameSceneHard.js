@@ -1724,7 +1724,7 @@ export default class GameSceneHard extends Phaser.Scene {
                 // Call the appropriate button function based on button type
                 if (button === this.resetButton) this.onResetButtonClick();
                 else if (button === this.doneButton) this.onDoneButtonClick();
-                else if (button === this.hardButton) this.onHardModeClick();
+                else if (button === this.easyButton) this.onEasyModeClick();
                 else if (button === this.feedbackButton) this.onFeedbackClick();
               }
             });
