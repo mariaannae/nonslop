@@ -1,6 +1,7 @@
-import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design_easy.js";
+import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth, PROGRESS_BAR} from "../config/design_easy.js";
 import { stopwords } from "../config/stopwords.js";
 import { saveInteraction} from "../config/firebase.js";
+import ButtonFactory from "../utils/ButtonFactory.js";
 
 
 
@@ -14,7 +15,9 @@ export default class GameSceneEasy extends Phaser.Scene {
         this.levelValue = 1;
         this.baseFontSize = 22;
         this.failCount = 0;
-        this.autocompleteText = null; 
+        this.autocompleteText = null;
+        this.progressPercentage = PROGRESS_BAR.INITIAL; // Initial progress percentage
+        this.wordCount = 0; // Track successful words entered
         
     }
 
@@ -46,65 +49,89 @@ export default class GameSceneEasy extends Phaser.Scene {
     }
 
 
-    // Method to create the fails counter
+    // Helper method to interpolate between colors based on percentage
+    interpolateColor(percentage) {
+        // Clamp percentage between 0 and 100
+        percentage = Phaser.Math.Clamp(percentage, 0, 100);
+        
+        let color;
+        if (percentage <= 50) {
+            // Interpolate between green (0%) and yellow (50%)
+            const ratio = percentage / 50;
+            const r1 = (PROGRESS_BAR.GREEN >> 16) & 0xFF;
+            const g1 = (PROGRESS_BAR.GREEN >> 8) & 0xFF;
+            const b1 = PROGRESS_BAR.GREEN & 0xFF;
+            
+            const r2 = (PROGRESS_BAR.YELLOW >> 16) & 0xFF;
+            const g2 = (PROGRESS_BAR.YELLOW >> 8) & 0xFF;
+            const b2 = PROGRESS_BAR.YELLOW & 0xFF;
+            
+            const r = Math.round(Phaser.Math.Linear(r1, r2, ratio));
+            const g = Math.round(Phaser.Math.Linear(g1, g2, ratio));
+            const b = Math.round(Phaser.Math.Linear(b1, b2, ratio));
+            
+            color = (r << 16) | (g << 8) | b;
+        } else {
+            // Interpolate between yellow (50%) and red (100%)
+            const ratio = (percentage - 50) / 50;
+            const r1 = (PROGRESS_BAR.YELLOW >> 16) & 0xFF;
+            const g1 = (PROGRESS_BAR.YELLOW >> 8) & 0xFF;
+            const b1 = PROGRESS_BAR.YELLOW & 0xFF;
+            
+            const r2 = (PROGRESS_BAR.RED >> 16) & 0xFF;
+            const g2 = (PROGRESS_BAR.RED >> 8) & 0xFF;
+            const b2 = PROGRESS_BAR.RED & 0xFF;
+            
+            const r = Math.round(Phaser.Math.Linear(r1, r2, ratio));
+            const g = Math.round(Phaser.Math.Linear(g1, g2, ratio));
+            const b = Math.round(Phaser.Math.Linear(b1, b2, ratio));
+            
+            color = (r << 16) | (g << 8) | b;
+        }
+        
+        return color;
+    }
+
+    // Method to create the progress bar (replaces fails counter)
     createFailsCounter() {
         // Use the imported constants instead of local variables
-        const failBoxWidth = 320; // TO DO: DYNAMIC
+        const progressBarWidth = 240; 
         
         // Get input box dimensions and position
         const inputBoxWidth = this.uiBoxWidth;
         const inputBoxX = this.cameras.main.centerX - inputBoxWidth / 2; // Left edge of input box
         
         // Position: below input box, same distance from left as DONE button is from right
-        const boxX = inputBoxX + failBoxWidth/2 + buttonSpacing;
+        const boxX = inputBoxX + progressBarWidth/2 + buttonSpacing;
         const boxY = this.doneButton.y; // Same Y position as buttons
         
         // Create container
-        const counterContainer = this.add.container(boxX, boxY);
+        const progressContainer = this.add.container(boxX, boxY);
         
-        // Background with red fill
-        const counterBackground = this.add.graphics();
-        counterBackground.fillStyle(0xff0000, 1); // Red background
-        counterBackground.fillRoundedRect(
-            -failBoxWidth / 2, -buttonHeight / 2, 
-            failBoxWidth, buttonHeight, 
+        // Background (empty progress bar)
+        const progressBackground = this.add.graphics();
+        progressBackground.fillStyle(0x333333, 1); // Dark background
+        progressBackground.fillRoundedRect(
+            -progressBarWidth / 2, -buttonHeight / 2, 
+            progressBarWidth, buttonHeight, 
             BUTTON_CORNER_RADIUS
         );
         
-        // Border
-        const counterOutline = this.add.graphics();
-        counterOutline.lineStyle(OUTLINE_WIDTH, 0xffffff, 1);
-        counterOutline.strokeRoundedRect(
-            -failBoxWidth / 2, -buttonHeight / 2, 
-            failBoxWidth, buttonHeight, 
+        // Progress fill (will be updated)
+        this.progressFill = this.add.graphics();
+        
+        // Border with button outline width
+        const progressOutline = this.add.graphics();
+        progressOutline.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
+        progressOutline.strokeRoundedRect(
+            -progressBarWidth / 2, -buttonHeight / 2, 
+            progressBarWidth, buttonHeight, 
             BUTTON_CORNER_RADIUS
         );
         
-        // // Gradient Overlay (Lighter Top) like the buttons
-        // const gradientOverlay = this.add.graphics();
-        // gradientOverlay.fillStyle(0xff3333, 0.7); // Lighter red
-        // gradientOverlay.fillRoundedRect(
-        //     -failBoxWidth / 2, -buttonHeight / 2, 
-        //     failBoxWidth, buttonHeight / 2, 
-        //     BUTTON_CORNER_RADIUS
-        // );
-        
-        // // Highlight Effect (Shiny Reflection) like the buttons
-        // const buttonHighlight = this.add.graphics();
-        // buttonHighlight.fillStyle(0xffffff, 0.4);
-        // buttonHighlight.fillRoundedRect(
-        //     -failBoxWidth / 2 + 5, -buttonHeight / 2 + 2, 
-        //     failBoxWidth - 10, buttonHeight / 3, 
-        //     BUTTON_CORNER_RADIUS
-        // );
-        
-
-
-        // Calculate initial score (should be 0 since no input initially)
-        const initialScore = 0;
         // Text display
-        this.failsText = this.add.text(0, 0, `SCORE: ${initialScore}`, {
-            foFamily: 'Fredoka',
+        this.failsText = this.add.text(0, 0, `SCORE`, {
+            fontFamily: 'Fredoka',
             fontSize: '22px',
             fontWeight: "700",
             color: COLORS_TEXT.WHITE,
@@ -112,31 +139,60 @@ export default class GameSceneEasy extends Phaser.Scene {
         }).setOrigin(0.5, 0.5);
         
         // Add all elements to container in proper order
-        //counterContainer.add([counterBackground, gradientOverlay, buttonHighlight, counterOutline, this.failsText]);
-        counterContainer.add([counterBackground, counterOutline, this.failsText]);
+        progressContainer.add([progressBackground, this.progressFill, progressOutline, this.failsText]);
         
         // Add to scene
-        this.add.existing(counterContainer);
-        this.scoreDisplay = counterContainer;
+        this.add.existing(progressContainer);
+        this.scoreDisplay = progressContainer;
+        
+        // Store width for later updates and update the fill immediately
+        this.progressBarWidth = progressBarWidth;
+        this.updateProgressFill();
+    }
+    
+    // Update the progress fill based on current percentage
+    updateProgressFill() {
+        if (!this.progressFill) return;
+        
+        const progressBarWidth = this.progressBarWidth || 320;
+        const fillWidth = (progressBarWidth * this.progressPercentage) / 100;
+        
+        this.progressFill.clear();
+        this.progressFill.fillStyle(this.interpolateColor(this.progressPercentage), 1);
+        
+        // For rounded corners on the left side
+        if (fillWidth > 0) {
+            this.progressFill.fillRoundedRect(
+                -progressBarWidth / 2, -buttonHeight / 2, 
+                fillWidth, buttonHeight, 
+                { tl: BUTTON_CORNER_RADIUS, bl: BUTTON_CORNER_RADIUS, tr: 0, br: 0 }
+            );
+        }
     }
 
-    // Add this method to update the counter
-    updateFailsCounter() {
-
+    // Add this method to update the progress bar
+    updateFailsCounter(wasSuccessful = false) {
         if (!this.scoreDisplay) {
             this.createFailsCounter();
         }
 
-        // Get the word count from the input text
-        const wordsInInput = this.userInput.trim().split(/\s+/).filter(word => word.length > 0).length;
-        const percentage = 100-(this.failCount / wordsInInput * 100).toFixed(2);
+        // Update progress percentage based on success or failure
+        if (wasSuccessful) {
+            // Decrement progress (lower percentage is better)
+            this.progressPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
+        } else {
+            // Word failed, increase percentage (higher percentage is worse)
+            this.progressPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+        }
         
-        // Calculate score using the formula: (words_in_input - fails) * 10 - fails^10
-        //const score = (wordsInInput - this.failCount) * 10 - (this.failCount * 10);
+        // Update visual fill
+        this.updateProgressFill();
 
-
+        // Update text
         if (this.failsText) {
-            this.failsText.setText(`SCORE: -${this.failCount} (${percentage}%)`);
+            this.failsText.setText(`SCORE`);
+            
+            // Animation effects
             this.tweens.add({
                 targets: this.scoreDisplay,
                 scaleX: { from: 1, to: 1.2 },
@@ -157,7 +213,7 @@ export default class GameSceneEasy extends Phaser.Scene {
                 }
             });
             
-            // Also flash the text to a brighter color
+            // Flash text
             if (this.failsText) {
                 const originalColor = this.failsText.style.color;
                 this.failsText.setColor('#FFFFFF');
@@ -341,83 +397,14 @@ export default class GameSceneEasy extends Phaser.Scene {
     }
 
     createButton(label, callback, centerX, centerY) {
-
-    
         // ✅ Ensure input box exists before positioning the button
         if (!this.inputTextBorder) {
             console.warn("Input text border not found! Skipping button creation.");
             return;
         }
-    
-
-    
-        // ✅ Create button container
-        const buttonContainer = this.add.container(centerX, centerY);
-    
-        // === Button Background ===
-        const buttonBackground = this.add.graphics();
-        buttonBackground.fillStyle(COLORS_HEX.BUTTONFILL, 1);
-        buttonBackground.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
-        );
-    
-        // === Button Outline ===
-        const buttonOutline = this.add.graphics();
-        buttonOutline.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
-        buttonOutline.strokeRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
-        );
-    
-        // === Gradient Overlay (Lighter Top) ===
-        const gradientOverlay = this.add.graphics();
-        gradientOverlay.fillStyle(COLORS_HEX.BUTTONOVERLAY, 0.7);
-        gradientOverlay.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight / 2, BUTTON_CORNER_RADIUS
-        );
-    
-        // === Highlight Effect (Shiny Reflection) ===
-        const buttonHighlight = this.add.graphics();
-        buttonHighlight.fillStyle(0xffffff, 0.4);
-        buttonHighlight.fillRoundedRect(
-            -buttonWidth / 2 + 5, -buttonHeight / 2 + 2, 
-            buttonWidth - 10, buttonHeight / 3, BUTTON_CORNER_RADIUS
-        );
-
-        // === Button Text ===
-        const buttonText = this.add.text(0, 0, label, {
-            fontFamily: 'Fredoka',
-            fontSize: '18px',
-            fontWeight: "700",
-            color: COLORS_TEXT.WHITE,
-            align: 'center'
-        }).setOrigin(0.5, 0.5);
-    
-        // ✅ Ensure button is interactive
-        buttonContainer.setSize(buttonWidth, buttonHeight);
-        buttonContainer.setInteractive();
-        buttonContainer.on("pointerdown", () => {
-            this.tweens.add({
-                targets: buttonContainer,
-                scaleX: 0.95,
-                scaleY: 0.95,
-                duration: 100,
-                yoyo: true,
-                ease: "Quad.Out"
-            });
-    
-            this.time.delayedCall(100, callback);
-        });
-
         
-    
-        // ✅ Add to scene
-        buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
-        this.add.existing(buttonContainer);
-    
-        return buttonContainer;
+        // Use ButtonFactory to create the button
+        return ButtonFactory.createButton(this, label, callback, centerX, centerY);
     }
     
     
@@ -460,6 +447,9 @@ export default class GameSceneEasy extends Phaser.Scene {
     onResetButtonClick() {
         console.log("Reset button clicked! Clearing text...");
         this.failCount = 0;
+        // Reset progress percentage to initial value (50%)
+        this.progressPercentage = PROGRESS_BAR.INITIAL;
+        this.updateProgressFill();
         
         if (typeof this.clearInputTextBox !== "function") {
             console.error("Error: clearInputTextBox() is not defined."); 
@@ -471,6 +461,11 @@ export default class GameSceneEasy extends Phaser.Scene {
 
         // ✅ Select a new prompt before evaluation
         this.updatePromptBasedOnLevel();
+        
+        // Update the text display of the progress
+        if (this.failsText) {
+            this.failsText.setText(`${Math.round(this.progressPercentage)}%`);
+        }
     }
         
 
@@ -551,7 +546,8 @@ export default class GameSceneEasy extends Phaser.Scene {
                 k: this.topKValue,
                 level: this.levelValue,
                 failCount: this.failCount,
-                mode: this.mode
+                mode: this.mode,
+                score: this.progressPercentage
             };
 
             saveInteraction(interaction, "userSubmissions"); // save interaction to Firebase
@@ -1201,15 +1197,19 @@ export default class GameSceneEasy extends Phaser.Scene {
             // ✅ Shake screen
             this.shakeScreen();
     
-    
             this.updateCursor();
 
-            // Increment fail counter
+            // Increment fail counter and update progress bar (failure)
             this.failCount++;
-            this.updateFailsCounter();
+            this.updateFailsCounter(false); // false indicates failure
+        } else if (lastWord.length > 0 && !this.aiSuggestedWords.includes(lastWord)) {
+            // User entered a successful word - update progress bar
+            this.wordCount++;
+            this.updateFailsCounter(true); // true indicates success
         }
-         // Example interaction data structure
-         const interaction = {
+        
+        // Example interaction data structure
+        const interaction = {
             prompt: this.currentPrompt,
             suggestedWords: this.aiSuggestedWords,
             chosenWord: lastWord,
@@ -1217,6 +1217,7 @@ export default class GameSceneEasy extends Phaser.Scene {
             k: this.topKValue,
             level: this.levelValue,
             failCount: this.failCount,
+            progressPercentage: this.progressPercentage,
             mode: this.mode
         };
 
@@ -1807,40 +1808,7 @@ export default class GameSceneEasy extends Phaser.Scene {
       }
       
       createButtonClickParticles(x, y) {
-        // Number of particles
-        const particleCount = 12;
-        
-        for (let i = 0; i < particleCount; i++) {
-          // Create a particle
-          const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
-          
-          // Random angle for particle direction
-          const angle = Math.random() * Math.PI * 2;
-          const speed = 2 + Math.random() * 3;
-          const distance = 30 + Math.random() * 30;
-          
-          // Randomize particle color based on easy mode theme
-          const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
-          const color = colors[Math.floor(Math.random() * colors.length)];
-          particle.setFillStyle(color, 0.8);
-          
-          // Set particle depth above buttons
-          particle.setDepth(20);
-          
-          // Animate the particle
-          this.tweens.add({
-            targets: particle,
-            x: x + Math.cos(angle) * distance,
-            y: y + Math.sin(angle) * distance,
-            alpha: 0,
-            scale: { from: 1, to: 0.1 },
-            duration: 600 + Math.random() * 400,
-            ease: 'Quad.Out',
-            onComplete: () => {
-              particle.destroy();
-            }
-          });
-        }
+        return ButtonFactory.createClickParticles(this, x, y);
       }
 
     async create() {
@@ -2031,4 +1999,3 @@ export default class GameSceneEasy extends Phaser.Scene {
     
     
 }
-

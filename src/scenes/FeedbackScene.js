@@ -1,7 +1,6 @@
-import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design_hard.js";
+import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design_hard.js";
 import { saveInteraction } from "../config/firebase.js";
-
-
+import ButtonFactory from "../utils/ButtonFactory.js";
 
 export default class FeedbackScene extends Phaser.Scene {
     constructor() {
@@ -25,10 +24,8 @@ export default class FeedbackScene extends Phaser.Scene {
         }
     }
     
-
     addButtonClickEffects() {
         // Apply to all buttons
-        
         const buttons = [this.doneButton];
         
         buttons.forEach(button => {
@@ -58,43 +55,10 @@ export default class FeedbackScene extends Phaser.Scene {
             });
           });
         });
-      }
+    }
       
     createButtonClickParticles(x, y) {
-    // Number of particles
-    const particleCount = 12;
-    
-    for (let i = 0; i < particleCount; i++) {
-        // Create a particle
-        const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
-        
-        // Random angle for particle direction
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 2 + Math.random() * 3;
-        const distance = 30 + Math.random() * 30;
-        
-        // Randomize particle color based on easy mode theme
-        const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        particle.setFillStyle(color, 0.8);
-        
-        // Set particle depth above buttons
-        particle.setDepth(20);
-        
-        // Animate the particle
-        this.tweens.add({
-        targets: particle,
-        x: x + Math.cos(angle) * distance,
-        y: y + Math.sin(angle) * distance,
-        alpha: 0,
-        scale: { from: 1, to: 0.1 },
-        duration: 600 + Math.random() * 400,
-        ease: 'Quad.Out',
-        onComplete: () => {
-            particle.destroy();
-        }
-        });
-    }
+        return ButtonFactory.createClickParticles(this, x, y);
     }
 
     createBackgroundEffect() {
@@ -136,82 +100,14 @@ export default class FeedbackScene extends Phaser.Scene {
         });
     }    
 
-    createButton(label, callback, centerX, centerY) {
-
-        // ✅ Create button container
-        const buttonContainer = this.add.container(centerX, centerY);
-    
-        // === Button Background ===
-        const buttonBackground = this.add.graphics();
-        buttonBackground.fillStyle(COLORS_HEX.BUTTONFILL, 1);
-        buttonBackground.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
-        );
-    
-        // === Button Outline ===
-        const buttonOutline = this.add.graphics();
-        buttonOutline.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
-        buttonOutline.strokeRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
-        );
-    
-        // === Gradient Overlay (Lighter Top) ===
-        const gradientOverlay = this.add.graphics();
-        gradientOverlay.fillStyle(COLORS_HEX.BUTTONOVERLAY, 0.7);
-        gradientOverlay.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight / 2, BUTTON_CORNER_RADIUS
-        );
-    
-        // === Highlight Effect (Shiny Reflection) ===
-        const buttonHighlight = this.add.graphics();
-        buttonHighlight.fillStyle(0xffffff, 0.4);
-        buttonHighlight.fillRoundedRect(
-            -buttonWidth / 2 + 5, -buttonHeight / 2 + 2, 
-            buttonWidth - 10, buttonHeight / 3, BUTTON_CORNER_RADIUS
-        );
-
-        // === Button Text ===
-        const buttonText = this.add.text(0, 0, label, {
-            fontFamily: 'Fredoka',
-            fontSize: '22px',
-            fontWeight: "700",
-            color: COLORS_TEXT.WHITE,
-            align: 'center'
-        }).setOrigin(0.5, 0.5);
-    
-        // ✅ Ensure button is interactive
-        buttonContainer.setSize(buttonWidth, buttonHeight);
-        buttonContainer.setInteractive();
-        buttonContainer.on("pointerdown", () => {
-            this.tweens.add({
-                targets: buttonContainer,
-                scaleX: 0.95,
-                scaleY: 0.95,
-                duration: 100,
-                yoyo: true,
-                ease: "Quad.Out"
-            });
-    
-            this.time.delayedCall(100, callback);
-        });
-
-        
-    
-        // ✅ Add to scene
-        buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
-        this.add.existing(buttonContainer);
-    
-        return buttonContainer;
+    createButton(label, callback, centerX, centerY, options = {}) {
+        return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
     }
     
     onDoneButtonClick() {
-                
         const interaction = this.userInput;
-
         saveInteraction(interaction, 'feedback');
+        
         if (this.mode === "easy") {
             this.scene.start('GameSceneEasy', { llmEngine: this.llmEngine });
         }
@@ -306,7 +202,6 @@ export default class FeedbackScene extends Phaser.Scene {
         this.updateCursor();
     }
     
-
     createPromptTextBox() {
         this.promptBoxY = 110;
     
@@ -370,7 +265,6 @@ export default class FeedbackScene extends Phaser.Scene {
         this.promptTextBox.setDepth(102);
         this.promptText.setDepth(103);
     }
-
     
     // Fixed clearInputTextBox method
     clearInputTextBox() {
@@ -404,10 +298,8 @@ export default class FeedbackScene extends Phaser.Scene {
 
         // Ensure both text objects are visible and at the correct depth
         this.inputText.setVisible(true)//.setDepth(101);
- 
     }
    
-
     init(data) {
         if (!data.mode) {
             console.error("Error: No mode received in FeedbackScene.");
@@ -424,17 +316,17 @@ export default class FeedbackScene extends Phaser.Scene {
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
         this.promptText = null;
-
     }
 
     createBackgroundPattern() {
-
+        const patternKey = 'patternCanvas';
+        
         // ✅ Check if texture already exists and remove it before recreating
         if (this.textures.exists(patternKey)) {
             this.textures.remove(patternKey);
         }
         // Create pattern texture
-        const pattern = this.textures.createCanvas('patternCanvas', 100, 100);
+        const pattern = this.textures.createCanvas(patternKey, 100, 100);
         const ctx = pattern.getContext();
         
         // Draw pattern (dots, stars, or any subtle pattern)
@@ -451,7 +343,7 @@ export default class FeedbackScene extends Phaser.Scene {
         pattern.refresh();
         
         // Add pattern as background
-        const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'patternCanvas')
+        const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, patternKey)
           .setOrigin(0)
           .setDepth(-2);
           
@@ -463,9 +355,7 @@ export default class FeedbackScene extends Phaser.Scene {
           duration: 20000,
           repeat: -1
         });
-      }
-
-
+    }
 
     async create() {
         this.cameras.main.scrollY = 0; 
@@ -486,18 +376,15 @@ export default class FeedbackScene extends Phaser.Scene {
         const buttonCenterX = inputBoxX + this.uiBoxWidth / 2 - buttonWidth - 20;
         const buttonCenterY = inputBoxY + 170 + buttonSpacing; // 170 = half height of input box (340/2)
     
-        // Now create the button safely
-        this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
-        this.doneButton.setDepth(102); // always ensure button is visible
+        // Now create the button using ButtonFactory
+        this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
+            depth: 102 // ensure button is visible
+        });
+        
         this.addButtonClickEffects();
         this.inputActive = false;
     
         // Update cursor explicitly at end
         this.updateCursor();
     }
-    
-
-    
-    
 }
-

@@ -2,9 +2,10 @@ import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, bu
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 
-export default class InstructionScene extends Phaser.Scene {
+export default class LevelScene extends Phaser.Scene {
     constructor() {
-        super({ key: 'InstructionScene' });
+        super({ key: 'LevelScene' });
+        this.mode = null;
         //this.userInput = '';
         this.llmEngine = null;     
     }
@@ -60,11 +61,11 @@ export default class InstructionScene extends Phaser.Scene {
             repeat: -1,
             ease: 'Sine.InOut'
         });
-    }    
+    }
     
     addButtonClickEffects() {
         // Apply to all buttons
-        const buttons = [this.doneButton];
+        const buttons = [this.playButton];
         
         buttons.forEach(button => {
           if (!button) return;
@@ -103,11 +104,6 @@ export default class InstructionScene extends Phaser.Scene {
         return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
     }
     
-    onDoneButtonClick() {
-        console.log("Leaving instructions scene...");
-        this.scene.start('LevelScene', { llmEngine: this.llmEngine });
-    }
-    
     createPromptTextBox() {
         this.promptBoxY = 50;
     
@@ -127,7 +123,7 @@ export default class InstructionScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "Welcome to NON-SLOP. This game is designed to help us examine the way we work with AI writing assistants, and encourage us to use them to become more unique rather than more generic. This game consists of the following elements:\n\n-Text box where you can enter your input. This input should be a response to the prompt provided. It be evaluated for relevance.\n- Suggested text. This is provided by Qwen 2.5 0.5B, using in-browser inference. You're supposed to avoid it. You know, to be unique.\n- 'DONE' button to submit your input. This will send your input to chatGPT-4o-mini for feedback, and provide scores for grammar, relevance, and general coherence.\n- 'RESET' button to clear your text and start over, possibly with a new prompt.\n- 'Prompt Level' slider - the prompts get harder as the level goes up.\n- 'Top K' slider - this controls the number of AI suggestions you have to avoid when writing.\n- 'Feedback' button - please use it! Log bugs, give suggestions!\n-Button to switch between easy and hard modes. You'll find out about those on the next page.\n\nWe should also tell you that the AI suggestions are filtered for stopwords using the NLTK list. So you can write 'and' as many times as you want. But every now and then, the AI only suggests stopwords and they're all filtered out, so you don't have to avoid any words at all. Lucky you.\n\n\nDisclaimer: Any and all input can and will be stored and used for research. But don't worry, it's completely anonymous, so nobody will come for you if you're a terrible writer. With these restrictions, you probably will be.";
+        const defaultText = "Easy: You can use AI-suggested words, but you'll lose points. Your score will be based on the percentage of typed words that were AI-suggested.\n\nHard: You can only use your own words. No AI suggestions allowed. Your score will be based on the number of times you attempt to use an AI-suggested word.\n\nMake your choice.";
 
         this.promptText = this.add.text(
             this.cameras.main.centerX, 
@@ -185,6 +181,60 @@ export default class InstructionScene extends Phaser.Scene {
         this.promptText = null;
     }
 
+    showPlayButtons(llmEngine) {
+        if (this.playButton) return; // Prevent duplicate buttons
+
+        const buttonWidth = Phaser.Math.Clamp(this.cameras.main.width * 0.1, this.cameras.main.width * 0.07, 220); // 10% of screen width
+        const buttonHeight = buttonWidth * 0.4; // Maintain aspect ratio
+        const buttonSpacing = buttonWidth * 1.1;
+
+        // Calculate button positions
+        const centerX = this.cameras.main.centerX;
+        
+        // Use the same positioning logic as InstructionsScene
+        const boxY = this.promptBoxY;
+        const boxHeight = this.promptText.height + 80; // padding (40 top + 40 bottom)
+        const buttonPaddingY = 20;
+        
+        // Position the buttons below the prompt text box
+        const centerY = boxY + boxHeight + buttonPaddingY + buttonHeight / 2;
+        
+        // Create the two difficulty buttons using the ButtonFactory
+        const easyButton = ButtonFactory.createFancyButton(
+            this, 
+            "EASY", 
+            () => this.startGame(llmEngine, "easy"),
+            centerX,
+            -buttonWidth/2 - buttonSpacing / 2,
+            centerY,
+            { fadeIn: true }
+        );
+        
+        const hardButton = ButtonFactory.createFancyButton(
+            this, 
+            "HARD", 
+            () => this.startGame(llmEngine, "hard"),
+            centerX,
+            buttonWidth/2 + buttonSpacing / 2,
+            centerY,
+            { fadeIn: true }
+        );
+    
+        this.playButtons = [easyButton, hardButton];
+    }
+
+    // === Start Game Function (Handles Difficulty) ===
+    startGame(llmEngine, difficulty) {
+        this.registry.set('llmEngine', llmEngine);
+        console.log(`Starting GameSceneHard in ${difficulty} mode...`);
+        if (difficulty === "easy") {
+            this.scene.start('GameSceneHard', {llmEngine: llmEngine });
+        }
+        else if (difficulty === "hard") {
+            this.scene.start('GameSceneEasy', {llmEngine: llmEngine });
+        }
+    }
+
     async create() {
         this.cameras.main.scrollY = 0; 
         this.createBackgroundEffect();
@@ -192,25 +242,10 @@ export default class InstructionScene extends Phaser.Scene {
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         this.createPromptTextBox();
     
-        // Compute text box dimensions clearly
-        const boxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
-        const boxY = this.promptBoxY;
-        const boxHeight = this.promptText.height + 80; // padding (40 top + 40 bottom)
-
-        // Padding between button and text box edges
-        const buttonPaddingX = 20;
-        const buttonPaddingY = 20;
-
-        // Position the DONE button at the bottom-right corner
-        const buttonCenterX = boxX + this.uiBoxWidth - buttonPaddingX - buttonWidth / 2;
-        const buttonCenterY = boxY + boxHeight + buttonPaddingY + buttonHeight / 2;
-
-        // Create the button using ButtonFactory
-        this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
-            depth: 102
-        });
-
+        // Show the play buttons
+        this.showPlayButtons(this.llmEngine);
         this.addButtonClickEffects();
+        
         this.inputActive = false;
     }
 }

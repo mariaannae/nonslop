@@ -27,3 +27,13 @@ export const BUTTON_CORNER_RADIUS = 10; // Consistent rounded corner radius
 export const buttonWidth = 100;
 export const buttonHeight = 40;
 export const buttonSpacing = 40; // Distance below input box
+
+// Progress bar configuration
+export const PROGRESS_BAR = {
+    INITIAL: 50,      // Starting percentage (50%)
+    INCREMENT: 5,     // Increase by this percentage when successful
+    DECREMENT: 5,     // Decrease by this percentage when failing
+    GREEN: 0x00cc00,  // Color at 0% (good performance)
+    YELLOW: COLORS_HEX.YELLOW, // Color at 50% (neutral)
+    RED: 0xff0000     // Color at 100% (poor performance)
+};

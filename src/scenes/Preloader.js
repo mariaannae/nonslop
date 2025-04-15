@@ -1,4 +1,4 @@
-import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS} from "../config/design_hard.js";
+import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth} from "../config/design_hard.js";
 import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
 
 const loadWebLLM = async () => {
@@ -70,145 +70,145 @@ export default class Preloader extends Phaser.Scene {
     
     addButtonClickEffects() {
         // Apply to all buttons
-        const buttons = this.playButtons;
+        const button = this.doneButton;
         
-        buttons.forEach(button => {
-          if (!button) return;
-          
-          // Add click listener for particle effect
-          button.setInteractive();
-          
-          // Replace any existing click handlers with a new one that includes particles
-          button.off('pointerdown');
-          button.on('pointerdown', (pointer) => {
-            // Create the particle effect
-            this.createButtonClickParticles(button.x, button.y);
-            
-            // Simulate button press animation
-            this.tweens.add({
-              targets: button,
-              scaleX: 0.95,
-              scaleY: 0.95,
-              duration: 100,
-              yoyo: true,
-              ease: "Quad.Out",
-              onComplete: () => {
-                // Call the appropriate button function based on button type
-                if (button === buttons[0]) this.startGame(this.llmEngine, "easy");
-                else if (button === buttons[1]) this.startGame(this.llmEngine, "hard");
-              }
-            });
-          });
+ 
+        if (!button) return;
+        
+        // Add click listener for particle effect
+        button.setInteractive();
+        
+        // Replace any existing click handlers with a new one that includes particles
+        button.off('pointerdown');
+        button.on('pointerdown', (pointer) => {
+        // Create the particle effect
+        this.createButtonClickParticles(button.x, button.y);
+        
+        // Simulate button press animation
+        this.tweens.add({
+            targets: button,
+            scaleX: 0.95,
+            scaleY: 0.95,
+            duration: 100,
+            yoyo: true,
+            ease: "Quad.Out",
+            onComplete: () => {
+            // Call the appropriate button function based on button type
+            this.scene.start('InstructionScene', {llmEngine: this.llmEngine });
+            }
         });
+        });
+     
       }
+
+      createButton(label, callback, centerX, centerY) {
+
+        // ✅ Create button container
+        const buttonContainer = this.add.container(centerX, centerY);
+    
+        // === Button Background ===
+        const buttonBackground = this.add.graphics();
+        buttonBackground.fillStyle(COLORS_HEX.BUTTONFILL, 1);
+        buttonBackground.fillRoundedRect(
+            -buttonWidth / 2, -buttonHeight / 2, 
+            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
+        );
+    
+        // === Button Outline ===
+        const buttonOutline = this.add.graphics();
+        buttonOutline.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
+        buttonOutline.strokeRoundedRect(
+            -buttonWidth / 2, -buttonHeight / 2, 
+            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
+        );
+    
+        // === Gradient Overlay (Lighter Top) ===
+        const gradientOverlay = this.add.graphics();
+        gradientOverlay.fillStyle(COLORS_HEX.BUTTONOVERLAY, 0.7);
+        gradientOverlay.fillRoundedRect(
+            -buttonWidth / 2, -buttonHeight / 2, 
+            buttonWidth, buttonHeight / 2, BUTTON_CORNER_RADIUS
+        );
+    
+        // === Highlight Effect (Shiny Reflection) ===
+        const buttonHighlight = this.add.graphics();
+        buttonHighlight.fillStyle(0xffffff, 0.4);
+        buttonHighlight.fillRoundedRect(
+            -buttonWidth / 2 + 5, -buttonHeight / 2 + 2, 
+            buttonWidth - 10, buttonHeight / 3, BUTTON_CORNER_RADIUS
+        );
+
+        // === Button Text ===
+        const buttonText = this.add.text(0, 0, label, {
+            fontFamily: 'Fredoka',
+            fontSize: '22px',
+            fontWeight: "700",
+            color: COLORS_TEXT.WHITE,
+            align: 'center'
+        }).setOrigin(0.5, 0.5);
+    
+        // ✅ Ensure button is interactive
+        buttonContainer.setSize(buttonWidth, buttonHeight);
+        buttonContainer.setInteractive();
+        buttonContainer.on("pointerdown", () => {
+            this.tweens.add({
+                targets: buttonContainer,
+                scaleX: 0.95,
+                scaleY: 0.95,
+                duration: 100,
+                yoyo: true,
+                ease: "Quad.Out"
+            });
+    
+            this.time.delayedCall(100, callback);
+        });
+
+        
+    
+        // ✅ Add to scene
+        buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
+        this.add.existing(buttonContainer);
+    
+        return buttonContainer;
+    }
       
     createButtonClickParticles(x, y) {
-    // Number of particles
-    const particleCount = 12;
-    
-    for (let i = 0; i < particleCount; i++) {
-        // Create a particle
-        const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
+        // Number of particles
+        const particleCount = 12;
         
-        // Random angle for particle direction
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 2 + Math.random() * 3;
-        const distance = 30 + Math.random() * 30;
-        
-        // Randomize particle color based on easy mode theme
-        const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        particle.setFillStyle(color, 0.8);
-        
-        // Set particle depth above buttons
-        particle.setDepth(20);
-        
-        // Animate the particle
-        this.tweens.add({
-        targets: particle,
-        x: x + Math.cos(angle) * distance,
-        y: y + Math.sin(angle) * distance,
-        alpha: 0,
-        scale: { from: 1, to: 0.1 },
-        duration: 600 + Math.random() * 400,
-        ease: 'Quad.Out',
-        onComplete: () => {
-            particle.destroy();
-        }
-        });
-    }
-    }
-
-    showInstructions() {
-
-        const text = "Easy: You can use AI-suggested words, but you'll lose points. Your score will be based on the percentage of typed words that were AI-suggested.\n\nHard: You can only use your own words. No AI suggestions allowed. Your score will be based on the number of times you attempt to use an AI-suggested word.\n\nMake your choice.";
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-        const outputBoxWidth = this.uiBoxWidth;
-        const lineHeight = 24;
-        const numLines = 9;
-        const padding = 30;
-        const outputBoxHeight = numLines * lineHeight + padding * 2;
-        
-        //console.log(this);
-        const outputBoxY = this.playButtons[0].y + outputBoxHeight/2 + 70;// - outputBoxHeight - 10;
-    
-        // ✅ Remove existing box if it exists (prevents duplicate rendering)
-        if (this.outputTextBox) {
-            this.outputTextBox.destroy();
-        }
-    
-        // ✅ Create new output box with rounded corners
-        this.outputTextBox = this.add.graphics();
-        this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
-        this.outputTextBox.fillRoundedRect(
-            this.cameras.main.centerX - outputBoxWidth / 2,
-            outputBoxY - outputBoxHeight / 2,
-            outputBoxWidth,
-            outputBoxHeight,
-            CORNER_RADIUS
-        );
-        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
-        this.outputTextBox.strokeRoundedRect(
-            this.cameras.main.centerX - outputBoxWidth / 2,
-            outputBoxY - outputBoxHeight / 2,
-            outputBoxWidth,
-            outputBoxHeight,
-            CORNER_RADIUS
-        );
-        this.add.existing(this.outputTextBox); // Ensure it is added to the scene
-    
-        // ✅ Remove existing text if it exists (prevents duplicates)
-        if (this.outputText) {
-            this.outputText.destroy();
-        }
-    
-        // ✅ Create output text inside the box
-        this.outputText = this.add.text(
-            this.cameras.main.centerX - outputBoxWidth / 2 + padding,
-            outputBoxY - outputBoxHeight / 2 + padding,
-            text,
-            {
-                fontFamily: 'Nunito',
-                fontSize: `${lineHeight}px`,
-                fill: '#ffffff',
-                wordWrap: { width: outputBoxWidth - padding * 2 },
-                align: 'left',
-                lineSpacing: 5
+        for (let i = 0; i < particleCount; i++) {
+            // Create a particle
+            const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
+            
+            // Random angle for particle direction
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 3;
+            const distance = 30 + Math.random() * 30;
+            
+            // Randomize particle color based on easy mode theme
+            const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            particle.setFillStyle(color, 0.8);
+            
+            // Set particle depth above buttons
+            particle.setDepth(20);
+            
+            // Animate the particle
+            this.tweens.add({
+            targets: particle,
+            x: x + Math.cos(angle) * distance,
+            y: y + Math.sin(angle) * distance,
+            alpha: 0,
+            scale: { from: 1, to: 0.1 },
+            duration: 600 + Math.random() * 400,
+            ease: 'Quad.Out',
+            onComplete: () => {
+                particle.destroy();
             }
-        ).setOrigin(0, 0);
-    
-        // ✅ Slide-in Animation
-        this.tweens.add({
-            targets: [this.outputTextBox, this.outputText],
-            alpha: 1,
-            duration: 500,
-            ease: 'Sine.InOut'
-        });
-        // ✅ Force Phaser to recognize this object
-        this.add.existing(this.outputTextBox);
-        this.outputTextBox.setDepth(100);
-        this.outputText.setDepth(101);
+            });
+        }
     }
+
 
     createOutputTextBox(text) {
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
@@ -279,6 +279,12 @@ export default class Preloader extends Phaser.Scene {
         this.outputText.setDepth(101);
     }
 
+    onDoneButtonClick() {
+        console.log("Leaving instructions scene...");
+      
+        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+
+    }
 
     async create() {
         const screenWidth = this.cameras.main.width;
@@ -445,7 +451,7 @@ export default class Preloader extends Phaser.Scene {
 
             console.log("WebLLM Engine initialized with WebGPU.");
             this.llmLoaded = true; // Mark LLM as loaded
-            this.loadingText.setText("Done loading. Choose your game.");
+            this.loadingText.setText("Done loading");
             this.checkIfReady(llmEngine); // Check if everything is ready
 
 
@@ -468,16 +474,31 @@ export default class Preloader extends Phaser.Scene {
     // === Check if Both Progress and LLM are Done ===
     checkIfReady(llmEngine) {
 
-   
-
         if (this.progress >= 1 && this.llmLoaded) {
             saveInteraction("LLM successfully loaded", "preloader");
             console.log(this);
-            // Show Play Button Only When Both Are Ready
+            
+            
             this.llmEngine = llmEngine;
-            this.showPlayButtons(llmEngine);
+            
+            // Center the button horizontally
+            const buttonCenterX = this.cameras.main.centerX;
+            
+            // Calculate the distance between loading text and progress bar (this is the same value used in create())
+            const textToBarDistance = this.cameras.main.width * 0.02;
+            
+            // Position the button below the progress bar by the same distance as loading text is above it
+            const buttonCenterY = this.progressBarY + this.progressBarHeight + textToBarDistance + buttonHeight / 2 +10;
+    
+            
+            console.log("about to create donebutton");
+            console.log(buttonCenterX, buttonCenterY);
+            // Create the button
+            
+            this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
+            this.doneButton.setDepth(102);
+
             this.addButtonClickEffects();
-            this.showInstructions();
         }
     }
 
@@ -487,11 +508,13 @@ export default class Preloader extends Phaser.Scene {
 
     drawProgressBar(progress, progressBarLeftX, y, width) {
         const barHeight = 30;
+        
+        // Store the Y position of the progress bar for reference elsewhere
+        this.progressBarY = y;
+        this.progressBarHeight = barHeight;
 
         if (!this.progressBarOutline) {
             this.progressBarOutline = this.add.graphics();
-            //this.progressbarY = y;
-            //this.progressBarWidth = width;
         } else {
             this.progressBarOutline.clear();
         }
@@ -534,153 +557,8 @@ export default class Preloader extends Phaser.Scene {
     
     
 
-    showPlayButtons(llmEngine) {
-        if (this.playButton) return; // Prevent duplicate buttons
-
-
-        const buttonWidth = Phaser.Math.Clamp(this.cameras.main.width * 0.1, this.cameras.main.width * 0.07, 220); // 10% of screen width
-        const buttonHeight = buttonWidth * 0.4; // Maintain aspect ratio
-        const buttonSpacing = buttonWidth*1.1;;
-
-        // === Create Function to Generate Buttons ===
-        const createButton = (label, offsetX, onClick) => {
-            // ✅ Dynamically Adjust Button Size
-            //const buttonWidth = Phaser.Math.Clamp(this.cameras.main.width * 0.1, this.cameras.main.width * 0.07, 220); // 10% of screen width
-            //const buttonHeight = buttonWidth * 0.4; // Maintain aspect ratio
-        
-            // ✅ Dynamically Adjust Outline Thickness
-            const outlineThickness = Phaser.Math.Clamp(buttonWidth * 0.02, 1, 6);
-        
-            // ✅ Adjust Button Font Size
-            const fontSize = `${Math.max(buttonWidth * 0.15, 22)}px`;
-        
-            // ✅ Dynamically Position Buttons
-            const centerX = this.cameras.main.centerX;
-            const centerY = this.loadingText.y + this.loadingText.height + this.cameras.main.width*.10; // Position below progress bar
-            const x = centerX + offsetX;
-            const y = centerY;
-            
-        
-            // === Create White Outline (Bolder) ===
-            const buttonOutline = this.add.graphics();
-            buttonOutline.lineStyle(outlineThickness, 0xffffff, 1);
-            buttonOutline.strokeRoundedRect(
-                -buttonWidth / 2 - outlineThickness / 2, 
-                -buttonHeight / 2 - outlineThickness / 2, 
-                buttonWidth + outlineThickness, 
-                buttonHeight + outlineThickness, 
-                BUTTON_CORNER_RADIUS + 2
-            );
-        
-            // === Create Button Background (Base Color - Darker) ===
-            const buttonBackground = this.add.graphics();
-            buttonBackground.fillStyle(COLORS_HEX.BUTTONFILL, 1);
-            buttonBackground.fillRoundedRect(
-                -buttonWidth / 2, -buttonHeight / 2, 
-                buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
-            );
-        
-            // === Simulated Gradient Overlay (Lighter Top) ===
-            const gradientOverlay = this.add.graphics();
-            gradientOverlay.fillStyle(COLORS_HEX.BUTTONOVERLAY, 0.6);
-            gradientOverlay.fillRoundedRect(
-                -buttonWidth / 2, -buttonHeight / 2, 
-                buttonWidth, buttonHeight / 2, BUTTON_CORNER_RADIUS
-            );
-        
-            // === Create Highlight Effect ===
-            const buttonHighlight = this.add.graphics();
-            buttonHighlight.fillStyle(0xffffff, 0.3);
-            buttonHighlight.fillRoundedRect(
-                -buttonWidth / 2 + 5, 
-                -buttonHeight / 2 + 2, 
-                buttonWidth - 10, 
-                buttonHeight / 3, 
-                BUTTON_CORNER_RADIUS
-            );
-        
-            // === Create Button Text ===
-            const buttonText = this.add.text(0, 0, `${label}`, { 
-                fontFamily: 'Fredoka',
-                fontSize: fontSize,
-                color: COLORS_TEXT.WHITE
-            }).setOrigin(0.5, 0.5);
-        
-            // === Group Button Elements ===
-            const buttonContainer = this.add.container(x, y, [buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
-            buttonContainer.setSize(buttonWidth, buttonHeight);
-            buttonContainer.setAlpha(0); // Start invisible
-        
-            // === Fade-in Animation ===
-            this.tweens.add({
-                targets: buttonContainer,
-                alpha: 1,
-                duration: 500,
-                ease: 'Sine.InOut'
-            });
-        
-            // === Make Button Interactive ===
-            buttonContainer.setInteractive({ useHandCursor: true });
-        
-            // === Hover Effect (Subtle Scale Up) ===
-            buttonContainer.on('pointerover', () => {
-                this.tweens.add({
-                    targets: buttonContainer,
-                    scaleX: 1.1,
-                    scaleY: 1.1,
-                    duration: 150,
-                    ease: 'Quad.Out'
-                });
-            });
-        
-            buttonContainer.on('pointerout', () => {
-                this.tweens.add({
-                    targets: buttonContainer,
-                    scaleX: 1,
-                    scaleY: 1,
-                    duration: 150,
-                    ease: 'Quad.Out'
-                });
-            });
-        
-            // === Click Animation ===
-            buttonContainer.on('pointerdown', () => {
-                buttonContainer.y += 3;
-                buttonText.y += 2;
-                buttonContainer.x += 3;
-                buttonText.x += 2;
-        
-                this.time.delayedCall(150, () => {
-                    buttonContainer.y -= 3;
-                    buttonText.y -= 2;
-                    buttonContainer.x -= 3;
-                    buttonText.x -= 2;
-                    onClick();
-                });
-            });
-        
-            return buttonContainer;
-        };
-        
     
-        // === Create Two Buttons ===
-        const easyButton = createButton("EASY", -buttonWidth/2 - buttonSpacing / 2, () => this.startGame(llmEngine, "easy"));
-        const hardButton = createButton("HARD", buttonWidth/2 + buttonSpacing / 2, () => this.startGame(llmEngine, "hard"));
-    
-        this.playButtons = [easyButton, hardButton];
-    }
-    
-    // === Start Game Function (Handles Difficulty) ===
-    startGame(llmEngine, difficulty) {
-        this.registry.set('llmEngine', llmEngine);
-        console.log(`Starting GameSceneHard in ${difficulty} mode...`);
-        if (difficulty === "easy") {
-            this.scene.start('InstructionScene', { mode: "easy", llmEngine: llmEngine });
-        }
-        else if (difficulty === "hard") {
-            this.scene.start('InstructionScene', {mode: "hard", llmEngine: llmEngine });
-        }
-    }
+
     
 }
 //onComplete: () => this.scene.start('GameSceneHard', llmEngine)

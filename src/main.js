@@ -6,6 +6,7 @@ import Preloader from "./scenes/Preloader.js";
 import GameSceneEasy from "./scenes/GameSceneEasy.js";
 import FeedbackScene from "./scenes/FeedbackScene.js";
 import InstructionScene from "./scenes/InstructionsScene.js";  
+import LevelScene from "./scenes/LevelScene.js";
 
 
 
@@ -16,7 +17,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    scene: [Boot, Preloader, InstructionScene, GameSceneHard, GameSceneEasy, FeedbackScene],
+    scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, FeedbackScene],
     physics: { default: 'arcade', arcade: { debug: false } },
 
     // Increase rendering resolution
@@ -36,27 +37,4 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-
-// window.onload = function () {
-//     const config = {
-//         type: Phaser.AUTO,
-//         scene: [Boot, Preloader, GameSceneHard],
-//         scale: {
-//             mode: Phaser.Scale.RESIZE, // ✅ Automatically resizes
-//             autoCenter: Phaser.Scale.CENTER_BOTH
-//         },
-//         physics: {
-//             default: 'arcade',
-//             arcade: {
-//                 debug: false,
-//                 fps: 60
-//             }
-//         },
-//         render: {
-//             pixelArt: false,
-//             antialias: true
-//         }
-//     };
-
-//     game = new Phaser.Game(config); // ✅ Initialize only after the window loads
 // };
