@@ -835,70 +835,63 @@ export default class BaseGameScene extends Phaser.Scene {
             }
             return null;
         }
-
+    
         // Get the current word being typed
         const lastSpaceIndex = this.userInput.lastIndexOf(' ');
         const lastNewlineIndex = this.userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
         const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
-
+    
         // Calculate line wrapping
         const padding = 30;
         const maxWidth = this.uiBoxWidth - (padding * 2);
-        const lines = [];
-        let currentLine = '';
-        const words = this.userInput.split(/(\s+)/);
-        let tempText = this.add.text(0, 0, '', this.inputText.style);
-
-        for (const word of words) {
-            tempText.setText(currentLine + word);
-            if (tempText.width > maxWidth && currentLine !== '') {
-                lines.push(currentLine);
-                currentLine = word;
-            } else {
-                currentLine += word;
+        let lines = this.userInput.split('\n'); // First split by explicit newlines
+        
+        // Then handle word wrapping for each line
+        const wrappedLines = [];
+        for (const line of lines) {
+            let currentLine = '';
+            const words = line.split(/(\s+)/);
+            let tempText = this.add.text(0, 0, '', this.inputText.style);
+    
+            for (const word of words) {
+                tempText.setText(currentLine + word);
+                if (tempText.width > maxWidth && currentLine !== '') {
+                    wrappedLines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine += word;
+                }
             }
+            wrappedLines.push(currentLine);
+            tempText.destroy();
         }
-        lines.push(currentLine);
-        tempText.destroy();
-
-        // Calculate cursor position
-        const currentLineIndex = lines.length - 1;
-        const currentLineText = this.add.text(0, 0, lines[currentLineIndex], this.inputText.style);
-        const cursorX = this.inputText.x + currentLineText.width;
+        
+        // Now wrappedLines contains all lines after both explicit newlines and word wrapping
+        
+        // Calculate cursor position (the current line is the last one)
+        const currentLineIndex = wrappedLines.length - 1;
+        const currentLineText = wrappedLines[currentLineIndex];
+        
+        // Create temporary text to measure width
+        const measurer = this.add.text(0, 0, currentLineText, this.inputText.style);
+        const cursorX = this.inputText.x + measurer.width;
+        measurer.destroy();
+        
+        // Calculate font size and line height
         const rawFontSize = this.inputText.style?.fontSize ?? 22;
         const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
-        const cursorY = this.inputText.y + (currentLineIndex * fontSize * 1.2);
-        const baselineAdjustment = fontSize * 0.1; // Try 0.1–0.2 based on visual test
-        const adjustedCursorY = cursorY + baselineAdjustment;
-
-        currentLineText.destroy();
-
-
+        const lineHeight = fontSize * 1.2;
+        
         // If at word boundary, show first suggestion
         if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
             const suggestion = this.aiSuggestedWords[0];
             if (suggestion && this.autocompleteText) {
-                // Check if suggestion would wrap
-                const suggestionText = this.add.text(0, 0, suggestion, this.inputText.style);
-                const wouldWrap = (cursorX - this.inputText.x + suggestionText.width) > maxWidth;
-                suggestionText.destroy();
-
-                const rawFontSize = this.inputText.style?.fontSize ?? 22;
-                const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
-
-
-                const lineHeight = fontSize * 1.2;
-                const correctedY = this.inputText.y + ((currentLineIndex + 1) * lineHeight); // next line
-                if (wouldWrap) {
-                    this.autocompleteText.setPosition(
-                        this.inputText.x,
-                        correctedY
-                    );
-                } else {
-                    this.autocompleteText.setPosition(cursorX, this.inputText.y + currentLineIndex * lineHeight);
-                }
-
+                // Position correctly based on calculated line index
+                this.autocompleteText.setPosition(
+                    cursorX,
+                    this.inputText.y + (currentLineIndex * lineHeight)
+                );
                 
                 this.autocompleteText.setText(suggestion);
                 this.autocompleteText.setVisible(true).setAlpha(1);
@@ -909,41 +902,76 @@ export default class BaseGameScene extends Phaser.Scene {
             const suggestion = this.aiSuggestedWords.find(word => 
                 word.toLowerCase().startsWith(currentWord.toLowerCase())
             );
-
+    
             if (suggestion) {
                 const completion = suggestion.slice(currentWord.length);
                 if (this.autocompleteText) {
-                    // Check if completion would wrap
-                    const completionText = this.add.text(0, 0, completion, this.inputText.style);
-                    const wouldWrap = (cursorX - this.inputText.x + completionText.width) > maxWidth;
-                    completionText.destroy();
-
-                    const rawFontSize = this.inputText.style?.fontSize ?? 22;
-                    const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
-                    const lineHeight = fontSize * 1.2;
-                    const correctedY = this.inputText.y + ((currentLineIndex + 1) * lineHeight); // next line
-                    if (wouldWrap) {
-                        this.autocompleteText.setPosition(
-                            this.inputText.x,
-                            correctedY
-                        );
-                    } else {
-                        this.autocompleteText.setPosition(cursorX, this.inputText.y + currentLineIndex * lineHeight);
-                    }
-                    
+                    // Position correctly based on calculated line index
+                    this.autocompleteText.setPosition(
+                        cursorX,
+                        this.inputText.y + (currentLineIndex * lineHeight)
+                    );
                     
                     this.autocompleteText.setText(completion);
                     this.autocompleteText.setVisible(true).setAlpha(1);
+                    return completion;
                 }
-                return completion;
             }
         }
-
         
         if (this.autocompleteText) {
             this.autocompleteText.setText('');
         }
         return null;
+    }
+    
+    // You should also update this function to properly handle multi-line text
+    updateCursor() {
+        if (!this.inputText) return;
+        
+        // Keep input text position fixed
+        const padding = 30;
+        const textBoxY = this.cameras.main.centerY - 240 / 2;
+        this.inputText.setPosition(
+            this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
+            textBoxY + padding
+        );
+        
+        // Split by explicit newlines first
+        let lines = this.userInput.split('\n');
+        
+        // Handle word wrapping for each line
+        const wrappedLines = [];
+        const maxWidth = this.uiBoxWidth - (padding * 2);
+        
+        for (const line of lines) {
+            let currentLine = '';
+            const words = line.split(/(\s+)/);
+            let tempText = this.add.text(0, 0, '', this.inputText.style);
+    
+            for (const word of words) {
+                tempText.setText(currentLine + word);
+                if (tempText.width > maxWidth && currentLine !== '') {
+                    wrappedLines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine += word;
+                }
+            }
+            wrappedLines.push(currentLine);
+            tempText.destroy();
+        }
+    
+        // Join lines with newlines and add cursor
+        const displayText = wrappedLines.join('\n') + (this.cursorVisible ? "_" : " ");
+        this.inputText.setText(displayText);
+        
+        // Update autocomplete at cursor position
+        if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+            this.generateAutocomplete();
+        } else if (this.autocompleteText) {
+            this.autocompleteText.setText('');
+        }
     }
 
     createFailsCounter() {
