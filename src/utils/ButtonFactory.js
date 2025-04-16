@@ -99,11 +99,11 @@ export default class ButtonFactory {
         // Use provided values or defaults
         const buttonSize = options.buttonWidth || 
             Phaser.Math.Clamp(scene.cameras.main.width * 0.1, scene.cameras.main.width * 0.07, 220);
-        const buttonHeight = options.buttonHeight || buttonSize * 0.4;
+        const buttonHeight = options.buttonHeight || buttonSize * 0.35;
         
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
-        const fontSize = `${Math.max(buttonSize * 0.15, 20)}px`;
+        const fontSize = `${Math.max(buttonSize * 0.13, 16)}px`;
         
         // Position calculation
         const x = centerX + offsetX;

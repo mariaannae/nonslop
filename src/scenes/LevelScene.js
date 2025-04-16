@@ -196,24 +196,20 @@ export default class LevelScene extends Phaser.Scene {
         const centerY = boxY + boxHeight + buttonPaddingY + buttonHeight / 2;
         
         // Create the two difficulty buttons using the ButtonFactory
-        const easyButton = ButtonFactory.createFancyButton(
+        const easyButton = ButtonFactory.createButton(
             this, 
             "EASY", 
             () => this.startGame(llmEngine, "easy"),
-            centerX,
-            -buttonWidth - buttonSpacing,
-            centerY,
-            { fadeIn: true }
+            centerX - buttonWidth - buttonSpacing,
+            centerY
         );
         
-        const hardButton = ButtonFactory.createFancyButton(
+        const hardButton = ButtonFactory.createButton(
             this, 
             "HARD", 
             () => this.startGame(llmEngine, "hard"),
-            centerX,
-            buttonWidth + buttonSpacing,
-            centerY,
-            { fadeIn: true }
+            centerX + buttonWidth + buttonSpacing,
+            centerY
         );
     
         this.playButtons = [easyButton, hardButton];

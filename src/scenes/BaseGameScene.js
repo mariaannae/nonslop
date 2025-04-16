@@ -187,7 +187,6 @@ export default class BaseGameScene extends Phaser.Scene {
         const lastSpaceIndex = userInput.lastIndexOf(' ');
         const lastNewlineIndex = userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
-        const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
 
         console.log("checking llm: ", this.llmEngine);
         if (!this.llmEngine) {
@@ -203,9 +202,12 @@ export default class BaseGameScene extends Phaser.Scene {
     
         console.log("Generating AI suggestions for context:", context);
         console.log("checking llm again: ", this.llmEngine);
+
+        const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
+        const trimmedcontext = context.trim();
         try {
             const reply = await this.llmEngine.completions.create({
-                prompt: context.trim(),
+                prompt: trimmedcontext,
                 echo: false,
                 n: 1,
                 max_tokens: 1,
@@ -1036,12 +1038,13 @@ export default class BaseGameScene extends Phaser.Scene {
         
         let newPercentage;
         if (success) {
-            // Non-AI word - increase score (making it better)
-            newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+            // Non-AI word 
+            newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
 
         } else {
-            // AI word - decrease score (making it worse)
-            newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
+            // AI word 
+            newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+            
 
         }
         
