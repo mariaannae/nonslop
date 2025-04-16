@@ -6,23 +6,10 @@ export default class LevelScene extends Phaser.Scene {
     constructor() {
         super({ key: 'LevelScene' });
         this.mode = null;
-        //this.userInput = '';
-        this.llmEngine = null;     
+        //this.userInput = '';     
     }
 
-    update() {
-        if (!this.llmEngine) {
-            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
-            this.llmEngine = this.registry.get('llmEngine');
-    
-            if (!this.llmEngine) {
-                console.warn("LLM Engine missing entirely. Returning to Preloader...");
-                this.scene.start('PreloaderScene');
-            } else {
-                console.log("Successfully recovered LLM Engine from registry.");
-            }
-        }
-    }
+
     
     createBackgroundEffect() {
         let width = this.cameras.main.width;
@@ -170,12 +157,7 @@ export default class LevelScene extends Phaser.Scene {
     }
 
     init(data) {
-        if (!data.llmEngine) {
-            console.error("Error: No llmEngine received in FeedbackScene.");
-        } else {
-            console.log("llmEngine successfully received in FeedbackScene.");
-        }
-        this.llmEngine = data.llmEngine || null;
+
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
         this.promptText = null;
@@ -199,7 +181,7 @@ export default class LevelScene extends Phaser.Scene {
         const easyButton = ButtonFactory.createButton(
             this, 
             "EASY", 
-            () => this.startGame(llmEngine, "easy"),
+            () => this.startGame("easy"),
             centerX - buttonWidth - buttonSpacing,
             centerY
         );
@@ -207,7 +189,7 @@ export default class LevelScene extends Phaser.Scene {
         const hardButton = ButtonFactory.createButton(
             this, 
             "HARD", 
-            () => this.startGame(llmEngine, "hard"),
+            () => this.startGame("hard"),
             centerX + buttonWidth + buttonSpacing,
             centerY
         );
@@ -216,15 +198,15 @@ export default class LevelScene extends Phaser.Scene {
     }
 
     // === Start Game Function (Handles Difficulty) ===
-    startGame(llmEngine, difficulty) {
+    startGame(difficulty) {
         console.log("LLM Engine saved to registry:", this.registry.get('llmEngine'));
 
-        console.log(`Starting GameSceneHard in ${difficulty} mode...`);
+        console.log(`Starting GameScenein ${difficulty} mode...`);
         if (difficulty === "hard") {
-            this.scene.start('GameSceneHard', {llmEngine: llmEngine });
+            this.scene.start('GameSceneHard', { });
         }
         else if (difficulty === "easy") {
-            this.scene.start('GameSceneEasy', {llmEngine: llmEngine });
+            this.scene.start('GameSceneEasy', { });
         }
     }
 
@@ -236,7 +218,7 @@ export default class LevelScene extends Phaser.Scene {
         this.createPromptTextBox();
     
         // Show the play buttons
-        this.showPlayButtons(this.llmEngine);
+        this.showPlayButtons();
         this.addButtonClickEffects();
         
         this.inputActive = false;

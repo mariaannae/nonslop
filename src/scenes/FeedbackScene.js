@@ -6,23 +6,9 @@ export default class FeedbackScene extends Phaser.Scene {
     constructor() {
         super({ key: 'FeedbackScene' });
         this.mode = null;
-        this.userInput = '';
-        this.llmEngine = null;       
+        this.userInput = '';     
     }
 
-    update() {
-        if (!this.llmEngine) {
-            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
-            this.llmEngine = this.registry.get('llmEngine');
-    
-            if (!this.llmEngine) {
-                console.warn("LLM Engine missing entirely. Returning to Preloader...");
-                this.scene.start('PreloaderScene');
-            } else {
-                console.log("Successfully recovered LLM Engine from registry.");
-            }
-        }
-    }
     
     addButtonClickEffects() {
         // Apply to all buttons
@@ -109,10 +95,10 @@ export default class FeedbackScene extends Phaser.Scene {
         saveInteraction(interaction, 'feedback');
         
         if (this.mode === "easy") {
-            this.scene.start('GameSceneEasy', { llmEngine: this.llmEngine });
+            this.scene.start('GameSceneEasy', {  });
         }
         else if (this.mode === "hard") {
-            this.scene.start('GameSceneHard', { llmEngine: this.llmEngine });
+            this.scene.start('GameSceneHard', {  });
         }
     }
 
@@ -307,12 +293,7 @@ export default class FeedbackScene extends Phaser.Scene {
             console.log("mode successfully received in FeedbackScene.");
         }
         this.mode = data.mode || null;
-        if (!data.llmEngine) {
-            console.error("Error: No llmEngine received in FeedbackScene.");
-        } else {
-            console.log("llmEngine successfully received in FeedbackScene.");
-        }
-        this.llmEngine = data.llmEngine || null;
+
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
         this.promptText = null;

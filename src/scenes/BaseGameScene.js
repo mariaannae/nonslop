@@ -6,7 +6,7 @@ import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {
         super(config);
-        this.llmEngine = null;
+        this.llmEngine = null
         this.userInput = '';
         this.inputText = null; 
         this.levelValue = 1;
@@ -200,8 +200,7 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }
     
-        console.log("Generating AI suggestions for context:", context);
-        console.log("checking llm again: ", this.llmEngine);
+
 
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = context.trim();
@@ -1220,17 +1219,11 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     }
 
-    init(data) {
-        if (!data.llmEngine) {
-            console.error("Error: No llmEngine received in scene.");
-        } else {
-            console.log("llmEngine successfully received in scene.");
-        }
-        this.llmEngine = data.llmEngine || null;
-        
+    init(data) {        
         this.promptTextBox = null;
         this.promptText = null;
         this.outputTextBox = null;
         this.outputText = null;
+        this.llmEngine = this.registry.get('llmEngine');
     }
 }

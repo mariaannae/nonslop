@@ -16,11 +16,11 @@ export default class GameSceneEasy extends BaseGameScene {
 
     // Mode-specific navigation
     onHardModeClick() {
-        this.scene.start('GameSceneHard', {mode: 'hard', llmEngine: this.llmEngine});
+        this.scene.start('GameSceneHard', {mode: 'hard'});
     }
 
     onFeedbackClick() {
-        this.scene.start('FeedbackScene', {mode: this.mode, llmEngine: this.llmEngine});
+        this.scene.start('FeedbackScene', {mode: this.mode});
     }
 
     // Mode-specific scene setup

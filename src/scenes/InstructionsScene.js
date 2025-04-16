@@ -6,21 +6,6 @@ export default class InstructionScene extends Phaser.Scene {
     constructor() {
         super({ key: 'InstructionScene' });
         //this.userInput = '';
-        this.llmEngine = null;     
-    }
-
-    update() {
-        if (!this.llmEngine) {
-            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
-            this.llmEngine = this.registry.get('llmEngine');
-    
-            if (!this.llmEngine) {
-                console.warn("LLM Engine missing entirely. Returning to Preloader...");
-                this.scene.start('PreloaderScene');
-            } else {
-                console.log("Successfully recovered LLM Engine from registry.");
-            }
-        }
     }
     
     createBackgroundEffect() {
@@ -105,7 +90,7 @@ export default class InstructionScene extends Phaser.Scene {
     
     onDoneButtonClick() {
         console.log("Leaving instructions scene...");
-        this.scene.start('LevelScene', { llmEngine: this.llmEngine });
+        this.scene.start('LevelScene', {  });
     }
     
     createPromptTextBox() {
@@ -174,12 +159,6 @@ export default class InstructionScene extends Phaser.Scene {
     }
 
     init(data) {
-        if (!data.llmEngine) {
-            console.error("Error: No llmEngine received in FeedbackScene.");
-        } else {
-            console.log("llmEngine successfully received in FeedbackScene.");
-        }
-        this.llmEngine = data.llmEngine || null;
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
         this.promptText = null;
