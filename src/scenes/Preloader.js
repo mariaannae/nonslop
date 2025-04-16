@@ -280,7 +280,7 @@ export default class Preloader extends Phaser.Scene {
     }
 
     onDoneButtonClick() {
-        console.log("Leaving instructions scene...");
+
       
         this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
 
@@ -480,6 +480,9 @@ export default class Preloader extends Phaser.Scene {
             
             
             this.llmEngine = llmEngine;
+            this.registry.set('llmEngine', llmEngine);
+            console.log("LLM Engine saved to registry:", this.registry.get('llmEngine'));
+
             
             // Center the button horizontally
             const buttonCenterX = this.cameras.main.centerX;

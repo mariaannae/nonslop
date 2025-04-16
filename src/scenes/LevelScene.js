@@ -184,10 +184,6 @@ export default class LevelScene extends Phaser.Scene {
     showPlayButtons(llmEngine) {
         if (this.playButton) return; // Prevent duplicate buttons
 
-        const buttonWidth = Phaser.Math.Clamp(this.cameras.main.width * 0.1, this.cameras.main.width * 0.07, 220); // 10% of screen width
-        const buttonHeight = buttonWidth * 0.4; // Maintain aspect ratio
-        const buttonSpacing = buttonWidth * 1.1;
-
         // Calculate button positions
         const centerX = this.cameras.main.centerX;
         
@@ -205,7 +201,7 @@ export default class LevelScene extends Phaser.Scene {
             "EASY", 
             () => this.startGame(llmEngine, "easy"),
             centerX,
-            -buttonWidth/2 - buttonSpacing / 2,
+            -buttonWidth - buttonSpacing,
             centerY,
             { fadeIn: true }
         );
@@ -215,7 +211,7 @@ export default class LevelScene extends Phaser.Scene {
             "HARD", 
             () => this.startGame(llmEngine, "hard"),
             centerX,
-            buttonWidth/2 + buttonSpacing / 2,
+            buttonWidth + buttonSpacing,
             centerY,
             { fadeIn: true }
         );
@@ -225,7 +221,8 @@ export default class LevelScene extends Phaser.Scene {
 
     // === Start Game Function (Handles Difficulty) ===
     startGame(llmEngine, difficulty) {
-        this.registry.set('llmEngine', llmEngine);
+        console.log("LLM Engine saved to registry:", this.registry.get('llmEngine'));
+
         console.log(`Starting GameSceneHard in ${difficulty} mode...`);
         if (difficulty === "hard") {
             this.scene.start('GameSceneHard', {llmEngine: llmEngine });

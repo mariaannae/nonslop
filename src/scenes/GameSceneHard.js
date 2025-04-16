@@ -26,6 +26,8 @@ export default class GameSceneHard extends BaseGameScene {
 
     // Mode-specific scene setup
     create() {
+
+        super.create && super.create();
         this.cameras.main.scrollY = 0;
         this.createBackgroundEffect();
         this.createFloatingParticles();
@@ -161,20 +163,7 @@ export default class GameSceneHard extends BaseGameScene {
         };
     }
 
-    // Mode-specific prompts
-    updatePromptBasedOnLevel() {
-        const prompts = {
-            1: "Write about your favorite memory from childhood.",
-            2: "Describe a challenging situation you've overcome and what you learned from it.",
-            3: "If you could change one thing about the world, what would it be and why?"
-        };
-        
-        this.currentPrompt = prompts[this.levelValue] || prompts[1];
-        
-        if (this.promptText) {
-            this.promptText.setText(this.currentPrompt);
-        }
-    }
+
 
     // Mode-specific background methods
     createBackgroundEffect() {

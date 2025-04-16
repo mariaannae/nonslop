@@ -25,6 +25,7 @@ export default class GameSceneEasy extends BaseGameScene {
 
     // Mode-specific scene setup
     create() {
+        super.create && super.create();
         this.cameras.main.scrollY = 0;
         this.createEasyModeBackground();
         this.createFloatingParticles();
@@ -105,7 +106,8 @@ export default class GameSceneEasy extends BaseGameScene {
             fontSize: "22px",
             fill: "#000",
             align: "left",
-            lineSpacing: 6
+            lineSpacing: 6,
+            wordWrap: { width: this.uiBoxWidth - 60 } // Add word wrap
         };
     }
 
@@ -115,7 +117,8 @@ export default class GameSceneEasy extends BaseGameScene {
             fontSize: "22px",
             fill: "#ff0000",
             align: "left",
-            alpha: 1
+            alpha: 0.7, // Make slightly transparent
+            wordWrap: { width: this.uiBoxWidth - 60 } // Add word wrap
         };
     }
 
@@ -137,21 +140,6 @@ export default class GameSceneEasy extends BaseGameScene {
                 }
             }
         };
-    }
-
-    // Mode-specific prompts
-    updatePromptBasedOnLevel() {
-        const prompts = {
-            1: "Write a story about a magical adventure.",
-            2: "Describe your dream vacation destination and what makes it special.",
-            3: "Share an interesting experience that taught you something new."
-        };
-        
-        this.currentPrompt = prompts[this.levelValue] || prompts[1];
-        
-        if (this.promptText) {
-            this.promptText.setText(this.currentPrompt);
-        }
     }
 
     // Mode-specific background methods

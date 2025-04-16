@@ -74,18 +74,31 @@ export default class BaseGameScene extends Phaser.Scene {
 
     onResetButtonClick() {
         console.log("Reset button clicked! Clearing text...");
+    
+        // Reset the fail count and progress percentage
         this.failCount = 0;
         this.progressPercentage = PROGRESS_BAR.INITIAL;
         this.updateProgressFill();
-        
+    
+        // Clear the input text box and autocomplete text
         this.clearInputTextBox();
+    
+        // Explicitly clear AI suggestions
+        this.aiSuggestedWords = [];
+        this.showSuggestions([]);
+    
+        // Update the output text box to the default message
         this.updateOutputText("Press 'DONE' to see how you did.");
+    
+        // Select a new prompt following existing logic
         this.updatePromptBasedOnLevel();
-        
+    
+        // Update the visual progress indicator text if applicable
         if (this.failsText) {
-            this.failsText.setText(`${Math.round(this.progressPercentage)}%`);
+            this.failsText.setText(` `);
         }
     }
+    
 
     // Common evaluation methods
     async evaluateText(userInput) {
@@ -160,8 +173,8 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     async generateAISuggestions(userInput) {
-        // Clear suggestions for empty input or just spaces
-        if (!userInput || !userInput.trim()) {
+        // Don't generate suggestions for empty input
+        if (!userInput) {
             this.aiSuggestedWords = [];
             this.showSuggestions([]);
             if (this.autocompleteText) {
@@ -170,18 +183,13 @@ export default class BaseGameScene extends Phaser.Scene {
             return;
         }
 
-        // Get the last word being typed
-        const words = userInput.trim().split(" ");
-        const currentWord = words[words.length - 1];
-        if (!currentWord) {
-            this.aiSuggestedWords = [];
-            this.showSuggestions([]);
-            if (this.autocompleteText) {
-                this.autocompleteText.setText('');
-            }
-            return;
-        }
+        // Get all text up to the last word boundary
+        const lastSpaceIndex = userInput.lastIndexOf(' ');
+        const lastNewlineIndex = userInput.lastIndexOf('\n');
+        const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+        const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
 
+        console.log("checking llm: ", this.llmEngine);
         if (!this.llmEngine) {
             console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
             this.llmEngine = this.registry.get('llmEngine');
@@ -193,41 +201,51 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }
     
-        console.log("Generating AI suggestions for:", userInput);
+        console.log("Generating AI suggestions for context:", context);
+        console.log("checking llm again: ", this.llmEngine);
+        try {
+            const reply = await this.llmEngine.completions.create({
+                prompt: context.trim(),
+                echo: false,
+                n: 1,
+                max_tokens: 1,
+                logprobs: true,
+                top_logprobs: 5,
+            });
 
-        const reply = await this.llmEngine.completions.create({
-            prompt: userInput,
-            echo: false,
-            n: 1,
-            max_tokens: 1,
-            logprobs: true,
-            top_logprobs: 5,
-        });
+            if (!reply.choices || reply.choices.length === 0 || !reply.choices[0].logprobs) {
+                console.warn("AI response is missing expected properties.");
+                return;
+            }
 
-        if (!reply.choices || reply.choices.length === 0 || !reply.choices[0].logprobs) {
-            console.warn("AI response is missing expected properties.");
-            return;
+            let options = reply.choices[0].logprobs.content[0].top_logprobs;
+            options.sort((a, b) => b.logprob - a.logprob);
+
+            const filteredOptions = options
+                .map(choice => choice.token.trim())
+                .filter(token => token !== '')
+                .filter(token => !stopwords.includes(token.toLowerCase()));
+
+            console.log("topk: ", this.topKValue);
+            const uniqueSuggestedWords = Array.from(new Set(filteredOptions))
+                .slice(0, this.topKValue);
+
+            console.log("Setting AI Suggested Words:", uniqueSuggestedWords);
+            this.aiSuggestedWords = uniqueSuggestedWords;
+            this.showSuggestions(uniqueSuggestedWords);
+
+            // Log current state
+            console.log("Current input:", this.userInput);
+            console.log("Current suggestions:", this.aiSuggestedWords);
+        } catch (error) {
+            console.log("in error, llm check: ", this.llmEngine);
+            console.error("Error generating suggestions:", error);
+            this.aiSuggestedWords = [];
+            this.showSuggestions([]);
+            if (this.autocompleteText) {
+                this.autocompleteText.setText('');
+            }
         }
-
-        let options = reply.choices[0].logprobs.content[0].top_logprobs;
-        options.sort((a, b) => b.logprob - a.logprob);
-
-        const filteredOptions = options
-            .map(choice => choice.token.trim())
-            .filter(token => token !== '')
-            .filter(token => !stopwords.includes(token.toLowerCase()));
-
-        console.log("topk: ", this.topKValue);
-        const uniqueSuggestedWords = Array.from(new Set(filteredOptions))
-            .slice(0, this.topKValue);
-
-        console.log("Setting AI Suggested Words:", uniqueSuggestedWords);
-        this.aiSuggestedWords = uniqueSuggestedWords;
-        this.showSuggestions(uniqueSuggestedWords);
-
-        // Log current state
-        console.log("Current input:", this.userInput);
-        console.log("Current suggestions:", this.aiSuggestedWords);
     }
 
     // Template methods with customization hooks
@@ -308,7 +326,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.uiBoxWidth,
             textBoxHeight,
             boxStyle.cornerRadius
-        );
+        ).setDepth(20);
         
         if (boxStyle.hasOutline) {
             this.inputTextBorder.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
@@ -318,7 +336,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.uiBoxWidth,
                 textBoxHeight,
                 boxStyle.cornerRadius
-            );
+            ).setDepth(20);
         }
         
         if (this.inputText) {
@@ -348,11 +366,11 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
             textBoxY + padding,
             "",
-            { ...autocompleteStyle, fill: '#ff0000' }
+            { ...autocompleteStyle, fill: '#ff0000', alpha: 1 }
         ).setOrigin(0, 0);
         
         this.inputText.setDepth(25);
-        this.autocompleteText.setDepth(26);
+        this.autocompleteText.setDepth(60);
         
         this.setupInputHandlers();
     }
@@ -388,151 +406,96 @@ export default class BaseGameScene extends Phaser.Scene {
                 const lastWord = words[words.length - 1];
                 
                 if (lastWord && lastWord.length > 0) {
-                    console.log("Word check:", {
-                        lastWord,
-                        suggestions: this.aiSuggestedWords,
-                        suggestionType: typeof this.aiSuggestedWords,
-                        suggestionArray: Array.isArray(this.aiSuggestedWords),
-                        suggestionLength: this.aiSuggestedWords ? this.aiSuggestedWords.length : 0
-                    });
-
                     // Convert to lowercase for case-insensitive comparison
                     const lastWordLower = lastWord.toLowerCase();
                     const isAIWord = this.aiSuggestedWords && 
                         this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
                     
-                    console.log("AI word check:", {
-                        isAIWord,
-                        lastWordLower,
-                        suggestions: this.aiSuggestedWords ? 
-                            this.aiSuggestedWords.map(w => w.toLowerCase()) : []
-                    });
-                    
                     if (isAIWord) {
-                        // AI suggested word - decrease score (worse)
-                        console.log("AI word used:", lastWord, "- decreasing score (worse)");
+                        console.log("AI word used:", lastWord);
                         this.updateFailsCounter(false);
                     } else {
-                        // Non-AI word - increase score (better)
-                        console.log("Non-AI word used:", lastWord, "- increasing score (better)");
+                        console.log("Non-AI word used:", lastWord);
                         this.wordCount++;
                         this.updateFailsCounter(true);
                     }
-                    this.userInput += " ";
-                } else {
-                    this.userInput += " ";
                 }
                 
+                this.userInput += " ";
                 this.updateCursor();
-                // Only show suggestions for the current word being typed
-                const currentWords = this.userInput.trim().split(" ");
-                const currentTypingWord = currentWords[currentWords.length - 1];
-                if (currentTypingWord && currentTypingWord.length > 0) {
-         
-         
-                    this.generateAISuggestions(currentTypingWord);
-                } else {
-                    this.aiSuggestedWords = [];
-                    this.showSuggestions([]);
-                    if (this.autocompleteText) {
-                        this.autocompleteText.setText('');
-                    }
-                }
+                this.generateAISuggestions(this.userInput);
             } else if (event.key === "Tab") {
                 event.preventDefault();
-                const autocomplete = this.generateAutocomplete();
-                if (autocomplete) {
-                    // Replace current word with full suggestion
-                    const words = this.userInput.trim().split(" ");
-                    const currentWord = words[words.length - 1] || "";
-                    // Convert to lowercase for case-insensitive comparison
-                    const currentWordLower = currentWord.toLowerCase();
-                    const fullWord = this.aiSuggestedWords.find(word => 
-                        word.toLowerCase().startsWith(currentWordLower)
-                    );
-                    if (fullWord) {
-                        // Remove current word and add the full word with space
-                        this.userInput = this.userInput.slice(0, -currentWord.length) + fullWord + ' ';
-                        // Since this is an AI word, decrease score (making it worse)
-                        console.log("AI word used (Tab):", fullWord, "- decreasing score (worse)");
-                        this.updateFailsCounter(false);
-                        this.updateCursor();
-                        // Only show suggestions for the current word being typed
-                        const words = this.userInput.trim().split(" ");
-                        const currentWord = words[words.length - 1];
-                        if (currentWord && currentWord.length > 0) {
-                            this.generateAISuggestions(currentWord);
-                        } else {
-                            this.aiSuggestedWords = [];
-                            this.showSuggestions([]);
-                            if (this.autocompleteText) {
-                                this.autocompleteText.setText('');
-                            }
+                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+                    // Get current word being typed
+                    const lastSpaceIndex = this.userInput.lastIndexOf(' ');
+                    const lastNewlineIndex = this.userInput.lastIndexOf('\n');
+                    const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+                    const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
+                    const previousContent = lastBreakIndex >= 0 ? this.userInput.slice(0, lastBreakIndex + 1) : '';
+
+                    // If at word boundary, use first suggestion
+                    if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
+                        const suggestion = this.aiSuggestedWords[0];
+                        if (suggestion) {
+                            this.userInput = this.userInput + suggestion + ' ';
+                            console.log("AI word used (Tab):", suggestion);
+                            this.updateFailsCounter(false);
+                            this.updateCursor();
+                            this.generateAISuggestions(this.userInput);
+                        }
+                    } else {
+                        // Find matching suggestion for current word
+                        const suggestion = this.aiSuggestedWords.find(word => 
+                            word.toLowerCase().startsWith(currentWord.toLowerCase())
+                        );
+                        
+                        if (suggestion) {
+                            this.userInput = previousContent + suggestion + ' ';
+                            console.log("AI word used (Tab):", suggestion);
+                            this.updateFailsCounter(false);
+                            this.updateCursor();
+                            this.generateAISuggestions(this.userInput);
                         }
                     }
                 }
             } else if (event.key.length === 1) {
                 this.userInput += event.key;
+                this.updateCursor();
             } else if (event.key === "Backspace") {
                 this.userInput = this.userInput.slice(0, -1);
-                this.aiSuggestedWords = [];
-                this.showSuggestions([]);
-                if (this.autocompleteText) {
-                    this.autocompleteText.setText('');
+                this.updateCursor();
+                
+                // Only generate new suggestions if we're at a word boundary
+                const lastSpaceIndex = this.userInput.lastIndexOf(' ');
+                const lastNewlineIndex = this.userInput.lastIndexOf('\n');
+                const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+                if (lastBreakIndex === this.userInput.length - 1) {
+                    this.generateAISuggestions(this.userInput);
                 }
             } else if (event.key === "Enter") {
                 const words = this.userInput.trim().split(" ");
                 const lastWord = words[words.length - 1];
                 
                 if (lastWord && lastWord.length > 0) {
-                    console.log("Word check:", {
-                        lastWord,
-                        suggestions: this.aiSuggestedWords,
-                        suggestionType: typeof this.aiSuggestedWords,
-                        suggestionArray: Array.isArray(this.aiSuggestedWords),
-                        suggestionLength: this.aiSuggestedWords ? this.aiSuggestedWords.length : 0
-                    });
-
                     // Convert to lowercase for case-insensitive comparison
                     const lastWordLower = lastWord.toLowerCase();
                     const isAIWord = this.aiSuggestedWords && 
                         this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
                     
-                    console.log("AI word check:", {
-                        isAIWord,
-                        lastWordLower,
-                        suggestions: this.aiSuggestedWords ? 
-                            this.aiSuggestedWords.map(w => w.toLowerCase()) : []
-                    });
-                    
                     if (isAIWord) {
-                        // AI suggested word - decrease score (worse)
-                        console.log("AI word used:", lastWord, "- decreasing score (worse)");
+                        console.log("AI word used:", lastWord);
                         this.updateFailsCounter(false);
                     } else {
-                        // Non-AI word - increase score (better)
-                        console.log("Non-AI word used:", lastWord, "- increasing score (better)");
+                        console.log("Non-AI word used:", lastWord);
                         this.wordCount++;
                         this.updateFailsCounter(true);
                     }
-                    this.userInput += "\n";
-                } else {
-                    this.userInput += "\n";
                 }
                 
+                this.userInput += "\n";
                 this.updateCursor();
-                // Only show suggestions for the current word being typed
-                const currentWords = this.userInput.trim().split(" ");
-                const currentTypingWord = currentWords[currentWords.length - 1];
-                if (currentTypingWord && currentTypingWord.length > 0) {
-                    this.generateAISuggestions(currentTypingWord);
-                } else {
-                    this.aiSuggestedWords = [];
-                    this.showSuggestions([]);
-                    if (this.autocompleteText) {
-                        this.autocompleteText.setText('');
-                    }
-                }
+                this.generateAISuggestions(this.userInput);
             }
             
             this.updateCursor();
@@ -570,7 +533,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 240
             ),
             Phaser.Geom.Rectangle.Contains
-        );
+        ).setDepth(20);
 
         this.inputTextBorder.on('pointerdown', (pointer) => {
             this.createInputBoxClickEffect(pointer.x, pointer.y);
@@ -726,9 +689,46 @@ export default class BaseGameScene extends Phaser.Scene {
         throw new Error('createBackgroundEffect must be implemented by child class');
     }
 
+
     updatePromptBasedOnLevel() {
-        throw new Error('updatePromptBasedOnLevel must be implemented by child class');
+        const promptLevels = {
+            1: [
+                "What do you want to have for dinner today?", 
+                "Describe what you see around you right now.",
+                "Who is your favorite musical artist and why? ",
+                "Describe your living room.",
+                "Describe the sky right now.",
+                ],
+            2: [
+                "Why do polar bears not eat penguins?",
+                "What is the difference between a chair and a stool?",
+                "What did young you want to do when you grew up?",
+                "Who was Thomas Edison?",
+                "What is an interest rate?",
+                ],
+            3: [
+                "Write a two-line poem that rhymes.",
+                "Write a haiku.",
+                "What do you think beauty is?",
+                "What makes something art or not?",
+                "Write a coherent sentence where three consecutive words start with the same letter.",
+                "Write a very short story about a woman and her pet lion."
+            ],
+        };
+    
+        // ✅ Select a Prompt Based on the Level
+        const selectedPrompts = promptLevels[this.levelValue] || promptLevels[1];
+        const randomIndex = Math.floor(Math.random() * selectedPrompts.length);
+        this.currentPrompt = selectedPrompts[randomIndex];
+    
+    
+        // ✅ Remove Old Prompt Text Before Updating
+        if (this.promptText) {
+            this.promptText.setText(this.currentPrompt);
+        }
+    
     }
+    
 
     // Common utility methods
     ensureProperLayering() {
@@ -737,8 +737,8 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.outputTextBox) this.outputTextBox.setDepth(5);
         if (this.outputText) this.outputText.setDepth(6);
         if (this.failsCounter) this.failsCounter.setDepth(7);
-        if (this.inputTextBorder) this.inputTextBorder.setDepth(8);
-        if (this.inputText) this.inputText.setDepth(9);
+        if (this.inputTextBorder) this.inputTextBorder.setDepth(20);
+        if (this.inputText) this.inputText.setDepth(25);
         if (this.doneButton) this.doneButton.setDepth(10);
         if (this.resetButton) this.resetButton.setDepth(10);
         if (this.feedbackButton) this.feedbackButton.setDepth(10);
@@ -751,7 +751,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         if (this.autocompleteText) {
             this.autocompleteText.setVisible(true);
-            this.autocompleteText.setDepth(26);
+            this.autocompleteText.setDepth(50);
         }
     }
 
@@ -763,40 +763,96 @@ export default class BaseGameScene extends Phaser.Scene {
             return null;
         }
 
-        // Get the first suggestion if no input
-        if (!this.userInput.trim() && this.aiSuggestedWords.length > 0) {
-            const suggestion = this.aiSuggestedWords[0];
-            if (this.autocompleteText) {
-                const metrics = this.inputText.getTextMetrics();
-                const cursorX = this.inputText.x + metrics.width;
-                const cursorY = this.inputText.y;
-                this.autocompleteText.setPosition(cursorX - 1, cursorY);
-                this.autocompleteText.setText(suggestion);
-                this.autocompleteText.setVisible(true);
-            }
-            return suggestion;
-        }
+        // Get the current word being typed
+        const lastSpaceIndex = this.userInput.lastIndexOf(' ');
+        const lastNewlineIndex = this.userInput.lastIndexOf('\n');
+        const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+        const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
 
-        // Find matching suggestion for current word
-        const words = this.userInput.trim().split(" ");
-        const currentWord = words[words.length - 1] || "";
-        
-        for (const suggestion of this.aiSuggestedWords) {
-            // Convert to lowercase for case-insensitive comparison
-            const currentWordLower = currentWord.toLowerCase();
-            if (suggestion.toLowerCase().startsWith(currentWordLower)) {
+        // Calculate line wrapping
+        const padding = 30;
+        const maxWidth = this.uiBoxWidth - (padding * 2);
+        const lines = [];
+        let currentLine = '';
+        const words = this.userInput.split(/(\s+)/);
+        let tempText = this.add.text(0, 0, '', this.inputText.style);
+
+        for (const word of words) {
+            tempText.setText(currentLine + word);
+            if (tempText.width > maxWidth && currentLine !== '') {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine += word;
+            }
+        }
+        lines.push(currentLine);
+        tempText.destroy();
+
+        // Calculate cursor position
+        const currentLineIndex = lines.length - 1;
+        const currentLineText = this.add.text(0, 0, lines[currentLineIndex], this.inputText.style);
+        const cursorX = this.inputText.x + currentLineText.width;
+        const rawFontSize = this.inputText.style?.fontSize ?? 22;
+        const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
+        const cursorY = this.inputText.y + (currentLineIndex * fontSize * 1.2);
+        currentLineText.destroy();
+
+
+        // If at word boundary, show first suggestion
+        if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
+            const suggestion = this.aiSuggestedWords[0];
+            if (suggestion && this.autocompleteText) {
+                // Check if suggestion would wrap
+                const suggestionText = this.add.text(0, 0, suggestion, this.inputText.style);
+                const wouldWrap = (cursorX - this.inputText.x + suggestionText.width) > maxWidth;
+                suggestionText.destroy();
+
+                if (wouldWrap) {
+                    // Move to next line
+                    this.autocompleteText.setPosition(
+                        this.inputText.x,
+                        cursorY + (this.inputText.style.fontSize * 1.2)
+                    );
+                } else {
+                    this.autocompleteText.setPosition(cursorX, cursorY);
+                }
+                
+                this.autocompleteText.setText(suggestion);
+                this.autocompleteText.setVisible(true).setAlpha(1);
+                return suggestion;
+            }
+        } else {
+            // Find matching suggestion for current word
+            const suggestion = this.aiSuggestedWords.find(word => 
+                word.toLowerCase().startsWith(currentWord.toLowerCase())
+            );
+
+            if (suggestion) {
                 const completion = suggestion.slice(currentWord.length);
                 if (this.autocompleteText) {
-                    const metrics = this.inputText.getTextMetrics();
-                    const cursorX = this.inputText.x + metrics.width;
-                    const cursorY = this.inputText.y;
-                    this.autocompleteText.setPosition(cursorX - 1, cursorY);
+                    // Check if completion would wrap
+                    const completionText = this.add.text(0, 0, completion, this.inputText.style);
+                    const wouldWrap = (cursorX - this.inputText.x + completionText.width) > maxWidth;
+                    completionText.destroy();
+
+                    if (wouldWrap) {
+                        // Move to next line
+                        this.autocompleteText.setPosition(
+                            this.inputText.x,
+                            cursorY + (this.inputText.style.fontSize * 1.2)
+                        );
+                    } else {
+                        this.autocompleteText.setPosition(cursorX, cursorY);
+                    }
+                    
                     this.autocompleteText.setText(completion);
-                    this.autocompleteText.setVisible(true);
+                    this.autocompleteText.setVisible(true).setAlpha(1);
                 }
                 return completion;
             }
         }
+
         
         if (this.autocompleteText) {
             this.autocompleteText.setText('');
@@ -856,20 +912,26 @@ export default class BaseGameScene extends Phaser.Scene {
         // White outline
         this.failsCounter.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
+
+        // Set depth and maintain text
+        this.failsCounter.setDepth(50);
+        if (this.failsText) {
+            this.failsText.setText(this.failsText.text).setDepth(51);
+        }
         
-        this.failsCounter.setPosition(scoreX, scoreY);
+        this.failsCounter.setPosition(scoreX, scoreY).setDepth(50);
         
         this.failsText = this.add.text(
             scoreX + scoreWidth / 2,
             scoreY + scoreHeight / 2,
-            `${Math.round(this.progressPercentage)}%`,
+            ' ',
             {
                 fontFamily: 'Nunito',
                 fontSize: '20px',
                 fill: '#ffffff',
                 align: 'center'
             }
-        ).setOrigin(0.5);
+        ).setOrigin(0.5).setDepth(51);
     }
 
     addButtonClickEffects() {
@@ -899,7 +961,7 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     createInputBoxClickEffect(x, y) {
-        const circle = this.add.circle(x, y, 5, 0xffffff, 0.5);
+        const circle = this.add.circle(x, y, 5, 0xffffff, 0.5).setDepth(15);
         
         this.tweens.add({
             targets: circle,
@@ -975,19 +1037,19 @@ export default class BaseGameScene extends Phaser.Scene {
         let newPercentage;
         if (success) {
             // Non-AI word - increase score (making it better)
-            newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
-            console.log("Non-AI word used, increasing score by", PROGRESS_BAR.DECREMENT);
+            newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+
         } else {
             // AI word - decrease score (making it worse)
-            newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
-            console.log("AI word used, decreasing score by", PROGRESS_BAR.INCREMENT);
+            newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
+
         }
         
         console.log(`Score update: ${this.progressPercentage} -> ${newPercentage}`);
         this.progressPercentage = newPercentage;
         
         if (this.failsText) {
-            this.failsText.setText(`${Math.round(this.progressPercentage)}%`);
+            this.failsText.setText(` `);
         }
         
         this.updateProgressFill();
@@ -1117,18 +1179,41 @@ export default class BaseGameScene extends Phaser.Scene {
             textBoxY + padding
         );
         
-        // Calculate text metrics before any changes
-        const metrics = this.inputText.getTextMetrics();
-        const cursorX = this.inputText.x + metrics.width;
-        
-        // Update text with cursor
-        const displayText = this.userInput + (this.cursorVisible ? "_" : " ");
+        // Calculate line wrapping
+        const maxWidth = this.uiBoxWidth - (padding * 2);
+        const lines = [];
+        let currentLine = '';
+        const words = this.userInput.split(/(\s+)/);
+        let tempText = this.add.text(0, 0, '', this.inputText.style);
+
+        for (const word of words) {
+            tempText.setText(currentLine + word);
+            if (tempText.width > maxWidth && currentLine !== '') {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine += word;
+            }
+        }
+        lines.push(currentLine);
+        tempText.destroy();
+
+        // Join lines with newlines and add cursor
+        const displayText = lines.join('\n') + (this.cursorVisible ? "_" : " ");
         this.inputText.setText(displayText);
         
-        // Update autocomplete at exact cursor position
+        // Calculate cursor position
+        const currentLineIndex = lines.length - 1;
+        const currentLineText = this.add.text(0, 0, lines[currentLineIndex], this.inputText.style);
+        const cursorX = this.inputText.x + currentLineText.width;
+        const cursorY = this.inputText.y + (currentLineIndex * this.inputText.style.fontSize * 1.2);
+        currentLineText.destroy();
+        
+        // Update autocomplete at cursor position
         if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-            this.autocompleteText.setPosition(cursorX - 1, this.inputText.y);
             this.generateAutocomplete();
+        } else if (this.autocompleteText) {
+            this.autocompleteText.setText('');
         }
     }
 
