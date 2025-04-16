@@ -42,20 +42,37 @@ export default class GameSceneEasy extends BaseGameScene {
         const buttonCenterY = inputBoxY + inputBoxHeight / 2 + buttonSpacing;
         const padding = 20;
 
-        // Create buttons
-        this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
-        this.resetButton = this.createButton("RESET", () => this.onResetButtonClick(), buttonCenterX - 120, buttonCenterY);
+        // Create buttons with tooltips
+        this.doneButton = this.createButton(
+            "DONE", 
+            () => this.onDoneButtonClick(), 
+            buttonCenterX, 
+            buttonCenterY,
+            'Submit your text for evaluation'
+        );
+        
+        this.resetButton = this.createButton(
+            "RESET", 
+            () => this.onResetButtonClick(), 
+            buttonCenterX - 120, 
+            buttonCenterY,
+            'Clear text and start over'
+        );
+        
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
             this.cameras.main.width - buttonWidth / 2 - padding, 
-            this.cameras.main.height - buttonHeight / 2 - padding
+            this.cameras.main.height - buttonHeight / 2 - padding,
+            'Share your feedback'
         );
+        
         this.hardButton = this.createButton(
             "HARD", 
             () => this.onHardModeClick(), 
             buttonWidth / 2 + padding, 
-            this.cameras.main.height - buttonHeight / 2 - padding
+            this.cameras.main.height - buttonHeight / 2 - padding,
+            'Switch to Hard mode: No AI suggestions'
         );
 
         this.createFailsCounter();

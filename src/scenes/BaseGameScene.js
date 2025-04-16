@@ -6,7 +6,6 @@ import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {
         super(config);
-        this.llmEngine = null
         this.userInput = '';
         this.inputText = null; 
         this.levelValue = 1;
@@ -19,20 +18,16 @@ export default class BaseGameScene extends Phaser.Scene {
         this.progressPercentage = PROGRESS_BAR.INITIAL;
         this.wordCount = 0; // Track successful words entered
         this.uiBoxWidth = null; // Will be set in createInputTextBox
+        this.tooltips = []; // Array to store active tooltips
     }
 
     update() {
-        if (!this.llmEngine) {
-            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
-            this.llmEngine = this.registry.get('llmEngine');
     
-            if (!this.llmEngine) {
-                console.warn("LLM Engine missing entirely. Returning to Preloader...");
-                this.scene.start('PreloaderScene');
-            } else {
-                console.log("Successfully recovered LLM Engine from registry.");
-            }
-        }
+        if (!this.registry.get('llmEngine')) {
+            console.warn("LLM Engine missing entirely. Returning to Preloader...");
+            this.scene.start('PreloaderScene');
+        } 
+        
     }
 
     shutdown() {
@@ -43,12 +38,21 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     // Common UI methods
-    createButton(label, callback, centerX, centerY) {
+    createButton(label, callback, centerX, centerY, tooltipText) {
         if (!this.inputTextBorder) {
             console.warn("Input text border not found! Skipping button creation.");
             return;
         }
-        return ButtonFactory.createButton(this, label, callback, centerX, centerY);
+        const button = ButtonFactory.createButton(this, label, callback, centerX, centerY);
+        
+        if (tooltipText) {
+            // Add hover listeners for tooltip
+            button.setInteractive()
+                .on('pointerover', () => this.showTooltip(tooltipText, button.x, button.y - button.height))
+                .on('pointerout', () => this.hideTooltips());
+        }
+        
+        return button;
     }
 
     clearInputTextBox() {
@@ -188,24 +192,23 @@ export default class BaseGameScene extends Phaser.Scene {
         const lastNewlineIndex = userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
 
-        console.log("checking llm: ", this.llmEngine);
-        if (!this.llmEngine) {
-            console.warn("LLM Engine lost from scene. Attempting recovery from registry...");
-            this.llmEngine = this.registry.get('llmEngine');
-    
-            if (!this.llmEngine) {
-                console.warn("LLM Engine missing entirely. Returning to Preloader...");
-                this.scene.start('PreloaderScene');
-                return;
-            }
+        console.log("checking llm: ", this.registry.get('llmEngine'));
+        if (!this.registry.get('llmEngine')) {
+
+            console.warn("LLM Engine missing entirely. Returning to Preloader...");
+            this.scene.start('PreloaderScene');
+            return;
+            
         }
     
 
 
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = context.trim();
+        const llmEngine = this.registry.get('llmEngine')
+        console.log("llmengine: ", llmEngine);
         try {
-            const reply = await this.llmEngine.completions.create({
+            const reply = await llmEngine.completions.create({
                 prompt: trimmedcontext,
                 echo: false,
                 n: 1,
@@ -239,7 +242,7 @@ export default class BaseGameScene extends Phaser.Scene {
             console.log("Current input:", this.userInput);
             console.log("Current suggestions:", this.aiSuggestedWords);
         } catch (error) {
-            console.log("in error, llm check: ", this.llmEngine);
+            console.log("in error, llm check: ", this.registry.get('llmEngine'));
             console.error("Error generating suggestions:", error);
             this.aiSuggestedWords = [];
             this.showSuggestions([]);
@@ -797,6 +800,9 @@ export default class BaseGameScene extends Phaser.Scene {
         const rawFontSize = this.inputText.style?.fontSize ?? 22;
         const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
         const cursorY = this.inputText.y + (currentLineIndex * fontSize * 1.2);
+        const baselineAdjustment = fontSize * 0.1; // Try 0.1–0.2 based on visual test
+        const adjustedCursorY = cursorY + baselineAdjustment;
+
         currentLineText.destroy();
 
 
@@ -809,14 +815,18 @@ export default class BaseGameScene extends Phaser.Scene {
                 const wouldWrap = (cursorX - this.inputText.x + suggestionText.width) > maxWidth;
                 suggestionText.destroy();
 
+                const rawFontSize = this.inputText.style?.fontSize ?? 22;
+                const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
+                const yOffset = fontSize * 1.2 + 2; // +2 for visual alignment tweak
+
                 if (wouldWrap) {
-                    // Move to next line
+                    // Move to next line, properly calculated
                     this.autocompleteText.setPosition(
                         this.inputText.x,
-                        cursorY + (this.inputText.style.fontSize * 1.2)
+                        cursorY + yOffset
                     );
                 } else {
-                    this.autocompleteText.setPosition(cursorX, cursorY);
+                    this.autocompleteText.setPosition(cursorX, adjustedCursorY);
                 }
                 
                 this.autocompleteText.setText(suggestion);
@@ -837,14 +847,18 @@ export default class BaseGameScene extends Phaser.Scene {
                     const wouldWrap = (cursorX - this.inputText.x + completionText.width) > maxWidth;
                     completionText.destroy();
 
+                    const rawFontSize = this.inputText.style?.fontSize ?? 22;
+                    const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
+                    const yOffset = fontSize * 1.2 + 2; // +2 for visual alignment tweak
+
                     if (wouldWrap) {
-                        // Move to next line
+                        // Move to next line, properly calculated
                         this.autocompleteText.setPosition(
                             this.inputText.x,
-                            cursorY + (this.inputText.style.fontSize * 1.2)
+                            cursorY + yOffset
                         );
                     } else {
-                        this.autocompleteText.setPosition(cursorX, cursorY);
+                        this.autocompleteText.setPosition(cursorX, adjustedCursorY);
                     }
                     
                     this.autocompleteText.setText(completion);
@@ -957,20 +971,82 @@ export default class BaseGameScene extends Phaser.Scene {
         ).setOrigin(0.5).setDepth(51);
     }
 
-    addButtonClickEffects() {
-        const buttons = [this.doneButton, this.resetButton, this.feedbackButton];
-        if (this.hardButton) buttons.push(this.hardButton);
-        if (this.easyButton) buttons.push(this.easyButton);
+    showTooltip(text, x, y) {
+        // Hide any existing tooltips
+        this.hideTooltips();
         
-        buttons.forEach(button => {
+        // Create tooltip background
+        const padding = 10;
+        const tooltipText = this.add.text(0, 0, text, {
+            fontFamily: 'Nunito',
+            fontSize: '16px',
+            color: '#ffffff',
+            align: 'center'
+        });
+        
+        const width = tooltipText.width + padding * 2;
+        const height = tooltipText.height + padding * 2;
+        
+        const background = this.add.graphics();
+        background.fillStyle(0x000000, 0.8);
+        background.fillRoundedRect(0, 0, width, height, 8);
+        background.lineStyle(1, 0xffffff, 0.3);
+        background.strokeRoundedRect(0, 0, width, height, 8);
+        
+        // Create container for tooltip
+        const container = this.add.container(x - width/2, y - height - 5, [background, tooltipText]);
+        tooltipText.setPosition(padding, padding);
+        
+        // Add to active tooltips
+        this.tooltips.push(container);
+        
+        // Fade in effect
+        container.setAlpha(0);
+        this.tweens.add({
+            targets: container,
+            alpha: 1,
+            duration: 200,
+            ease: 'Quad.easeOut'
+        });
+        
+        container.setDepth(1000);
+    }
+    
+    hideTooltips() {
+        this.tooltips.forEach(tooltip => {
+            this.tweens.add({
+                targets: tooltip,
+                alpha: 0,
+                duration: 200,
+                ease: 'Quad.easeOut',
+                onComplete: () => tooltip.destroy()
+            });
+        });
+        this.tooltips = [];
+    }
+
+    addButtonClickEffects() {
+        const buttons = [
+            { button: this.doneButton, tooltip: 'Submit your text for evaluation' },
+            { button: this.resetButton, tooltip: 'Clear text and start over' },
+            { button: this.feedbackButton, tooltip: 'Share your feedback' },
+            { button: this.hardButton, tooltip: 'Switch to Hard mode: No AI suggestions' },
+            { button: this.easyButton, tooltip: 'Switch to Easy mode: AI suggestions allowed' }
+        ];
+        
+        buttons.forEach(({ button, tooltip }) => {
             if (!button) return;
             
             button.on('pointerover', () => {
                 button.setScale(1.1);
+                if (tooltip) {
+                    this.showTooltip(tooltip, button.x, button.y - button.height/2);
+                }
             });
             
             button.on('pointerout', () => {
                 button.setScale(1);
+                this.hideTooltips();
             });
             
             button.on('pointerdown', () => {
@@ -1326,6 +1402,9 @@ export default class BaseGameScene extends Phaser.Scene {
         const rawFontSize = this.inputText.style?.fontSize ?? 22;
         const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
         const cursorY = this.inputText.y + (currentLineIndex * fontSize * 1.2);
+        const baselineAdjustment = fontSize * 0.1; // Try 0.1–0.2 based on visual test
+        const adjustedCursorY = cursorY + baselineAdjustment;
+
         currentLineText.destroy();
         
         // Update autocomplete at cursor position
@@ -1341,6 +1420,5 @@ export default class BaseGameScene extends Phaser.Scene {
         this.promptText = null;
         this.outputTextBox = null;
         this.outputText = null;
-        this.llmEngine = this.registry.get('llmEngine');
     }
 }

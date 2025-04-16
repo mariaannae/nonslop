@@ -5,7 +5,61 @@ import ButtonFactory from "../utils/ButtonFactory.js";
 export default class InstructionScene extends Phaser.Scene {
     constructor() {
         super({ key: 'InstructionScene' });
-        //this.userInput = '';
+        this.tooltips = []; // Array to store active tooltips
+    }
+
+    showTooltip(text, x, y) {
+        // Hide any existing tooltips
+        this.hideTooltips();
+        
+        // Create tooltip background
+        const padding = 10;
+        const tooltipText = this.add.text(0, 0, text, {
+            fontFamily: 'Nunito',
+            fontSize: '16px',
+            color: '#ffffff',
+            align: 'center'
+        });
+        
+        const width = tooltipText.width + padding * 2;
+        const height = tooltipText.height + padding * 2;
+        
+        const background = this.add.graphics();
+        background.fillStyle(0x000000, 0.8);
+        background.fillRoundedRect(0, 0, width, height, 8);
+        background.lineStyle(1, 0xffffff, 0.3);
+        background.strokeRoundedRect(0, 0, width, height, 8);
+        
+        // Create container for tooltip
+        const container = this.add.container(x - width/2, y - height - 5, [background, tooltipText]);
+        tooltipText.setPosition(padding, padding);
+        
+        // Add to active tooltips
+        this.tooltips.push(container);
+        
+        // Fade in effect
+        container.setAlpha(0);
+        this.tweens.add({
+            targets: container,
+            alpha: 1,
+            duration: 200,
+            ease: 'Quad.easeOut'
+        });
+        
+        container.setDepth(1000);
+    }
+    
+    hideTooltips() {
+        this.tooltips.forEach(tooltip => {
+            this.tweens.add({
+                targets: tooltip,
+                alpha: 0,
+                duration: 200,
+                ease: 'Quad.easeOut',
+                onComplete: () => tooltip.destroy()
+            });
+        });
+        this.tooltips = [];
     }
     
     createBackgroundEffect() {
@@ -184,10 +238,21 @@ export default class InstructionScene extends Phaser.Scene {
         const buttonCenterX = boxX + this.uiBoxWidth - buttonPaddingX - buttonWidth / 2;
         const buttonCenterY = boxY + boxHeight + buttonPaddingY + buttonHeight / 2;
 
-        // Create the button using ButtonFactory
+        // Create the button using ButtonFactory with tooltip
         this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
             depth: 102
         });
+
+        // Add tooltip functionality
+        this.doneButton.setInteractive()
+            .on('pointerover', () => {
+                this.showTooltip('Continue to difficulty selection', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
+                this.doneButton.setScale(1.1);
+            })
+            .on('pointerout', () => {
+                this.hideTooltips();
+                this.doneButton.setScale(1);
+            });
 
         this.addButtonClickEffects();
         this.inputActive = false;

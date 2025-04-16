@@ -44,20 +44,37 @@ export default class GameSceneHard extends BaseGameScene {
         const buttonCenterY = inputBoxY + inputBoxHeight / 2 + buttonSpacing;
         const padding = 20;
 
-        // Create buttons
-        this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
-        this.resetButton = this.createButton("RESET", () => this.onResetButtonClick(), buttonCenterX - 120, buttonCenterY);
+        // Create buttons with tooltips
+        this.doneButton = this.createButton(
+            "DONE", 
+            () => this.onDoneButtonClick(), 
+            buttonCenterX, 
+            buttonCenterY,
+            'Submit your text for evaluation'
+        );
+        
+        this.resetButton = this.createButton(
+            "RESET", 
+            () => this.onResetButtonClick(), 
+            buttonCenterX - 120, 
+            buttonCenterY,
+            'Clear text and start over'
+        );
+        
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
             this.cameras.main.width - buttonWidth / 2 - padding, 
-            this.cameras.main.height - buttonHeight / 2 - padding
+            this.cameras.main.height - buttonHeight / 2 - padding,
+            'Share your feedback'
         );
+        
         this.easyButton = this.createButton(
             "EASY", 
             () => this.onEasyModeClick(), 
             buttonWidth / 2 + padding, 
-            this.cameras.main.height - buttonHeight / 2 - padding
+            this.cameras.main.height - buttonHeight / 2 - padding,
+            'Switch to Easy mode: AI suggestions allowed'
         );
 
         this.createFailsCounter();
@@ -125,21 +142,14 @@ export default class GameSceneHard extends BaseGameScene {
             }
         };
     }
-
     getAutocompleteTextStyle() {
         return {
             fontFamily: "Nunito",
             fontSize: "22px",
             fill: "#ff0000",
             align: "left",
-            alpha: 1,
-            shadow: {
-                offsetX: 1,
-                offsetY: 1,
-                color: '#000',
-                blur: 1,
-                fill: true
-            }
+            alpha: 0.7, // Make slightly transparent
+            wordWrap: { width: this.uiBoxWidth - 60 } // Add word wrap
         };
     }
 

@@ -17,6 +17,61 @@ export default class Preloader extends Phaser.Scene {
         this.stopWords = [];
         this.outputTextBox = null;
         this.errorText = null;
+        this.tooltips = []; // Array to store active tooltips
+    }
+
+    showTooltip(text, x, y) {
+        // Hide any existing tooltips
+        this.hideTooltips();
+        
+        // Create tooltip background
+        const padding = 10;
+        const tooltipText = this.add.text(0, 0, text, {
+            fontFamily: 'Nunito',
+            fontSize: '16px',
+            color: '#ffffff',
+            align: 'center'
+        });
+        
+        const width = tooltipText.width + padding * 2;
+        const height = tooltipText.height + padding * 2;
+        
+        const background = this.add.graphics();
+        background.fillStyle(0x000000, 0.8);
+        background.fillRoundedRect(0, 0, width, height, 8);
+        background.lineStyle(1, 0xffffff, 0.3);
+        background.strokeRoundedRect(0, 0, width, height, 8);
+        
+        // Create container for tooltip
+        const container = this.add.container(x - width/2, y - height - 5, [background, tooltipText]);
+        tooltipText.setPosition(padding, padding);
+        
+        // Add to active tooltips
+        this.tooltips.push(container);
+        
+        // Fade in effect
+        container.setAlpha(0);
+        this.tweens.add({
+            targets: container,
+            alpha: 1,
+            duration: 200,
+            ease: 'Quad.easeOut'
+        });
+        
+        container.setDepth(1000);
+    }
+    
+    hideTooltips() {
+        this.tooltips.forEach(tooltip => {
+            this.tweens.add({
+                targets: tooltip,
+                alpha: 0,
+                duration: 200,
+                ease: 'Quad.easeOut',
+                onComplete: () => tooltip.destroy()
+            });
+        });
+        this.tooltips = [];
     }
 
     init() {
@@ -500,6 +555,17 @@ export default class Preloader extends Phaser.Scene {
             
             this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
             this.doneButton.setDepth(102);
+
+            // Add tooltip functionality
+            this.doneButton.setInteractive()
+                .on('pointerover', () => {
+                    this.showTooltip('Continue to instructions', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
+                    this.doneButton.setScale(1.1);
+                })
+                .on('pointerout', () => {
+                    this.hideTooltips();
+                    this.doneButton.setScale(1);
+                });
 
             this.addButtonClickEffects();
         }
