@@ -37,6 +37,76 @@ export default class BaseGameScene extends Phaser.Scene {
         super.shutdown();
     }
 
+    addScrollIndicator() {
+        // Remove any existing indicator
+        if (this.scrollIndicator) {
+            this.scrollIndicator.destroy();
+        }
+        
+        // Create scroll indicator
+        this.scrollIndicator = this.add.text(
+            this.cameras.main.centerX,
+            this.outputBoxInfo.y + this.outputBoxInfo.height - 15,
+            "▼ Scroll for more ▼",
+            {
+                fontFamily: 'Nunito',
+                fontSize: '16px',
+                fill: '#ffffff',
+                backgroundColor: '#4b237a',
+                padding: { x: 8, y: 4 }
+            }
+        ).setOrigin(0.5, 0.5)
+         .setDepth(11)
+         .setAlpha(0.8);
+        
+        // Add animation to make it more noticeable
+        this.tweens.add({
+            targets: this.scrollIndicator,
+            alpha: { from: 0.8, to: 1 },
+            y: '+=5',
+            duration: 800,
+            yoyo: true,
+            repeat: -1
+        });
+    }
+
+
+
+    addScrollEvent() {
+        // Remove any existing event
+        if (this.scrollWheelEvent) {
+            this.input.off('wheel', this.scrollWheelEvent);
+        }
+        
+        // Define the scroll event handler
+        this.scrollWheelEvent = (pointer, gameObjects, deltaX, deltaY) => {
+            // Only scroll if we have enough content to scroll
+            if (!this.outputText || !this.outputBoxInfo) return;
+            
+            const textHeight = this.outputText.height;
+            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
+            
+            if (textHeight <= boxHeight) return;
+            
+            // Calculate min and max scroll positions
+            const minY = this.outputBoxInfo.y + this.outputBoxInfo.padding;
+            const maxY = minY - (textHeight - boxHeight);
+            
+            // Apply scroll movement (negative deltaY means scroll down)
+            this.outputTextContainer.y -= deltaY * 0.5; // adjust speed
+            
+            // Clamp position
+            this.outputTextContainer.y = Phaser.Math.Clamp(
+                this.outputTextContainer.y,
+                maxY,
+                minY
+            );
+        };
+        
+        // Add the event listener
+        this.input.on('wheel', this.scrollWheelEvent);
+    }
+
     // Common UI methods
     createButton(label, callback, centerX, centerY, tooltipText) {
         if (!this.inputTextBorder) {
@@ -205,10 +275,9 @@ export default class BaseGameScene extends Phaser.Scene {
 
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = context.trim();
-        const llmEngine = this.registry.get('llmEngine')
-        console.log("llmengine: ", llmEngine);
+   
         try {
-            const reply = await llmEngine.completions.create({
+            const reply = await this.registry.get('llmEngine').completions.create({
                 prompt: trimmedcontext,
                 echo: false,
                 n: 1,
@@ -817,17 +886,19 @@ export default class BaseGameScene extends Phaser.Scene {
 
                 const rawFontSize = this.inputText.style?.fontSize ?? 22;
                 const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
-                const yOffset = fontSize * 1.2 + 2; // +2 for visual alignment tweak
 
+
+                const lineHeight = fontSize * 1.2;
+                const correctedY = this.inputText.y + ((currentLineIndex + 1) * lineHeight); // next line
                 if (wouldWrap) {
-                    // Move to next line, properly calculated
                     this.autocompleteText.setPosition(
                         this.inputText.x,
-                        cursorY + yOffset
+                        correctedY
                     );
                 } else {
-                    this.autocompleteText.setPosition(cursorX, adjustedCursorY);
+                    this.autocompleteText.setPosition(cursorX, this.inputText.y + currentLineIndex * lineHeight);
                 }
+
                 
                 this.autocompleteText.setText(suggestion);
                 this.autocompleteText.setVisible(true).setAlpha(1);
@@ -849,17 +920,17 @@ export default class BaseGameScene extends Phaser.Scene {
 
                     const rawFontSize = this.inputText.style?.fontSize ?? 22;
                     const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
-                    const yOffset = fontSize * 1.2 + 2; // +2 for visual alignment tweak
-
+                    const lineHeight = fontSize * 1.2;
+                    const correctedY = this.inputText.y + ((currentLineIndex + 1) * lineHeight); // next line
                     if (wouldWrap) {
-                        // Move to next line, properly calculated
                         this.autocompleteText.setPosition(
                             this.inputText.x,
-                            cursorY + yOffset
+                            correctedY
                         );
                     } else {
-                        this.autocompleteText.setPosition(cursorX, adjustedCursorY);
+                        this.autocompleteText.setPosition(cursorX, this.inputText.y + currentLineIndex * lineHeight);
                     }
+                    
                     
                     this.autocompleteText.setText(completion);
                     this.autocompleteText.setVisible(true).setAlpha(1);
@@ -1072,58 +1143,96 @@ export default class BaseGameScene extends Phaser.Scene {
         });
     }
 
-    createOutputTextBox() {
-        const padding = 20;
-        const textBoxWidth = this.cameras.main.width * (5 / 6);
-        const textBoxHeight = 120;
-        const textBoxY = this.cameras.main.height - textBoxHeight - padding - 80; // Move up to avoid button overlap
+    createOutputTextBox() {const outputBoxWidth = this.uiBoxWidth;
+            const lineHeight = 24;
+            const numLines = 4;
+            const padding = 30;
+            const outputBoxHeight = numLines * lineHeight + padding * 2;
+            
+            // Position calculation
+            let outputBoxY = this.doneButton 
+                ? this.doneButton.y + this.doneButton.displayHeight / 2 + 40 + outputBoxHeight / 2
+                : this.cameras.main.height - outputBoxHeight - 40;
         
-        if (this.outputTextBox) {
-            this.outputTextBox.clear();
-        } else {
+            // Create new output box with rounded corners
+            const boxStyle = this.getPromptBoxStyle();
             this.outputTextBox = this.add.graphics();
-        }
-        
-        if (this.outputText) {
-            this.outputText.destroy();
-        }
-        
-        const boxStyle = this.getPromptBoxStyle();
-        this.outputTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-        this.outputTextBox.fillRoundedRect(
-            this.cameras.main.centerX - textBoxWidth / 2,
-            textBoxY,
-            textBoxWidth,
-            textBoxHeight,
-            boxStyle.cornerRadius
-        );
-
-        if (boxStyle.hasOutline) {
-            this.outputTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-            this.outputTextBox.strokeRoundedRect(
-                this.cameras.main.centerX - textBoxWidth / 2,
-                textBoxY,
-                textBoxWidth,
-                textBoxHeight,
+            this.outputTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+            this.outputTextBox.fillRoundedRect(
+                this.cameras.main.centerX - outputBoxWidth / 2,
+                outputBoxY - outputBoxHeight / 2,
+                outputBoxWidth,
+                outputBoxHeight,
                 boxStyle.cornerRadius
             );
+            this.outputTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.outputTextBox.strokeRoundedRect(
+                this.cameras.main.centerX - outputBoxWidth / 2,
+                outputBoxY - outputBoxHeight / 2,
+                outputBoxWidth,
+                outputBoxHeight,
+                boxStyle.cornerRadius
+            );
+            this.add.existing(this.outputTextBox);
+            
+            // Create a container for scrollable content
+            this.outputTextContainer = this.add.container(
+                this.cameras.main.centerX - outputBoxWidth / 2 + padding,
+                outputBoxY - outputBoxHeight / 2 + padding
+            );
+            
+            // Create text inside container
+            this.outputText = this.add.text(
+                0, 0,
+                "Press 'DONE' to see how you did.",
+                {
+                    fontFamily: 'Nunito',
+                    fontSize: `${lineHeight}px`,
+                    fill: '#ffffff',
+                    wordWrap: { width: outputBoxWidth - padding * 2 },
+                    align: 'left',
+                    lineSpacing: 5
+                }
+            ).setOrigin(0, 0);
+            
+            // Add text to container
+            this.outputTextContainer.add(this.outputText);
+            
+            // Create mask for clipping text that goes outside the box
+            const maskGraphics = this.make.graphics();
+            maskGraphics.fillRect(
+                this.cameras.main.centerX - outputBoxWidth / 2 + 5,
+                outputBoxY - outputBoxHeight / 2 + 5,
+                outputBoxWidth - 10,
+                outputBoxHeight - 10
+            );
+            this.scrollMask = maskGraphics.createGeometryMask();
+            this.outputTextContainer.setMask(this.scrollMask);
+            
+            // Store reference to box position and dimensions for scrolling
+            this.outputBoxInfo = {
+                x: this.cameras.main.centerX - outputBoxWidth / 2,
+                y: outputBoxY - outputBoxHeight / 2,
+                width: outputBoxWidth,
+                height: outputBoxHeight,
+                padding: padding
+            };
+            
+            // Set depth
+            this.outputTextBox.setDepth(9);
+            this.outputTextContainer.setDepth(10);
+            
+            // Set initial state
+            this.tweens.add({
+                targets: [this.outputTextBox, this.outputTextContainer],
+                alpha: 1,
+                duration: 500,
+                ease: 'Sine.InOut'
+            });
+            
+            // Add wheel event for scrolling (only active when needed)
+            this.addScrollEvent();
         }
-        
-        const style = {
-            ...this.getPromptTextStyle(),
-            wordWrap: { width: textBoxWidth - padding * 2 }
-        };
-        
-        this.outputText = this.add.text(
-            this.cameras.main.centerX,
-            textBoxY + textBoxHeight / 2,
-            "Press 'DONE' to see how you did.",
-            style
-        ).setOrigin(0.5, 0.5);
-        
-        this.outputTextBox.setAlpha(boxStyle.fillAlpha);
-        this.outputText.setAlpha(1);
-    }
 
     updateFailsCounter(success) {
         const oldPercentage = this.progressPercentage;
@@ -1250,6 +1359,26 @@ export default class BaseGameScene extends Phaser.Scene {
     updateOutputText(text) {
         if (!this.outputText) return;
         this.outputText.setText(text);
+
+        // Calculate if scrolling is needed
+        const textHeight = this.outputText.height;
+        const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
+        const needsScrolling = textHeight > boxHeight;
+        
+        // Make all elements visible
+        this.outputTextBox.setAlpha(1);
+        this.outputTextContainer.setAlpha(1);
+        
+        // Show scroll indicator if needed
+        if (needsScrolling) {
+            this.addScrollIndicator();
+        } else if (this.scrollIndicator) {
+            this.scrollIndicator.destroy();
+            this.scrollIndicator = null;
+        }
+        
+        // Reset scroll position
+        this.outputTextContainer.y = this.outputBoxInfo.y + this.outputBoxInfo.padding;
     }
 
     updateProgressFill() {
