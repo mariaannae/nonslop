@@ -877,7 +877,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const scoreHeight = buttonHeight;
         
         // Position at bottom left of input box
-        const inputBoxY = this.cameras.main.centerY - 240 / 2; // Input box Y position
+        const inputBoxY = this.cameras.main.centerY - 240 / 2;
         const inputBoxHeight = 240;
         const padding = 20;
         const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2;
@@ -888,23 +888,22 @@ export default class BaseGameScene extends Phaser.Scene {
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
         
         // Progress fill with rounded corners
-        // 0% = red (bad), 50% = yellow, 100% = green (good)
         let color;
         if (this.progressPercentage === 50) {
             color = PROGRESS_BAR.YELLOW;
         } else if (this.progressPercentage < 50) {
-            // Interpolate between red and yellow
+            // Interpolate between green and yellow
             const t = this.progressPercentage / 50;
-            const r = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (PROGRESS_BAR.RED & 0xFF)) + (t * (PROGRESS_BAR.YELLOW & 0xFF)));
+            const r = Math.round(((1 - t) * ((PROGRESS_BAR.GREEN >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)));
+            const g = Math.round(((1 - t) * ((PROGRESS_BAR.GREEN >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)));
+            const b = Math.round(((1 - t) * (PROGRESS_BAR.GREEN & 0xFF)) + (t * (PROGRESS_BAR.YELLOW & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         } else {
-            // Interpolate between yellow and green
+            // Interpolate between yellow and red
             const t = (this.progressPercentage - 50) / 50;
-            const r = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (PROGRESS_BAR.YELLOW & 0xFF)) + (t * (PROGRESS_BAR.GREEN & 0xFF)));
+            const r = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.RED >> 16) & 0xFF)));
+            const g = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.RED >> 8) & 0xFF)));
+            const b = Math.round(((1 - t) * (PROGRESS_BAR.YELLOW & 0xFF)) + (t * (PROGRESS_BAR.RED & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         }
         this.failsCounter.fillStyle(color, 1);
@@ -914,13 +913,36 @@ export default class BaseGameScene extends Phaser.Scene {
         this.failsCounter.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
 
-        // Set depth and maintain text
-        this.failsCounter.setDepth(50);
-        if (this.failsText) {
-            this.failsText.setText(this.failsText.text).setDepth(51);
-        }
         
+        // Set depth and position
         this.failsCounter.setPosition(scoreX, scoreY).setDepth(50);
+        
+
+        // Create celebration emitters if they don't exist
+        if (!this.celebrationEmitters) {
+            this.celebrationEmitters = {
+                success: this.add.particles(0, 0, 'ball', {
+                    lifespan: 1000,
+                    speed: { min: 200, max: 400 },
+                    scale: { start: 0.2, end: 0 },
+                    emitting: false,
+                    blendMode: 'ADD',
+                    tint: PROGRESS_BAR.GREEN
+                }),
+                needsWork: this.add.particles(0, 0, 'ball', {
+                    lifespan: 1000,
+                    speed: { min: 200, max: 400 },
+                    scale: { start: 0.2, end: 0 },
+                    emitting: false,
+                    blendMode: 'ADD',
+                    tint: PROGRESS_BAR.RED
+                })
+            };
+        }
+
+        // Set emitter positions
+        this.celebrationEmitters.success.setPosition(scoreX, scoreY + scoreHeight / 2);
+        this.celebrationEmitters.needsWork.setPosition(scoreX + scoreWidth, scoreY + scoreHeight / 2);
         
         this.failsText = this.add.text(
             scoreX + scoreWidth / 2,
@@ -1028,26 +1050,26 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     updateFailsCounter(success) {
-        // success = true means it was a non-AI word, so increment (better)
-        // success = false means it was an AI word, so decrement (worse)
-        console.log("updateFailsCounter called with success =", success);
-        console.log("Current progressPercentage =", this.progressPercentage);
-        console.log("PROGRESS_BAR.DECREMENT =", PROGRESS_BAR.DECREMENT);
-        console.log("PROGRESS_BAR.INCREMENT =", PROGRESS_BAR.INCREMENT);
-        
+        const oldPercentage = this.progressPercentage;
         let newPercentage;
+        
         if (success) {
-            // Non-AI word 
+            // Non-AI word (better)
             newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
-
         } else {
-            // AI word 
+            // AI word (worse)
             newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
-            
-
         }
         
-        console.log(`Score update: ${this.progressPercentage} -> ${newPercentage}`);
+        // Check for milestone achievements
+        if (oldPercentage !== 0 && newPercentage === 0) {
+            // Reached perfect score
+            this.celebrateSuccess();
+        } else if (oldPercentage !== 100 && newPercentage === 100) {
+            // Reached needs work
+            this.celebrateNeedsWork();
+        }
+        
         this.progressPercentage = newPercentage;
         
         if (this.failsText) {
@@ -1055,6 +1077,98 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         this.updateProgressFill();
+    }
+
+    celebrateSuccess() {
+        // Particle burst
+        this.celebrationEmitters.success.explode(20);
+
+        // Create floating text
+        const text = this.add.text(
+            this.celebrationEmitters.success.x,
+            this.celebrationEmitters.success.y,
+            'Perfect!',
+            {
+                fontFamily: 'Nunito',
+                fontSize: '32px',
+                fill: `#${PROGRESS_BAR.GREEN.toString(16).padStart(6, '0')}`,
+                stroke: '#ffffff',
+                strokeThickness: 2
+            }
+        ).setOrigin(0.5);
+
+        // Animate the text
+        this.tweens.add({
+            targets: text,
+            y: text.y - 100,
+            alpha: { from: 1, to: 0 },
+            duration: 1500,
+            ease: 'Cubic.Out',
+            onComplete: () => text.destroy()
+        });
+
+        // Screen flash
+        const flash = this.add.rectangle(
+            0, 0,
+            this.cameras.main.width,
+            this.cameras.main.height,
+            PROGRESS_BAR.GREEN,
+            0.2
+        ).setOrigin(0).setDepth(100);
+
+        this.tweens.add({
+            targets: flash,
+            alpha: 0,
+            duration: 500,
+            ease: 'Cubic.Out',
+            onComplete: () => flash.destroy()
+        });
+    }
+
+    celebrateNeedsWork() {
+        // Particle burst
+        this.celebrationEmitters.needsWork.explode(20);
+
+        // Create floating text
+        const text = this.add.text(
+            this.celebrationEmitters.needsWork.x,
+            this.celebrationEmitters.needsWork.y,
+            'Keep Going!',
+            {
+                fontFamily: 'Nunito',
+                fontSize: '32px',
+                fill: `#${PROGRESS_BAR.RED.toString(16).padStart(6, '0')}`,
+                stroke: '#ffffff',
+                strokeThickness: 2
+            }
+        ).setOrigin(0.5);
+
+        // Animate the text
+        this.tweens.add({
+            targets: text,
+            y: text.y - 100,
+            alpha: { from: 1, to: 0 },
+            duration: 1500,
+            ease: 'Cubic.Out',
+            onComplete: () => text.destroy()
+        });
+
+        // Screen flash
+        const flash = this.add.rectangle(
+            0, 0,
+            this.cameras.main.width,
+            this.cameras.main.height,
+            PROGRESS_BAR.RED,
+            0.2
+        ).setOrigin(0).setDepth(100);
+
+        this.tweens.add({
+            targets: flash,
+            alpha: 0,
+            duration: 500,
+            ease: 'Cubic.Out',
+            onComplete: () => flash.destroy()
+        });
     }
 
     updateOutputText(text) {
@@ -1075,7 +1189,6 @@ export default class BaseGameScene extends Phaser.Scene {
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
         
         // Progress fill with rounded corners
-        // 0% = red (bad), 50% = yellow, 100% = green (good)
         let color;
         if (this.progressPercentage === 50) {
             color = PROGRESS_BAR.YELLOW;
@@ -1100,6 +1213,8 @@ export default class BaseGameScene extends Phaser.Scene {
         // White outline
         this.failsCounter.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
+
+  
     }
 
     showSuggestions(words) {
@@ -1208,7 +1323,9 @@ export default class BaseGameScene extends Phaser.Scene {
         const currentLineIndex = lines.length - 1;
         const currentLineText = this.add.text(0, 0, lines[currentLineIndex], this.inputText.style);
         const cursorX = this.inputText.x + currentLineText.width;
-        const cursorY = this.inputText.y + (currentLineIndex * this.inputText.style.fontSize * 1.2);
+        const rawFontSize = this.inputText.style?.fontSize ?? 22;
+        const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
+        const cursorY = this.inputText.y + (currentLineIndex * fontSize * 1.2);
         currentLineText.destroy();
         
         // Update autocomplete at cursor position
