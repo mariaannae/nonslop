@@ -50,7 +50,7 @@ export default class ButtonFactory {
         // Button Text
         const buttonText = scene.add.text(0, 0, label, {
             fontFamily: 'Fredoka',
-            fontSize: '22px',
+            fontSize: '18px',
             fontWeight: "700",
             color: COLORS_TEXT.WHITE,
             align: 'center'
@@ -103,7 +103,7 @@ export default class ButtonFactory {
         
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
-        const fontSize = `${Math.max(buttonSize * 0.15, 22)}px`;
+        const fontSize = `${Math.max(buttonSize * 0.15, 20)}px`;
         
         // Position calculation
         const x = centerX + offsetX;

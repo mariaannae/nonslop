@@ -227,10 +227,10 @@ export default class LevelScene extends Phaser.Scene {
     startGame(llmEngine, difficulty) {
         this.registry.set('llmEngine', llmEngine);
         console.log(`Starting GameSceneHard in ${difficulty} mode...`);
-        if (difficulty === "easy") {
+        if (difficulty === "hard") {
             this.scene.start('GameSceneHard', {llmEngine: llmEngine });
         }
-        else if (difficulty === "hard") {
+        else if (difficulty === "easy") {
             this.scene.start('GameSceneEasy', {llmEngine: llmEngine });
         }
     }
