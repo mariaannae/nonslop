@@ -173,9 +173,9 @@ export default class BaseGameScene extends Phaser.Scene {
         console.log("Reset button clicked! Clearing text...");
     
         // Reset the fail count and progress percentage
-        //this.failCount = 0;
-        //this.progressPercentage = PROGRESS_BAR.INITIAL;
-        //this.updateProgressFill();
+        this.failCount = 0;
+        this.progressPercentage = PROGRESS_BAR.INITIAL;
+        this.updateProgressFill();
     
         // Clear the input text box and autocomplete text
         this.clearInputTextBox();
@@ -564,7 +564,7 @@ export default class BaseGameScene extends Phaser.Scene {
                         const suggestion = this.aiSuggestedWords[0];
                         if (suggestion) {
                             this.userInput = this.userInput + suggestion + ' ';
-                            console.log("AI word used (Tab):", suggestion);
+                            console.log("AI word used (newline):", suggestion);
                             this.updateFailsCounter(false);
                             this.updateCursor();
                             this.generateAISuggestions(this.userInput);
@@ -668,14 +668,14 @@ export default class BaseGameScene extends Phaser.Scene {
     setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, { menuBar, menuBarBorder, titleText }) {
         this.levelValue = 1;
         const levelLabelX = this.cameras.main.centerX - 120;
-        this.levelLabel = this.add.text(
+        const levelLabel = this.add.text(
             levelLabelX, menuBarHeight / 2, 
-            `Level: ${this.levelValue}`, 
+            `Prompt Level: ${this.levelValue}`, 
             { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
     
         const levelSliderWidth = 120;
-        const levelSliderX = levelLabelX + this.levelLabel.displayWidth + gap;
+        const levelSliderX = levelLabelX + levelLabel.displayWidth + gap;
         const levelSliderY = menuBarHeight / 2;
     
         const levelSlider = this.add.graphics();
@@ -685,29 +685,18 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelSliderHandle = this.add.rectangle(levelSliderX, levelSliderY, 10, 20, 0xffaa00).setInteractive();
         this.input.setDraggable(this.levelSliderHandle);
     
-        // Store these values as class properties for use in updateFailsCounter
-        this.levelSliderMinX = levelSliderX;
-        this.levelSliderMaxX = levelSliderX + levelSliderWidth - 5;
+        const levelSliderMinX = levelSliderX;
+        const levelSliderMaxX = levelSliderMinX + levelSliderWidth - 5;
     
         this.input.on('drag', (pointer, gameObject, dragX) => {
             if (gameObject === this.levelSliderHandle) {
-                gameObject.x = Phaser.Math.Clamp(dragX, this.levelSliderMinX, this.levelSliderMaxX);
-                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (gameObject.x - this.levelSliderMinX) / (this.levelSliderMaxX - this.levelSliderMinX)));
+                gameObject.x = Phaser.Math.Clamp(dragX, levelSliderMinX, levelSliderMaxX);
+                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (gameObject.x - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
     
                 if (newLevel !== this.levelValue) {
-                    // Process existing text in the input box before changing level
-                    if (this.userInput && this.userInput.trim().length > 0) {
-                        this.onDoneButtonClick();
-                    }
-                    
                     this.levelValue = newLevel;
-                    this.levelLabel.setText(`Level: ${this.levelValue}`);
+                    levelLabel.setText(`Prompt Level: ${this.levelValue}`);
                     this.updatePromptBasedOnLevel();
-                    
-                    // Update the background when level changes (if implemented by child class)
-                    if (typeof this.updateBackgroundForLevel === 'function') {
-                        this.updateBackgroundForLevel();
-                    }
                 }
             }
         });
@@ -748,7 +737,7 @@ export default class BaseGameScene extends Phaser.Scene {
         });
     
         this.tweens.add({
-            targets: [menuBar, menuBarBorder, titleText, this.levelLabel, levelSlider, this.levelSliderHandle, topKLabel, slider, this.sliderHandle],
+            targets: [menuBar, menuBarBorder, titleText, levelLabel, levelSlider, this.levelSliderHandle, topKLabel, slider, this.sliderHandle],
             alpha: 1,
             duration: 800,
             ease: 'Quad.Out'
@@ -946,14 +935,23 @@ export default class BaseGameScene extends Phaser.Scene {
         const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
         const lineHeight = fontSize * 1.2;
         
+        // Store the position for stability - this prevents recalculation on every frame
+        if (!this._lastCursorPos || this._lastUserInput !== this.userInput) {
+            this._lastCursorPos = { 
+                x: cursorX, 
+                y: this.inputText.y + (currentLineIndex * lineHeight) 
+            };
+            this._lastUserInput = this.userInput;
+        }
+        
         // If at word boundary, show first suggestion
         if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
             const suggestion = this.aiSuggestedWords[0];
             if (suggestion && this.autocompleteText) {
-                // Position correctly based on calculated line index
+                // Use stored position instead of recalculating every time
                 this.autocompleteText.setPosition(
-                    cursorX,
-                    this.inputText.y + (currentLineIndex * lineHeight)
+                    this._lastCursorPos.x,
+                    this._lastCursorPos.y
                 );
                 
                 this.autocompleteText.setText(suggestion);
@@ -969,10 +967,10 @@ export default class BaseGameScene extends Phaser.Scene {
             if (suggestion) {
                 const completion = suggestion.slice(currentWord.length);
                 if (this.autocompleteText) {
-                    // Position correctly based on calculated line index
+                    // Use stored position instead of recalculating every time
                     this.autocompleteText.setPosition(
-                        cursorX,
-                        this.inputText.y + (currentLineIndex * lineHeight)
+                        this._lastCursorPos.x,
+                        this._lastCursorPos.y
                     );
                     
                     this.autocompleteText.setText(completion);
@@ -980,6 +978,12 @@ export default class BaseGameScene extends Phaser.Scene {
                     return completion;
                 }
             }
+        }
+        
+        // Clear cached position when no autocomplete
+        if (!this.autocompleteText.text) {
+            this._lastCursorPos = null;
+            this._lastUserInput = null;
         }
         
         if (this.autocompleteText) {
@@ -1047,7 +1051,7 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.failsText) {
             this.failsText.destroy();
         }
-    
+
         // Calculate width to match two buttons plus spacing
         const scoreWidth = buttonWidth * 2 + buttonSpacing;
         const scoreHeight = buttonHeight;
@@ -1056,36 +1060,30 @@ export default class BaseGameScene extends Phaser.Scene {
         const inputBoxY = this.cameras.main.centerY - 240 / 2;
         const inputBoxHeight = 240;
         const padding = 20;
-        
-        // Calculate the offset from edge - match the Done button's distance
-        // Assume standard button padding from design_easy.js
-        const buttonPadding = 70; // Standard padding used for buttons
-        
-        // Set X position with the same padding as buttons have from right side
-        const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + buttonPadding;
+        const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2;
         const scoreY = inputBoxY + inputBoxHeight + padding;
-    
+
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
         
-        // Progress fill with rounded corners - reversed color gradation
+        // Progress fill with rounded corners
         let color;
         if (this.progressPercentage === 50) {
             color = PROGRESS_BAR.YELLOW;
         } else if (this.progressPercentage < 50) {
-            // Interpolate between red and yellow (red at 0%, yellow at 50%)
+            // Interpolate between green and yellow
             const t = this.progressPercentage / 50;
-            const r = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (PROGRESS_BAR.RED & 0xFF)) + (t * (PROGRESS_BAR.YELLOW & 0xFF)));
+            const r = Math.round(((1 - t) * ((PROGRESS_BAR.GREEN >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)));
+            const g = Math.round(((1 - t) * ((PROGRESS_BAR.GREEN >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)));
+            const b = Math.round(((1 - t) * (PROGRESS_BAR.GREEN & 0xFF)) + (t * (PROGRESS_BAR.YELLOW & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         } else {
-            // Interpolate between yellow and green (yellow at 50%, green at 100%)
+            // Interpolate between yellow and red
             const t = (this.progressPercentage - 50) / 50;
-            const r = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (PROGRESS_BAR.YELLOW & 0xFF)) + (t * (PROGRESS_BAR.GREEN & 0xFF)));
+            const r = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.RED >> 16) & 0xFF)));
+            const g = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.RED >> 8) & 0xFF)));
+            const b = Math.round(((1 - t) * (PROGRESS_BAR.YELLOW & 0xFF)) + (t * (PROGRESS_BAR.RED & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         }
         this.failsCounter.fillStyle(color, 1);
@@ -1337,12 +1335,13 @@ export default class BaseGameScene extends Phaser.Scene {
             
             if (success) {
                 // Non-AI word
-                newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+                newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
                 
                 
             } else {
-                // AI word     
-                newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
+                // AI word (worse)
+                console.log("in the else");
+                newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
                 this.shakeScreen();
                 
                 // Use the first AI suggestion as our "current word" since that's what would be autocompleted
@@ -1367,64 +1366,13 @@ export default class BaseGameScene extends Phaser.Scene {
             // Check for milestone achievements
             if (oldPercentage !== 0 && newPercentage === 0) {
                 // Reached perfect score
-                this.celebrateNeedsWork();
-                const newLevel = Math.max(this.levelValue - 1, 1);
-                if (newLevel !== this.levelValue) {
-                    // Process existing text in the input box before changing level
-                    
-                    this.levelValue = newLevel;
-                    if (this.levelLabel) {
-                        this.levelLabel.setText(`Level: ${this.levelValue}`);
-                    }
-                    
-                    // Update slider position to match the new level
-                    if (this.levelSliderHandle) {
-                        // Use the stored class properties instead of relying on dragStartX
-                        const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-                        const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
-                        this.levelSliderHandle.x = newX;
-                    }
-                    
-                    //this.updatePromptBasedOnLevel();
-                    // Update background for the new level if implemented by child class
-                    if (typeof this.updateBackgroundForLevel === 'function') {
-                        this.updateBackgroundForLevel();
-                    }
-                    this.progressPercentage = 100;
-                }
-                
+                this.celebrateSuccess();
             } else if (oldPercentage !== 100 && newPercentage === 100) {
                 // Reached needs work
-                this.celebrateSuccess();
-                const newLevel = Math.min(this.levelValue + 1, 3);
-                if (newLevel !== this.levelValue) {
-                    // Process existing text in the input box before changing level
-                    
-                    this.levelValue = newLevel;
-                    if (this.levelLabel) {
-                        this.levelLabel.setText(`Level: ${this.levelValue}`);
-                    }
-                    
-                    // Update slider position to match the new level
-                    if (this.levelSliderHandle) {
-                        // Use the stored class properties instead of relying on dragStartX
-                        const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-                        const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
-                        this.levelSliderHandle.x = newX;
-                    }
-                    
-                    //this.updatePromptBasedOnLevel();
-                    // Update background for the new level if implemented by child class
-                    if (typeof this.updateBackgroundForLevel === 'function') {
-                        this.updateBackgroundForLevel();
-                    }
-                    this.progressPercentage = 0;
-                }
-            }else {
-                this.progressPercentage = newPercentage;
+                this.celebrateNeedsWork();
             }
             
-            
+            this.progressPercentage = newPercentage;
             
             if (this.failsText) {
                 this.failsText.setText(` `);
@@ -1562,23 +1510,23 @@ export default class BaseGameScene extends Phaser.Scene {
         this.failsCounter.fillStyle(0x000000, 0.5);
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
         
-        // Progress fill with rounded corners - reversed color gradation
+        // Progress fill with rounded corners
         let color;
         if (this.progressPercentage === 50) {
             color = PROGRESS_BAR.YELLOW;
-        } else if (this.progressPercentage < 50) {
-            // Interpolate between red and yellow (red at 0%, yellow at 50%)
-            const t = this.progressPercentage / 50;
-            const r = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (PROGRESS_BAR.RED & 0xFF)) + (t * (PROGRESS_BAR.YELLOW & 0xFF)));
+        } else if (this.progressPercentage > 50) {
+            // Interpolate between yellow and red
+            const t = (this.progressPercentage - 50) / 50;
+            const r = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.RED >> 16) & 0xFF)));
+            const g = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.RED >> 8) & 0xFF)));
+            const b = Math.round(((1 - t) * (PROGRESS_BAR.YELLOW & 0xFF)) + (t * (PROGRESS_BAR.RED & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         } else {
-            // Interpolate between yellow and green (yellow at 50%, green at 100%)
-            const t = (this.progressPercentage - 50) / 50;
-            const r = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (PROGRESS_BAR.YELLOW & 0xFF)) + (t * (PROGRESS_BAR.GREEN & 0xFF)));
+            // Interpolate between green and yellow
+            const t = this.progressPercentage / 50;
+            const r = Math.round(((1 - t) * ((PROGRESS_BAR.GREEN >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)));
+            const g = Math.round(((1 - t) * ((PROGRESS_BAR.GREEN >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)));
+            const b = Math.round(((1 - t) * (PROGRESS_BAR.GREEN & 0xFF)) + (t * (PROGRESS_BAR.YELLOW & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         }
         this.failsCounter.fillStyle(color, 1);

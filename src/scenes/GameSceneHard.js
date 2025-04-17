@@ -244,6 +244,94 @@ export default class GameSceneHard extends BaseGameScene {
             onComplete: () => flash.destroy()
         });
     }
+    
+    // Add a visual mode indicator with a more intense style for hard mode
+    addModeIndicator(modeName, color) {
+        const padding = 20;
+        const modeIndicator = this.add.container(padding, this.menuBarHeight + padding);
+        modeIndicator.setDepth(50);
+        
+        // Create edgy background shape for hard mode
+        const bg = this.add.graphics();
+        bg.fillStyle(color, 0.9);
+        bg.lineStyle(3, 0xffffff, 0.9);
+        
+        // Create a jagged pill shape for hard mode
+        const width = 120;
+        const height = 40;
+        const jaggedness = 5;
+        
+        bg.beginPath();
+        
+        // Top edge with jagged effect
+        for (let x = 0; x < width; x += 10) {
+            const y = (x % 20 === 0) ? -jaggedness : 0;
+            if (x === 0) {
+                bg.moveTo(x, height/2 + y);
+            } else {
+                bg.lineTo(x, height/2 + y);
+            }
+        }
+        
+        // Right edge with jagged effect
+        for (let y = height/2; y < height*1.5; y += 10) {
+            const x = (y % 20 === 0) ? width + jaggedness : width;
+            bg.lineTo(x, y);
+        }
+        
+        // Bottom edge with jagged effect
+        for (let x = width; x > 0; x -= 10) {
+            const y = (x % 20 === 0) ? height + jaggedness : height;
+            bg.lineTo(x, y);
+        }
+        
+        // Left edge with jagged effect
+        for (let y = height; y > height/2; y -= 10) {
+            const x = (y % 20 === 0) ? -jaggedness : 0;
+            bg.lineTo(x, y);
+        }
+        
+        bg.closePath();
+        bg.fill();
+        bg.stroke();
+        
+        // Create text with more aggressive styling
+        const text = this.add.text(width/2, height/2, modeName, {
+            fontFamily: 'Nunito',
+            fontSize: '22px',
+            fontStyle: 'bold',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+        
+        // Add pulsing glow effect
+        text.setShadow(0, 0, '#ff0000', 5, true, true);
+        
+        // Add to container
+        modeIndicator.add([bg, text]);
+        
+        // Add more dynamic animation
+        this.tweens.add({
+            targets: modeIndicator,
+            scaleX: { from: 1, to: 1.05 },
+            scaleY: { from: 1, to: 1.05 },
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+        });
+        
+        // Add subtle rotation
+        this.tweens.add({
+            targets: modeIndicator,
+            angle: { from: -1, to: 1 },
+            duration: 1200,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+        });
+        
+        return modeIndicator;
+    }
 
     // Mode-specific word processing
     processSuggestedWord(word) {
@@ -254,7 +342,12 @@ export default class GameSceneHard extends BaseGameScene {
 
     // Mode-specific navigation
     onEasyModeClick() {
-        this.scene.start('GameSceneEasy', {mode: 'easy'});
+        this.scene.start('GameSceneEasy', {
+            mode: 'easy',
+            progressPercentage: this.progressPercentage,
+            levelValue: this.levelValue,
+            topKValue: this.topKValue
+        });
     }
 
     onFeedbackClick() {
@@ -262,9 +355,20 @@ export default class GameSceneHard extends BaseGameScene {
     }
 
     // Mode-specific scene setup
-    create() {
-
+    create(data) {
         super.create && super.create();
+        
+        // Apply data passed from other modes if available
+        if (data && data.progressPercentage !== undefined) {
+            this.progressPercentage = data.progressPercentage;
+        }
+        if (data && data.levelValue !== undefined) {
+            this.levelValue = data.levelValue;
+        }
+        if (data && data.topKValue !== undefined) {
+            this.topKValue = data.topKValue;
+        }
+        
         this.cameras.main.scrollY = 0;
         this.createBackgroundEffect();
         this.createFloatingParticles();
@@ -289,6 +393,8 @@ export default class GameSceneHard extends BaseGameScene {
             buttonCenterY,
             'Submit your text for evaluation'
         );
+
+        //console.log(this.doneButton)
         
         this.resetButton = this.createButton(
             "RESET", 
@@ -321,6 +427,9 @@ export default class GameSceneHard extends BaseGameScene {
         this.ensureProperLayering();
         this.ensureTextVisibility();
         this.updateCursor();
+        
+        // Add mode indicator badge with hard mode styling
+        this.addModeIndicator('HARD', 0xff3366); // Reddish color for hard mode
     }
 
     // Style methods
@@ -410,6 +519,32 @@ export default class GameSceneHard extends BaseGameScene {
         };
     }
 
+    // Update background when level changes
+    updateBackgroundForLevel() {
+        console.log("Updating background for Hard mode - Level:", this.levelValue);
+        
+        // Destroy existing background
+        if (this.background) {
+            this.background.destroy();
+        }
+        
+        // Recreate background with the current level colors
+        this.createBackgroundEffect();
+        
+        // Destroy and recreate the floating particles for the new level
+        if (this.particleContainer) {
+            this.particleContainer.destroy();
+            this.createFloatingParticles();
+        }
+        
+        // Update mode indicator badge if it exists
+        if (this.modeIndicator) {
+            this.modeIndicator.destroy();
+        }
+        
+        // Recreate mode indicator with current level styling
+        this.addModeIndicator('HARD', 0xff3366);
+    }
 
 
     // Mode-specific background methods
@@ -417,7 +552,8 @@ export default class GameSceneHard extends BaseGameScene {
         let width = this.cameras.main.width;
         let height = this.cameras.main.height;
         
-        let gradientTextureKey = 'gradientBackground';
+        // Create a gradient texture key based on the current level
+        let gradientTextureKey = `hardModeBackground_level_${this.levelValue}`;
     
         if (!this.textures.exists(gradientTextureKey)) {
             let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
@@ -433,10 +569,23 @@ export default class GameSceneHard extends BaseGameScene {
                 width * 0.5, height * 0.5, width * 0.8
             );
             
-            grd.addColorStop(0, "#1f0c33");
-            grd.addColorStop(0.4, "#2a1145");
-            grd.addColorStop(0.8, "#3a1f5d");
-            grd.addColorStop(1, "#321b4a");
+            // Different color gradients based on level - more intense and red-tinted for hard mode
+            if (this.levelValue === 1) {
+                grd.addColorStop(0, "#2d0a33"); // Red-tinted darker purples
+                grd.addColorStop(0.4, "#3a0f45");
+                grd.addColorStop(0.8, "#4a1c5d");
+                grd.addColorStop(1, "#42184a");
+            } else if (this.levelValue === 2) {
+                grd.addColorStop(0, "#360840"); // Deeper red-purple
+                grd.addColorStop(0.4, "#44114f");
+                grd.addColorStop(0.8, "#521a69");
+                grd.addColorStop(1, "#481858");
+            } else { // Level 3
+                grd.addColorStop(0, "#4a054d"); // Intense crimson-purple
+                grd.addColorStop(0.4, "#5a085f");
+                grd.addColorStop(0.8, "#6a0c7a");
+                grd.addColorStop(1, "#5c0a66");
+            }
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -518,33 +667,62 @@ export default class GameSceneHard extends BaseGameScene {
         this.particleContainer = this.add.container(0, 0);
         this.particleContainer.setDepth(-0.5);
         
-        for (let i = 0; i < 20; i++) {
+        // Create more aggressive-looking particles for hard mode
+        for (let i = 0; i < 25; i++) {
             const x = Math.random() * this.cameras.main.width;
             const y = Math.random() * this.cameras.main.height;
-            const size = Math.random() * 4 + 2;
-            const alpha = Math.random() * 0.3 + 0.1;
+            const size = Math.random() * 5 + 2;
+            const alpha = Math.random() * 0.4 + 0.2;
             
+            // Create a more dynamic particle shape - sometimes triangular for hard mode
             const particle = this.add.graphics();
-            particle.fillStyle(0xb47aff, alpha);
-            particle.fillCircle(0, 0, size);
+            
+            if (Math.random() > 0.6) {
+                // Create star-like particles with random rotation
+                particle.fillStyle(0xff5d8f, alpha); // Red-pink color
+                const rotation = Math.random() * Math.PI * 2;
+                const points = [];
+                
+                for (let j = 0; j < 5; j++) {
+                    const angle = rotation + (j * Math.PI * 2 / 5);
+                    const radius = j % 2 === 0 ? size : size / 2;
+                    points.push({
+                        x: Math.cos(angle) * radius,
+                        y: Math.sin(angle) * radius
+                    });
+                }
+                
+                particle.beginPath();
+                particle.moveTo(points[0].x, points[0].y);
+                for (let j = 1; j < points.length; j++) {
+                    particle.lineTo(points[j].x, points[j].y);
+                }
+                particle.closePath();
+                particle.fill();
+            } else {
+                // Regular circle particles
+                particle.fillStyle(0xff3366, alpha); // Bright red color
+                particle.fillCircle(0, 0, size);
+            }
             
             const glow = this.add.graphics();
-            glow.fillStyle(0xb47aff, alpha * 0.5);
+            glow.fillStyle(0xff3366, alpha * 0.5);
             glow.fillCircle(0, 0, size * 2);
             
             const particleContainer = this.add.container(x, y, [glow, particle]);
             this.particleContainer.add(particleContainer);
             
+            // More dynamic, faster movement
             this.tweens.add({
                 targets: particleContainer,
-                y: y + (Math.random() * 100 - 50),
-                x: x + (Math.random() * 100 - 50),
+                y: y + (Math.random() * 150 - 75),
+                x: x + (Math.random() * 150 - 75),
                 alpha: { from: alpha, to: alpha * 0.5 },
-                duration: 5000 + Math.random() * 10000,
+                duration: 3000 + Math.random() * 7000, // Faster animation
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.InOut',
-                delay: Math.random() * 3000
+                delay: Math.random() * 2000
             });
         }
     }

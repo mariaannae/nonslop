@@ -16,7 +16,12 @@ export default class GameSceneEasy extends BaseGameScene {
 
     // Mode-specific navigation
     onHardModeClick() {
-        this.scene.start('GameSceneHard', {mode: 'hard'});
+        this.scene.start('GameSceneHard', {
+            mode: 'hard',
+            progressPercentage: this.progressPercentage,
+            levelValue: this.levelValue,
+            topKValue: this.topKValue
+        });
     }
 
     onFeedbackClick() {
@@ -24,8 +29,19 @@ export default class GameSceneEasy extends BaseGameScene {
     }
 
     // Mode-specific scene setup
-    create() {
+    create(data) {
         super.create && super.create();
+        // Apply data passed from other modes if available
+        if (data && data.progressPercentage !== undefined) {
+            this.progressPercentage = data.progressPercentage;
+        }
+        if (data && data.levelValue !== undefined) {
+            this.levelValue = data.levelValue;
+        }
+        if (data && data.topKValue !== undefined) {
+            this.topKValue = data.topKValue;
+        }
+        
         this.cameras.main.scrollY = 0;
         this.createEasyModeBackground();
         this.createFloatingParticles();
@@ -82,6 +98,51 @@ export default class GameSceneEasy extends BaseGameScene {
         this.ensureProperLayering();
         this.ensureTextVisibility();
         this.updateCursor();
+        
+        // Add mode indicator badge
+        this.addModeIndicator('EASY', 0x64d2ba); // Teal/blue-green color for easy mode
+    }
+
+    // Add a visual mode indicator
+    addModeIndicator(modeName, color) {
+        const padding = 20;
+        // Store the reference to the mode indicator for later use
+        this.modeIndicator = this.add.container(padding, this.menuBarHeight + padding);
+        this.modeIndicator.setDepth(50);
+        
+        // Create background pill
+        const bg = this.add.graphics();
+        bg.fillStyle(color, 0.8);
+        bg.lineStyle(2, 0xffffff, 0.8);
+        bg.fillRoundedRect(0, 0, 100, 36, 18);
+        bg.strokeRoundedRect(0, 0, 100, 36, 18);
+        
+        // Create text
+        const text = this.add.text(50, 18, modeName, {
+            fontFamily: 'Nunito',
+            fontSize: '20px',
+            fontStyle: 'bold',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+        
+        // Add glow effect
+        text.setShadow(0, 0, '#ffffff', 3, true, true);
+        
+        // Add to container
+        this.modeIndicator.add([bg, text]);
+        
+        // Add subtle animation
+        this.tweens.add({
+            targets: this.modeIndicator,
+            scaleX: { from: 1, to: 1.05 },
+            scaleY: { from: 1, to: 1.05 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+        });
+        
+        return this.modeIndicator;
     }
 
     // Style methods
@@ -164,7 +225,8 @@ export default class GameSceneEasy extends BaseGameScene {
         let width = this.cameras.main.width;
         let height = this.cameras.main.height;
         
-        let gradientTextureKey = 'easyModeBackground';
+        // Create a gradient texture key based on the current level
+        let gradientTextureKey = `easyModeBackground_level_${this.levelValue}`;
     
         if (!this.textures.exists(gradientTextureKey)) {
             let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
@@ -176,10 +238,24 @@ export default class GameSceneEasy extends BaseGameScene {
             }
     
             let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, "#251a3f");
-            grd.addColorStop(0.3, "#2d1f4c");
-            grd.addColorStop(0.7, "#362758");
-            grd.addColorStop(1, "#3d2c64");
+            
+            // Different color gradients based on level
+            if (this.levelValue === 1) {
+                grd.addColorStop(0, "#251a3f"); // Original colors
+                grd.addColorStop(0.3, "#2d1f4c");
+                grd.addColorStop(0.7, "#362758");
+                grd.addColorStop(1, "#3d2c64");
+            } else if (this.levelValue === 2) {
+                grd.addColorStop(0, "#1e1c48"); // Slightly bluer purples
+                grd.addColorStop(0.3, "#282256");
+                grd.addColorStop(0.7, "#312963");
+                grd.addColorStop(1, "#383070");
+            } else { // Level 3
+                grd.addColorStop(0, "#171e51"); // Deeper, more intense purples
+                grd.addColorStop(0.3, "#1e255f");
+                grd.addColorStop(0.7, "#252c6e");
+                grd.addColorStop(1, "#2c337c");
+            }
             
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -268,6 +344,27 @@ export default class GameSceneEasy extends BaseGameScene {
         });
     }
 
+    // Update background when level changes
+    updateBackgroundForLevel() {
+        console.log("Updating background for Easy mode - Level:", this.levelValue);
+        
+        // Destroy existing background
+        if (this.background) {
+            this.background.destroy();
+        }
+        
+        // Recreate background with the current level colors
+        this.createEasyModeBackground();
+        
+        // Update mode indicator badge if it exists
+        if (this.modeIndicator) {
+            this.modeIndicator.destroy();
+        }
+        
+        // Recreate mode indicator with current level styling
+        this.addModeIndicator('EASY', 0x64d2ba);
+    }
+    
     createFloatingParticles() {
         this.particleContainer = this.add.container(0, 0);
         this.particleContainer.setDepth(-0.5);
