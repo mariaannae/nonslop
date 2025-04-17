@@ -1,7 +1,7 @@
 import { stopwords } from "../config/stopwords.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
-import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_OUTLINE_WIDTH, PROGRESS_BAR } from "../config/design_easy.js";
+import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_OUTLINE_WIDTH, PROGRESS_BAR } from "../config/design.js";
 
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {
@@ -29,18 +29,130 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     update() {
-    
         if (!this.registry.get('llmEngine')) {
-            console.warn("LLM Engine missing entirely. Returning to Preloader...");
-            this.scene.start('PreloaderScene');
-        } 
+            console.warn("LLM Engine missing entirely. Attempting to recover...");
+            this.tryRecoverEngine();
+        }
+    }
+    
+    tryRecoverEngine() {
+        // Try to recover the engine before redirecting to Preloader
+        const maxRetries = 3;
+        let currentRetry = 0;
         
+        const attemptRecovery = () => {
+            // If engine exists in global window object but not in registry
+            if (window.llmEngine && !this.registry.get('llmEngine')) {
+                console.log("Recovered llmEngine from global scope");
+                this.registry.set('llmEngine', window.llmEngine);
+                return true;
+            }
+            
+            currentRetry++;
+            if (currentRetry >= maxRetries) {
+                console.error("Engine recovery failed after multiple attempts");
+                this.scene.start('Preloader');
+                return false;
+            }
+            
+            console.log(`Recovery attempt ${currentRetry}/${maxRetries}`);
+            setTimeout(attemptRecovery, 300);
+            return false;
+        };
+        
+        attemptRecovery();
+    }
+
+    // Scene transition helper - call this before switching scenes to ensure clean transitions
+    prepareForSceneTransition() {
+        // Stop timers that could cause callbacks after scene change
+        if (this.cursorTimer) {
+            this.cursorTimer.remove();
+            this.cursorTimer = null;
+        }
+        
+        if (this.activeTimeout) {
+            clearTimeout(this.activeTimeout);
+            this.activeTimeout = null;
+        }
+        
+        // Clear any pending animations
+        if (this.tweens) {
+            this.tweens.killAll();
+        }
+        
+        // Clean up input handlers to prevent ghost inputs
+        this.input.keyboard.removeAllListeners('keydown');
+        
+        // Reset all visual elements to a stable state
+        this.cursorVisible = false;
+        
+        // Reset user input value
+        this.userInput = '';
+        
+        if (this.inputText) {
+            try {
+                this.inputText.setText('');
+            } catch(e) {
+                console.warn("Could not reset input text during transition");
+            }
+        }
+        
+        if (this.autocompleteText) {
+            try {
+                this.autocompleteText.setText('');
+            } catch(e) {
+                console.warn("Could not reset autocomplete text during transition");
+            }
+        }
+        
+        // Clear AI suggestions
+        this.aiSuggestedWords = [];
+        
+        // Remove suggestion visual elements if they exist
+        if (this.suggestionBoxes) {
+            this.suggestionBoxes.forEach(box => box.destroy());
+            this.suggestionBoxes = [];
+        }
+        
+        if (this.suggestionTexts) {
+            this.suggestionTexts.forEach(text => text.destroy());
+            this.suggestionTexts = [];
+        }
+        
+        console.log("Scene transition preparation complete - input and suggestions cleared");
     }
 
     shutdown() {
+        console.log("BaseGameScene shutdown");
+        // Properly clean up all timers
         if (this.scrollWheelEvent) {
             this.input.off('wheel', this.scrollWheelEvent);
         }
+        
+        // Clear any active timeout
+        if (this.activeTimeout) {
+            clearTimeout(this.activeTimeout);
+            this.activeTimeout = null;
+        }
+        
+        // Remove cursor timer
+        if (this.cursorTimer) {
+            this.cursorTimer.remove();
+            this.cursorTimer = null;
+        }
+        
+        // Clear input handlers
+        this.input.keyboard.removeAllListeners('keydown');
+        
+        // Ensure cursor is reset
+        this.cursorVisible = false;
+        
+        // Clear any pending tweens that might affect scene transitions
+        if (this.tweens) {
+            this.tweens.killAll();
+        }
+        
         super.shutdown();
     }
 
@@ -292,8 +404,8 @@ export default class BaseGameScene extends Phaser.Scene {
     
         console.log("checking llm: ", this.registry.get('llmEngine'));
         if (!this.registry.get('llmEngine')) {
-            console.warn("LLM Engine missing entirely. Returning to Preloader...");
-            this.scene.start('PreloaderScene');
+            console.warn("LLM Engine missing entirely. Recovering...");
+            this.tryRecoverEngine();
             return;
         }
     
@@ -333,8 +445,8 @@ export default class BaseGameScene extends Phaser.Scene {
                     if (this.autocompleteText) {
                         this.autocompleteText.setText('');
                     }
-                    console.warn("LLM Engine missing entirely. Returning to Preloader...");
-                    this.scene.start('PreloaderScene');
+                    console.warn("LLM Engine missing entirely. Recovering...");
+                    this.tryRecoverEngine();
                     
                     return;
                 } else {
@@ -443,10 +555,23 @@ export default class BaseGameScene extends Phaser.Scene {
         const textBoxHeight = 240;
         const textBoxY = this.cameras.main.centerY - textBoxHeight / 2;
         
+        // Clear any existing elements first
         if (this.inputTextBorder) {
             this.inputTextBorder.destroy();
+            this.inputTextBorder = null;
         }
         
+        if (this.inputText) {
+            this.inputText.destroy();
+            this.inputText = null;
+        }
+        
+        if (this.autocompleteText) {
+            this.autocompleteText.destroy();
+            this.autocompleteText = null;
+        }
+        
+        // Create a fresh border
         const boxStyle = this.getInputBoxStyle();
         this.inputTextBorder = this.add.graphics();
         this.inputTextBorder.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
@@ -469,13 +594,7 @@ export default class BaseGameScene extends Phaser.Scene {
             ).setDepth(20);
         }
         
-        if (this.inputText) {
-            this.inputText.destroy();
-        }
-        if (this.autocompleteText) {
-            this.autocompleteText.destroy();
-        }
-        
+        // Create fresh text objects with default content
         const textStyle = {
             ...this.getInputTextStyle(),
             wordWrap: { width: this.uiBoxWidth - padding * 2 }
@@ -485,6 +604,7 @@ export default class BaseGameScene extends Phaser.Scene {
             wordWrap: { width: this.uiBoxWidth - padding * 2 }
         };
         
+        // Create with simple initial content to ensure proper initialization
         this.inputText = this.add.text(
             this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
             textBoxY + padding,
@@ -499,13 +619,29 @@ export default class BaseGameScene extends Phaser.Scene {
             { ...autocompleteStyle, fill: '#ff0000', alpha: 1 }
         ).setOrigin(0, 0);
         
-        this.inputText.setDepth(25);
-        this.autocompleteText.setDepth(60);
+        // Ensure visibility and proper depth
+        this.inputText.setVisible(true).setDepth(25);
+        this.autocompleteText.setVisible(true).setDepth(60);
         
+        // Reset user input
+        this.userInput = '';
+        
+        // Force an immediate cursor update to ensure text is visible
+        this.cursorVisible = true;
+        this.updateCursor();
+        
+        // Set up input handlers after text objects are created
         this.setupInputHandlers();
     }
 
     setupInputHandlers() {
+        // First make sure we have a basic text displayed
+        if (this.inputText) {
+            // Force update with initial cursor state
+            this.inputText.setText("_");
+            this.cursorVisible = true;
+        }
+        
         this.input.keyboard.removeAllListeners('keydown');
         this.input.keyboard.on("keydown", (event) => {
             this.inputActive = true;
@@ -1160,9 +1296,35 @@ export default class BaseGameScene extends Phaser.Scene {
         
         // Keep input text position fixed
         const padding = 30;
-        const textBoxY = this.cameras.main.centerY - 240 / 2;
+        
+        // Extra safety check - if cameras is undefined, use default values
+        let centerY = 300; // Default fallback
+        let centerX = 450; // Default fallback
+        
+        // Safely access camera properties with multiple layers of protection
+        try {
+            if (this.cameras && this.cameras.main) {
+                centerY = this.cameras.main.centerY || 300;
+                centerX = this.cameras.main.centerX || 450;
+            } else if (this.scene && this.scene.cameras && this.scene.cameras.main) {
+                // Try scene cameras as a fallback
+                centerY = this.scene.cameras.main.centerY || 300;
+                centerX = this.scene.cameras.main.centerX || 450;
+            }
+        } catch (e) {
+            console.warn("Camera access error in updateCursor:", e);
+            // Continue with defaults
+        }
+        
+        const textBoxY = centerY - 240 / 2;
+        
+        // Make sure uiBoxWidth has a value
+        if (!this.uiBoxWidth) {
+            this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        }
+        
         this.inputText.setPosition(
-            this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
+            centerX - this.uiBoxWidth / 2 + padding,
             textBoxY + padding
         );
         
@@ -1173,33 +1335,49 @@ export default class BaseGameScene extends Phaser.Scene {
         const wrappedLines = [];
         const maxWidth = this.uiBoxWidth - (padding * 2);
         
-        for (const line of lines) {
-            let currentLine = '';
-            const words = line.split(/(\s+)/);
-            let tempText = this.add.text(0, 0, '', this.inputText.style);
-    
-            for (const word of words) {
-                tempText.setText(currentLine + word);
-                if (tempText.width > maxWidth && currentLine !== '') {
-                    wrappedLines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine += word;
-                }
-            }
-            wrappedLines.push(currentLine);
-            tempText.destroy();
-        }
-    
-        // Join lines with newlines and add cursor
-        const displayText = wrappedLines.join('\n') + (this.cursorVisible ? "_" : " ");
-        this.inputText.setText(displayText);
+        try {
+            for (const line of lines) {
+                let currentLine = '';
+                const words = line.split(/(\s+)/);
+                let tempText = this.add.text(0, 0, '', this.inputText.style);
         
-        // Update autocomplete at cursor position
-        if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-            this.generateAutocomplete();
-        } else if (this.autocompleteText) {
-            this.autocompleteText.setText('');
+                for (const word of words) {
+                    tempText.setText(currentLine + word);
+                    if (tempText.width > maxWidth && currentLine !== '') {
+                        wrappedLines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine += word;
+                    }
+                }
+                wrappedLines.push(currentLine);
+                tempText.destroy();
+            }
+        
+            // Join lines with newlines and add cursor
+            const displayText = wrappedLines.join('\n') + (this.cursorVisible ? "_" : " ");
+            
+            // Set the text directly - we'll catch any errors that might occur
+            try {
+                this.inputText.setText(displayText);
+            } catch (error) {
+                console.warn("Error setting input text:", error);
+            }
+            
+            // Update autocomplete at cursor position
+            if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+                this.generateAutocomplete();
+            } else if (this.autocompleteText) {
+                this.autocompleteText.setText('');
+            }
+        } catch (error) {
+            console.warn("Error in updateCursor:", error);
+            // Make a simpler attempt if the complex approach fails
+            try {
+                this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : " "));
+            } catch (e) {
+                console.error("Failed to update cursor text with fallback method:", e);
+            }
         }
     }
 
@@ -1267,30 +1445,62 @@ export default class BaseGameScene extends Phaser.Scene {
         
 
         // Create celebration emitters if they don't exist
-        if (!this.celebrationEmitters) {
-            this.celebrationEmitters = {
-                success: this.add.particles(0, 0, 'ball', {
-                    lifespan: 1000,
-                    speed: { min: 200, max: 400 },
-                    scale: { start: 0.2, end: 0 },
-                    emitting: false,
-                    blendMode: 'ADD',
-                    tint: PROGRESS_BAR.GREEN
-                }),
-                needsWork: this.add.particles(0, 0, 'ball', {
-                    lifespan: 1000,
-                    speed: { min: 200, max: 400 },
-                    scale: { start: 0.2, end: 0 },
-                    emitting: false,
-                    blendMode: 'ADD',
-                    tint: PROGRESS_BAR.RED
-                })
-            };
+        try {
+            if (!this.celebrationEmitters) {
+                // First check if the 'ball' texture exists
+                if (this.textures.exists('ball')) {
+                    this.celebrationEmitters = {
+                        success: this.add.particles(0, 0, 'ball', {
+                            lifespan: 1000,
+                            speed: { min: 200, max: 400 },
+                            scale: { start: 0.2, end: 0 },
+                            emitting: false,
+                            blendMode: 'ADD',
+                            tint: PROGRESS_BAR.GREEN
+                        }),
+                        needsWork: this.add.particles(0, 0, 'ball', {
+                            lifespan: 1000,
+                            speed: { min: 200, max: 400 },
+                            scale: { start: 0.2, end: 0 },
+                            emitting: false,
+                            blendMode: 'ADD',
+                            tint: PROGRESS_BAR.RED
+                        })
+                    };
+                    
+                    // Set initial state to inactive
+                    if (this.celebrationEmitters.success) {
+                        this.celebrationEmitters.success.setActive(false).setVisible(false);
+                    }
+                    if (this.celebrationEmitters.needsWork) {
+                        this.celebrationEmitters.needsWork.setActive(false).setVisible(false);
+                    }
+                } else {
+                    console.warn("Cannot create emitters - 'ball' texture not loaded");
+                    this.celebrationEmitters = null;
+                }
+            }
+        } catch (error) {
+            console.error("Error creating particle emitters:", error);
+            this.celebrationEmitters = null;
         }
 
-        // Set emitter positions
-        this.celebrationEmitters.success.setPosition(scoreX, scoreY + scoreHeight / 2);
-        this.celebrationEmitters.needsWork.setPosition(scoreX + scoreWidth, scoreY + scoreHeight / 2);
+        // Set emitter positions if they exist
+        if (this.celebrationEmitters) {
+            try {
+                if (this.celebrationEmitters.success) {
+                    this.celebrationEmitters.success.setPosition(scoreX, scoreY + scoreHeight / 2);
+                    this.celebrationEmitters.success.setActive(true).setVisible(true);
+                }
+                
+                if (this.celebrationEmitters.needsWork) {
+                    this.celebrationEmitters.needsWork.setPosition(scoreX + scoreWidth, scoreY + scoreHeight / 2);
+                    this.celebrationEmitters.needsWork.setActive(true).setVisible(true);
+                }
+            } catch (error) {
+                console.error("Error setting emitter positions:", error);
+            }
+        }
         
         this.failsText = this.add.text(
             scoreX + scoreWidth / 2,
@@ -1607,40 +1817,76 @@ export default class BaseGameScene extends Phaser.Scene {
             this.updateProgressFill();
         }
 
+    // Custom celebration effect without using particle emitters
     celebrateSuccess() {
-        // Particle burst
-        this.celebrationEmitters.success.explode(20);
-
-        // Create floating text
+        // Get positions based on the progress bar
+        const scoreWidth = buttonWidth * 2 + buttonSpacing;
+        const scoreHeight = buttonHeight;
+        const inputBoxY = this.cameras.main.centerY - 240 / 2;
+        const inputBoxHeight = 240;
+        const padding = 20;
+        const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + 70;
+        const scoreY = inputBoxY + inputBoxHeight + padding;
+        
+        // Create celebration text
         const text = this.add.text(
-            this.celebrationEmitters.success.x,
-            this.celebrationEmitters.success.y,
+            scoreX + scoreWidth/2,
+            scoreY,
             'Perfect!',
             {
                 fontFamily: 'Nunito',
                 fontSize: '32px',
-                fill: `#${PROGRESS_BAR.GREEN.toString(16).padStart(6, '0')}`,
+                fill: '#7cfc00', // Bright green
                 stroke: '#ffffff',
                 strokeThickness: 2
             }
-        ).setOrigin(0.5);
-
-        // Animate the text
+        ).setOrigin(0.5).setDepth(200);
+        
+        // Create multiple circles that expand outward in place of particles
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 60 + 20;
+            const size = Math.random() * 8 + 4;
+            const startX = scoreX + scoreWidth/2;
+            const startY = scoreY + scoreHeight/2;
+            
+            const circle = this.add.circle(
+                startX,
+                startY,
+                size,
+                0x7cfc00, // Green
+                0.8
+            ).setDepth(199);
+            
+            this.tweens.add({
+                targets: circle,
+                x: startX + Math.cos(angle) * distance,
+                y: startY + Math.sin(angle) * distance,
+                alpha: 0,
+                scale: { from: 1, to: 0 },
+                duration: 1000,
+                ease: 'Quad.Out',
+                onComplete: () => circle.destroy()
+            });
+        }
+        
+        // Animate text
         this.tweens.add({
             targets: text,
-            y: text.y - 100,
+            y: text.y - 80,
+            scale: { from: 1, to: 1.5 },
             alpha: { from: 1, to: 0 },
-            duration: 1500,
+            duration: 1200,
             ease: 'Cubic.Out',
             onComplete: () => text.destroy()
         });
-
-        // Screen flash
+        
+        // Screen flash with green
         const flash = this.add.rectangle(
             0, 0,
             this.cameras.main.width,
             this.cameras.main.height,
-            PROGRESS_BAR.GREEN,
+            0x7cfc00, // Green
             0.2
         ).setOrigin(0).setDepth(100);
 
@@ -1653,40 +1899,76 @@ export default class BaseGameScene extends Phaser.Scene {
         });
     }
 
+    // Custom celebration effect without using particle emitters for "Needs Work" state
     celebrateNeedsWork() {
-        // Particle burst
-        this.celebrationEmitters.needsWork.explode(20);
-
-        // Create floating text
+        // Get positions based on the progress bar
+        const scoreWidth = buttonWidth * 2 + buttonSpacing;
+        const scoreHeight = buttonHeight;
+        const inputBoxY = this.cameras.main.centerY - 240 / 2;
+        const inputBoxHeight = 240;
+        const padding = 20;
+        const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + 70;
+        const scoreY = inputBoxY + inputBoxHeight + padding;
+        
+        // Create celebration text
         const text = this.add.text(
-            this.celebrationEmitters.needsWork.x,
-            this.celebrationEmitters.needsWork.y,
+            scoreX + scoreWidth/2,
+            scoreY,
             'Keep Going!',
             {
                 fontFamily: 'Nunito',
                 fontSize: '32px',
-                fill: `#${PROGRESS_BAR.RED.toString(16).padStart(6, '0')}`,
+                fill: '#ff3366', // Red color
                 stroke: '#ffffff',
                 strokeThickness: 2
             }
-        ).setOrigin(0.5);
-
-        // Animate the text
+        ).setOrigin(0.5).setDepth(200);
+        
+        // Create multiple circles that expand outward in place of particles
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 60 + 20;
+            const size = Math.random() * 8 + 4;
+            const startX = scoreX + scoreWidth/2;
+            const startY = scoreY + scoreHeight/2;
+            
+            const circle = this.add.circle(
+                startX,
+                startY,
+                size,
+                0xff3366, // Red color
+                0.8
+            ).setDepth(199);
+            
+            this.tweens.add({
+                targets: circle,
+                x: startX + Math.cos(angle) * distance,
+                y: startY + Math.sin(angle) * distance,
+                alpha: 0,
+                scale: { from: 1, to: 0 },
+                duration: 1000,
+                ease: 'Quad.Out',
+                onComplete: () => circle.destroy()
+            });
+        }
+        
+        // Animate text
         this.tweens.add({
             targets: text,
-            y: text.y - 100,
+            y: text.y - 80,
+            scale: { from: 1, to: 1.5 },
             alpha: { from: 1, to: 0 },
-            duration: 1500,
+            duration: 1200,
             ease: 'Cubic.Out',
             onComplete: () => text.destroy()
         });
-
-        // Screen flash
+        
+        // Screen flash with red
         const flash = this.add.rectangle(
             0, 0,
             this.cameras.main.width,
             this.cameras.main.height,
-            PROGRESS_BAR.RED,
+            0xff3366, // Red color
             0.2
         ).setOrigin(0).setDepth(100);
 
@@ -1700,8 +1982,24 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     updateOutputText(text) {
-        if (!this.outputText) return;
-        this.outputText.setText(text);
+        // Ensure all required objects exist
+        if (!this.outputText || !this.outputTextBox || !this.outputTextContainer || !this.outputBoxInfo) {
+            console.warn("Output text objects not properly initialized.");
+            if (!this.outputTextBox) {
+                this.createOutputTextBox();
+                if (!this.outputText) return; // Still not created, exit
+            } else {
+                return; // Can't proceed without output text
+            }
+        }
+        
+        // Set the text safely
+        try {
+            this.outputText.setText(text || "");
+        } catch (error) {
+            console.error("Error setting output text:", error);
+            return;
+        }
 
         // Calculate if scrolling is needed
         const textHeight = this.outputText.height;
@@ -1709,8 +2007,8 @@ export default class BaseGameScene extends Phaser.Scene {
         const needsScrolling = textHeight > boxHeight;
         
         // Make all elements visible
-        this.outputTextBox.setAlpha(1);
-        this.outputTextContainer.setAlpha(1);
+        if (this.outputTextBox) this.outputTextBox.setAlpha(1);
+        if (this.outputTextContainer) this.outputTextContainer.setAlpha(1);
         
         // Show scroll indicator if needed
         if (needsScrolling) {
@@ -1720,8 +2018,10 @@ export default class BaseGameScene extends Phaser.Scene {
             this.scrollIndicator = null;
         }
         
-        // Reset scroll position
-        this.outputTextContainer.y = this.outputBoxInfo.y + this.outputBoxInfo.padding;
+        // Reset scroll position safely
+        if (this.outputTextContainer && this.outputBoxInfo) {
+            this.outputTextContainer.y = this.outputBoxInfo.y + this.outputBoxInfo.padding;
+        }
     }
 
     updateProgressFill() {
@@ -1833,10 +2133,21 @@ export default class BaseGameScene extends Phaser.Scene {
         });
     }
 
-    init(data) {        
+    init(data) {
+        console.log("BaseGameScene init called with data:", data);
+        
+        // Store the progress percentage if it exists in passed data
+        if (data && data.progressPercentage !== undefined) {
+            console.log("Setting initial progress percentage:", data.progressPercentage);
+            this.progressPercentage = data.progressPercentage;
+        }
+        
+        // Reset UI elements for recreation
         this.promptTextBox = null;
         this.promptText = null;
         this.outputTextBox = null;
         this.outputText = null;
+        this.failsCounter = null;
+        this.failsText = null;
     }
 }

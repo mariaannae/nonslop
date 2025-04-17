@@ -1,4 +1,4 @@
-import { COLORS_HEX, COLORS_TEXT, BUTTON_OUTLINE_WIDTH, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth } from "../config/design_hard.js";
+import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, BUTTON_OUTLINE_WIDTH, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth } from "../config/design.js";
 
 export default class ButtonFactory {
     /**

@@ -1,11 +1,19 @@
-import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth } from "../config/design_hard.js";
-import { PROGRESS_BAR } from "../config/design_easy.js";
+import { getDesign } from "../config/design.js";
 import BaseGameScene from "./BaseGameScene.js";
 
 export default class GameSceneHard extends BaseGameScene {
     constructor() {
         super({ key: 'GameSceneHard' });
         this.mode = 'hard';
+        // Get design configuration for hard mode
+        this.design = getDesign('hard');
+        
+        // Extract needed values for easier access
+        this.COLORS_HEX = this.design.COLORS_HEX;
+        this.COLORS_TEXT = this.design.COLORS_TEXT;
+        this.OUTLINE_WIDTH = this.design.OUTLINE_WIDTH;
+        this.CORNER_RADIUS = this.design.CORNER_RADIUS;
+        this.PROGRESS_BAR = this.design.PROGRESS_BAR;
     }
 
     // ...existing code...
@@ -342,11 +350,29 @@ export default class GameSceneHard extends BaseGameScene {
 
     // Mode-specific navigation
     onEasyModeClick() {
-        this.scene.start('GameSceneEasy', {
+        // Reset data when transitioning between modes
+        const dataToTransfer = {
             mode: 'easy',
-            progressPercentage: this.progressPercentage,
-            levelValue: this.levelValue,
-            topKValue: this.topKValue
+            // Reset progress and level values rather than transferring current state
+            progressPercentage: this.PROGRESS_BAR.INITIAL,
+            levelValue: 1,
+            topKValue: this.topKValue || 1,
+            // Reset word counts
+            wordCount: 0,
+            originalWordCount: 0,
+            aiWordCount: 0,
+            totalWordCount: 0
+        };
+        
+        // Safety check - log what we're transferring
+        console.log("Transferring to Easy mode with reset data:", dataToTransfer);
+        
+        // Prepare for scene transition by cleaning up resources
+        this.prepareForSceneTransition();
+        
+        // Give a small delay to ensure cleanup completes
+        this.time.delayedCall(50, () => {
+            this.scene.start('GameSceneEasy', dataToTransfer);
         });
     }
 
@@ -356,17 +382,33 @@ export default class GameSceneHard extends BaseGameScene {
 
     // Mode-specific scene setup
     create(data) {
+        // Log the data received from other mode for debugging
+        console.log("GameSceneHard received data:", data);
+        
         super.create && super.create();
         
         // Apply data passed from other modes if available
         if (data && data.progressPercentage !== undefined) {
             this.progressPercentage = data.progressPercentage;
+            console.log("Setting progress percentage to:", this.progressPercentage);
         }
         if (data && data.levelValue !== undefined) {
             this.levelValue = data.levelValue;
         }
         if (data && data.topKValue !== undefined) {
             this.topKValue = data.topKValue;
+        }
+        if (data && data.originalWordCount !== undefined) {
+            this.originalWordCount = data.originalWordCount;
+        }
+        if (data && data.aiWordCount !== undefined) {
+            this.aiWordCount = data.aiWordCount;
+        }
+        if (data && data.totalWordCount !== undefined) {
+            this.totalWordCount = data.totalWordCount;
+        }
+        if (data && data.wordCount !== undefined) {
+            this.wordCount = data.wordCount;
         }
         
         this.cameras.main.scrollY = 0;
@@ -381,8 +423,8 @@ export default class GameSceneHard extends BaseGameScene {
         const inputBoxY = this.cameras.main.centerY;
         const inputBoxWidth = this.cameras.main.width * (5 / 6);
         const inputBoxHeight = 240;
-        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - buttonWidth - 20;
-        const buttonCenterY = inputBoxY + inputBoxHeight / 2 + buttonSpacing;
+        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - this.design.buttonWidth - 20;
+        const buttonCenterY = inputBoxY + inputBoxHeight / 2 + this.design.buttonSpacing;
         const padding = 20;
 
         // Create buttons with tooltips
@@ -407,20 +449,24 @@ export default class GameSceneHard extends BaseGameScene {
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
-            this.cameras.main.width - buttonWidth / 2 - padding, 
-            this.cameras.main.height - buttonHeight / 2 - padding,
+            this.cameras.main.width - this.design.buttonWidth / 2 - padding, 
+            this.cameras.main.height - this.design.buttonHeight / 2 - padding,
             'Share your feedback'
         );
         
         this.easyButton = this.createButton(
             "EASY", 
             () => this.onEasyModeClick(), 
-            buttonWidth / 2 + padding, 
-            this.cameras.main.height - buttonHeight / 2 - padding,
+            this.design.buttonWidth / 2 + padding, 
+            this.cameras.main.height - this.design.buttonHeight / 2 - padding,
             'Switch to Easy mode: AI suggestions allowed'
         );
 
+        // Initialize the progress bar with the percentage passed from the other mode
         this.createFailsCounter();
+        console.log("HardMode: Created fails counter with progress:", this.progressPercentage);
+        this.updateProgressFill();
+        
         this.createOutputTextBox();
         
         // Create word count display
@@ -433,7 +479,7 @@ export default class GameSceneHard extends BaseGameScene {
         this.updateCursor();
         
         // Add mode indicator badge with hard mode styling
-        this.addModeIndicator('HARD', 0xff3366); // Reddish color for hard mode
+        this.addModeIndicator('HARD', this.COLORS_HEX.RED || 0xff3366); // Reddish color for hard mode
     }
 
     // Style methods
@@ -441,7 +487,7 @@ export default class GameSceneHard extends BaseGameScene {
         return {
             fontFamily: "Nunito",
             fontSize: "22px",
-            color: COLORS_TEXT.WHITE,
+            color: this.COLORS_TEXT.WHITE,
             align: "center",
             lineSpacing: 6,
             shadow: {
@@ -456,12 +502,12 @@ export default class GameSceneHard extends BaseGameScene {
 
     getPromptBoxStyle() {
         return {
-            fillColor: COLORS_HEX.BACKGROUND,
+            fillColor: this.COLORS_HEX.BACKGROUND,
             fillAlpha: 0.5,
             hasOutline: true,
-            outlineWidth: OUTLINE_WIDTH,
-            outlineColor: COLORS_HEX.BLUE,
-            cornerRadius: CORNER_RADIUS
+            outlineWidth: this.OUTLINE_WIDTH,
+            outlineColor: this.COLORS_HEX.BLUE,
+            cornerRadius: this.CORNER_RADIUS
         };
     }
 
@@ -470,9 +516,9 @@ export default class GameSceneHard extends BaseGameScene {
             fillColor: 0xffffff,
             fillAlpha: 0.9,
             hasOutline: true,
-            outlineWidth: OUTLINE_WIDTH,
-            outlineColor: COLORS_HEX.MIDPURPLE,
-            cornerRadius: CORNER_RADIUS
+            outlineWidth: this.OUTLINE_WIDTH,
+            outlineColor: this.COLORS_HEX.MIDPURPLE,
+            cornerRadius: this.CORNER_RADIUS
         };
     }
 
@@ -505,13 +551,13 @@ export default class GameSceneHard extends BaseGameScene {
 
     getMenuBarStyle() {
         return {
-            backgroundColor: COLORS_HEX.BACKGROUND,
-            borderColor: COLORS_HEX.MIDPURPLE,
-            borderWidth: OUTLINE_WIDTH,
+            backgroundColor: this.COLORS_HEX.BACKGROUND,
+            borderColor: this.COLORS_HEX.MIDPURPLE,
+            borderWidth: this.OUTLINE_WIDTH,
             titleStyle: {
                 fontFamily: 'barcade3d',
                 fontSize: '50px',
-                color: COLORS_TEXT.YELLOW,
+                color: this.COLORS_TEXT.YELLOW,
                 shadow: {
                     offsetX: 3,
                     offsetY: 3,

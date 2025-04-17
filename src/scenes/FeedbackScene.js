@@ -1,4 +1,4 @@
-import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design_hard.js";
+import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 
@@ -94,12 +94,27 @@ export default class FeedbackScene extends Phaser.Scene {
         const interaction = this.userInput;
         saveInteraction(interaction, 'feedback');
         
-        if (this.mode === "easy") {
-            this.scene.start('GameSceneEasy', {  });
+        // Clean up resources before transitioning
+        this.clearInputTextBox();
+        if (this.cursorTimer) {
+            this.cursorTimer.remove();
+            this.cursorTimer = null;
         }
-        else if (this.mode === "hard") {
-            this.scene.start('GameSceneHard', {  });
+        
+        if (this.activeTimeout) {
+            clearTimeout(this.activeTimeout);
+            this.activeTimeout = null;
         }
+        
+        // Add a small delay to ensure cleanup completes
+        this.time.delayedCall(50, () => {
+            if (this.mode === "easy") {
+                this.scene.start('GameSceneEasy', {});
+            }
+            else if (this.mode === "hard") {
+                this.scene.start('GameSceneHard', {});
+            }
+        });
     }
 
     createInputTextBox() {    

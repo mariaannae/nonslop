@@ -1,4 +1,4 @@
-import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design_hard.js";
+import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 

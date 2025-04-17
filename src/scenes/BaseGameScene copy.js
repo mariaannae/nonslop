@@ -1,7 +1,7 @@
 import { stopwords } from "../config/stopwords.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
-import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_OUTLINE_WIDTH, PROGRESS_BAR } from "../config/design_easy.js";
+import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_OUTLINE_WIDTH, PROGRESS_BAR } from "../config/design.js";
 
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {

@@ -1,4 +1,4 @@
-import { COLORS_HEX, COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth} from "../config/design_hard.js";
+import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth} from "../config/design.js";
 import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
 
 const loadWebLLM = async () => {
@@ -80,8 +80,15 @@ export default class Preloader extends Phaser.Scene {
 
     preload() {
         this.load.setPath('assets');
-
-
+        
+        // Load all required textures
+        this.load.image('ball', 'ball.png');
+        this.load.image('bg', 'bg.png');
+        this.load.image('dball', 'dball.png');
+        
+        // We don't need to explicitly preload fonts as they're included via CSS
+        // Reset path for other assets
+        this.load.setPath('assets');
     }
 
     createBackgroundEffect() {
