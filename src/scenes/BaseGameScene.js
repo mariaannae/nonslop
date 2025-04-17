@@ -1243,19 +1243,37 @@ export default class BaseGameScene extends Phaser.Scene {
         const cursorX = this.inputText.x + measurer.width;
         measurer.destroy();
         
-        // Calculate font size and line height
-        const rawFontSize = this.inputText.style?.fontSize ?? 22;
-        const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
-        const lineHeight = fontSize * 1.2;
-        
-        // If at word boundary, show first suggestion
+        // Calculate font size and line height for autocomplete placement
+        // Step 1: Get the actual wrapped lines using Phaser’s renderer
+        const helper = this.add.text(0, 0, this.userInput + '_', this.inputText.style);
+        const actualWrappedLines = helper.getWrappedText();
+        helper.destroy();
+
+        // Step 2: Figure out the current line we're typing on
+       // const currentLineIndex = actualWrappedLines.length - 1;
+        //const currentLineText = actualWrappedLines[currentLineIndex] || '';
+
+        // Step 3: Measure X position for cursor at end of line
+        //const measurer = this.add.text(0, 0, currentLineText, this.inputText.style);
+        //const cursorX = this.inputText.x + measurer.width;
+        //measurer.destroy();
+
+        // Step 4: Use already-declared font size and spacing (fallbacks if undefined)
+        const fontSize = parseFloat(this.inputText.style.fontSize) || 22;
+        const lineSpacing = this.inputText.style.lineSpacing || 0;
+        const effectiveLineHeight = fontSize + lineSpacing;
+
+        // Step 5: Compute Y position relative to inputText’s origin
+        const cursorY = this.inputText.y + currentLineIndex * effectiveLineHeight;
+
+
         if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
             const suggestion = this.aiSuggestedWords[0];
             if (suggestion && this.autocompleteText) {
                 // Position correctly based on calculated line index
                 this.autocompleteText.setPosition(
                     cursorX,
-                    this.inputText.y + (currentLineIndex * lineHeight)
+                    cursorY
                 );
                 
                 this.autocompleteText.setText(suggestion);
@@ -1274,7 +1292,7 @@ export default class BaseGameScene extends Phaser.Scene {
                     // Position correctly based on calculated line index
                     this.autocompleteText.setPosition(
                         cursorX,
-                        this.inputText.y + (currentLineIndex * lineHeight)
+                        cursorY
                     );
                     
                     this.autocompleteText.setText(completion);
@@ -1283,7 +1301,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 }
             }
         }
-        
+
+
         if (this.autocompleteText) {
             this.autocompleteText.setText('');
         }
