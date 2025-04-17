@@ -124,6 +124,29 @@ export default class BaseGameScene extends Phaser.Scene {
         
         return button;
     }
+    shakeScreen() {
+        this.cameras.main.shake(250, 0.02); // Shakes for 250ms with intensity 0.02
+    }    
+
+    createExplosionEffect(word, x, y) {
+        console.log("Creating explosion effect for word:", word);
+        const explosion = this.add.text(x, y, word, {
+            fontFamily: 'Nunito',
+            fontSize: '22px', 
+            fill: '#ff0000', 
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(100); // Set a high depth value to ensure visibility
+        
+        this.tweens.add({
+            targets: explosion,
+            scale: { from: 1, to: 4 }, // How big is the explosion?
+            alpha: { from: 1, to: 0 }, // Fix - proper alpha from 1 to 0
+            angle: { from: 0, to: 360 }, // Rotation
+            duration: 900,
+            ease: 'Back.easeOut',
+            onComplete: () => explosion.destroy()
+        });
+    }
 
     clearInputTextBox() {
         this.userInput = '';
@@ -256,63 +279,92 @@ export default class BaseGameScene extends Phaser.Scene {
             }
             return;
         }
-
+    
         // Get all text up to the last word boundary
         const lastSpaceIndex = userInput.lastIndexOf(' ');
         const lastNewlineIndex = userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
-
+    
         console.log("checking llm: ", this.registry.get('llmEngine'));
         if (!this.registry.get('llmEngine')) {
-
             console.warn("LLM Engine missing entirely. Returning to Preloader...");
             this.scene.start('PreloaderScene');
             return;
-            
         }
     
-
-
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = context.trim();
-   
+        
+        // Add retry logic
+        let maxRetries = 3;
+        let currentRetry = 0;
+        let success = false;
+        let reply;
+        
+        while (!success && currentRetry < maxRetries) {
+            try {
+                reply = await this.registry.get('llmEngine').completions.create({
+                    prompt: trimmedcontext,
+                    echo: false,
+                    n: 1,
+                    max_tokens: 1,
+                    logprobs: true,
+                    top_logprobs: 5,
+                });
+                success = true;
+            } catch (error) {
+                currentRetry++;
+                console.error(`Attempt ${currentRetry}/${maxRetries} failed:`, error);
+                
+                // Handle VectorInt binding error specifically
+                if (error.toString().includes("VectorInt") && currentRetry < maxRetries) {
+                    console.log("VectorInt binding error detected, retrying...");
+                    // Short delay before retry
+                    await new Promise(resolve => setTimeout(resolve, 100 * currentRetry));
+                } else if (currentRetry >= maxRetries) {
+                    console.error("Max retries reached, giving up on suggestions");
+                    this.aiSuggestedWords = [];
+                    this.showSuggestions([]);
+                    if (this.autocompleteText) {
+                        this.autocompleteText.setText('');
+                    }
+                    console.warn("LLM Engine missing entirely. Returning to Preloader...");
+                    this.scene.start('PreloaderScene');
+                    
+                    return;
+                } else {
+                    throw error; // Re-throw other types of errors
+                }
+            }
+        }
+    
         try {
-            const reply = await this.registry.get('llmEngine').completions.create({
-                prompt: trimmedcontext,
-                echo: false,
-                n: 1,
-                max_tokens: 1,
-                logprobs: true,
-                top_logprobs: 5,
-            });
-
             if (!reply.choices || reply.choices.length === 0 || !reply.choices[0].logprobs) {
                 console.warn("AI response is missing expected properties.");
                 return;
             }
-
+    
             let options = reply.choices[0].logprobs.content[0].top_logprobs;
             options.sort((a, b) => b.logprob - a.logprob);
-
+    
             const filteredOptions = options
                 .map(choice => choice.token.trim())
                 .filter(token => token !== '')
                 .filter(token => !stopwords.includes(token.toLowerCase()));
-
+    
             console.log("topk: ", this.topKValue);
             const uniqueSuggestedWords = Array.from(new Set(filteredOptions))
                 .slice(0, this.topKValue);
-
+    
             console.log("Setting AI Suggested Words:", uniqueSuggestedWords);
             this.aiSuggestedWords = uniqueSuggestedWords;
             this.showSuggestions(uniqueSuggestedWords);
-
+    
             // Log current state
             console.log("Current input:", this.userInput);
             console.log("Current suggestions:", this.aiSuggestedWords);
         } catch (error) {
-            console.log("in error, llm check: ", this.registry.get('llmEngine'));
-            console.error("Error generating suggestions:", error);
+            console.error("Error processing suggestion results:", error);
             this.aiSuggestedWords = [];
             this.showSuggestions([]);
             if (this.autocompleteText) {
@@ -1262,35 +1314,57 @@ export default class BaseGameScene extends Phaser.Scene {
             this.addScrollEvent();
         }
 
-    updateFailsCounter(success) {
-        const oldPercentage = this.progressPercentage;
-        let newPercentage;
-        
-        if (success) {
-            // Non-AI word (better)
-            newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
-        } else {
-            // AI word (worse)
-            newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+        updateFailsCounter(success) {
+            const oldPercentage = this.progressPercentage;
+            let newPercentage;
+            
+            if (success) {
+                // Non-AI word
+                newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
+                
+                
+            } else {
+                // AI word (worse)
+                console.log("in the else");
+                newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+                this.shakeScreen();
+                
+                // Use the first AI suggestion as our "current word" since that's what would be autocompleted
+                // (This is the most reliable way to know which AI word was triggered in this context)
+                let currentWord = "";
+                
+                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+                    // Get the first suggestion from the AI suggestions array
+                    currentWord = this.aiSuggestedWords[0];
+                }
+                
+                console.log("AI word used:", currentWord);
+                
+                // Create explosion effect for the AI word
+                if (currentWord) {
+                    const inputBoxY = this.cameras.main.centerY - 240 / 2;
+                    this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
+                }
+            }
+            
+            
+            // Check for milestone achievements
+            if (oldPercentage !== 0 && newPercentage === 0) {
+                // Reached perfect score
+                this.celebrateSuccess();
+            } else if (oldPercentage !== 100 && newPercentage === 100) {
+                // Reached needs work
+                this.celebrateNeedsWork();
+            }
+            
+            this.progressPercentage = newPercentage;
+            
+            if (this.failsText) {
+                this.failsText.setText(` `);
+            }
+            
+            this.updateProgressFill();
         }
-        
-        // Check for milestone achievements
-        if (oldPercentage !== 0 && newPercentage === 0) {
-            // Reached perfect score
-            this.celebrateSuccess();
-        } else if (oldPercentage !== 100 && newPercentage === 100) {
-            // Reached needs work
-            this.celebrateNeedsWork();
-        }
-        
-        this.progressPercentage = newPercentage;
-        
-        if (this.failsText) {
-            this.failsText.setText(` `);
-        }
-        
-        this.updateProgressFill();
-    }
 
     celebrateSuccess() {
         // Particle burst
@@ -1516,60 +1590,6 @@ export default class BaseGameScene extends Phaser.Scene {
             box.setDepth(15);
             text.setDepth(16);
         });
-    }
-
-    updateCursor() {
-        if (!this.inputText) return;
-        
-        // Keep input text position fixed
-        const padding = 30;
-        const textBoxY = this.cameras.main.centerY - 240 / 2;
-        this.inputText.setPosition(
-            this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
-            textBoxY + padding
-        );
-        
-        // Calculate line wrapping
-        const maxWidth = this.uiBoxWidth - (padding * 2);
-        const lines = [];
-        let currentLine = '';
-        const words = this.userInput.split(/(\s+)/);
-        let tempText = this.add.text(0, 0, '', this.inputText.style);
-
-        for (const word of words) {
-            tempText.setText(currentLine + word);
-            if (tempText.width > maxWidth && currentLine !== '') {
-                lines.push(currentLine);
-                currentLine = word;
-            } else {
-                currentLine += word;
-            }
-        }
-        lines.push(currentLine);
-        tempText.destroy();
-
-        // Join lines with newlines and add cursor
-        const displayText = lines.join('\n') + (this.cursorVisible ? "_" : " ");
-        this.inputText.setText(displayText);
-        
-        // Calculate cursor position
-        const currentLineIndex = lines.length - 1;
-        const currentLineText = this.add.text(0, 0, lines[currentLineIndex], this.inputText.style);
-        const cursorX = this.inputText.x + currentLineText.width;
-        const rawFontSize = this.inputText.style?.fontSize ?? 22;
-        const fontSize = typeof rawFontSize === 'string' ? parseFloat(rawFontSize) : rawFontSize;
-        const cursorY = this.inputText.y + (currentLineIndex * fontSize * 1.2);
-        const baselineAdjustment = fontSize * 0.1; // Try 0.1–0.2 based on visual test
-        const adjustedCursorY = cursorY + baselineAdjustment;
-
-        currentLineText.destroy();
-        
-        // Update autocomplete at cursor position
-        if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-            this.generateAutocomplete();
-        } else if (this.autocompleteText) {
-            this.autocompleteText.setText('');
-        }
     }
 
     init(data) {        
