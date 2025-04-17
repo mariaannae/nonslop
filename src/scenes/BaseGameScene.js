@@ -16,9 +16,16 @@ export default class BaseGameScene extends Phaser.Scene {
         // Higher percentage is worse (more AI words)
         // Lower percentage is better (more original words)
         this.progressPercentage = PROGRESS_BAR.INITIAL;
-        this.wordCount = 0; // Track successful words entered
+        
+        // Enhanced word counting
+        this.totalWordCount = 0; // Track total word count
+        this.originalWordCount = 0; // Track non-AI words
+        this.aiWordCount = 0; // Track AI-suggested words
+        this.wordCount = 0; // Track successful words entered (keep for backward compatibility)
+        
         this.uiBoxWidth = null; // Will be set in createInputTextBox
         this.tooltips = []; // Array to store active tooltips
+        this.wordCountDisplay = null; // Container for word count visualization
     }
 
     update() {
@@ -129,7 +136,6 @@ export default class BaseGameScene extends Phaser.Scene {
     }    
 
     createExplosionEffect(word, x, y) {
-        console.log("Creating explosion effect for word:", word);
         const explosion = this.add.text(x, y, word, {
             fontFamily: 'Nunito',
             fontSize: '22px', 
@@ -159,7 +165,7 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     onDoneButtonClick() {
-        console.log("Done button clicked! Evaluating text...");
+
         
         if (!this.outputTextBox) {
             this.createOutputTextBox();
@@ -170,8 +176,7 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     onResetButtonClick() {
-        console.log("Reset button clicked! Clearing text...");
-    
+  
         // Reset the fail count and progress percentage
         //this.failCount = 0;
         //this.progressPercentage = PROGRESS_BAR.INITIAL;
@@ -352,7 +357,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 .filter(token => token !== '')
                 .filter(token => !stopwords.includes(token.toLowerCase()));
     
-            console.log("topk: ", this.topKValue);
+         
             const uniqueSuggestedWords = Array.from(new Set(filteredOptions))
                 .slice(0, this.topKValue);
     
@@ -878,6 +883,167 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.doneButton) this.doneButton.setDepth(10);
         if (this.resetButton) this.resetButton.setDepth(10);
         if (this.feedbackButton) this.feedbackButton.setDepth(10);
+        if (this.wordCountDisplay) this.wordCountDisplay.setDepth(55);
+    }
+    
+    createWordCountDisplay() {
+        if (this.wordCountDisplay) {
+            this.wordCountDisplay.destroy();
+        }
+        
+        // Create container for word count display
+        this.wordCountDisplay = this.add.container(0, 0).setDepth(55);
+        
+        const padding = 20;
+        const boxWidth = 180;
+        const boxHeight = 95;
+        const cornerRadius = 10;
+        
+        // Position in the upper right corner, mirroring the mode badge position
+        const displayX = this.cameras.main.width - boxWidth - padding;
+        const displayY = this.menuBarHeight + padding;
+        
+        // Create background
+        const background = this.add.graphics();
+        background.fillStyle(0x000000, 0.7);
+        background.fillRoundedRect(0, 0, boxWidth, boxHeight, cornerRadius);
+        background.lineStyle(2, 0xffffff, 0.5);
+        background.strokeRoundedRect(0, 0, boxWidth, boxHeight, cornerRadius);
+        
+        // Word count title
+        const titleText = this.add.text(
+            boxWidth / 2, 
+            15, 
+            "WORD STATS", 
+            {
+                fontFamily: 'Nunito',
+                fontSize: '16px',
+                fontStyle: 'bold',
+                fill: '#ffffff'
+            }
+        ).setOrigin(0.5);
+        
+        // Create icons for different word types
+        const originalIcon = this.add.circle(20, 40, 6, 0x7cfc00);
+        const originalLabel = this.add.text(
+            35, 40, 
+            "Original:", 
+            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
+        
+        this.originalCountText = this.add.text(
+            boxWidth - 15, 40, 
+            "0", 
+            { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#7cfc00' }
+        ).setOrigin(1, 0.5);
+        
+        const aiIcon = this.add.circle(20, 65, 6, 0xff3366);
+        const aiLabel = this.add.text(
+            35, 65, 
+            "AI Words:", 
+            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
+        
+        this.aiCountText = this.add.text(
+            boxWidth - 15, 65, 
+            "0", 
+            { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#ff3366' }
+        ).setOrigin(1, 0.5);
+        
+        // Total count at bottom
+        const totalLabel = this.add.text(
+            20, 85, 
+            "Total:", 
+            { fontFamily: 'Nunito', fontSize: '14px', fontStyle: 'bold', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
+        
+        this.totalCountText = this.add.text(
+            boxWidth - 15, 85, 
+            "0", 
+            { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#ffffff' }
+        ).setOrigin(1, 0.5);
+        
+        // Add all elements to the container
+        this.wordCountDisplay.add([
+            background, 
+            titleText, 
+            originalIcon, originalLabel, this.originalCountText,
+            aiIcon, aiLabel, this.aiCountText,
+            totalLabel, this.totalCountText
+        ]);
+        
+        // Position the container
+        this.wordCountDisplay.setPosition(displayX, displayY);
+        
+        // Add subtle animation
+        this.tweens.add({
+            targets: this.wordCountDisplay,
+            y: displayY - 3,
+            duration: 2000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+        });
+    }
+    
+    updateWordCountDisplay() {
+        if (!this.wordCountDisplay) return;
+        
+        // Calculate the total
+        const total = this.originalWordCount + this.aiWordCount;
+        
+        // Update the count displays with animations
+        this.animateCountChange(this.originalCountText, this.originalCountText.text, this.originalWordCount.toString());
+        this.animateCountChange(this.aiCountText, this.aiCountText.text, this.aiWordCount.toString());
+        this.animateCountChange(this.totalCountText, this.totalCountText.text, total.toString());
+    }
+    
+    animateCountChange(textObject, oldValue, newValue) {
+        if (oldValue === newValue) return;
+        
+        // Parse values as integers
+        const oldNum = parseInt(oldValue, 10) || 0;
+        const newNum = parseInt(newValue, 10) || 0;
+        
+        // Only animate if increasing
+        if (newNum > oldNum) {
+            // Create a temporary text object for the animation
+            const animatedText = this.add.text(
+                textObject.x, 
+                textObject.y - 15,
+                "+" + (newNum - oldNum),
+                {
+                    fontFamily: 'Nunito',
+                    fontSize: '14px',
+                    fontStyle: 'bold',
+                    fill: '#ffffff'
+                }
+            ).setOrigin(1, 0.5).setAlpha(0);
+            
+            // Add it to the same container
+            this.wordCountDisplay.add(animatedText);
+            
+            // Animate the temporary text
+            this.tweens.add({
+                targets: animatedText,
+                y: animatedText.y - 15,
+                alpha: { from: 0, to: 1, duration: 200, yoyo: true, hold: 300 },
+                ease: 'Cubic.Out',
+                duration: 800,
+                onComplete: () => animatedText.destroy()
+            });
+            
+            // Scale effect on the main counter
+            this.tweens.add({
+                targets: textObject,
+                scale: { from: 1, to: 1.3, duration: 200, yoyo: true },
+                ease: 'Back.Out',
+                duration: 400,
+            });
+        }
+        
+        // Update the text
+        textObject.setText(newValue);
     }
 
     ensureTextVisibility() {
@@ -1338,8 +1504,9 @@ export default class BaseGameScene extends Phaser.Scene {
             if (success) {
                 // Non-AI word
                 newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
-                
-                
+                // Update original word count
+                this.originalWordCount++;
+                this.totalWordCount++;
             } else {
                 // AI word     
                 newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
@@ -1361,7 +1528,14 @@ export default class BaseGameScene extends Phaser.Scene {
                     const inputBoxY = this.cameras.main.centerY - 240 / 2;
                     this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
                 }
+                
+                // Update AI word count
+                this.aiWordCount++;
+                this.totalWordCount++;
             }
+            
+            // Update the word count display
+            this.updateWordCountDisplay();
             
             
             // Check for milestone achievements

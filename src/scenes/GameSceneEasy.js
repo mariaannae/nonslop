@@ -93,6 +93,10 @@ export default class GameSceneEasy extends BaseGameScene {
 
         this.createFailsCounter();
         this.createOutputTextBox();
+        
+        // Create word count display
+        this.createWordCountDisplay();
+        
         this.inputActive = false;
         this.addButtonClickEffects();
         this.ensureProperLayering();
@@ -346,7 +350,6 @@ export default class GameSceneEasy extends BaseGameScene {
 
     // Update background when level changes
     updateBackgroundForLevel() {
-        console.log("Updating background for Easy mode - Level:", this.levelValue);
         
         // Destroy existing background
         if (this.background) {
