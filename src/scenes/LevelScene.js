@@ -251,7 +251,7 @@ export default class LevelScene extends Phaser.Scene {
         // Add tooltip functionality
         easyButton.setInteractive()
             .on('pointerover', () => {
-                this.showTooltip('Play in Easy mode: AI suggestions allowed', easyButton.x, easyButton.y - easyButton.height/2);
+                this.showTooltip('AI suggestions penalized', easyButton.x, easyButton.y - easyButton.height/2);
                 easyButton.setScale(1.1);
             })
             .on('pointerout', () => {
@@ -261,7 +261,7 @@ export default class LevelScene extends Phaser.Scene {
 
         hardButton.setInteractive()
             .on('pointerover', () => {
-                this.showTooltip('Play in Hard mode: No AI suggestions', hardButton.x, hardButton.y - hardButton.height/2);
+                this.showTooltip('AI suggestions blocked', hardButton.x, hardButton.y - hardButton.height/2);
                 hardButton.setScale(1.1);
             })
             .on('pointerout', () => {
