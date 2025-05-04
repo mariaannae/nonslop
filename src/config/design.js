@@ -59,7 +59,8 @@ const HARD = {
     BLACK: 0x000000,
     RED: 0xff0000,
     BLUE: 0x00bcd4,
-    BLUE_BACKGROUND: 0x0a1b29
+    BLUE_BACKGROUND: 0x0a1b29,
+    SLIDER_HANDLE:0xffaa00,
   },
   COLORS_TEXT: {
     BACKGROUND: '#1a0933',
@@ -92,9 +93,12 @@ export function getDesign(mode = 'easy') {
   };
 }
 
-export const cursorColor = '#000000';      // white cursor
+export const cursorColor = '#000000';      // black cursor
 export const autocompleteColor = '#ff3366'; // red autocomplete
-export const inputColor = '#000000';       // white user input
+export const inputColor = '#000000';       // black user input
+
+export const toggleWidth = 40;
+export const toggleHeight = 12;
 
 // Export individual constants and objects for backward compatibility
 export const OUTLINE_WIDTH = COMMON.OUTLINE_WIDTH;

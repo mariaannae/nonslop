@@ -1,6 +1,7 @@
 import { stopwords } from "../config/stopwords.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import ToggleFactory from "../utils/ToggleFactory.js";
 import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_OUTLINE_WIDTH, PROGRESS_BAR, cursorColor, autocompleteColor, inputColor} from "../config/design.js";
 
 export default class BaseGameScene extends Phaser.Scene {
@@ -61,6 +62,61 @@ export default class BaseGameScene extends Phaser.Scene {
         };
         
         attemptRecovery();
+    }
+    createToggle(mode, callback, centerX, centerY, tooltipText) {
+        if (!this.inputTextBorder) {
+            console.warn("Input text border not found! Skipping toggle creation.");
+            return;
+        }
+        const toggle = ToggleFactory.createToggle(this, mode, callback, centerX, centerY);
+        
+        // Add container to scene so it can be accessed properly
+        this.add.existing(toggle);
+        
+        // Make the entire container interactive for tooltips
+        if (tooltipText) {
+            // Create a hit area that covers the entire toggle
+            const hitArea = new Phaser.Geom.Rectangle(-60, -20, 180, 40);
+            toggle.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains)
+                .on('pointerover', () => this.showTooltip(tooltipText, toggle.x, toggle.y - 30))
+                .on('pointerout', () => this.hideTooltips());
+        }
+        
+        return toggle;
+    }
+
+    onModeToggle(mode) {
+        // Reset data when transitioning between modes
+        const dataToTransfer = {
+            mode: mode,
+            // Reset progress and level values rather than transferring current state
+            progressPercentage: PROGRESS_BAR.INITIAL,
+            levelValue: 1,
+            topKValue: this.topKValue || 1,
+            // Reset word counts
+            wordCount: 0,
+            originalWordCount: 0,
+            aiWordCount: 0,
+            totalWordCount: 0
+        };
+        
+    // Safety check - log what we're transferring
+    console.log(`Transferring to ${mode} mode with reset data:`, dataToTransfer);
+    
+    // Prepare for scene transition by cleaning up resources
+    this.prepareForSceneTransition();
+    
+    // Give a small delay to ensure cleanup completes
+    if (mode === 'hard') {
+        this.time.delayedCall(50, () => {
+            this.scene.start('GameSceneHard', dataToTransfer);
+        });
+    }
+    else if (mode === 'easy') {
+        this.time.delayedCall(50, () => {
+            this.scene.start('GameSceneEasy', dataToTransfer);
+        });
+    }
     }
 
     // Scene transition helper - call this before switching scenes to ensure clean transitions
@@ -243,6 +299,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         return button;
     }
+
     shakeScreen() {
         this.cameras.main.shake(250, 0.02); // Shakes for 250ms with intensity 0.02
     }    
@@ -1293,11 +1350,9 @@ export default class BaseGameScene extends Phaser.Scene {
             if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
                 const autocompleteSuggestion = this.generateAutocomplete();
                 suggestion = autocompleteSuggestion ? `[color=${autocompleteColor}]${autocompleteSuggestion}[/color]` : "";
-                console.log("Autocomplete Suggestion:", autocompleteSuggestion);
-                console.log("Suggestion Text:", suggestion);
             }
             let displayText = userText;
-            console.log("Suggestion Text:", suggestion);
+           
             
             // Add cursor or autocomplete
             if (suggestion && this.cursorVisible) {
@@ -1536,8 +1591,8 @@ export default class BaseGameScene extends Phaser.Scene {
             { button: this.doneButton, tooltip: 'Submit your text for evaluation' },
             { button: this.resetButton, tooltip: 'Clear text and start over' },
             { button: this.feedbackButton, tooltip: 'Share your feedback' },
-            { button: this.hardButton, tooltip: 'Switch to Hard mode: No AI suggestions' },
-            { button: this.easyButton, tooltip: 'Switch to Easy mode: AI suggestions allowed' }
+            //{ button: this.hardButton, tooltip: 'Switch to Hard mode: No AI suggestions' },
+            //{ button: this.easyButton, tooltip: 'Switch to Easy mode: AI suggestions allowed' }
         ];
         
         buttons.forEach(({ button, tooltip }) => {

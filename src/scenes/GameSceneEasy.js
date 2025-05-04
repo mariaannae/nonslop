@@ -22,32 +22,7 @@ export default class GameSceneEasy extends BaseGameScene {
         this.updateCursor();
     }
 
-    // Mode-specific navigation
-    onHardModeClick() {
-        // Reset data when transitioning between modes
-        const dataToTransfer = {
-            mode: 'hard',
-            // Reset progress and level values rather than transferring current state
-            progressPercentage: this.design.PROGRESS_BAR.INITIAL,
-            levelValue: 1,
-            topKValue: this.topKValue || 1,
-            // Reset word counts
-            wordCount: 0,
-            originalWordCount: 0,
-            aiWordCount: 0,
-            totalWordCount: 0
-        };
-        
-        console.log("Transferring to Hard mode with reset data:", dataToTransfer);
-        
-        // Prepare for scene transition by cleaning up resources
-        this.prepareForSceneTransition();
-        
-        // Give a small delay to ensure cleanup completes
-        this.time.delayedCall(50, () => {
-            this.scene.start('GameSceneHard', dataToTransfer);
-        });
-    }
+    
 
     onFeedbackClick() {
         this.scene.start('FeedbackScene', {mode: this.mode});
@@ -125,12 +100,13 @@ export default class GameSceneEasy extends BaseGameScene {
             'Share your feedback'
         );
         
-        this.hardButton = this.createButton(
-            "HARD", 
-            () => this.onHardModeClick(), 
+        // Create a mode toggle switch in the bottom left corner
+        this.modeToggle = this.createToggle(
+            this.mode,
+            (newMode) => this.onModeToggle(newMode), 
             this.design.buttonWidth / 2 + padding, 
             this.cameras.main.height - this.design.buttonHeight / 2 - padding,
-            'Switch to Hard mode: No AI suggestions'
+            'Switch between Easy and Hard modes'
         );
 
         // Initialize the progress bar with the percentage passed from the other mode

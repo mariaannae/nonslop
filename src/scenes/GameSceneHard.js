@@ -1,4 +1,5 @@
 import { getDesign } from "../config/design.js";
+
 import BaseGameScene from "./BaseGameScene.js";
 
 export default class GameSceneHard extends BaseGameScene {
@@ -357,32 +358,32 @@ export default class GameSceneHard extends BaseGameScene {
     }
 
     // Mode-specific navigation
-    onEasyModeClick() {
-        // Reset data when transitioning between modes
-        const dataToTransfer = {
-            mode: 'easy',
-            // Reset progress and level values rather than transferring current state
-            progressPercentage: this.PROGRESS_BAR.INITIAL,
-            levelValue: 1,
-            topKValue: this.topKValue || 1,
-            // Reset word counts
-            wordCount: 0,
-            originalWordCount: 0,
-            aiWordCount: 0,
-            totalWordCount: 0
-        };
+    // onEasyModeClick() {
+    //     // Reset data when transitioning between modes
+    //     const dataToTransfer = {
+    //         mode: 'easy',
+    //         // Reset progress and level values rather than transferring current state
+    //         progressPercentage: this.PROGRESS_BAR.INITIAL,
+    //         levelValue: 1,
+    //         topKValue: this.topKValue || 1,
+    //         // Reset word counts
+    //         wordCount: 0,
+    //         originalWordCount: 0,
+    //         aiWordCount: 0,
+    //         totalWordCount: 0
+    //     };
         
-        // Safety check - log what we're transferring
-        console.log("Transferring to Easy mode with reset data:", dataToTransfer);
+    //     // Safety check - log what we're transferring
+    //     console.log("Transferring to Easy mode with reset data:", dataToTransfer);
         
-        // Prepare for scene transition by cleaning up resources
-        this.prepareForSceneTransition();
+    //     // Prepare for scene transition by cleaning up resources
+    //     this.prepareForSceneTransition();
         
-        // Give a small delay to ensure cleanup completes
-        this.time.delayedCall(50, () => {
-            this.scene.start('GameSceneEasy', dataToTransfer);
-        });
-    }
+    //     // Give a small delay to ensure cleanup completes
+    //     this.time.delayedCall(50, () => {
+    //         this.scene.start('GameSceneEasy', dataToTransfer);
+    //     });
+    // }
 
     onFeedbackClick() {
         this.scene.start('FeedbackScene', {mode: this.mode});
@@ -461,14 +462,22 @@ export default class GameSceneHard extends BaseGameScene {
             this.cameras.main.height - this.design.buttonHeight / 2 - padding,
             'Share your feedback'
         );
-        
-        this.easyButton = this.createButton(
-            "EASY", 
-            () => this.onEasyModeClick(), 
+        // Create a mode toggle switch in the bottom left corner
+        this.modeToggle = this.createToggle(
+            this.mode,
+            (newMode) => this.onModeToggle(newMode), 
             this.design.buttonWidth / 2 + padding, 
             this.cameras.main.height - this.design.buttonHeight / 2 - padding,
-            'Switch to Easy mode: AI suggestions allowed'
+            'Switch between Easy and Hard modes'
         );
+        
+        // this.easyButton = this.createButton(
+        //     "EASY", 
+        //     () => this.onEasyModeClick(), 
+        //     this.design.buttonWidth / 2 + padding, 
+        //     this.cameras.main.height - this.design.buttonHeight / 2 - padding,
+        //     'Switch to Easy mode: AI suggestions allowed'
+        // );
 
         // Initialize the progress bar with the percentage passed from the other mode
         this.createFailsCounter();
