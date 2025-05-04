@@ -19,7 +19,13 @@ const config = {
     height: 600,
     scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, FeedbackScene],
     physics: { default: 'arcade', arcade: { debug: false } },
-
+    plugins: {
+        global: [{
+            key: 'rexBBCodeTextPlugin',
+            plugin: rexbbcodetextplugin, // Defined globally by the script you added above
+            start: true
+        }]
+    },
     // Increase rendering resolution
     scale: {
         mode: Phaser.Scale.FIT, // Scales to fit the screen

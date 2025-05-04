@@ -1,7 +1,7 @@
 import { stopwords } from "../config/stopwords.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
-import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_OUTLINE_WIDTH, PROGRESS_BAR } from "../config/design.js";
+import { buttonWidth, buttonSpacing, buttonHeight, BUTTON_CORNER_RADIUS, BUTTON_OUTLINE_WIDTH, PROGRESS_BAR, cursorColor, autocompleteColor, inputColor} from "../config/design.js";
 
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {
@@ -271,9 +271,7 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.inputText) {
             this.inputText.setText('_');
         }
-        if (this.autocompleteText) {
-            this.autocompleteText.setText('');
-        }
+        // We no longer need to clear autocompleteText separately
     }
 
     onDoneButtonClick() {
@@ -566,6 +564,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.inputText = null;
         }
         
+        // We'll still clean up the autocompleteText if it exists, but we won't create a new one
         if (this.autocompleteText) {
             this.autocompleteText.destroy();
             this.autocompleteText = null;
@@ -594,34 +593,22 @@ export default class BaseGameScene extends Phaser.Scene {
             ).setDepth(20);
         }
         
-        // Create fresh text objects with default content
+        // Create a single text object with enhanced styling capabilities
         const textStyle = {
             ...this.getInputTextStyle(),
             wordWrap: { width: this.uiBoxWidth - padding * 2 }
         };
-        const autocompleteStyle = {
-            ...this.getAutocompleteTextStyle(),
-            wordWrap: { width: this.uiBoxWidth - padding * 2 }
-        };
         
         // Create with simple initial content to ensure proper initialization
-        this.inputText = this.add.text(
+        this.inputText = this.add.rexBBCodeText(
             this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
             textBoxY + padding,
             "_",
             textStyle
         ).setOrigin(0, 0);
         
-        this.autocompleteText = this.add.text(
-            this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
-            textBoxY + padding,
-            "",
-            { ...autocompleteStyle, fill: '#ff0000', alpha: 1 }
-        ).setOrigin(0, 0);
-        
         // Ensure visibility and proper depth
         this.inputText.setVisible(true).setDepth(25);
-        this.autocompleteText.setVisible(true).setDepth(60);
         
         // Reset user input
         this.userInput = '';
@@ -1195,10 +1182,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
     generateAutocomplete() {
         if (!this.aiSuggestedWords || this.aiSuggestedWords.length === 0) {
-            if (this.autocompleteText) {
-                this.autocompleteText.setText('');
-            }
-            return null;
+            return '';
         }
     
         // Get the current word being typed
@@ -1206,108 +1190,34 @@ export default class BaseGameScene extends Phaser.Scene {
         const lastNewlineIndex = this.userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
         const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
-    
-        // Calculate line wrapping
-        const padding = 30;
-        const maxWidth = this.uiBoxWidth - (padding * 2);
-        let lines = this.userInput.split('\n'); // First split by explicit newlines
         
-        // Then handle word wrapping for each line
-        const wrappedLines = [];
-        for (const line of lines) {
-            let currentLine = '';
-            const words = line.split(/(\s+)/);
-            let tempText = this.add.text(0, 0, '', this.inputText.style);
-    
-            for (const word of words) {
-                tempText.setText(currentLine + word);
-                if (tempText.width > maxWidth && currentLine !== '') {
-                    wrappedLines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine += word;
-                }
-            }
-            wrappedLines.push(currentLine);
-            tempText.destroy();
-        }
+        // Find matching suggestion for current word
+        let suggestion = null;
         
-        // Now wrappedLines contains all lines after both explicit newlines and word wrapping
-        
-        // Calculate cursor position (the current line is the last one)
-        const currentLineIndex = wrappedLines.length - 1;
-        const currentLineText = wrappedLines[currentLineIndex];
-        
-        // Create temporary text to measure width
-        const measurer = this.add.text(0, 0, currentLineText, this.inputText.style);
-        const cursorX = this.inputText.x + measurer.width;
-        measurer.destroy();
-        
-        // Calculate font size and line height for autocomplete placement
-        // Step 1: Get the actual wrapped lines using Phaser’s renderer
-        const helper = this.add.text(0, 0, this.userInput + '_', this.inputText.style);
-        const actualWrappedLines = helper.getWrappedText();
-        helper.destroy();
-
-        // Step 2: Figure out the current line we're typing on
-       // const currentLineIndex = actualWrappedLines.length - 1;
-        //const currentLineText = actualWrappedLines[currentLineIndex] || '';
-
-        // Step 3: Measure X position for cursor at end of line
-        //const measurer = this.add.text(0, 0, currentLineText, this.inputText.style);
-        //const cursorX = this.inputText.x + measurer.width;
-        //measurer.destroy();
-
-        // Step 4: Use already-declared font size and spacing (fallbacks if undefined)
-        const fontSize = parseFloat(this.inputText.style.fontSize) || 22;
-        const lineSpacing = this.inputText.style.lineSpacing || 0;
-        const effectiveLineHeight = fontSize + lineSpacing;
-
-        // Step 5: Compute Y position relative to inputText’s origin
-        const cursorY = this.inputText.y + currentLineIndex * effectiveLineHeight;
-
-
         if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
-            const suggestion = this.aiSuggestedWords[0];
-            if (suggestion && this.autocompleteText) {
-                // Position correctly based on calculated line index
-                this.autocompleteText.setPosition(
-                    cursorX,
-                    cursorY
-                );
-                
-                this.autocompleteText.setText(suggestion);
-                this.autocompleteText.setVisible(true).setAlpha(1);
+            // If at a word boundary, use first suggestion
+            suggestion = this.aiSuggestedWords[0];
+            
+            if (suggestion) {
+                // Return the suggestion directly so it can be appended to the input text
                 return suggestion;
             }
         } else {
-            // Find matching suggestion for current word
-            const suggestion = this.aiSuggestedWords.find(word => 
+            // Find matching suggestion for current word being typed
+            suggestion = this.aiSuggestedWords.find(word => 
                 word.toLowerCase().startsWith(currentWord.toLowerCase())
             );
     
             if (suggestion) {
-                const completion = suggestion.slice(currentWord.length);
-                if (this.autocompleteText) {
-                    // Position correctly based on calculated line index
-                    this.autocompleteText.setPosition(
-                        cursorX,
-                        cursorY
-                    );
-                    
-                    this.autocompleteText.setText(completion);
-                    this.autocompleteText.setVisible(true).setAlpha(1);
-                    return completion;
-                }
+                // Only return the completion part (not the already typed portion)
+                return suggestion.slice(currentWord.length);
             }
         }
 
-
-        if (this.autocompleteText) {
-            this.autocompleteText.setText('');
-        }
-        return null;
+        return '';
     }
+    
+    // We no longer need the calculateTextPosition method as we're using a single text object approach
     
     // You should also update this function to properly handle multi-line text
     updateCursor() {
@@ -1372,28 +1282,61 @@ export default class BaseGameScene extends Phaser.Scene {
                 wrappedLines.push(currentLine);
                 tempText.destroy();
             }
-        
-            // Join lines with newlines and add cursor
-            const displayText = wrappedLines.join('\n') + (this.cursorVisible ? "_" : " ");
+            
+            const userText = wrappedLines.join('\n');
+            const cursor = this.cursorVisible ? `[color=${cursorColor}]_[/color]` : " ";
+
+            
+            // Get autocomplete suggestion
+            let suggestion = '';
+            //let autocompleteSuggestion = '';
+            if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+                const autocompleteSuggestion = this.generateAutocomplete();
+                suggestion = autocompleteSuggestion ? `[color=${autocompleteColor}]${autocompleteSuggestion}[/color]` : "";
+                console.log("Autocomplete Suggestion:", autocompleteSuggestion);
+                console.log("Suggestion Text:", suggestion);
+            }
+            let displayText = userText;
+            console.log("Suggestion Text:", suggestion);
+            
+            // Add cursor or autocomplete
+            if (suggestion && this.cursorVisible) {
+                // Use red color for autocomplete suggestion
+                // The cursor is implied as the start of the autocomplete
+                displayText = `${this.userInput}${suggestion}`;
+            } else {
+                // No autocomplete, just show cursor
+                displayText = `${this.userInput}${cursor}`;
+            }
             
             // Set the text directly - we'll catch any errors that might occur
             try {
-                this.inputText.setText(displayText);
+                // Check if the Phaser Text object supports rich text
+                if (this.inputText.setHTML) {
+                    this.inputText.setHTML(displayText);
+                } else {
+                    // Fall back to plain text - autocomplete won't be colored
+                    this.inputText.setText(displayText);
+                }
             } catch (error) {
                 console.warn("Error setting input text:", error);
             }
             
-            // Update autocomplete at cursor position
-            if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-                this.generateAutocomplete();
-            } else if (this.autocompleteText) {
+            // We no longer need to update a separate autocomplete text object
+            if (this.autocompleteText) {
                 this.autocompleteText.setText('');
             }
         } catch (error) {
             console.warn("Error in updateCursor:", error);
             // Make a simpler attempt if the complex approach fails
             try {
-                this.inputText.setText(this.userInput + (this.cursorVisible ? "_" : " "));
+                let fallbackText = this.userInput;
+                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0 && this.cursorVisible) {
+                    fallbackText += this.generateAutocomplete();
+                } else {
+                    fallbackText += (this.cursorVisible ? "_" : " ");
+                }
+                this.inputText.setText(fallbackText);
             } catch (e) {
                 console.error("Failed to update cursor text with fallback method:", e);
             }

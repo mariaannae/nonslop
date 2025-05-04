@@ -92,6 +92,10 @@ export function getDesign(mode = 'easy') {
   };
 }
 
+export const cursorColor = '#000000';      // white cursor
+export const autocompleteColor = '#ff3366'; // red autocomplete
+export const inputColor = '#000000';       // white user input
+
 // Export individual constants and objects for backward compatibility
 export const OUTLINE_WIDTH = COMMON.OUTLINE_WIDTH;
 export const BUTTON_OUTLINE_WIDTH = COMMON.BUTTON_OUTLINE_WIDTH;

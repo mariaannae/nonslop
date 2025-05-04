@@ -65,9 +65,17 @@ export default class GameSceneHard extends BaseGameScene {
                 if (isAIWord) {
                     console.log("AI word blocked:", lastWord);
                     // Remove the last word instead of adding it
-                    this.userInput = words.slice(0, -1).join(" ");
-                    if (this.userInput.length > 0) {
-                        this.userInput += " ";
+                    
+                     // Find the last word boundary position
+                    const lastWordRegex = /\S+$/;
+                    const match = this.userInput.match(lastWordRegex);
+                    
+                    if (match && match.index > 0) {
+                        // Remove only the last word, preserving all formatting
+                        this.userInput = this.userInput.substring(0, match.index);
+                    } else {
+                        // If this is the only word, just clear the input
+                        this.userInput = '';
                     }
                     
                     // Show feedback message
