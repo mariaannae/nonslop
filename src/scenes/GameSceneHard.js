@@ -1,5 +1,5 @@
 import { getDesign } from "../config/design.js";
-
+import ToggleFactory from "../utils/ToggleFactory.js";
 import BaseGameScene from "./BaseGameScene.js";
 
 export default class GameSceneHard extends BaseGameScene {
@@ -455,20 +455,36 @@ export default class GameSceneHard extends BaseGameScene {
             'Clear text and start over'
         );
         
+        // this.feedbackButton = this.createButton(
+        //     "FEEDBACK", 
+        //     () => this.onFeedbackClick(), 
+        //     this.cameras.main.width - this.design.buttonWidth / 2 - padding, 
+        //     this.cameras.main.height - this.design.buttonHeight / 2 - padding,
+        //     'Share your feedback'
+        // );
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
-            this.cameras.main.width - this.design.buttonWidth / 2 - padding, 
+            this.design.buttonWidth / 2 + padding, 
             this.cameras.main.height - this.design.buttonHeight / 2 - padding,
             'Share your feedback'
         );
-        // Create a mode toggle switch in the bottom left corner
-        this.modeToggle = this.createToggle(
+
+        // Create a mode toggle switch in the top left where the indicator was
+        this.modeToggle = ToggleFactory.createToggle(
+            this,
             this.mode,
-            (newMode) => this.onModeToggle(newMode), 
-            this.design.buttonWidth / 2 + padding, 
-            this.cameras.main.height - this.design.buttonHeight / 2 - padding,
-            'Switch between Easy and Hard modes'
+            (newMode) => this.scene.start('GameSceneEasy', { // Switch to easy mode
+                progressPercentage: this.progressPercentage,
+                levelValue: this.levelValue,
+                topKValue: this.topKValue,
+                originalWordCount: this.originalWordCount,
+                aiWordCount: this.aiWordCount,
+                totalWordCount: this.totalWordCount,
+                wordCount: this.wordCount
+            }),
+            padding,
+            this.menuBarHeight + padding
         );
         
         // this.easyButton = this.createButton(
@@ -484,7 +500,6 @@ export default class GameSceneHard extends BaseGameScene {
         console.log("HardMode: Created fails counter with progress:", this.progressPercentage);
         this.updateProgressFill();
         
-        this.createOutputTextBox();
         
         // Create word count display
         this.createWordCountDisplay();
@@ -495,8 +510,7 @@ export default class GameSceneHard extends BaseGameScene {
         this.ensureTextVisibility();
         this.updateCursor();
         
-        // Add mode indicator badge with hard mode styling
-        this.addModeIndicator('HARD', this.COLORS_HEX.RED || 0xff3366); // Reddish color for hard mode
+        // (Mode indicator replaced by toggle)
     }
 
     // Style methods

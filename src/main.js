@@ -7,6 +7,7 @@ import GameSceneEasy from "./scenes/GameSceneEasy.js";
 import FeedbackScene from "./scenes/FeedbackScene.js";
 import InstructionScene from "./scenes/InstructionsScene.js";  
 import LevelScene from "./scenes/LevelScene.js";
+import DoneScene from "./scenes/DoneScene.js";
 
 
 
@@ -17,7 +18,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, FeedbackScene],
+    scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene],
     physics: { default: 'arcade', arcade: { debug: false } },
     plugins: {
         global: [{

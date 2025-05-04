@@ -1,4 +1,5 @@
 import { getDesign } from "../config/design.js";
+import ToggleFactory from "../utils/ToggleFactory.js";
 import BaseGameScene from "./BaseGameScene.js";
 
 export default class GameSceneEasy extends BaseGameScene {
@@ -92,21 +93,38 @@ export default class GameSceneEasy extends BaseGameScene {
             'Clear text and start over'
         );
         
+        // this.feedbackButton = this.createButton(
+        //     "FEEDBACK", 
+        //     () => this.onFeedbackClick(), 
+        //     this.cameras.main.width - this.design.buttonWidth / 2 - padding, 
+        //     this.cameras.main.height - this.design.buttonHeight / 2 - padding,
+        //     'Share your feedback'
+        // );
+
+
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
-            this.cameras.main.width - this.design.buttonWidth / 2 - padding, 
+            this.design.buttonWidth / 2 + padding, 
             this.cameras.main.height - this.design.buttonHeight / 2 - padding,
             'Share your feedback'
         );
         
-        // Create a mode toggle switch in the bottom left corner
-        this.modeToggle = this.createToggle(
+        // Create a mode toggle switch in the top left where the indicator was
+        this.modeToggle = ToggleFactory.createToggle(
+            this,
             this.mode,
-            (newMode) => this.onModeToggle(newMode), 
-            this.design.buttonWidth / 2 + padding, 
-            this.cameras.main.height - this.design.buttonHeight / 2 - padding,
-            'Switch between Easy and Hard modes'
+            (newMode) => this.scene.start('GameSceneHard', { // Switch to hard mode
+                progressPercentage: this.progressPercentage,
+                levelValue: this.levelValue,
+                topKValue: this.topKValue,
+                originalWordCount: this.originalWordCount,
+                aiWordCount: this.aiWordCount,
+                totalWordCount: this.totalWordCount,
+                wordCount: this.wordCount
+            }),
+            padding,
+            this.menuBarHeight + padding
         );
 
         // Initialize the progress bar with the percentage passed from the other mode
@@ -114,7 +132,7 @@ export default class GameSceneEasy extends BaseGameScene {
         console.log("EasyMode: Created fails counter with progress:", this.progressPercentage);
         this.updateProgressFill();
         
-        this.createOutputTextBox();
+
         
         // Create word count display
         this.createWordCountDisplay();
@@ -125,8 +143,7 @@ export default class GameSceneEasy extends BaseGameScene {
         this.ensureTextVisibility();
         this.updateCursor();
         
-        // Add mode indicator badge
-        this.addModeIndicator('EASY', this.COLORS_HEX.BOXOUTLINE || 0x64d2ba); // Teal/blue-green color for easy mode
+        // (Mode indicator replaced by toggle)
     }
 
     // Add a visual mode indicator

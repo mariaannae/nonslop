@@ -121,6 +121,9 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Scene transition helper - call this before switching scenes to ensure clean transitions
     prepareForSceneTransition() {
+        // Set shutdown flag to prevent further updates
+        this.isShuttingDown = true;
+
         // Stop timers that could cause callbacks after scene change
         if (this.cursorTimer) {
             this.cursorTimer.remove();
@@ -182,9 +185,7 @@ export default class BaseGameScene extends Phaser.Scene {
     shutdown() {
         console.log("BaseGameScene shutdown");
         // Properly clean up all timers
-        if (this.scrollWheelEvent) {
-            this.input.off('wheel', this.scrollWheelEvent);
-        }
+
         
         // Clear any active timeout
         if (this.activeTimeout) {
@@ -212,75 +213,8 @@ export default class BaseGameScene extends Phaser.Scene {
         super.shutdown();
     }
 
-    addScrollIndicator() {
-        // Remove any existing indicator
-        if (this.scrollIndicator) {
-            this.scrollIndicator.destroy();
-        }
-        
-        // Create scroll indicator
-        this.scrollIndicator = this.add.text(
-            this.cameras.main.centerX,
-            this.outputBoxInfo.y + this.outputBoxInfo.height - 15,
-            "▼ Scroll for more ▼",
-            {
-                fontFamily: 'Nunito',
-                fontSize: '16px',
-                fill: '#ffffff',
-                backgroundColor: '#4b237a',
-                padding: { x: 8, y: 4 }
-            }
-        ).setOrigin(0.5, 0.5)
-         .setDepth(11)
-         .setAlpha(0.8);
-        
-        // Add animation to make it more noticeable
-        this.tweens.add({
-            targets: this.scrollIndicator,
-            alpha: { from: 0.8, to: 1 },
-            y: '+=5',
-            duration: 800,
-            yoyo: true,
-            repeat: -1
-        });
-    }
 
 
-
-    addScrollEvent() {
-        // Remove any existing event
-        if (this.scrollWheelEvent) {
-            this.input.off('wheel', this.scrollWheelEvent);
-        }
-        
-        // Define the scroll event handler
-        this.scrollWheelEvent = (pointer, gameObjects, deltaX, deltaY) => {
-            // Only scroll if we have enough content to scroll
-            if (!this.outputText || !this.outputBoxInfo) return;
-            
-            const textHeight = this.outputText.height;
-            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
-            
-            if (textHeight <= boxHeight) return;
-            
-            // Calculate min and max scroll positions
-            const minY = this.outputBoxInfo.y + this.outputBoxInfo.padding;
-            const maxY = minY - (textHeight - boxHeight);
-            
-            // Apply scroll movement (negative deltaY means scroll down)
-            this.outputTextContainer.y -= deltaY * 0.5; // adjust speed
-            
-            // Clamp position
-            this.outputTextContainer.y = Phaser.Math.Clamp(
-                this.outputTextContainer.y,
-                maxY,
-                minY
-            );
-        };
-        
-        // Add the event listener
-        this.input.on('wheel', this.scrollWheelEvent);
-    }
 
     // Common UI methods
     createButton(label, callback, centerX, centerY, tooltipText) {
@@ -331,15 +265,19 @@ export default class BaseGameScene extends Phaser.Scene {
         // We no longer need to clear autocompleteText separately
     }
 
-    onDoneButtonClick() {
+    async onDoneButtonClick() {
 
-        
-        if (!this.outputTextBox) {
-            this.createOutputTextBox();
-        }
-    
-        this.outputText.setText("Evaluating...");
-        this.evaluateText(this.userInput);
+        console.log("userinput: ", this.userInput);
+        const output = await this.evaluateText(this.userInput);
+        this.scene.start('DoneScene', {
+            mode: this.mode,
+            level: this.levelValue,
+            topK: this.topKValue,
+            userInput : this.userInput,
+            outputText: output,
+            prompt: this.currentPrompt,
+            failCount: this.failCount,
+        });
     }
 
     onResetButtonClick() {
@@ -356,9 +294,6 @@ export default class BaseGameScene extends Phaser.Scene {
         this.aiSuggestedWords = [];
         this.showSuggestions([]);
     
-        // Update the output text box to the default message
-        this.updateOutputText("Press 'DONE' to see how you did.");
-    
         // Select a new prompt following existing logic
         this.updatePromptBasedOnLevel();
     
@@ -371,8 +306,9 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Common evaluation methods
     async evaluateText(userInput) {
+
         console.log("Evaluating user input:", userInput);
-        this.updateOutputText("Evaluating...");
+
     
         const promptForEvaluation = this.currentPrompt || "No specific prompt was provided.";
     
@@ -420,12 +356,9 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         const responseData = await response.json();
+        console.log("Response from OpenAI:", responseData);
         let aiResponse = responseData.content.trim();
-        
-        this.updateOutputText(aiResponse);
-        const boxStyle = this.getPromptBoxStyle();
-        this.outputTextBox.setAlpha(boxStyle.fillAlpha);
-        this.outputText.setAlpha(1);
+
         
         const interaction = {
             prompt: this.currentPrompt,
@@ -439,6 +372,9 @@ export default class BaseGameScene extends Phaser.Scene {
         };
 
         saveInteraction(interaction, "userSubmissions");
+        console.log("ai response:", aiResponse);
+        return aiResponse
+        
     }
 
     async generateAISuggestions(userInput) {
@@ -1055,7 +991,6 @@ export default class BaseGameScene extends Phaser.Scene {
     ensureProperLayering() {
         if (this.promptTextBox) this.promptTextBox.setDepth(5);
         if (this.promptText) this.promptText.setDepth(6);
-        if (this.outputTextBox) this.outputTextBox.setDepth(5);
         if (this.outputText) this.outputText.setDepth(6);
         if (this.failsCounter) this.failsCounter.setDepth(7);
         if (this.inputTextBorder) this.inputTextBorder.setDepth(20);
@@ -1278,7 +1213,15 @@ export default class BaseGameScene extends Phaser.Scene {
     
     // You should also update this function to properly handle multi-line text
     updateCursor() {
-        if (!this.inputText) return;
+        if (this.isShuttingDown) return;
+        if (
+            !this.inputText ||
+            this.inputText.destroyed ||
+            typeof this.inputText.setText !== "function" ||
+            typeof this.inputText.updateText !== "function"
+        ) {
+            return;
+        }
         
         // Keep input text position fixed
         const padding = 30;
@@ -1363,18 +1306,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 // No autocomplete, just show cursor
                 displayText = `${this.userInput}${cursor}`;
             }
-            
-            // Set the text directly - we'll catch any errors that might occur
-            try {
-                // Check if the Phaser Text object supports rich text
-                if (this.inputText.setHTML) {
-                    this.inputText.setHTML(displayText);
-                } else {
-                    // Fall back to plain text - autocomplete won't be colored
-                    this.inputText.setText(displayText);
-                }
-            } catch (error) {
-                console.warn("Error setting input text:", error);
+            if (displayText) {
+                this.inputText.setText(displayText);
             }
             
             // We no longer need to update a separate autocomplete text object
@@ -1633,206 +1566,117 @@ export default class BaseGameScene extends Phaser.Scene {
         });
     }
 
-    createOutputTextBox() {const outputBoxWidth = this.uiBoxWidth;
-            const lineHeight = 24;
-            const numLines = 4;
-            const padding = 30;
-            const outputBoxHeight = numLines * lineHeight + padding * 2;
-            
-            // Position calculation
-            let outputBoxY = this.doneButton 
-                ? this.doneButton.y + this.doneButton.displayHeight / 2 + 40 + outputBoxHeight / 2
-                : this.cameras.main.height - outputBoxHeight - 40;
-        
-            // Create new output box with rounded corners
-            const boxStyle = this.getPromptBoxStyle();
-            this.outputTextBox = this.add.graphics();
-            this.outputTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-            this.outputTextBox.fillRoundedRect(
-                this.cameras.main.centerX - outputBoxWidth / 2,
-                outputBoxY - outputBoxHeight / 2,
-                outputBoxWidth,
-                outputBoxHeight,
-                boxStyle.cornerRadius
-            );
-            this.outputTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-            this.outputTextBox.strokeRoundedRect(
-                this.cameras.main.centerX - outputBoxWidth / 2,
-                outputBoxY - outputBoxHeight / 2,
-                outputBoxWidth,
-                outputBoxHeight,
-                boxStyle.cornerRadius
-            );
-            this.add.existing(this.outputTextBox);
-            
-            // Create a container for scrollable content
-            this.outputTextContainer = this.add.container(
-                this.cameras.main.centerX - outputBoxWidth / 2 + padding,
-                outputBoxY - outputBoxHeight / 2 + padding
-            );
-            
-            // Create text inside container
-            this.outputText = this.add.text(
-                0, 0,
-                "Press 'DONE' to see how you did.",
-                {
-                    fontFamily: 'Nunito',
-                    fontSize: `${lineHeight}px`,
-                    fill: '#ffffff',
-                    wordWrap: { width: outputBoxWidth - padding * 2 },
-                    align: 'left',
-                    lineSpacing: 5
-                }
-            ).setOrigin(0, 0);
-            
-            // Add text to container
-            this.outputTextContainer.add(this.outputText);
-            
-            // Create mask for clipping text that goes outside the box
-            const maskGraphics = this.make.graphics();
-            maskGraphics.fillRect(
-                this.cameras.main.centerX - outputBoxWidth / 2 + 5,
-                outputBoxY - outputBoxHeight / 2 + 5,
-                outputBoxWidth - 10,
-                outputBoxHeight - 10
-            );
-            this.scrollMask = maskGraphics.createGeometryMask();
-            this.outputTextContainer.setMask(this.scrollMask);
-            
-            // Store reference to box position and dimensions for scrolling
-            this.outputBoxInfo = {
-                x: this.cameras.main.centerX - outputBoxWidth / 2,
-                y: outputBoxY - outputBoxHeight / 2,
-                width: outputBoxWidth,
-                height: outputBoxHeight,
-                padding: padding
-            };
-            
-            // Set depth
-            this.outputTextBox.setDepth(9);
-            this.outputTextContainer.setDepth(10);
-            
-            // Set initial state
-            this.tweens.add({
-                targets: [this.outputTextBox, this.outputTextContainer],
-                alpha: 1,
-                duration: 500,
-                ease: 'Sine.InOut'
-            });
-            
-            // Add wheel event for scrolling (only active when needed)
-            this.addScrollEvent();
-        }
 
-        updateFailsCounter(success) {
-            const oldPercentage = this.progressPercentage;
-            let newPercentage;
+
+    updateFailsCounter(success) {
+        const oldPercentage = this.progressPercentage;
+        let newPercentage;
+        
+        if (success) {
+            // Non-AI word
+            newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+            // Update original word count
+            this.originalWordCount++;
+            this.totalWordCount++;
+        } else {
+            // AI word     
+            newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
+            this.shakeScreen();
             
-            if (success) {
-                // Non-AI word
-                newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
-                // Update original word count
-                this.originalWordCount++;
-                this.totalWordCount++;
-            } else {
-                // AI word     
-                newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
-                this.shakeScreen();
-                
-                // Use the first AI suggestion as our "current word" since that's what would be autocompleted
-                // (This is the most reliable way to know which AI word was triggered in this context)
-                let currentWord = "";
-                
-                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-                    // Get the first suggestion from the AI suggestions array
-                    currentWord = this.aiSuggestedWords[0];
-                }
-                
-                console.log("AI word used:", currentWord);
-                
-                // Create explosion effect for the AI word
-                if (currentWord) {
-                    const inputBoxY = this.cameras.main.centerY - 240 / 2;
-                    this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
-                }
-                
-                // Update AI word count
-                this.aiWordCount++;
-                this.totalWordCount++;
+            // Use the first AI suggestion as our "current word" since that's what would be autocompleted
+            // (This is the most reliable way to know which AI word was triggered in this context)
+            let currentWord = "";
+            
+            if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+                // Get the first suggestion from the AI suggestions array
+                currentWord = this.aiSuggestedWords[0];
             }
             
-            // Update the word count display
-            this.updateWordCountDisplay();
+            console.log("AI word used:", currentWord);
             
-            
-            // Check for milestone achievements
-            if (oldPercentage !== 0 && newPercentage === 0) {
-                // Reached perfect score
-                this.celebrateNeedsWork();
-                const newLevel = Math.max(this.levelValue - 1, 1);
-                if (newLevel !== this.levelValue) {
-                    // Process existing text in the input box before changing level
-                    
-                    this.levelValue = newLevel;
-                    if (this.levelLabel) {
-                        this.levelLabel.setText(`Level: ${this.levelValue}`);
-                    }
-                    
-                    // Update slider position to match the new level
-                    if (this.levelSliderHandle) {
-                        // Use the stored class properties instead of relying on dragStartX
-                        const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-                        const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
-                        this.levelSliderHandle.x = newX;
-                    }
-                    
-                    //this.updatePromptBasedOnLevel();
-                    // Update background for the new level if implemented by child class
-                    if (typeof this.updateBackgroundForLevel === 'function') {
-                        this.updateBackgroundForLevel();
-                    }
-                    this.progressPercentage = 100;
-                }
-                
-            } else if (oldPercentage !== 100 && newPercentage === 100) {
-                // Reached needs work
-                this.celebrateSuccess();
-                const newLevel = Math.min(this.levelValue + 1, 3);
-                if (newLevel !== this.levelValue) {
-                    // Process existing text in the input box before changing level
-                    
-                    this.levelValue = newLevel;
-                    if (this.levelLabel) {
-                        this.levelLabel.setText(`Level: ${this.levelValue}`);
-                    }
-                    
-                    // Update slider position to match the new level
-                    if (this.levelSliderHandle) {
-                        // Use the stored class properties instead of relying on dragStartX
-                        const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-                        const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
-                        this.levelSliderHandle.x = newX;
-                    }
-                    
-                    //this.updatePromptBasedOnLevel();
-                    // Update background for the new level if implemented by child class
-                    if (typeof this.updateBackgroundForLevel === 'function') {
-                        this.updateBackgroundForLevel();
-                    }
-                    this.progressPercentage = 0;
-                }
-            }else {
-                this.progressPercentage = newPercentage;
+            // Create explosion effect for the AI word
+            if (currentWord) {
+                const inputBoxY = this.cameras.main.centerY - 240 / 2;
+                this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
             }
             
-            
-            
-            if (this.failsText) {
-                this.failsText.setText(` `);
-            }
-            
-            this.updateProgressFill();
+            // Update AI word count
+            this.aiWordCount++;
+            this.totalWordCount++;
         }
+        
+        // Update the word count display
+        this.updateWordCountDisplay();
+        
+        
+        // Check for milestone achievements
+        if (oldPercentage !== 0 && newPercentage === 0) {
+            // Reached perfect score
+            this.celebrateNeedsWork();
+            const newLevel = Math.max(this.levelValue - 1, 1);
+            if (newLevel !== this.levelValue) {
+                // Process existing text in the input box before changing level
+                
+                this.levelValue = newLevel;
+                if (this.levelLabel) {
+                    this.levelLabel.setText(`Level: ${this.levelValue}`);
+                }
+                
+                // Update slider position to match the new level
+                if (this.levelSliderHandle) {
+                    // Use the stored class properties instead of relying on dragStartX
+                    const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
+                    const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
+                    this.levelSliderHandle.x = newX;
+                }
+                
+                //this.updatePromptBasedOnLevel();
+                // Update background for the new level if implemented by child class
+                if (typeof this.updateBackgroundForLevel === 'function') {
+                    this.updateBackgroundForLevel();
+                }
+                this.progressPercentage = 100;
+            }
+            
+        } else if (oldPercentage !== 100 && newPercentage === 100) {
+            // Reached needs work
+            this.celebrateSuccess();
+            const newLevel = Math.min(this.levelValue + 1, 3);
+            if (newLevel !== this.levelValue) {
+                // Process existing text in the input box before changing level
+                
+                this.levelValue = newLevel;
+                if (this.levelLabel) {
+                    this.levelLabel.setText(`Level: ${this.levelValue}`);
+                }
+                
+                // Update slider position to match the new level
+                if (this.levelSliderHandle) {
+                    // Use the stored class properties instead of relying on dragStartX
+                    const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
+                    const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
+                    this.levelSliderHandle.x = newX;
+                }
+                
+                //this.updatePromptBasedOnLevel();
+                // Update background for the new level if implemented by child class
+                if (typeof this.updateBackgroundForLevel === 'function') {
+                    this.updateBackgroundForLevel();
+                }
+                this.progressPercentage = 0;
+            }
+        }else {
+            this.progressPercentage = newPercentage;
+        }
+        
+        
+        
+        if (this.failsText) {
+            this.failsText.setText(` `);
+        }
+        
+        this.updateProgressFill();
+    }
 
     // Custom celebration effect without using particle emitters
     celebrateSuccess() {
@@ -1998,48 +1842,7 @@ export default class BaseGameScene extends Phaser.Scene {
         });
     }
 
-    updateOutputText(text) {
-        // Ensure all required objects exist
-        if (!this.outputText || !this.outputTextBox || !this.outputTextContainer || !this.outputBoxInfo) {
-            console.warn("Output text objects not properly initialized.");
-            if (!this.outputTextBox) {
-                this.createOutputTextBox();
-                if (!this.outputText) return; // Still not created, exit
-            } else {
-                return; // Can't proceed without output text
-            }
-        }
-        
-        // Set the text safely
-        try {
-            this.outputText.setText(text || "");
-        } catch (error) {
-            console.error("Error setting output text:", error);
-            return;
-        }
 
-        // Calculate if scrolling is needed
-        const textHeight = this.outputText.height;
-        const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
-        const needsScrolling = textHeight > boxHeight;
-        
-        // Make all elements visible
-        if (this.outputTextBox) this.outputTextBox.setAlpha(1);
-        if (this.outputTextContainer) this.outputTextContainer.setAlpha(1);
-        
-        // Show scroll indicator if needed
-        if (needsScrolling) {
-            this.addScrollIndicator();
-        } else if (this.scrollIndicator) {
-            this.scrollIndicator.destroy();
-            this.scrollIndicator = null;
-        }
-        
-        // Reset scroll position safely
-        if (this.outputTextContainer && this.outputBoxInfo) {
-            this.outputTextContainer.y = this.outputBoxInfo.y + this.outputBoxInfo.padding;
-        }
-    }
 
     updateProgressFill() {
         if (!this.failsCounter) return;
@@ -2162,8 +1965,6 @@ export default class BaseGameScene extends Phaser.Scene {
         // Reset UI elements for recreation
         this.promptTextBox = null;
         this.promptText = null;
-        this.outputTextBox = null;
-        this.outputText = null;
         this.failsCounter = null;
         this.failsText = null;
     }

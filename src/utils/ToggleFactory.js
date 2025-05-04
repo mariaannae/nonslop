@@ -60,23 +60,23 @@ export default class ToggleFactory {
         
         // Toggle mode interaction
         toggleBg.on('pointerdown', () => {
-            if (mode === 'easy') {
+            if (mode === 'hard') {
                 // Switch to hard mode
                 scene.tweens.add({
                     targets: toggleCircle,
                     x: toggleWidth/2, // toggleBg.x is now 0
                     duration: 100,
                     ease: 'Power2',
-                    onComplete: () => callback('hard')
+                    onComplete: () => callback('easy')
                 });
-            } else {
+            } else if (mode === 'easy') {
                 // Switch to easy mode
                 scene.tweens.add({
                     targets: toggleCircle,
                     x: -toggleWidth/2, // toggleBg.x is now 0
                     duration: 100,
                     ease: 'Power2',
-                    onComplete: () => callback('easy')
+                    onComplete: () => callback('hard')
                 });
             }
         });
