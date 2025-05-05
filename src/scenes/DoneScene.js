@@ -12,6 +12,10 @@ export default class DoneScene extends Phaser.Scene {
         this.tooltips = []; // For tooltips like in BaseGameScene
     }
 
+    onFeedbackClick() {
+        this.scene.start('FeedbackScene', {mode: this.mode});
+    }
+
     
     createOutputTextBox() {
         const outputBoxWidth = this.uiBoxWidth;

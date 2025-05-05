@@ -1624,16 +1624,43 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     createInputBoxClickEffect(x, y) {
-        const circle = this.add.circle(x, y, 5, 0xffffff, 0.5).setDepth(15);
-        
+        // Create multiple ripple circles
+        for (let i = 0; i < 3; i++) {
+            const circle = this.add.circle(x, y, 5, 0xffffff, 0.5).setDepth(15);
+            
+            this.tweens.add({
+                targets: circle,
+                scale: { from: 0.5, to: 2.5 },
+                alpha: { from: 0.5, to: 0 },
+                duration: 800 + i * 200,
+                ease: 'Quad.easeOut',
+                onComplete: () => circle.destroy()
+            });
+        }
+
+        // Add a flash effect
+        const flash = this.add.circle(x, y, 15, 0xffffff, 0.3).setDepth(15);
         this.tweens.add({
-            targets: circle,
-            scale: { from: 0.5, to: 2 },
-            alpha: { from: 0.5, to: 0 },
-            duration: 500,
+            targets: flash,
+            scale: { from: 0.8, to: 1.2 },
+            alpha: { from: 0.3, to: 0 },
+            duration: 300,
             ease: 'Quad.easeOut',
-            onComplete: () => circle.destroy()
+            onComplete: () => flash.destroy()
         });
+
+        // Add particles burst
+        const particles = this.add.particles(x, y, 'ball', {
+            speed: { min: 50, max: 100 },
+            scale: { start: 0.1, end: 0 },
+            alpha: { start: 0.3, end: 0 },
+            lifespan: 500,
+            quantity: 8,
+            emitting: false
+        }).setDepth(15);
+
+        particles.explode(8);
+        this.time.delayedCall(500, () => particles.destroy());
     }
 
 

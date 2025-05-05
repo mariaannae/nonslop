@@ -10,6 +10,16 @@ const PALETTE = {
     DARKER: 0x03062D,     // Dark purple
     DARK: 0x170548,       // Less dark purple
     MID: 0x3d0364,        // Mid purple
+    // Serene colors for GameSceneEasy
+    EASY_DARKEST: 0x001620,    // Deep ocean blue
+    EASY_DARKER: 0x002435,     // Midnight ocean
+    EASY_DARK: 0x003450,       // Ocean blue
+    EASY_MID: 0x004565,        // Teal blue
+    // Intense colors for GameSceneHard
+    HARD_DARKEST: 0x200025,    // Deep magenta
+    HARD_DARKER: 0x400045,     // Rich magenta
+    HARD_DARK: 0x600065,       // Vibrant magenta
+    HARD_MID: 0x800085,        // Electric magenta
   },
   // Accent colors
   ACCENT: {
@@ -22,8 +32,14 @@ const PALETTE = {
   },
   // Special colors
   TEAL: {
-    MAIN: 0x00ced1,
+    MAIN: 0x00e5ff,    // Brighter teal for easy mode
     DARK: 0x00292a,
+    GLOW: 0x00ffff,    // Glowing teal for effects
+  },
+  MAGENTA: {           // New magenta palette for hard mode
+    MAIN: 0xff00ff,
+    DARK: 0x800080,
+    GLOW: 0xff40ff,
   },
   // Highlight colors
   HIGHLIGHT: {
@@ -108,10 +124,10 @@ const BASIC = {
  */
 const EASY = {
   COLORS: {
-    BACKGROUND: PALETTE.BACKGROUND.DARKEST,
+    BACKGROUND: PALETTE.BACKGROUND.EASY_DARKEST,
     BOX_OUTLINE: PALETTE.ACCENT.PINK,
-    BACKGROUND_ALT: PALETTE.BACKGROUND.DARKER,
-    BACKGROUND_MID: PALETTE.BACKGROUND.MID,
+    BACKGROUND_ALT: PALETTE.BACKGROUND.EASY_DARKER,
+    BACKGROUND_MID: PALETTE.BACKGROUND.EASY_MID,
     ACCENT: PALETTE.TEAL.MAIN,
     HIGHLIGHT: PALETTE.HIGHLIGHT.YELLOW,
     TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
@@ -136,17 +152,16 @@ const EASY = {
  */
 const HARD = {
   COLORS: {
-    BACKGROUND: PALETTE.BACKGROUND.DARKEST,
-    BACKGROUND_ALT: PALETTE.BACKGROUND.DARKER,
-    BACKGROUND_MID: PALETTE.BACKGROUND.MID,
+    BACKGROUND: PALETTE.BACKGROUND.HARD_DARKEST,
+    BACKGROUND_ALT: PALETTE.BACKGROUND.HARD_DARKER,
+    BACKGROUND_MID: PALETTE.BACKGROUND.HARD_MID,
     BOX_OUTLINE: PALETTE.TEAL.MAIN,
-    ACCENT: PALETTE.ACCENT.PINK,
-    //HIGHLIGHT_PRIMARY: PALETTE.HIGHLIGHT.GREEN,
-    HIGHLIGHT: PALETTE.ACCENT.MAGENTA,
+    ACCENT: PALETTE.ACCENT.MAGENTA,
+    HIGHLIGHT: PALETTE.BACKGROUND.HARD_DARK,
     ERROR: PALETTE.ACCENT.RED,
     TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
     BUTTON: {
-      FILL: PALETTE.ACCENT.PINK,
+      FILL: PALETTE.ACCENT.MAGENTA,
       OVERLAY: PALETTE.ACCENT.PINK_RED
     },
     SLIDER: {

@@ -237,32 +237,178 @@ export default class GameSceneEasy extends BaseGameScene {
                 return;
             }
     
-            let grd = ctx.createLinearGradient(0, 0, width, height);
-            
-            // Different color gradients based on level
+            // Create level-specific backgrounds
             if (this.levelValue === 1) {
-                grd.addColorStop(0, "#251a3f"); // Original colors
-                grd.addColorStop(0.3, "#2d1f4c");
-                grd.addColorStop(0.7, "#362758");
-                grd.addColorStop(1, "#3d2c64");
+                // Level 1: Calm Ocean Depths
+                const gradient = ctx.createLinearGradient(0, 0, width, height);
+                gradient.addColorStop(0, "#001620");    // Deep ocean blue
+                gradient.addColorStop(0.3, "#002435");  // Midnight ocean
+                gradient.addColorStop(0.7, "#003450");  // Ocean blue
+                gradient.addColorStop(1, "#004565");    // Teal blue
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+                
+                // Add gentle waves
+                for (let i = 0; i < 8; i++) {
+                    const waveGradient = ctx.createLinearGradient(0, 0, width, 0);
+                    waveGradient.addColorStop(0, `rgba(0, 22, 32, ${0.15 - i * 0.015})`);   // Deep ocean
+                    waveGradient.addColorStop(0.5, `rgba(0, 69, 101, ${0.2 - i * 0.015})`); // Bright ocean
+                    waveGradient.addColorStop(1, `rgba(0, 22, 32, ${0.15 - i * 0.015})`);   // Deep ocean
+                    
+                    ctx.strokeStyle = waveGradient;
+                    ctx.lineWidth = 2;
+                    
+                    const yOffset = height * (i / 8);
+                    ctx.beginPath();
+                    for (let x = 0; x < width; x++) {
+                        const y = yOffset + Math.sin(x * 0.01 + i) * 20;
+                        if (x === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+                
+                // Add soft glow areas
+                const glowPoints = [
+                    { x: width * 0.2, y: height * 0.3, size: 200 },
+                    { x: width * 0.8, y: height * 0.4, size: 180 },
+                    { x: width * 0.3, y: height * 0.7, size: 220 }
+                ];
+                
+                glowPoints.forEach(point => {
+                    const glow = ctx.createRadialGradient(
+                        point.x, point.y, 0,
+                        point.x, point.y, point.size
+                    );
+                    glow.addColorStop(0, 'rgba(0, 229, 255, 0.12)');   // Bright teal
+                    glow.addColorStop(0.5, 'rgba(0, 69, 101, 0.06)');  // Ocean blue
+                    glow.addColorStop(1, 'rgba(0, 22, 32, 0)');        // Fade out
+                    
+                    ctx.fillStyle = glow;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
             } else if (this.levelValue === 2) {
-                grd.addColorStop(0, "#1e1c48"); // Slightly bluer purples
-                grd.addColorStop(0.3, "#282256");
-                grd.addColorStop(0.7, "#312963");
-                grd.addColorStop(1, "#383070");
+                // Level 2: Ethereal Currents
+                const centerX = width/2;
+                const centerY = height/2;
+                
+                const baseGradient = ctx.createRadialGradient(
+                    centerX, centerY, 0,
+                    centerX, centerY, Math.max(width, height)
+                );
+                baseGradient.addColorStop(0, "#002435");  // Midnight ocean
+                baseGradient.addColorStop(0.4, "#003450"); // Ocean blue
+                baseGradient.addColorStop(0.7, "#004565"); // Teal blue
+                baseGradient.addColorStop(1, "#001620");  // Deep ocean
+                
+                ctx.fillStyle = baseGradient;
+                ctx.fillRect(0, 0, width, height);
+                
+                // Define radius for both currents and orbs
+                const radius = Math.min(width, height) * 0.4;
+                
+                // Add flowing currents
+                for (let i = 0; i < 12; i++) {
+                    const angle = (Math.PI * 2 * i) / 12;
+                    const curve = new Path2D();
+                    curve.moveTo(centerX, centerY);
+                    curve.quadraticCurveTo(
+                        centerX + Math.cos(angle) * radius * 0.5,
+                        centerY + Math.sin(angle) * radius * 0.5,
+                        centerX + Math.cos(angle) * radius,
+                        centerY + Math.sin(angle) * radius
+                    );
+                    
+                    const currentGradient = ctx.createLinearGradient(
+                        centerX, centerY,
+                        centerX + Math.cos(angle) * radius,
+                        centerY + Math.sin(angle) * radius
+                    );
+                    currentGradient.addColorStop(0, 'rgba(0, 229, 255, 0.15)');   // Bright teal
+                    currentGradient.addColorStop(1, 'rgba(0, 69, 101, 0)');       // Fade to ocean
+                    
+                    ctx.strokeStyle = currentGradient;
+                    ctx.lineWidth = 15;
+                    ctx.stroke(curve);
+                }
+                
+                // Add ethereal orbs
+                for (let i = 0; i < 5; i++) {
+                    const x = centerX + Math.cos(i * Math.PI * 0.4) * radius * 0.6;
+                    const y = centerY + Math.sin(i * Math.PI * 0.4) * radius * 0.6;
+                    
+                    const orbGradient = ctx.createRadialGradient(x, y, 0, x, y, 80);
+                    orbGradient.addColorStop(0, 'rgba(0, 255, 255, 0.18)');  // Glowing teal
+                    orbGradient.addColorStop(0.5, 'rgba(0, 229, 255, 0.12)');  // Bright teal
+                    orbGradient.addColorStop(1, 'rgba(0, 69, 101, 0)');        // Fade to ocean
+                    
+                    ctx.fillStyle = orbGradient;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 80, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             } else { // Level 3
-                grd.addColorStop(0, "#171e51"); // Deeper, more intense purples
-                grd.addColorStop(0.3, "#1e255f");
-                grd.addColorStop(0.7, "#252c6e");
-                grd.addColorStop(1, "#2c337c");
+                // Level 3: Luminous Depths
+                const centerX = width/2;
+                const centerY = height/2;
+                
+                // Create base gradient with subtle movement
+                const baseGradient = ctx.createConicGradient(0, centerX, centerY);
+                baseGradient.addColorStop(0, "#001620");    // Deep ocean
+                baseGradient.addColorStop(0.25, "#002435"); // Midnight ocean
+                baseGradient.addColorStop(0.5, "#003450");  // Ocean blue
+                baseGradient.addColorStop(0.75, "#004565"); // Teal blue
+                baseGradient.addColorStop(1, "#001620");    // Deep ocean
+                
+                ctx.fillStyle = baseGradient;
+                ctx.fillRect(0, 0, width, height);
+                
+                // Add luminous rings
+                for (let i = 0; i < 4; i++) {
+                    const ringGradient = ctx.createRadialGradient(
+                        centerX, centerY, Math.max(width, height) * (i * 0.2),
+                        centerX, centerY, Math.max(width, height) * (i * 0.2 + 0.15)
+                    );
+                    ringGradient.addColorStop(0, `rgba(0, 229, 255, ${0.15 - i * 0.025})`);  // Bright teal
+                    ringGradient.addColorStop(0.5, `rgba(0, 69, 101, ${0.12 - i * 0.025})`); // Ocean blue
+                    ringGradient.addColorStop(1, 'rgba(0, 22, 32, 0)');                      // Fade out
+                    
+                    ctx.fillStyle = ringGradient;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, Math.max(width, height) * (i * 0.2 + 0.15), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Add luminous paths
+                for (let i = 0; i < 8; i++) {
+                    const angle = (Math.PI * 2 * i) / 8;
+                    const path = new Path2D();
+                    
+                    path.moveTo(centerX, centerY);
+                    path.lineTo(
+                        centerX + Math.cos(angle) * width,
+                        centerY + Math.sin(angle) * height
+                    );
+                    
+                    const pathGradient = ctx.createLinearGradient(
+                        centerX, centerY,
+                        centerX + Math.cos(angle) * width * 0.5,
+                        centerY + Math.sin(angle) * height * 0.5
+                    );
+                    pathGradient.addColorStop(0, 'rgba(0, 255, 255, 0.12)');   // Glowing teal
+                    pathGradient.addColorStop(1, 'rgba(0, 69, 101, 0)');       // Fade to ocean
+                    
+                    ctx.strokeStyle = pathGradient;
+                    ctx.lineWidth = 10;
+                    ctx.stroke(path);
+                }
             }
             
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, 0, width, height);
-            
-            this.addEnhancedNoise(ctx, width, height, 0.04);
-            this.addModerateDensityParticles(ctx, width, height);
-            this.addSubtleGlowAreas(ctx, width, height);
+            // Add common effects
+            this.addEnhancedNoise(ctx, width, height, 0.02);
             
             gradientCanvas.refresh();
         }
@@ -272,10 +418,11 @@ export default class GameSceneEasy extends BaseGameScene {
             .setDisplaySize(width, height)
             .setDepth(-1);
     
+        // Smoother, more subtle animations
         this.tweens.add({
             targets: this.background,
             alpha: { from: 0.95, to: 1 },
-            duration: 6000,
+            duration: 8000,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.InOut'
@@ -283,20 +430,74 @@ export default class GameSceneEasy extends BaseGameScene {
         
         this.tweens.add({
             targets: this.background,
-            scaleX: { from: 1, to: 1.03 },
-            scaleY: { from: 1, to: 1.03 },
-            duration: 8000,
+            scaleX: { from: 1, to: 1.02 },
+            scaleY: { from: 1, to: 1.02 },
+            duration: 12000,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.InOut'
         });
     }
+
+    addSoftGlow(ctx, width, height) {
+        const glowPoints = [
+            { x: width * 0.2, y: height * 0.2, size: 200 },
+            { x: width * 0.8, y: height * 0.3, size: 180 },
+            { x: width * 0.3, y: height * 0.7, size: 220 },
+            { x: width * 0.7, y: height * 0.8, size: 190 },
+            { x: width * 0.5, y: height * 0.5, size: 250 }
+        ];
+
+        glowPoints.forEach(point => {
+            const glow = ctx.createRadialGradient(
+                point.x, point.y, 0,
+                point.x, point.y, point.size
+            );
+            glow.addColorStop(0, 'rgba(2, 5, 29, 0.15)');   // Deep midnight blue
+            glow.addColorStop(0.5, 'rgba(3, 6, 45, 0.1)');  // Dark navy
+            glow.addColorStop(1, 'rgba(1, 2, 19, 0)');      // Transparent nearly black
+
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    addFlowingPatterns(ctx, width, height) {
+        const patternCount = 8;
+        for (let i = 0; i < patternCount; i++) {
+            const startX = Math.random() * width;
+            const startY = Math.random() * height;
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            
+            // Create flowing curve
+            const cp1x = startX + Math.random() * 200 - 100;
+            const cp1y = startY + Math.random() * 200 - 100;
+            const cp2x = startX + Math.random() * 200 - 100;
+            const cp2y = startY + Math.random() * 200 - 100;
+            const endX = startX + Math.random() * 200 - 100;
+            const endY = startY + Math.random() * 200 - 100;
+            
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+            
+            const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+            gradient.addColorStop(0, 'rgba(2, 5, 29, 0.05)');   // Deep midnight blue
+            gradient.addColorStop(1, 'rgba(5, 26, 47, 0.03)');  // Dark teal-navy
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = Math.random() * 3 + 1;
+            ctx.stroke();
+        }
+    }
     
     addEnhancedNoise(ctx, width, height, opacity) {
         for (let x = 0; x < width; x += 3) {
             for (let y = 0; y < height; y += 3) {
-                if (Math.random() > 0.93) {
-                    const alpha = Math.random() * opacity;
+                if (Math.random() > 0.95) {  // Reduce frequency
+                    const alpha = Math.random() * (opacity * 0.3);  // Reduce opacity
                     ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
                     ctx.fillRect(x, y, 1, 1);
                 }
@@ -320,11 +521,11 @@ export default class GameSceneEasy extends BaseGameScene {
     
     addSubtleGlowAreas(ctx, width, height) {
         const glowPositions = [
-            {x: width * 0.2, y: height * 0.2, size: 120, color: [180, 200, 255]},
-            {x: width * 0.8, y: height * 0.3, size: 150, color: [190, 170, 255]},
-            {x: width * 0.3, y: height * 0.7, size: 130, color: [200, 180, 255]},
-            {x: width * 0.7, y: height * 0.8, size: 140, color: [170, 190, 255]},
-            {x: width * 0.5, y: height * 0.5, size: 180, color: [190, 190, 255]},
+            {x: width * 0.2, y: height * 0.2, size: 120, color: [2, 5, 29]},    // Deep midnight blue
+            {x: width * 0.8, y: height * 0.3, size: 150, color: [3, 6, 45]},    // Dark navy
+            {x: width * 0.3, y: height * 0.7, size: 130, color: [5, 26, 47]},   // Dark teal-navy
+            {x: width * 0.7, y: height * 0.8, size: 140, color: [1, 2, 19]},    // Nearly black
+            {x: width * 0.5, y: height * 0.5, size: 180, color: [2, 5, 29]},    // Deep midnight blue
         ];
         
         glowPositions.forEach(glow => {
@@ -365,36 +566,206 @@ export default class GameSceneEasy extends BaseGameScene {
     }
     
     createFloatingParticles() {
+        if (this.particleContainer) {
+            this.particleContainer.destroy();
+        }
         this.particleContainer = this.add.container(0, 0);
         this.particleContainer.setDepth(-0.5);
+
+        // Level-specific particle configurations
+        const levelConfigs = {
+            1: {
+                count: 24,
+                baseSize: { min: 0.3, max: 0.8 },
+                alpha: { min: 0.1, max: 0.2 },
+                movement: {
+                    range: 40,
+                    duration: { min: 8000, max: 12000 }
+                },
+                colors: {
+                    core: 0x00ced1,
+                    mid: 0x3a9ea1,
+                    outer: 0x1a4547
+                }
+            },
+            2: {
+                count: 36,
+                baseSize: { min: 0.4, max: 1.2 },
+                alpha: { min: 0.15, max: 0.25 },
+                movement: {
+                    range: 80,
+                    duration: { min: 6000, max: 9000 }
+                },
+                colors: {
+                    core: 0x00e5e8,
+                    mid: 0x45b5b7,
+                    outer: 0x256668
+                }
+            },
+            3: {
+                count: 48,
+                baseSize: { min: 0.5, max: 1.5 },
+                alpha: { min: 0.2, max: 0.3 },
+                movement: {
+                    range: 120,
+                    duration: { min: 4000, max: 7000 }
+                },
+                colors: {
+                    core: 0x00ffff,
+                    mid: 0x50c8c8,
+                    outer: 0x307777
+                }
+            }
+        };
+
+        const config = levelConfigs[this.levelValue];
         
-        for (let i = 0; i < 18; i++) {
+        // Create particles based on level configuration
+        for (let i = 0; i < config.count; i++) {
             const x = Math.random() * this.cameras.main.width;
             const y = Math.random() * this.cameras.main.height;
-            const size = Math.random() * 3 + 1.5;
-            const alpha = Math.random() * 0.3 + 0.1;
+            const baseSize = Math.random() * (config.baseSize.max - config.baseSize.min) + config.baseSize.min;
+            const alpha = Math.random() * (config.alpha.max - config.alpha.min) + config.alpha.min;
             
-            const particle = this.add.graphics();
-            particle.fillStyle(0x90caf9, alpha * 0.7);
-            particle.fillCircle(0, 0, size);
+            const particleGroup = this.add.container(x, y);
             
-            const glow = this.add.graphics();
-            glow.fillStyle(0x90caf9, alpha * 0.3);
-            glow.fillCircle(0, 0, size * 2);
+            // Create particle layers with level-specific colors
+            const core = this.add.graphics();
+            core.fillStyle(config.colors.core, alpha);
+            core.fillCircle(0, 0, baseSize);
             
-            const particleContainer = this.add.container(x, y, [glow, particle]);
-            this.particleContainer.add(particleContainer);
+            const layers = [];
+            const layerCount = 6;
+            for (let j = 0; j < layerCount; j++) {
+                const layer = this.add.graphics();
+                const layerSize = baseSize * Math.pow(2, j + 2);
+                const layerAlpha = alpha * (1 - (j / layerCount));
+                
+                if (j < layerCount / 2) {
+                    layer.fillStyle(config.colors.mid, layerAlpha);
+                } else {
+                    layer.fillStyle(config.colors.outer, layerAlpha);
+                }
+                
+                layer.fillCircle(0, 0, layerSize);
+                layers.unshift(layer);
+            }
             
+            particleGroup.add([...layers, core]);
+            this.particleContainer.add(particleGroup);
+            
+            // Level-specific movement patterns
+            const baseDelay = Math.random() * 1000;
+            const range = config.movement.range;
+            const duration = Math.random() * (config.movement.duration.max - config.movement.duration.min) + config.movement.duration.min;
+            
+            // Vertical movement
             this.tweens.add({
-                targets: particleContainer,
-                y: y + (Math.random() * 70 - 35),
-                x: x + (Math.random() * 70 - 35),
-                alpha: { from: alpha, to: alpha * 0.6 },
-                duration: 7000 + Math.random() * 8000,
+                targets: particleGroup,
+                y: y + (Math.random() * range - range/2),
+                duration: duration,
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.InOut',
-                delay: Math.random() * 3000
+                delay: baseDelay
+            });
+            
+            // Horizontal movement
+            this.tweens.add({
+                targets: particleGroup,
+                x: x + (Math.random() * range - range/2),
+                duration: duration * 1.2,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.InOut',
+                delay: baseDelay
+            });
+            
+            // Rotation (only in higher levels)
+            if (this.levelValue > 1) {
+                this.tweens.add({
+                    targets: particleGroup,
+                    angle: { from: -5, to: 5 },
+                    duration: duration * 0.8,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.InOut',
+                    delay: baseDelay
+                });
+            }
+            
+            // Scale pulsing
+            const pulseConfig = {
+                targets: particleGroup,
+                scaleX: { from: 1, to: 1.1 },
+                scaleY: { from: 1, to: 1.1 },
+                duration: duration,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.InOut',
+                delay: baseDelay
+            };
+            
+            // More intense pulsing for higher levels
+            if (this.levelValue > 1) {
+                pulseConfig.scaleX.to = 1.2;
+                pulseConfig.scaleY.to = 1.2;
+                pulseConfig.duration *= 0.8;
+            }
+            
+            this.tweens.add(pulseConfig);
+        }
+
+        // Add bubble effects for higher levels
+        if (this.levelValue > 1) {
+            this.createBubbleEffects();
+        }
+    }
+
+    createBubbleEffects() {
+        const bubbleCount = this.levelValue === 2 ? 15 : 25;
+        
+        for (let i = 0; i < bubbleCount; i++) {
+            const x = Math.random() * this.cameras.main.width;
+            const y = this.cameras.main.height + 50;
+            const size = Math.random() * (this.levelValue === 2 ? 8 : 12) + 4;
+            
+            const bubble = this.add.graphics();
+            bubble.lineStyle(2, 0x00ffff, 0.3);
+            bubble.strokeCircle(0, 0, size);
+            
+            const highlight = this.add.graphics();
+            highlight.fillStyle(0xffffff, 0.2);
+            highlight.fillCircle(-size/3, -size/3, size/4);
+            
+            const bubbleContainer = this.add.container(x, y, [bubble, highlight]);
+            this.particleContainer.add(bubbleContainer);
+            
+            const duration = (Math.random() * 5000 + 5000) / (this.levelValue === 3 ? 1.5 : 1);
+            const targetX = x + (Math.random() * 100 - 50);
+            
+            this.tweens.add({
+                targets: bubbleContainer,
+                y: -50,
+                x: targetX,
+                duration: duration,
+                ease: 'Sine.InOut',
+                onComplete: () => {
+                    bubbleContainer.destroy();
+                    if (!this.scene.isTransitioning) {
+                        this.createBubbleEffects();
+                    }
+                }
+            });
+            
+            // Wobble effect
+            this.tweens.add({
+                targets: bubbleContainer,
+                angle: { from: -15, to: 15 },
+                duration: 2000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.InOut'
             });
         }
     }
