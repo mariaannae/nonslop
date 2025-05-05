@@ -10,6 +10,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.userInput = '';
         this.inputText = null; 
         this.levelValue = 1;
+        this.topKValue = 1;  // Initialize topK with default value
         this.baseFontSize = 22;
         this.failCount = 0;
         this.autocompleteText = null;
@@ -271,8 +272,8 @@ export default class BaseGameScene extends Phaser.Scene {
         const output = await this.evaluateText(this.userInput);
         this.scene.start('DoneScene', {
             mode: this.mode,
-            level: this.levelValue,
-            topK: this.topKValue,
+            levelValue: this.levelValue,
+            topKValue: this.topKValue,
             userInput : this.userInput,
             outputText: output,
             prompt: this.currentPrompt,
@@ -364,8 +365,8 @@ export default class BaseGameScene extends Phaser.Scene {
             prompt: this.currentPrompt,
             submittedText: userInput,
             aiEvaluation: aiResponse,
-            k: this.topKValue,
-            level: this.levelValue,
+            topKValue: this.topKValue,
+            levelValue: this.levelValue,
             failCount: this.failCount,
             mode: this.mode,
             score: this.progressPercentage

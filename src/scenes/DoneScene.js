@@ -245,8 +245,8 @@ export default class DoneScene extends Phaser.Scene {
             }
     
             let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, "#13091e");
-            grd.addColorStop(1, "#3a1f5d");
+            grd.addColorStop(0, '#' + COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0'));
+            grd.addColorStop(1, '#' + COLORS_HEX.BLUE_BACKGROUND.toString(16).padStart(6, '0'));
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -292,8 +292,8 @@ export default class DoneScene extends Phaser.Scene {
         // Prepare reset data for game scene, preserving level and topK
         const resetData = {
             progressPercentage: 50, // Reset to initial value
-            levelValue: this.levelValue || this.level, // Preserve current level
-            topKValue: this.topKValue || this.topK, // Preserve current topK
+            levelValue: this.levelValue, // Preserve current level
+            topKValue: this.topKValue, // Preserve current topK
             wordCount: 0,
             originalWordCount: 0,
             aiWordCount: 0,
@@ -491,9 +491,9 @@ export default class DoneScene extends Phaser.Scene {
             console.log("Data successfully received in DoneScene.");
         }
         this.mode = data.mode || null;
-        this.level = data.level || null;
+        this.levelValue = data.levelValue || null;
         this.userInput = data.userInput || '';
-        this.topK = data.topK || null;
+        this.topKValue = data.topKValue || null;
         this.evaluation = data.outputText || null;
         this.failCount = data.failCount || null;
         this.prompt = data.prompt;
@@ -515,11 +515,11 @@ export default class DoneScene extends Phaser.Scene {
         const ctx = pattern.getContext();
         
         // Draw pattern (dots, stars, or any subtle pattern)
-        ctx.fillStyle = '#2c1155';
+        ctx.fillStyle = '#' + COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0');
         ctx.fillRect(0, 0, 100, 100);
         
         for (let i = 0; i < 10; i++) {
-          ctx.fillStyle = '#4b237a';
+          ctx.fillStyle = '#' + COLORS_HEX.BLUE_BACKGROUND.toString(16).padStart(6, '0');
           ctx.beginPath();
           ctx.arc(Math.random() * 100, Math.random() * 100, 2, 0, Math.PI * 2);
           ctx.fill();
