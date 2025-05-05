@@ -107,12 +107,24 @@ export default class FeedbackScene extends Phaser.Scene {
         }
         
         // Add a small delay to ensure cleanup completes
+        // Prepare reset data for game scene, preserving level and topK
+        const resetData = {
+            progressPercentage: 50, // Reset to initial value
+            levelValue: this.levelValue, // Preserve current level
+            topKValue: this.topKValue, // Preserve current topK
+            wordCount: 0,
+            originalWordCount: 0,
+            aiWordCount: 0,
+            totalWordCount: 0,
+            requiresReset: true // Flag to indicate this is a reset from FeedbackScene
+        };
+
         this.time.delayedCall(50, () => {
             if (this.mode === "easy") {
-                this.scene.start('GameSceneEasy', {});
+                this.scene.start('GameSceneEasy', resetData);
             }
             else if (this.mode === "hard") {
-                this.scene.start('GameSceneHard', {});
+                this.scene.start('GameSceneHard', resetData);
             }
         });
     }
@@ -308,6 +320,8 @@ export default class FeedbackScene extends Phaser.Scene {
             console.log("mode successfully received in FeedbackScene.");
         }
         this.mode = data.mode || null;
+        this.levelValue = data.levelValue || data.level || null;
+        this.topKValue = data.topKValue || data.topK || null;
 
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;

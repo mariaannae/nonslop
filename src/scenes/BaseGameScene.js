@@ -787,7 +787,7 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, { menuBar, menuBarBorder, titleText }) {
-        this.levelValue = 1;
+        // Use existing levelValue or default to 1
         const levelLabelX = this.cameras.main.centerX - 120;
         this.levelLabel = this.add.text(
             levelLabelX, menuBarHeight / 2, 
@@ -803,7 +803,10 @@ export default class BaseGameScene extends Phaser.Scene {
         levelSlider.fillStyle(0xffffff, 1);
         levelSlider.fillRect(levelSliderX, levelSliderY - 5, levelSliderWidth, 10);
     
-        this.levelSliderHandle = this.add.rectangle(levelSliderX, levelSliderY, 10, 20, 0xffaa00).setInteractive();
+        // Position slider handle based on current level
+        const t = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
+        const levelHandleX = Phaser.Math.Linear(levelSliderX, levelSliderX + levelSliderWidth - 5, t);
+        this.levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, 10, 20, 0xffaa00).setInteractive();
         this.input.setDraggable(this.levelSliderHandle);
     
         // Store these values as class properties for use in updateFailsCounter
@@ -835,8 +838,6 @@ export default class BaseGameScene extends Phaser.Scene {
     
         const topKLabelX = this.cameras.main.width - padding - rightMargin - 180 - shiftLeft;
         const topKLabelY = menuBarHeight / 2;
-        this.topKValue = 1;
-    
         const topKLabel = this.add.text(
             topKLabelX, topKLabelY, 
             `Top K: ${this.topKValue}`,
@@ -850,7 +851,10 @@ export default class BaseGameScene extends Phaser.Scene {
         slider.fillStyle(0xffffff, 1);
         slider.fillRect(sliderX, sliderY - 5, sliderWidth, 10);
     
-        this.sliderHandle = this.add.rectangle(sliderX, sliderY, 10, 20, 0xffaa00).setInteractive();
+        // Position slider handle based on current topK
+        const topKT = (this.topKValue - 1) / 4; // 0 for topK 1, 0.25 for topK 2, etc.
+        const topKHandleX = Phaser.Math.Linear(sliderX, sliderX + sliderWidth - 5, topKT);
+        this.sliderHandle = this.add.rectangle(topKHandleX, sliderY, 10, 20, 0xffaa00).setInteractive();
         this.input.setDraggable(this.sliderHandle);
     
         const sliderMinX = sliderX;
@@ -1956,8 +1960,53 @@ export default class BaseGameScene extends Phaser.Scene {
     init(data) {
         console.log("BaseGameScene init called with data:", data);
         
-        // Store the progress percentage if it exists in passed data
-        if (data && data.progressPercentage !== undefined) {
+        // If this is a reset from DoneScene or FeedbackScene, reset game state but preserve level and topK
+        if (data && data.requiresReset) {
+            console.log("Performing state reset from DoneScene/FeedbackScene");
+            this.progressPercentage = data.progressPercentage || 50;
+            
+            // Preserve level and topK if they were passed
+            if (data.levelValue) {
+                this.levelValue = data.levelValue;
+                // Update slider position to match preserved level
+                if (this.levelSliderHandle && this.levelSliderMinX && this.levelSliderMaxX) {
+                    const t = (this.levelValue - 1) / 2;
+                    this.levelSliderHandle.x = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
+                }
+            }
+            
+            if (data.topKValue) {
+                this.topKValue = data.topKValue;
+                // Update slider position to match preserved topK
+                if (this.sliderHandle) {
+                    const t = (this.topKValue - 1) / 4;
+                    const sliderMinX = this.sliderHandle.x - (this.topKValue - 1) * 30;
+                    const sliderMaxX = sliderMinX + 120 - 5;
+                    this.sliderHandle.x = Phaser.Math.Linear(sliderMinX, sliderMaxX, t);
+                }
+            }
+            
+            // Reset other game state
+            this.wordCount = 0;
+            this.originalWordCount = 0;
+            this.aiWordCount = 0;
+            this.totalWordCount = 0;
+            
+            // Reset suggestion-related state
+            this.userInput = '';
+            this.aiSuggestedWords = [];
+            this.autocompleteText = null;
+            this.suggestionBoxes = [];
+            this.suggestionTexts = [];
+            
+            // Reset cursor state
+            this.cursorVisible = true;
+            if (this.cursorTimer) {
+                this.cursorTimer.remove();
+                this.cursorTimer = null;
+            }
+        } else if (data && data.progressPercentage !== undefined) {
+            // Normal scene transition
             console.log("Setting initial progress percentage:", data.progressPercentage);
             this.progressPercentage = data.progressPercentage;
         }
@@ -1967,5 +2016,11 @@ export default class BaseGameScene extends Phaser.Scene {
         this.promptText = null;
         this.failsCounter = null;
         this.failsText = null;
+        
+        // Clear any active timeouts
+        if (this.activeTimeout) {
+            clearTimeout(this.activeTimeout);
+            this.activeTimeout = null;
+        }
     }
 }
