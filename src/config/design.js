@@ -1,5 +1,26 @@
 // Unified design configuration file for both Easy and Hard modes
 
+// Our color palette
+const palette_16 = {
+  background_darkest: 0x00060f, //almost_black
+  background_darker: 0x03062D,//dark purple
+  background_darkish: 0x170548, //less dark purple
+  background_mid: 0x3d3648,//mid purple
+  secondark_dark: 0x7a0782, //magenta
+  secondary: 0x9e0e77,//pink
+  secondary_mid: 0xb91255,// reddish pink
+  secondary_red: 0xd71a27,//orangish red
+  secondary_dark_orange: 0xf35a23, //orange
+  secondary_orange: 0xf8ac3a, //lightorange
+  highlights_yellow: 0xfbf056,//yellow
+  highlights_greenish: 0xdaff77,//light green
+  highlights_green: 0xbfff95,//green
+  highlights_light_green: 0xb4ffae,//light green
+  light_green: 0xcdffda,//lighter green
+  lightest_green: 0xebfff7,//lightest green
+ 
+};
+
 // Common settings shared by all modes
 const COMMON = {
   OUTLINE_WIDTH: 4,
@@ -13,72 +34,72 @@ const COMMON = {
     INITIAL: 50,
     INCREMENT: 5,
     DECREMENT: 5,
-    GREEN: 0x00cc00,
-    YELLOW: 0xffd866,
-    RED: 0xff0000
+    GREEN: palette_16.highlights_green,
+    YELLOW: palette_16.highlights_yellow,
+    RED: palette_16.secondary_red
   }
 };
 
 // Easy mode specific settings
 const EASY = {
   COLORS_HEX: {
-    BACKGROUND: 0x13091e,
-    BOXOUTLINE: 0x81d4fa,
-    BLUE_BACKGROUND: 0x2a1646,
-    MIDPURPLE: 0x7b56a5,
-    RED: 0xff5d8f,
-    YELLOW: 0xffd866,
-    WHITE: 0xffffff,
-    BUTTONFILL: 0xD12390,
-    BUTTONOVERLAY: 0xe056fd,
+    BACKGROUND: palette_16.background_darkest,
+    BOXOUTLINE: palette_16.secondary_dark_orange,
+    BLUE_BACKGROUND: palette_16.background_darker,
+    MIDPURPLE: palette_16.background_mid,
+    RED: palette_16.secondary_red,
+    YELLOW: palette_16.highlights_yellow,
+    WHITE: palette_16.lightest_green,
+    BUTTONFILL: palette_16.secondary,
+    BUTTONOVERLAY: palette_16.secondary_mid,
   },
   COLORS_TEXT: {
-    WHITE: '#ffffff',
-    OFFWHITE: '#e0e0e0',
-    YELLOW: '#ffd866',
-    HIGHLIGHT: '#ffe7aa',
-    SUCCESS: '#64d2ba'
+    WHITE: '#ebfff7', // lightest_green
+    OFFWHITE: '#cdffda', // light_green
+    YELLOW: '#fbf056', // highlights_yellow
+    HIGHLIGHT: '#daff77', // highlights_greenish
+    SUCCESS: '#bfff95' // highlights_green
   }
 };
 
 // Hard mode specific settings
 const HARD = {
   COLORS_HEX: {
-    BACKGROUND: 0x1a0933,
-    BUTTONFILL: 0xD12390,
-    BUTTONOVERLAY: 0xe056fd,
-    PURPLE: 0x311648,
-    LIGHTPINK: 0xE3B6B0,
-    TURQUOISE: 0x44C4C4,
-    PERIWINKLE: 0x7158e2,
-    PINK: 0xD12390,
-    MIDPURPLE: 0x9b59b6,
-    YELLOW: 0xEBE34D,
-    ERROR: 0xFF0000,
-    WHITE: 0xFFFFFF,
-    BLACK: 0x000000,
-    RED: 0xff0000,
-    BLUE: 0x00bcd4,
-    BLUE_BACKGROUND: 0x0a1b29,
-    SLIDER_HANDLE:0xffaa00,
+    BACKGROUND: palette_16.background_darkest,
+    BUTTONFILL: palette_16.secondary,
+    BUTTONOVERLAY: palette_16.secondary_mid,
+    PURPLE: palette_16.background_darkish,
+    LIGHTPINK: palette_16.secondary_orange,
+    TURQUOISE: palette_16.highlights_light_green,
+    PERIWINKLE: palette_16.secondark_dark,
+    PINK: palette_16.secondary,
+    MIDPURPLE: palette_16.background_mid,
+    YELLOW: palette_16.highlights_yellow,
+    ERROR: palette_16.secondary_red,
+    WHITE: palette_16.lightest_green,
+    BLACK: palette_16.background_darkest,
+    RED: palette_16.secondary_red,
+    BLUE: palette_16.highlights_greenish,
+    BLUE_BACKGROUND: palette_16.background_darker,
+    SLIDER_HANDLE: palette_16.secondary_orange,
   },
   COLORS_TEXT: {
-    BACKGROUND: '#1a0933',
-    BUTTONFILL: "#D12390",
-    BUTTONOVERLAY: '#e056fd',
-    PURPLE: '#311648',
-    LIGHTPINK: '#E3B6B0',
-    TURQUOISE: '#44C4C4',
-    PERIWINKLE: '#7158e2',
-    PINK: '#D12390',
-    MIDPURPLE: '#9b59b6',
-    YELLOW: '#EBE34D',
-    ERROR: '#FF0000',
-    WHITE: '#FFFFFF',
-    BLACK: '#000000',
-    RED: '#ff0000',
-    BLUE: '#00bcd4',
-    BLUE_BACKGROUND: "#0a1b29"
+    BACKGROUND: '#00060f', // background_darkest
+    BUTTONFILL: '#9e0e77', // secondary
+    BUTTONOVERLAY: '#b91255', // secondary_mid
+    PURPLE: '#170548', // background_darkish
+    LIGHTPINK: '#f8ac3a', // secondary_orange
+    TURQUOISE: '#b4ffae', // highlights_light_green
+    PERIWINKLE: '#7a0782', // secondark_dark
+    PINK: '#9e0e77', // secondary
+    MIDPURPLE: '#3d3648', // background_mid
+    YELLOW: '#fbf056', // highlights_yellow
+    ERROR: '#d71a27', // secondary_red
+    WHITE: '#ebfff7', // lightest_green
+    BLACK: '#00060f', // background_darkest
+    RED: '#d71a27', // secondary_red
+    BLUE: '#daff77', // highlights_greenish
+    BLUE_BACKGROUND: '#03062D' // background_darker
   }
 };
 
@@ -93,9 +114,9 @@ export function getDesign(mode = 'easy') {
   };
 }
 
-export const cursorColor = '#000000';      // black cursor
-export const autocompleteColor = '#ff3366'; // red autocomplete
-export const inputColor = '#000000';       // black user input
+export const cursorColor = '#00060f';      // background_darkest cursor
+export const autocompleteColor = '#d71a27'; // secondary_red autocomplete
+export const inputColor = '#00060f';       // background_darkest user input
 
 export const toggleWidth = 40;
 export const toggleHeight = 12;
