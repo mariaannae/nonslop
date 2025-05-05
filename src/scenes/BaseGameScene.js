@@ -1579,13 +1579,13 @@ export default class BaseGameScene extends Phaser.Scene {
         
         if (success) {
             // Non-AI word
-            newPercentage = Math.min(100, this.progressPercentage + PROGRESS_BAR.INCREMENT);
+            newPercentage = this.progressPercentage + PROGRESS_BAR.INCREMENT;
             // Update original word count
             this.originalWordCount++;
             this.totalWordCount++;
         } else {
             // AI word     
-            newPercentage = Math.max(0, this.progressPercentage - PROGRESS_BAR.DECREMENT);
+            newPercentage = this.progressPercentage - PROGRESS_BAR.DECREMENT;
             this.shakeScreen();
             
             // Use the first AI suggestion as our "current word" since that's what would be autocompleted
@@ -1615,7 +1615,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         
         // Check for milestone achievements
-        if (oldPercentage !== 0 && newPercentage === 0) {
+        if (oldPercentage > 0 && newPercentage <= 0) {
             // Reached perfect score
             this.celebrateNeedsWork();
             const newLevel = Math.max(this.levelValue - 1, 1);
@@ -1640,10 +1640,10 @@ export default class BaseGameScene extends Phaser.Scene {
                 if (typeof this.updateBackgroundForLevel === 'function') {
                     this.updateBackgroundForLevel();
                 }
-                this.progressPercentage = 100;
+                //this.progressPercentage = newPercentage;
             }
             
-        } else if (oldPercentage !== 100 && newPercentage === 100) {
+        } else if (oldPercentage < 100 && newPercentage >= 100) {
             // Reached needs work
             this.celebrateSuccess();
             const newLevel = Math.min(this.levelValue + 1, 3);
@@ -1668,11 +1668,11 @@ export default class BaseGameScene extends Phaser.Scene {
                 if (typeof this.updateBackgroundForLevel === 'function') {
                     this.updateBackgroundForLevel();
                 }
-                this.progressPercentage = 0;
+                //this.progressPercentage = newPercentage;
             }
-        }else {
-            this.progressPercentage = newPercentage;
         }
+        this.progressPercentage = newPercentage;
+        
         
         
         
@@ -1857,31 +1857,38 @@ export default class BaseGameScene extends Phaser.Scene {
         const scoreWidth = buttonWidth * 2 + buttonSpacing;
         const scoreHeight = buttonHeight;
         
+        const minFill = Math.max(0, this.progressPercentage);
+
+        const fillPercentage = Math.min(minFill, 100);
+        console.log("Fill percentage:", this.progressPercentage);
+        console.log("minfill:", minFill);
+        console.log("maxfill:", fillPercentage);
+        
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, BUTTON_CORNER_RADIUS);
         
         // Progress fill with rounded corners - reversed color gradation
         let color;
-        if (this.progressPercentage === 50) {
+        if (fillPercentage === 50) {
             color = PROGRESS_BAR.YELLOW;
-        } else if (this.progressPercentage < 50) {
+        } else if (fillPercentage < 50) {
             // Interpolate between red and yellow (red at 0%, yellow at 50%)
-            const t = this.progressPercentage / 50;
+            const t = fillPercentage / 50;
             const r = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)));
             const g = Math.round(((1 - t) * ((PROGRESS_BAR.RED >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)));
             const b = Math.round(((1 - t) * (PROGRESS_BAR.RED & 0xFF)) + (t * (PROGRESS_BAR.YELLOW & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         } else {
             // Interpolate between yellow and green (yellow at 50%, green at 100%)
-            const t = (this.progressPercentage - 50) / 50;
+            const t = (fillPercentage - 50) / 50;
             const r = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 16) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 16) & 0xFF)));
             const g = Math.round(((1 - t) * ((PROGRESS_BAR.YELLOW >> 8) & 0xFF)) + (t * ((PROGRESS_BAR.GREEN >> 8) & 0xFF)));
             const b = Math.round(((1 - t) * (PROGRESS_BAR.YELLOW & 0xFF)) + (t * (PROGRESS_BAR.GREEN & 0xFF)));
             color = (r << 16) | (g << 8) | b;
         }
         this.failsCounter.fillStyle(color, 1);
-        this.failsCounter.fillRoundedRect(0, 0, (scoreWidth * this.progressPercentage) / 100, scoreHeight, BUTTON_CORNER_RADIUS);
+        this.failsCounter.fillRoundedRect(0, 0, (scoreWidth * fillPercentage) / 100, scoreHeight, BUTTON_CORNER_RADIUS);
         
         // White outline
         this.failsCounter.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
