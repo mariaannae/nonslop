@@ -1,6 +1,8 @@
-import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design.js";
+import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIGN} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+
+//, , DESIGN.UI.BUTTON.WIDTH
 
 export default class LevelScene extends Phaser.Scene {
     constructor() {
@@ -79,10 +81,11 @@ export default class LevelScene extends Phaser.Scene {
                 console.error("Failed to get canvas context for background effect.");
                 return;
             }
-    
+            const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
+
             let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, "#13091e");
-            grd.addColorStop(1, "#3a1f5d");
+            grd.addColorStop(0, hexToString(COLORS_HEX.BACKGROUND_MID));
+            grd.addColorStop(1, hexToString(COLORS_HEX.BACKGROUND));
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -146,7 +149,7 @@ export default class LevelScene extends Phaser.Scene {
     }
     
     createPromptTextBox() {
-        this.promptBoxY = 50;
+        this.promptBoxY = 80;
     
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         const padding = 40;
@@ -173,7 +176,7 @@ export default class LevelScene extends Phaser.Scene {
             {
                 fontFamily: "Nunito",
                 fontSize: "22px",
-                color: COLORS_TEXT.WHITE,
+                color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left]nter"
             }
@@ -183,23 +186,23 @@ export default class LevelScene extends Phaser.Scene {
         const textHeight = this.promptText.height + padding * 2;
     
         // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
+        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.MIDPURPLE, 1);
+        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Position the Text inside the Box
@@ -229,14 +232,14 @@ export default class LevelScene extends Phaser.Scene {
         const buttonPaddingY = 20;
         
         // Position the buttons below the prompt text box
-        const centerY = boxY + boxHeight + buttonPaddingY + buttonHeight / 2;
+        const centerY = boxY + boxHeight + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
         
         // Create the two difficulty buttons with tooltips
         const easyButton = ButtonFactory.createButton(
             this, 
             "EASY", 
             () => this.startGame("easy"),
-            centerX - buttonWidth - buttonSpacing,
+            centerX - DESIGN.UI.BUTTON.WIDTH - DESIGN.UI.BUTTON.SPACING,
             centerY
         );
         
@@ -244,7 +247,7 @@ export default class LevelScene extends Phaser.Scene {
             this, 
             "HARD", 
             () => this.startGame("hard"),
-            centerX + buttonWidth + buttonSpacing,
+            centerX + DESIGN.UI.BUTTON.WIDTH + DESIGN.UI.BUTTON.SPACING,
             centerY
         );
 

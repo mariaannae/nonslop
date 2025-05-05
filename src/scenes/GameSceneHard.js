@@ -1,4 +1,4 @@
-import { getDesign } from "../config/design.js";
+import { DESIGN, HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import BaseGameScene from "./BaseGameScene.js";
 
@@ -7,13 +7,13 @@ export default class GameSceneHard extends BaseGameScene {
         super({ key: 'GameSceneHard' });
         this.mode = 'hard';
         // Get design configuration for hard mode
-        this.design = getDesign('hard');
+        this.design = DESIGN.UI;
         
         // Extract needed values for easier access
-        this.COLORS_HEX = this.design.COLORS_HEX;
-        this.COLORS_TEXT = this.design.COLORS_TEXT;
-        this.OUTLINE_WIDTH = this.design.OUTLINE_WIDTH;
-        this.CORNER_RADIUS = this.design.CORNER_RADIUS;
+        this.COLORS_HEX = COLORS_HEX;
+        this.COLORS_TEXT = COLORS_TEXT;
+        this.OUTLINE_WIDTH = this.design.OUTLINE.WIDTH;
+        this.CORNER_RADIUS = this.design.OUTLINE.CORNER_RADIUS;
         this.PROGRESS_BAR = this.design.PROGRESS_BAR;
     }
 
@@ -357,34 +357,6 @@ export default class GameSceneHard extends BaseGameScene {
         this.updateCursor();
     }
 
-    // Mode-specific navigation
-    // onEasyModeClick() {
-    //     // Reset data when transitioning between modes
-    //     const dataToTransfer = {
-    //         mode: 'easy',
-    //         // Reset progress and level values rather than transferring current state
-    //         progressPercentage: this.PROGRESS_BAR.INITIAL,
-    //         levelValue: 1,
-    //         topKValue: this.topKValue || 1,
-    //         // Reset word counts
-    //         wordCount: 0,
-    //         originalWordCount: 0,
-    //         aiWordCount: 0,
-    //         totalWordCount: 0
-    //     };
-        
-    //     // Safety check - log what we're transferring
-    //     console.log("Transferring to Easy mode with reset data:", dataToTransfer);
-        
-    //     // Prepare for scene transition by cleaning up resources
-    //     this.prepareForSceneTransition();
-        
-    //     // Give a small delay to ensure cleanup completes
-    //     this.time.delayedCall(50, () => {
-    //         this.scene.start('GameSceneEasy', dataToTransfer);
-    //     });
-    // }
-
     onFeedbackClick() {
         this.scene.start('FeedbackScene', {mode: this.mode});
     }
@@ -432,8 +404,8 @@ export default class GameSceneHard extends BaseGameScene {
         const inputBoxY = this.cameras.main.centerY;
         const inputBoxWidth = this.cameras.main.width * (5 / 6);
         const inputBoxHeight = 240;
-        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - this.design.buttonWidth - 20;
-        const buttonCenterY = inputBoxY + inputBoxHeight / 2 + this.design.buttonSpacing;
+        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - this.design.BUTTON.WIDTH - 20;
+        const buttonCenterY = inputBoxY + inputBoxHeight / 2 + this.design.BUTTON.SPACING;
         const padding = 20;
 
         // Create buttons with tooltips
@@ -455,18 +427,12 @@ export default class GameSceneHard extends BaseGameScene {
             'Clear text and start over'
         );
         
-        // this.feedbackButton = this.createButton(
-        //     "FEEDBACK", 
-        //     () => this.onFeedbackClick(), 
-        //     this.cameras.main.width - this.design.buttonWidth / 2 - padding, 
-        //     this.cameras.main.height - this.design.buttonHeight / 2 - padding,
-        //     'Share your feedback'
-        // );
+ 
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
-            this.design.buttonWidth / 2 + padding, 
-            this.cameras.main.height - this.design.buttonHeight / 2 - padding,
+            this.design.BUTTON.WIDTH / 2 + padding, 
+            this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding,
             'Share your feedback'
         );
 
@@ -487,14 +453,6 @@ export default class GameSceneHard extends BaseGameScene {
             this.menuBarHeight + padding
         );
         
-        // this.easyButton = this.createButton(
-        //     "EASY", 
-        //     () => this.onEasyModeClick(), 
-        //     this.design.buttonWidth / 2 + padding, 
-        //     this.cameras.main.height - this.design.buttonHeight / 2 - padding,
-        //     'Switch to Easy mode: AI suggestions allowed'
-        // );
-
         // Initialize the progress bar with the percentage passed from the other mode
         this.createFailsCounter();
         console.log("HardMode: Created fails counter with progress:", this.progressPercentage);
@@ -518,7 +476,7 @@ export default class GameSceneHard extends BaseGameScene {
         return {
             fontFamily: "Nunito",
             fontSize: "22px",
-            color: this.COLORS_TEXT.WHITE,
+            color: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6,
             shadow: {
@@ -537,7 +495,7 @@ export default class GameSceneHard extends BaseGameScene {
             fillAlpha: 0.5,
             hasOutline: true,
             outlineWidth: this.OUTLINE_WIDTH,
-            outlineColor: this.COLORS_HEX.BLUE,
+            outlineColor: this.COLORS_HEX.BOX_OUTLINE,
             cornerRadius: this.CORNER_RADIUS
         };
     }
@@ -548,7 +506,7 @@ export default class GameSceneHard extends BaseGameScene {
             fillAlpha: 0.9,
             hasOutline: true,
             outlineWidth: this.OUTLINE_WIDTH,
-            outlineColor: this.COLORS_HEX.MIDPURPLE,
+            outlineColor: this.COLORS_HEX.ACCENT_PRIMARY,
             cornerRadius: this.CORNER_RADIUS
         };
     }
@@ -583,12 +541,12 @@ export default class GameSceneHard extends BaseGameScene {
     getMenuBarStyle() {
         return {
             backgroundColor: this.COLORS_HEX.BACKGROUND,
-            borderColor: this.COLORS_HEX.MIDPURPLE,
+            borderColor: this.COLORS_HEX.BOX_OUTLINE,
             borderWidth: this.OUTLINE_WIDTH,
             titleStyle: {
                 fontFamily: 'barcade3d',
                 fontSize: '50px',
-                color: this.COLORS_TEXT.YELLOW,
+                color: this.COLORS_TEXT.TITLE,
                 shadow: {
                     offsetX: 3,
                     offsetY: 3,
@@ -621,9 +579,8 @@ export default class GameSceneHard extends BaseGameScene {
         if (this.modeIndicator) {
             this.modeIndicator.destroy();
         }
-        
-        // Recreate mode indicator with current level styling
-        this.addModeIndicator('HARD', 0xff3366);
+
+   
     }
 
 

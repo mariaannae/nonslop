@@ -1,4 +1,5 @@
-import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, BUTTON_OUTLINE_WIDTH, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth } from "../config/design.js";
+import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIGN } from "../config/design.js";
+
 
 export default class ButtonFactory {
     /**
@@ -17,34 +18,34 @@ export default class ButtonFactory {
     
         // Button Background
         const buttonBackground = scene.add.graphics();
-        buttonBackground.fillStyle(COLORS_HEX.BUTTONFILL, 1);
+        buttonBackground.fillStyle(COLORS_HEX.BUTTON.FILL, 1);
         buttonBackground.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // Button Outline
         const buttonOutline = scene.add.graphics();
-        buttonOutline.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
+        buttonOutline.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         buttonOutline.strokeRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // Gradient Overlay (Lighter Top)
         const gradientOverlay = scene.add.graphics();
-        gradientOverlay.fillStyle(COLORS_HEX.BUTTONOVERLAY, 0.7);
+        gradientOverlay.fillStyle(COLORS_HEX.BUTTON.OVERLAY, 0.7);
         gradientOverlay.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight / 2, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT / 2, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // Highlight Effect (Shiny Reflection)
         const buttonHighlight = scene.add.graphics();
         buttonHighlight.fillStyle(0xffffff, 0.4);
         buttonHighlight.fillRoundedRect(
-            -buttonWidth / 2 + 5, -buttonHeight / 2 + 2, 
-            buttonWidth - 10, buttonHeight / 3, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2 + 5, -DESIGN.UI.BUTTON.HEIGHT / 2 + 2, 
+            DESIGN.UI.BUTTON.WIDTH - 10, DESIGN.UI.BUTTON.HEIGHT / 3, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
 
         // Button Text
@@ -52,12 +53,12 @@ export default class ButtonFactory {
             fontFamily: 'Fredoka',
             fontSize: '18px',
             fontWeight: "700",
-            color: COLORS_TEXT.WHITE,
+            color: COLORS_TEXT.PRIMARY,
             align: 'center'
         }).setOrigin(0.5, 0.5);
     
         // Make button interactive
-        buttonContainer.setSize(buttonWidth, buttonHeight);
+        buttonContainer.setSize(DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT);
         buttonContainer.setInteractive();
         buttonContainer.on("pointerdown", () => {
             scene.tweens.add({
@@ -97,9 +98,9 @@ export default class ButtonFactory {
      */
     static createFancyButton(scene, label, callback, centerX, offsetX, centerY, options = {}) {
         // Use provided values or defaults
-        const buttonSize = options.buttonWidth || 
+        const buttonSize = DESIGN.UI.BUTTON.WIDTH || 
             Phaser.Math.Clamp(scene.cameras.main.width * 0.1, scene.cameras.main.width * 0.07, 220);
-        const buttonHeight = options.buttonHeight || buttonSize * 0.35;
+        const buttonHeight = DESIGN.UI.BUTTON.HEIGHT || buttonSize * 0.35;
         
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
@@ -114,26 +115,26 @@ export default class ButtonFactory {
         buttonOutline.lineStyle(outlineThickness, 0xffffff, 1);
         buttonOutline.strokeRoundedRect(
             -buttonSize / 2 - outlineThickness / 2, 
-            -buttonHeight / 2 - outlineThickness / 2, 
+            -DESIGN.UI.BUTTON.HEIGHT / 2 - outlineThickness / 2, 
             buttonSize + outlineThickness, 
-            buttonHeight + outlineThickness, 
-            BUTTON_CORNER_RADIUS + 2
+            DESIGN.UI.BUTTON.HEIGHT + outlineThickness, 
+            DESIGN.UI.BUTTON.CORNER_RADIUS + 2
         );
     
         // Button Background (Base Color - Darker)
         const buttonBackground = scene.add.graphics();
-        buttonBackground.fillStyle(COLORS_HEX.BUTTONFILL, 1);
+        buttonBackground.fillStyle(COLORS_HEX.BUTTON.FILL, 1);
         buttonBackground.fillRoundedRect(
-            -buttonSize / 2, -buttonHeight / 2, 
-            buttonSize, buttonHeight, BUTTON_CORNER_RADIUS
+            -buttonSize / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            buttonSize, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // Simulated Gradient Overlay (Lighter Top)
         const gradientOverlay = scene.add.graphics();
-        gradientOverlay.fillStyle(COLORS_HEX.BUTTONOVERLAY, 0.6);
+        gradientOverlay.fillStyle(COLORS_HEX.BUTTON.OVERLAY, 0.6);
         gradientOverlay.fillRoundedRect(
-            -buttonSize / 2, -buttonHeight / 2, 
-            buttonSize, buttonHeight / 2, BUTTON_CORNER_RADIUS
+            -buttonSize / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            buttonSize, DESIGN.UI.BUTTON.HEIGHT / 2, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // Highlight Effect
@@ -141,10 +142,10 @@ export default class ButtonFactory {
         buttonHighlight.fillStyle(0xffffff, 0.3);
         buttonHighlight.fillRoundedRect(
             -buttonSize / 2 + 5, 
-            -buttonHeight / 2 + 2, 
+            -DESIGN.UI.BUTTON.HEIGHT / 2 + 2, 
             buttonSize - 10, 
-            buttonHeight / 3, 
-            BUTTON_CORNER_RADIUS
+            DESIGN.UI.BUTTON.HEIGHT / 3, 
+            DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // Button Text
@@ -156,7 +157,7 @@ export default class ButtonFactory {
     
         // Group Button Elements
         const buttonContainer = scene.add.container(x, y, [buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
-        buttonContainer.setSize(buttonSize, buttonHeight);
+        buttonContainer.setSize(buttonSize, DESIGN.UI.BUTTON.HEIGHT);
         
         // Start invisible for fade-in if specified
         if (options.fadeIn) {

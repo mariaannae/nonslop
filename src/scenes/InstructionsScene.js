@@ -1,4 +1,4 @@
-import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design.js";
+import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 
@@ -76,10 +76,11 @@ export default class InstructionScene extends Phaser.Scene {
                 console.error("Failed to get canvas context for background effect.");
                 return;
             }
-    
+            const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
+
             let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, "#13091e");
-            grd.addColorStop(1, "#3a1f5d");
+            grd.addColorStop(0, hexToString(COLORS_HEX.BACKGROUND_MID));
+            grd.addColorStop(1, hexToString(COLORS_HEX.BACKGROUND));
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -99,7 +100,7 @@ export default class InstructionScene extends Phaser.Scene {
             repeat: -1,
             ease: 'Sine.InOut'
         });
-    }    
+    }  
     
     addButtonClickEffects() {
         // Apply to all buttons
@@ -176,7 +177,7 @@ export default class InstructionScene extends Phaser.Scene {
             {
                 fontFamily: "Nunito",
                 fontSize: "22px",
-                color: COLORS_TEXT.WHITE,
+                color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left]nter"
             }
@@ -186,23 +187,23 @@ export default class InstructionScene extends Phaser.Scene {
         const textHeight = this.promptText.height + padding * 2;
     
         // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
+        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_darkest, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.MIDPURPLE, 1);
+        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Position the Text inside the Box
@@ -236,8 +237,8 @@ export default class InstructionScene extends Phaser.Scene {
         const buttonPaddingY = 20;
 
         // Position the DONE button at the bottom-right corner
-        const buttonCenterX = boxX + this.uiBoxWidth - buttonPaddingX - buttonWidth / 2;
-        const buttonCenterY = boxY + boxHeight + buttonPaddingY + buttonHeight / 2;
+        const buttonCenterX = boxX + this.uiBoxWidth - buttonPaddingX - DESIGN.UI.BUTTON.WIDTH / 2;
+        const buttonCenterY = boxY + boxHeight + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
 
         // Create the button using ButtonFactory with tooltip
         this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {

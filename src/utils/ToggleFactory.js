@@ -1,4 +1,4 @@
-import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, BUTTON_OUTLINE_WIDTH, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth, toggleWidth, toggleHeight, HARD_COLORS_TEXT} from "../config/design.js";
+import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIGN} from "../config/design.js";
 
 export default class ToggleFactory {
     /**
@@ -25,37 +25,37 @@ export default class ToggleFactory {
         }).setOrigin(0, 0.5);
         
         // Create toggle background
-        const toggleBg = scene.add.rectangle(0, 0, toggleWidth, toggleHeight, 0xffffff)
-            .setStrokeStyle(2, 0xffffff)
+        const toggleBg = scene.add.rectangle(0, 0, DESIGN.UI.TOGGLE.WIDTH, DESIGN.UI.TOGGLE.HEIGHT, COLORS_HEX.HIGHLIGHT)
+            .setStrokeStyle(2, COLORS_HEX.HIGHLIGHT)
             .setInteractive({ useHandCursor: true });
 
         
         // Create toggle circle
-        const toggleCircle = scene.add.circle(0, 0, toggleHeight, COLORS_HEX.SLIDER_HANDLE);
+        const toggleCircle = scene.add.circle(0, 0, DESIGN.UI.TOGGLE.HEIGHT, COLORS_HEX.ACCENT);
         
         // Calculate responsive spacing based on label widths
         const easyWidth = easyLabel.width;
         const hardWidth = hardLabel.width;
         const spacing = 15; // Space between labels and toggle
-        const centerX = leftX + (toggleWidth + easyWidth + hardWidth + spacing * 2) / 2; // Center the toggle
+        const centerX = leftX + (DESIGN.UI.TOGGLE.WIDTH + easyWidth + hardWidth + spacing * 2) / 2; // Center the toggle
         
         // Position labels relative to toggle for proper centering
-        easyLabel.x = -toggleWidth/2 - spacing;
-        hardLabel.x = toggleWidth/2 + spacing;
+        easyLabel.x = -DESIGN.UI.TOGGLE.WIDTH/2 - spacing;
+        hardLabel.x = DESIGN.UI.TOGGLE.WIDTH/2 + spacing;
         toggleBg.x = 0; // Center the toggle
         
         // Container for alignment
         const toggleContainer = scene.add.container(centerX, centerY, [easyLabel, toggleBg, toggleCircle, hardLabel]);
         
         if (mode === 'hard') {
-            toggleCircle.x = toggleWidth/2; // Start in HARD mode (toggleBg.x is now 0)
+            toggleCircle.x = DESIGN.UI.TOGGLE.WIDTH/2; // Start in HARD mode (toggleBg.x is now 0)
         }
         else if (mode === 'easy') {
-            toggleCircle.x = -toggleWidth/2; // Start in EASY mode (toggleBg.x is now 0)
+            toggleCircle.x = -DESIGN.UI.TOGGLE.WIDTH/2; // Start in EASY mode (toggleBg.x is now 0)
         }
         else {
             console.error('Invalid mode. Defaulting to EASY.');
-            toggleCircle.x = -toggleWidth/2; // Default to EASY mode
+            toggleCircle.x = -DESIGN.UI.TOGGLE.WIDTH/2; // Default to EASY mode
         }
         
         // Toggle mode interaction
@@ -64,7 +64,7 @@ export default class ToggleFactory {
                 // Switch to hard mode
                 scene.tweens.add({
                     targets: toggleCircle,
-                    x: toggleWidth/2, // toggleBg.x is now 0
+                    x: DESIGN.UI.TOGGLE.WIDTH/2, // toggleBg.x is now 0
                     duration: 100,
                     ease: 'Power2',
                     onComplete: () => callback('easy')
@@ -73,7 +73,7 @@ export default class ToggleFactory {
                 // Switch to easy mode
                 scene.tweens.add({
                     targets: toggleCircle,
-                    x: -toggleWidth/2, // toggleBg.x is now 0
+                    x: -DESIGN.UI.TOGGLE.WIDTH/2, // toggleBg.x is now 0
                     duration: 100,
                     ease: 'Power2',
                     onComplete: () => callback('hard')

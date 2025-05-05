@@ -1,4 +1,4 @@
-import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, BUTTON_OUTLINE_WIDTH, CORNER_RADIUS, BUTTON_CORNER_RADIUS, buttonHeight, buttonWidth} from "../config/design.js";
+import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT} from "../config/design.js";
 import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
 
 const loadWebLLM = async () => {
@@ -75,7 +75,7 @@ export default class Preloader extends Phaser.Scene {
     }
 
     init() {
-        this.cameras.main.setBackgroundColor(COLORS_TEXT.BACKGROUND); // Set background color
+        this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // Set background color
     }
 
     preload() {
@@ -105,10 +105,11 @@ export default class Preloader extends Phaser.Scene {
                 console.error("Failed to get canvas context for background effect.");
                 return;
             }
-    
+            const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
+
             let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, "#13091e");
-            grd.addColorStop(1, "#3a1f5d");
+            grd.addColorStop(0, hexToString(COLORS_HEX.BACKGROUND_MID));
+            grd.addColorStop(1, hexToString(COLORS_HEX.BACKGROUND));
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -170,34 +171,34 @@ export default class Preloader extends Phaser.Scene {
     
         // === Button Background ===
         const buttonBackground = this.add.graphics();
-        buttonBackground.fillStyle(COLORS_HEX.BUTTONFILL, 1);
+        buttonBackground.fillStyle(COLORS_HEX.BUTTON.FILL, 1);
         buttonBackground.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // === Button Outline ===
         const buttonOutline = this.add.graphics();
-        buttonOutline.lineStyle(BUTTON_OUTLINE_WIDTH, 0xffffff, 1);
+        buttonOutline.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         buttonOutline.strokeRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // === Gradient Overlay (Lighter Top) ===
         const gradientOverlay = this.add.graphics();
-        gradientOverlay.fillStyle(COLORS_HEX.BUTTONOVERLAY, 0.7);
+        gradientOverlay.fillStyle(COLORS_HEX.BUTTON.OVERLAY, 0.7);
         gradientOverlay.fillRoundedRect(
-            -buttonWidth / 2, -buttonHeight / 2, 
-            buttonWidth, buttonHeight / 2, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
+            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT / 2, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
     
         // === Highlight Effect (Shiny Reflection) ===
         const buttonHighlight = this.add.graphics();
         buttonHighlight.fillStyle(0xffffff, 0.4);
         buttonHighlight.fillRoundedRect(
-            -buttonWidth / 2 + 5, -buttonHeight / 2 + 2, 
-            buttonWidth - 10, buttonHeight / 3, BUTTON_CORNER_RADIUS
+            -DESIGN.UI.BUTTON.WIDTH / 2 + 5, -DESIGN.UI.BUTTON.HEIGHT / 2 + 2, 
+            DESIGN.UI.BUTTON.WIDTH - 10, DESIGN.UI.BUTTON.HEIGHT / 3, DESIGN.UI.BUTTON.CORNER_RADIUS
         );
 
         // === Button Text ===
@@ -205,12 +206,12 @@ export default class Preloader extends Phaser.Scene {
             fontFamily: 'Fredoka',
             fontSize: '22px',
             fontWeight: "700",
-            color: COLORS_TEXT.WHITE,
+            color: COLORS_TEXT.PRIMARY,
             align: 'center'
         }).setOrigin(0.5, 0.5);
     
         // ✅ Ensure button is interactive
-        buttonContainer.setSize(buttonWidth, buttonHeight);
+        buttonContainer.setSize(DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT);
         buttonContainer.setInteractive();
         buttonContainer.on("pointerdown", () => {
             this.tweens.add({
@@ -365,7 +366,7 @@ export default class Preloader extends Phaser.Scene {
         const titleText = this.add.text(screenWidth / 2, screenHeight*.15, "(NON-SLOP)", { 
             fontFamily: 'barcade3d',
             fontSize: `${titleSize}px`, 
-            color: COLORS_TEXT.YELLOW
+            color: COLORS_TEXT.HIGHLIGHT
         });
         
         titleText.setOrigin(0.5, 0);
@@ -418,7 +419,7 @@ export default class Preloader extends Phaser.Scene {
             fontFamily: 'Nunito',
             fontSize: `${loadingFontSize}px`,
             fontWeight: "500",
-            fill: COLORS_TEXT.WHITE
+            fill: COLORS_TEXT.PRIMARY
         });
         
         this.loadingText.setOrigin(0.5, 0);
@@ -553,7 +554,7 @@ export default class Preloader extends Phaser.Scene {
             const textToBarDistance = this.cameras.main.width * 0.02;
             
             // Position the button below the progress bar by the same distance as loading text is above it
-            const buttonCenterY = this.progressBarY + this.progressBarHeight + textToBarDistance + buttonHeight / 2 +10;
+            const buttonCenterY = this.progressBarY + this.progressBarHeight + textToBarDistance + DESIGN.UI.BUTTON.HEIGHT / 2 +10;
     
             
             console.log("about to create donebutton");
@@ -595,7 +596,7 @@ export default class Preloader extends Phaser.Scene {
             this.progressBarOutline.clear();
         }
     
-        this.progressBarOutline.lineStyle(BUTTON_OUTLINE_WIDTH, COLORS_HEX.YELLOW, 1);
+        this.progressBarOutline.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH+1, COLORS_HEX.ACCENT, 1);
     
         // ✅ Store the correct left-edge position
         
@@ -614,7 +615,7 @@ export default class Preloader extends Phaser.Scene {
             this.progressBar.clear();
         }
           
-        this.progressBar.fillStyle(COLORS_HEX.TURQUOISE, 1); // ✅ Use correct color
+        this.progressBar.fillStyle(DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS, 1); // ✅ Use correct color
     
         // ✅ Fix width scaling: Ensure fill fully extends when at 100%
         const fillWidth = Phaser.Math.Clamp(width * progress, 1, width); // ✅ Ensure width matches the outline

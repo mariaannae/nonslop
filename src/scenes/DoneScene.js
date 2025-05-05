@@ -1,6 +1,8 @@
-import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design.js";
+import { DESIGN, HARD_COLORS_HEX, HARD_COLORS_TEXT, EASY_COLORS_TEXT, EASY_COLORS_HEX} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+
+//, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, colors_hex, colors_text, DESIGN.UI.BUTTON.WIDTH
 
 export default class DoneScene extends Phaser.Scene {
     constructor() {
@@ -43,10 +45,10 @@ export default class DoneScene extends Phaser.Scene {
         // --- CAP HEIGHT SO BUTTON IS AT LEAST 30PX FROM CANVAS BOTTOM ---
         const canvasHeight = this.cameras.main.height;
         const buttonMargin = 30;
-        // button is placed 30px below output box, then buttonHeight/2 to center, then buttonHeight/2 to bottom
-        // So: outputBoxY + outputBoxHeight + 30 + buttonHeight <= canvasHeight - 30
-        // => outputBoxHeight <= canvasHeight - 30 - outputBoxY - 30 - buttonHeight
-        const maxOutputBoxHeight = canvasHeight - buttonMargin - outputBoxY - 30 - buttonHeight;
+        // button is placed 30px below output box, then DESIGN.UI.BUTTON.HEIGHT/2 to center, then DESIGN.UI.BUTTON.HEIGHT/2 to bottom
+        // So: outputBoxY + outputBoxHeight + 30 + DESIGN.UI.BUTTON.HEIGHT <= canvasHeight - 30
+        // => outputBoxHeight <= canvasHeight - 30 - outputBoxY - 30 - DESIGN.UI.BUTTON.HEIGHT
+        const maxOutputBoxHeight = canvasHeight - buttonMargin - outputBoxY - 30 - DESIGN.UI.BUTTON.HEIGHT;
         let capped = false;
         if (outputBoxHeight > maxOutputBoxHeight) {
             outputBoxHeight = maxOutputBoxHeight;
@@ -245,8 +247,8 @@ export default class DoneScene extends Phaser.Scene {
             }
     
             let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, '#' + COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0'));
-            grd.addColorStop(1, '#' + COLORS_HEX.BLUE_BACKGROUND.toString(16).padStart(6, '0'));
+            grd.addColorStop(0, '#' + this.COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0'));
+            grd.addColorStop(1, '#' + this.COLORS_HEX.BACKGROUND_MID.toString(16).padStart(6, '0'));
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -361,15 +363,15 @@ export default class DoneScene extends Phaser.Scene {
             boxY,
             textBoxWidth,
             dynamicHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
-        this.inputTextBorder.lineStyle(OUTLINE_WIDTH, COLORS_HEX.MIDPURPLE, 1);
+        this.inputTextBorder.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.ACCENT, 1);
         this.inputTextBorder.strokeRoundedRect(
             boxX,
             boxY,
             textBoxWidth,
             dynamicHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
         this.inputTextBorder.setDepth(100).setVisible(true);
 
@@ -407,7 +409,7 @@ export default class DoneScene extends Phaser.Scene {
             {
                 fontFamily: "Nunito",
                 fontSize: "22px",
-                color: COLORS_TEXT.WHITE,
+                color: this.COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "center"
             }
@@ -417,23 +419,23 @@ export default class DoneScene extends Phaser.Scene {
         const textHeight = this.promptText.height + padding * 2;
     
         // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
+        this.promptTextBox.fillStyle(this.COLORS_HEX.BOX_FILL, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.MIDPURPLE, 1);
+        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Position the Text inside the Box
@@ -460,7 +462,7 @@ export default class DoneScene extends Phaser.Scene {
         return {
             fontFamily: "Nunito",
             fontSize: "22px",
-            color: this.COLORS_TEXT.WHITE,
+            color: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6,
             shadow: {
@@ -475,12 +477,12 @@ export default class DoneScene extends Phaser.Scene {
 
     getPromptBoxStyle() {
         return {
-            fillColor: COLORS_HEX.BACKGROUND,
+            fillColor: this.COLORS_HEX.BOX_FILL,
             fillAlpha: 0.5,
             hasOutline: true,
-            outlineWidth: OUTLINE_WIDTH,
-            outlineColor: COLORS_HEX.BLUE,
-            cornerRadius: CORNER_RADIUS
+            outlineWidth: DESIGN.UI.OUTLINE.WIDTH,
+            outlineColor: this.COLORS_HEX.BOX_OUTLINE,
+            cornerRadius: DESIGN.UI.OUTLINE.CORNER_RADIUS
         };
     }
    
@@ -497,6 +499,17 @@ export default class DoneScene extends Phaser.Scene {
         this.evaluation = data.outputText || null;
         this.failCount = data.failCount || null;
         this.prompt = data.prompt;
+
+        if (this.mode === "easy") {
+            this.COLORS_HEX = EASY_COLORS_HEX;
+            this.COLORS_TEXT = EASY_COLORS_TEXT;
+        }
+        else if (this.mode === "hard") {
+            this.COLORS_HEX = HARD_COLORS_HEX;
+            this.COLORS_TEXT = HARD_COLORS_TEXT;
+        } else {
+            console.error("Error: Invalid mode in DoneScene.");
+        }
 
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
@@ -515,11 +528,11 @@ export default class DoneScene extends Phaser.Scene {
         const ctx = pattern.getContext();
         
         // Draw pattern (dots, stars, or any subtle pattern)
-        ctx.fillStyle = '#' + COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0');
+        ctx.fillStyle = '#' + this.COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0');
         ctx.fillRect(0, 0, 100, 100);
         
         for (let i = 0; i < 10; i++) {
-          ctx.fillStyle = '#' + COLORS_HEX.BLUE_BACKGROUND.toString(16).padStart(6, '0');
+          ctx.fillStyle = '#' + this.COLORS_HEX.BACKGROUND_MID.toString(16).padStart(6, '0');
           ctx.beginPath();
           ctx.arc(Math.random() * 100, Math.random() * 100, 2, 0, Math.PI * 2);
           ctx.fill();
@@ -576,16 +589,26 @@ export default class DoneScene extends Phaser.Scene {
         this.inputText.setDepth(101).setAlpha(1).setVisible(true);
 
         // Button positioning: 30px below output box bottom
-        const buttonCenterX = this.cameras.main.centerX + this.uiBoxWidth / 2 - buttonWidth - 20;
-        const buttonCenterY = this.outputBoxY + this.outputBoxHeight + 30 + buttonHeight / 2;
+        const buttonCenterX = this.cameras.main.centerX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
+        const buttonCenterY = this.outputBoxY + this.outputBoxHeight + 30 + DESIGN.UI.BUTTON.HEIGHT / 2;
         this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
             depth: 102 // ensure button is visible
         });
 
         // Tooltip on hover (match BaseGameScene style)
         this.doneButton.setInteractive()
-            .on('pointerover', () => this.showTooltip("try another prompt", this.doneButton.x, this.doneButton.y - buttonHeight))
+            .on('pointerover', () => this.showTooltip("try another prompt", this.doneButton.x, this.doneButton.y - DESIGN.UI.BUTTON.HEIGHT))
             .on('pointerout', () => this.hideTooltips());
+
+        const padding = 20;
+        this.feedbackButton = this.createButton(
+            "FEEDBACK", 
+            () => this.onFeedbackClick(), 
+            DESIGN.UI.BUTTON.WIDTH / 2 + padding, 
+            this.cameras.main.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
+            'Share your feedback'
+        );
+        
 
         this.addButtonClickEffects();
     }

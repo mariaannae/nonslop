@@ -1,6 +1,8 @@
-import { HARD_COLORS_HEX as COLORS_HEX, HARD_COLORS_TEXT as COLORS_TEXT, OUTLINE_WIDTH, CORNER_RADIUS, buttonHeight, buttonSpacing, buttonWidth} from "../config/design.js";
+import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIGN} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+
+// DESIGN.UI.OUTLINE.WIDTH, DESIGN.UI.OUTLINE.CORNER_RADIUS, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, DESIGN.UI.BUTTON.WIDTH
 
 export default class FeedbackScene extends Phaser.Scene {
     constructor() {
@@ -64,7 +66,7 @@ export default class FeedbackScene extends Phaser.Scene {
     
             let grd = ctx.createLinearGradient(0, 0, width, height);
             grd.addColorStop(0, '#' + COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0'));
-            grd.addColorStop(1, '#' + COLORS_HEX.BLUE_BACKGROUND.toString(16).padStart(6, '0'));
+            grd.addColorStop(1, '#' + COLORS_HEX.BACKGROUND_MID.toString(16).padStart(6, '0'));
     
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, width, height);
@@ -145,15 +147,15 @@ export default class FeedbackScene extends Phaser.Scene {
             this.cameras.main.centerY - textBoxHeight / 2,
             textBoxWidth,
             textBoxHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
-        this.inputTextBorder.lineStyle(OUTLINE_WIDTH, COLORS_HEX.MIDPURPLE, 1);
+        this.inputTextBorder.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.ACCENT, 1);
         this.inputTextBorder.strokeRoundedRect(
             this.cameras.main.centerX - textBoxWidth / 2,
             this.cameras.main.centerY - textBoxHeight / 2,
             textBoxWidth,
             textBoxHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
         this.inputTextBorder.setDepth(100).setVisible(true);
     
@@ -242,7 +244,7 @@ export default class FeedbackScene extends Phaser.Scene {
             {
                 fontFamily: "Nunito",
                 fontSize: "22px",
-                color: COLORS_TEXT.WHITE,
+                color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "center"
             }
@@ -252,23 +254,23 @@ export default class FeedbackScene extends Phaser.Scene {
         const textHeight = this.promptText.height + padding * 2;
     
         // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BLUE_BACKGROUND, 1);
+        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.MIDPURPLE, 1);
+        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            CORNER_RADIUS
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
     
         // ✅ Position the Text inside the Box
@@ -344,7 +346,7 @@ export default class FeedbackScene extends Phaser.Scene {
         ctx.fillRect(0, 0, 100, 100);
         
         for (let i = 0; i < 10; i++) {
-          ctx.fillStyle = '#' + COLORS_HEX.BLUE_BACKGROUND.toString(16).padStart(6, '0');
+          ctx.fillStyle = '#' + COLORS_HEX.BACKGROUND_MID.toString(16).padStart(6, '0');
           ctx.beginPath();
           ctx.arc(Math.random() * 100, Math.random() * 100, 2, 0, Math.PI * 2);
           ctx.fill();
@@ -383,8 +385,8 @@ export default class FeedbackScene extends Phaser.Scene {
         // Button positioning correctly relative to input box
         const inputBoxX = this.cameras.main.centerX;
         const inputBoxY = this.cameras.main.centerY;
-        const buttonCenterX = inputBoxX + this.uiBoxWidth / 2 - buttonWidth - 20;
-        const buttonCenterY = inputBoxY + 170 + buttonSpacing; // 170 = half height of input box (340/2)
+        const buttonCenterX = inputBoxX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
+        const buttonCenterY = inputBoxY + 170 + DESIGN.UI.BUTTON.SPACING; // 170 = half height of input box (340/2)
     
         // Now create the button using ButtonFactory
         this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {

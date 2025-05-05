@@ -1,143 +1,205 @@
-// Unified design configuration file for both Easy and Hard modes
+// Design configuration file for game modes and UI elements
 
-// Our color palette
-const palette_16 = {
-  background_darkest: 0x00060f, //almost_black
-  background_darker: 0x03062D,//dark purple
-  background_darkish: 0x170548, //less dark purple
-  background_mid: 0x3d3648,//mid purple
-  secondark_dark: 0x7a0782, //magenta
-  secondary: 0x9e0e77,//pink
-  secondary_mid: 0xb91255,// reddish pink
-  secondary_red: 0xd71a27,//orangish red
-  secondary_dark_orange: 0xf35a23, //orange
-  secondary_orange: 0xf8ac3a, //lightorange
-  teal: 0x56d0ae,//teal
-  highlights_yellow: 0xfbf056,//yellow
-  highlights_greenish: 0xdaff77,//light green
-  highlights_green: 0xbfff95,//green
-  highlights_light_green: 0xb4ffae,//light green
-  light_green: 0xcdffda,//lighter green
-  lightest_green: 0xebfff7,//lightest green
- 
+/**
+ * Base color palette with semantic naming
+ */
+const PALETTE = {
+  // Dark theme colors
+  BACKGROUND: {
+    DARKEST: 0x00060f,    // Almost black
+    DARKER: 0x03062D,     // Dark purple
+    DARK: 0x170548,       // Less dark purple
+    MID: 0x3d0364,        // Mid purple
+  },
+  // Accent colors
+  ACCENT: {
+    MAGENTA: 0x7a0782,
+    PINK: 0x9e0e77,
+    PINK_RED: 0xb91255,
+    RED: 0xd71a27,
+    ORANGE_DARK: 0xf35a23,
+    ORANGE_LIGHT: 0xf8ac3a,
+  },
+  // Special colors
+  TEAL: {
+    MAIN: 0x00ced1,
+    DARK: 0x00292a,
+  },
+  // Highlight colors
+  HIGHLIGHT: {
+    YELLOW: 0xfbf056,
+    GREEN_LIGHT: 0xdaff77,
+    GREEN_YELLOW: 0xbfff95,
+    GREEN: 0xb4ffae,
+    GREEN_LIGHTER: 0xcdffda,
+    GREEN_LIGHTEST: 0xebfff7,
+  }
 };
 
-// Common settings shared by all modes
-const COMMON = {
-  OUTLINE_WIDTH: 4,
-  BUTTON_OUTLINE_WIDTH: 2,
-  CORNER_RADIUS: 40,
-  BUTTON_CORNER_RADIUS: 10,
-  buttonWidth: 100,
-  buttonHeight: 40,
-  buttonSpacing: 40,
+/**
+ * Utility function to convert hex color to CSS string
+ */
+const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
+
+/**
+ * Common UI element dimensions and properties
+ */
+const UI = {
+  BUTTON: {
+    WIDTH: 100,
+    HEIGHT: 40,
+    SPACING: 40,
+    OUTLINE_WIDTH: 2,
+    CORNER_RADIUS: 10
+  },
+  OUTLINE: {
+    WIDTH: 4,
+    CORNER_RADIUS: 40
+  },
+  TOGGLE: {
+    WIDTH: 40,
+    HEIGHT: 12
+  },
   PROGRESS_BAR: {
     INITIAL: 50,
     INCREMENT: 5,
     DECREMENT: 5,
-    GREEN: palette_16.highlights_green,
-    YELLOW: palette_16.highlights_yellow,
-    RED: palette_16.secondary_red
+    COLORS: {
+      SUCCESS: PALETTE.HIGHLIGHT.GREEN,
+      WARNING: PALETTE.HIGHLIGHT.YELLOW,
+      DANGER: PALETTE.ACCENT.RED
+    }
   }
 };
 
-// Easy mode specific settings
+/**
+ * Basic mode color configuration
+ */
+const BASIC = {
+  COLORS: {
+    BACKGROUND: PALETTE.BACKGROUND.DARKER,
+    BACKGROUND_LESS_DARK: PALETTE.BACKGROUND.DARK,
+    BOX_OUTLINE: PALETTE.TEAL.MAIN,
+    BOX_FILL: PALETTE.BACKGROUND.DARKEST,
+    BACKGROUND_MID: PALETTE.BACKGROUND.MID,
+    BACKGROUND_ALT: PALETTE.TEAL.DARK,
+    ACCENT: PALETTE.ACCENT.PINK,
+    HIGHLIGHT: PALETTE.HIGHLIGHT.GREEN_LIGHT,
+    TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
+    GREEN: PALETTE.HIGHLIGHT.GREEN,
+    BUTTON: {
+      FILL: PALETTE.ACCENT.PINK,
+      OVERLAY: PALETTE.ACCENT.PINK_RED
+    }
+  },
+  TEXT_COLORS: {
+    PRIMARY: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHTEST),
+    SECONDARY: hexToString(PALETTE.TEAL.MAIN),
+    HIGHLIGHT: hexToString(PALETTE.HIGHLIGHT.YELLOW),
+    ACCENT: hexToString(PALETTE.ACCENT.ORANGE_LIGHT),
+    SUCCESS: hexToString(PALETTE.HIGHLIGHT.GREEN_YELLOW),
+    ERROR: hexToString(PALETTE.ACCENT.RED),
+    DARKEST: hexToString(PALETTE.BACKGROUND.DARKEST)
+  }
+};
+
+/**
+ * Easy mode color configuration
+ */
 const EASY = {
-  COLORS_HEX: {
-    BACKGROUND: palette_16.background_darkest,
-    BOXOUTLINE: palette_16.secondary_dark_orange,
-    BLUE_BACKGROUND: palette_16.background_darker,
-    MIDPURPLE: palette_16.background_mid,
-    RED: palette_16.secondary_red,
-    YELLOW: palette_16.highlights_yellow,
-    WHITE: palette_16.lightest_green,
-    BUTTONFILL: palette_16.secondary,
-    BUTTONOVERLAY: palette_16.secondary_mid,
+  COLORS: {
+    BACKGROUND: PALETTE.BACKGROUND.DARKEST,
+    BOX_OUTLINE: PALETTE.ACCENT.PINK,
+    BACKGROUND_ALT: PALETTE.BACKGROUND.DARKER,
+    BACKGROUND_MID: PALETTE.BACKGROUND.MID,
+    ACCENT: PALETTE.TEAL.MAIN,
+    HIGHLIGHT: PALETTE.HIGHLIGHT.YELLOW,
+    TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
+    BUTTON: {
+      FILL: PALETTE.ACCENT.PINK,
+      OVERLAY: PALETTE.ACCENT.PINK_RED
+    }
   },
-  COLORS_TEXT: {
-    WHITE: '#' + palette_16.lightest_green.toString(16).padStart(6, '0'),
-    OFFWHITE: '#' + palette_16.light_green.toString(16).padStart(6, '0'),
-    YELLOW: '#' + palette_16.highlights_yellow.toString(16).padStart(6, '0'),
-    HIGHLIGHT: '#' + palette_16.highlights_greenish.toString(16).padStart(6, '0'),
-    SUCCESS: '#' + palette_16.highlights_green.toString(16).padStart(6, '0')
+  TEXT_COLORS: {
+    PRIMARY: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHTEST),
+    SECONDARY: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHTER),
+    HIGHLIGHT: hexToString(PALETTE.HIGHLIGHT.YELLOW),
+    ACCENT: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHT),
+    SUCCESS: hexToString(PALETTE.HIGHLIGHT.GREEN_YELLOW),
+    ERROR: hexToString(PALETTE.ACCENT.RED),
+    TITLE: hexToString(PALETTE.HIGHLIGHT.YELLOW),
   }
 };
 
-// Hard mode specific settings
+/**
+ * Hard mode color configuration
+ */
 const HARD = {
-  COLORS_HEX: {
-    BACKGROUND: palette_16.background_darkest,
-    BUTTONFILL: palette_16.secondary,
-    BUTTONOVERLAY: palette_16.secondary_mid,
-    PURPLE: palette_16.background_darkish,
-    LIGHTPINK: palette_16.secondary_orange,
-    TURQUOISE: palette_16.highlights_light_green,
-    PERIWINKLE: palette_16.secondark_dark,
-    PINK: palette_16.secondary,
-    MIDPURPLE: palette_16.background_mid,
-    YELLOW: palette_16.highlights_yellow,
-    ERROR: palette_16.secondary_red,
-    WHITE: palette_16.lightest_green,
-    BLACK: palette_16.background_darkest,
-    RED: palette_16.secondary_red,
-    BLUE: palette_16.highlights_greenish,
-    BLUE_BACKGROUND: palette_16.background_darker,
-    SLIDER_HANDLE: palette_16.secondary_orange,
+  COLORS: {
+    BACKGROUND: PALETTE.BACKGROUND.DARKEST,
+    BACKGROUND_ALT: PALETTE.BACKGROUND.DARKER,
+    BACKGROUND_MID: PALETTE.BACKGROUND.MID,
+    BOX_OUTLINE: PALETTE.TEAL.MAIN,
+    ACCENT: PALETTE.ACCENT.PINK,
+    //HIGHLIGHT_PRIMARY: PALETTE.HIGHLIGHT.GREEN,
+    HIGHLIGHT: PALETTE.ACCENT.MAGENTA,
+    ERROR: PALETTE.ACCENT.RED,
+    TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
+    BUTTON: {
+      FILL: PALETTE.ACCENT.PINK,
+      OVERLAY: PALETTE.ACCENT.PINK_RED
+    },
+    SLIDER: {
+      HANDLE: PALETTE.ACCENT.ORANGE_LIGHT
+    }
   },
-  COLORS_TEXT: {
-    BACKGROUND: '#' + palette_16.background_darkest.toString(16).padStart(6, '0'),
-    BUTTONFILL: '#' + palette_16.secondary.toString(16).padStart(6, '0'),
-    BUTTONOVERLAY: '#' + palette_16.secondary_mid.toString(16).padStart(6, '0'),
-    PURPLE: '#' + palette_16.background_darkish.toString(16).padStart(6, '0'),
-    LIGHTPINK: '#' + palette_16.secondary_orange.toString(16).padStart(6, '0'),
-    TURQUOISE: '#' + palette_16.highlights_light_green.toString(16).padStart(6, '0'),
-    PERIWINKLE: '#' + palette_16.secondark_dark.toString(16).padStart(6, '0'),
-    PINK: '#' + palette_16.secondary.toString(16).padStart(6, '0'),
-    MIDPURPLE: '#' + palette_16.background_mid.toString(16).padStart(6, '0'),
-    YELLOW: '#' + palette_16.highlights_yellow.toString(16).padStart(6, '0'),
-    ERROR: '#' + palette_16.secondary_red.toString(16).padStart(6, '0'),
-    WHITE: '#' + palette_16.lightest_green.toString(16).padStart(6, '0'),
-    BLACK: '#' + palette_16.background_darkest.toString(16).padStart(6, '0'),
-    RED: '#' + palette_16.secondary_red.toString(16).padStart(6, '0'),
-    BLUE: '#' + palette_16.highlights_greenish.toString(16).padStart(6, '0'),
-    BLUE_BACKGROUND: '#' + palette_16.background_darker.toString(16).padStart(6, '0')
+  TEXT_COLORS: {
+    PRIMARY: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHTEST),
+    SECONDARY: hexToString(PALETTE.BACKGROUND.DARKEST),
+    ACCENT: hexToString(PALETTE.ACCENT.PINK),
+    HIGHLIGHT: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHT),
+    ERROR: hexToString(PALETTE.ACCENT.RED),
+    BACKGROUND: hexToString(PALETTE.BACKGROUND.DARKER),
+    ERROR: hexToString(PALETTE.ACCENT.RED),
+    TITLE: hexToString(PALETTE.HIGHLIGHT.YELLOW),
   }
 };
 
-// Function to get the design config for a specific mode
-export function getDesign(mode = 'easy') {
-  const modeConfig = mode === 'easy' ? EASY : HARD;
-  
-  // Merge common settings with mode-specific settings
-  return {
-    ...COMMON,
-    ...modeConfig
-  };
-}
 
-export const cursorColor = '#' + palette_16.background_darkest.toString(16).padStart(6, '0');
-export const autocompleteColor = '#' + palette_16.secondary_red.toString(16).padStart(6, '0');
-export const inputColor = '#' + palette_16.background_darkest.toString(16).padStart(6, '0');
+// Export consolidated design objects
+export const DESIGN = {
+  UI,
+  BASIC: { ...UI, ...BASIC },
+  EASY: { ...UI, ...EASY },
+  HARD: { ...UI, ...HARD },
+  COLORS: {
+    CURSOR: hexToString(PALETTE.BACKGROUND.DARKEST),
+    AUTOCOMPLETE: hexToString(PALETTE.ACCENT.RED),
+    INPUT: hexToString(PALETTE.BACKGROUND.DARKEST)
+  }
+};
 
-export const toggleWidth = 40;
-export const toggleHeight = 12;
+// Export individual constants for backward compatibility
+export const {
+  BUTTON: { WIDTH: buttonWidth, HEIGHT: buttonHeight, SPACING: buttonSpacing },
+  OUTLINE: { WIDTH: OUTLINE_WIDTH, CORNER_RADIUS },
+  BUTTON: { OUTLINE_WIDTH: BUTTON_OUTLINE_WIDTH, CORNER_RADIUS: BUTTON_CORNER_RADIUS },
+  TOGGLE: { WIDTH: toggleWidth, HEIGHT: toggleHeight },
+  PROGRESS_BAR
+} = UI;
 
-// Export individual constants and objects for backward compatibility
-export const OUTLINE_WIDTH = COMMON.OUTLINE_WIDTH;
-export const BUTTON_OUTLINE_WIDTH = COMMON.BUTTON_OUTLINE_WIDTH;
-export const CORNER_RADIUS = COMMON.CORNER_RADIUS;
-export const BUTTON_CORNER_RADIUS = COMMON.BUTTON_CORNER_RADIUS;
-export const buttonWidth = COMMON.buttonWidth;
-export const buttonHeight = COMMON.buttonHeight;
-export const buttonSpacing = COMMON.buttonSpacing;
-export const PROGRESS_BAR = COMMON.PROGRESS_BAR;
+// Export color configurations for direct imports
+export const {
+  COLORS: BASIC_COLORS_HEX,
+  TEXT_COLORS: BASIC_COLORS_TEXT
+} = BASIC;
 
-// Export complete configurations for easy and hard modes
-export const EASY_CONFIG = { ...COMMON, ...EASY };
-export const HARD_CONFIG = { ...COMMON, ...HARD };
+export const {
+  COLORS: EASY_COLORS_HEX,
+  TEXT_COLORS: EASY_COLORS_TEXT
+} = EASY;
 
-// Export color configurations for each mode for direct imports
-export const EASY_COLORS_HEX = EASY.COLORS_HEX;
-export const EASY_COLORS_TEXT = EASY.COLORS_TEXT;
-export const HARD_COLORS_HEX = HARD.COLORS_HEX;
-export const HARD_COLORS_TEXT = HARD.COLORS_TEXT;
+export const {
+  COLORS: HARD_COLORS_HEX,
+  TEXT_COLORS: HARD_COLORS_TEXT
+} = HARD;

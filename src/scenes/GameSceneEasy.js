@@ -1,19 +1,26 @@
-import { getDesign } from "../config/design.js";
+import { DESIGN, EASY_COLORS_HEX as COLORS_HEX, EASY_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import BaseGameScene from "./BaseGameScene.js";
+
+//this.colors_hex, this.colors_text, 
 
 export default class GameSceneEasy extends BaseGameScene {
     constructor() {
         super({ key: 'GameSceneEasy' });
         this.mode = 'easy';
         // Get design configuration for easy mode
-        this.design = getDesign('easy');
-        
+        this.design = DESIGN.UI;
+        console.log('Design UI:', this.design);
         // Extract needed values for easier access
-        this.COLORS_HEX = this.design.COLORS_HEX;
-        this.COLORS_TEXT = this.design.COLORS_TEXT;
-        this.OUTLINE_WIDTH = this.design.OUTLINE_WIDTH;
-        this.CORNER_RADIUS = this.design.CORNER_RADIUS;
+        this.COLORS_HEX = COLORS_HEX;
+        this.COLORS_TEXT = COLORS_TEXT;
+        console.log('Easy Mode Colors:', {
+            accent: this.COLORS_HEX.ACCENT,
+            background: this.COLORS_HEX.BACKGROUND,
+            text: this.COLORS_HEX.TEXT
+        });
+        this.OUTLINE_WIDTH = this.design.OUTLINE.WIDTH;
+        this.CORNER_RADIUS = this.design.OUTLINE.CORNER_RADIUS;
     }
 
     // Mode-specific word processing
@@ -72,8 +79,8 @@ export default class GameSceneEasy extends BaseGameScene {
         const inputBoxY = this.cameras.main.centerY;
         const inputBoxWidth = this.cameras.main.width * (5 / 6);
         const inputBoxHeight = 240;
-        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - this.design.buttonWidth - 20;
-        const buttonCenterY = inputBoxY + inputBoxHeight / 2 + this.design.buttonSpacing;
+        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - this.design.BUTTON.WIDTH - 20;
+        const buttonCenterY = inputBoxY + inputBoxHeight / 2 + this.design.BUTTON.SPACING;
         const padding = 20;
 
         // Create buttons with tooltips
@@ -93,20 +100,12 @@ export default class GameSceneEasy extends BaseGameScene {
             'Clear text and start over'
         );
         
-        // this.feedbackButton = this.createButton(
-        //     "FEEDBACK", 
-        //     () => this.onFeedbackClick(), 
-        //     this.cameras.main.width - this.design.buttonWidth / 2 - padding, 
-        //     this.cameras.main.height - this.design.buttonHeight / 2 - padding,
-        //     'Share your feedback'
-        // );
-
 
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
-            this.design.buttonWidth / 2 + padding, 
-            this.cameras.main.height - this.design.buttonHeight / 2 - padding,
+            this.design.BUTTON.WIDTH / 2 + padding, 
+            this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding,
             'Share your feedback'
         );
         
@@ -146,54 +145,12 @@ export default class GameSceneEasy extends BaseGameScene {
         // (Mode indicator replaced by toggle)
     }
 
-    // Add a visual mode indicator
-    addModeIndicator(modeName, color) {
-        const padding = 20;
-        // Store the reference to the mode indicator for later use
-        this.modeIndicator = this.add.container(padding, this.menuBarHeight + padding);
-        this.modeIndicator.setDepth(50);
-        
-        // Create background pill
-        const bg = this.add.graphics();
-        bg.fillStyle(color, 0.8);
-        bg.lineStyle(2, 0xffffff, 0.8);
-        bg.fillRoundedRect(0, 0, 100, 36, 18);
-        bg.strokeRoundedRect(0, 0, 100, 36, 18);
-        
-        // Create text
-        const text = this.add.text(50, 18, modeName, {
-            fontFamily: 'Nunito',
-            fontSize: '20px',
-            fontStyle: 'bold',
-            color: '#ffffff'
-        }).setOrigin(0.5);
-        
-        // Add glow effect
-        text.setShadow(0, 0, '#ffffff', 3, true, true);
-        
-        // Add to container
-        this.modeIndicator.add([bg, text]);
-        
-        // Add subtle animation
-        this.tweens.add({
-            targets: this.modeIndicator,
-            scaleX: { from: 1, to: 1.05 },
-            scaleY: { from: 1, to: 1.05 },
-            duration: 1500,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.InOut'
-        });
-        
-        return this.modeIndicator;
-    }
-
     // Style methods
     getPromptTextStyle() {
         return {
             fontFamily: "Nunito",
             fontSize: "22px",
-            color: this.COLORS_TEXT.WHITE,
+            fill: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6
         };
@@ -201,22 +158,22 @@ export default class GameSceneEasy extends BaseGameScene {
 
     getPromptBoxStyle() {
         return {
-            fillColor: this.COLORS_HEX.BLUE_BACKGROUND,
+            fillColor: this.COLORS_HEX.BACKGROUND,
             fillAlpha: 0.8,
             hasOutline: true,
             outlineWidth: this.OUTLINE_WIDTH,
-            outlineColor: this.COLORS_HEX.BOXOUTLINE,
+            outlineColor: this.COLORS_HEX.BOX_OUTLINE,
             cornerRadius: this.CORNER_RADIUS
         };
     }
 
     getInputBoxStyle() {
         return {
-            fillColor: 0xffffff,
+            fillColor: this.COLORS_HEX.TEXT,
             fillAlpha: 0.95,
             hasOutline: true,
             outlineWidth: this.OUTLINE_WIDTH,
-            outlineColor: this.COLORS_HEX.MIDPURPLE,
+            outlineColor: this.COLORS_HEX.ACCENT,
             cornerRadius: this.CORNER_RADIUS
         };
     }
@@ -246,12 +203,12 @@ export default class GameSceneEasy extends BaseGameScene {
     getMenuBarStyle() {
         return {
             backgroundColor: this.COLORS_HEX.BACKGROUND,
-            borderColor: this.COLORS_HEX.MIDPURPLE,
+            borderColor: this.COLORS_HEX.ACCENT,
             borderWidth: this.OUTLINE_WIDTH,
             titleStyle: {
                 fontFamily: 'barcade3d',
                 fontSize: '50px',
-                color: this.COLORS_TEXT.YELLOW,
+                color: this.COLORS_TEXT.TITLE,
                 shadow: {
                     offsetX: 2,
                     offsetY: 2,
@@ -404,7 +361,7 @@ export default class GameSceneEasy extends BaseGameScene {
         }
         
         // Recreate mode indicator with current level styling
-        this.addModeIndicator('EASY', 0x64d2ba);
+        //this.addModeIndicator('EASY', 0x64d2ba);
     }
     
     createFloatingParticles() {
