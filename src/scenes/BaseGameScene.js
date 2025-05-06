@@ -1468,13 +1468,15 @@ export default class BaseGameScene extends Phaser.Scene {
         // Set X position with the same padding as buttons have from right side
         const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + buttonPadding;
         const scoreY = inputBoxY + inputBoxHeight + padding;
-    
+
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-        
+
         // Progress fill with rounded corners - reversed color gradation
-        let color;
+        // Initialize with a default color (yellow/warning) 
+        let color = DESIGN.UI.PROGRESS_BAR.COLORS.WARNING;
+        
         if (this.progressPercentage === 50) {
             color = DESIGN.UI.PROGRESS_BAR.COLORS.WARNING;
         } else if (this.progressPercentage < 50) {
