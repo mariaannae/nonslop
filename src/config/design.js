@@ -218,3 +218,55 @@ export const {
   COLORS: HARD_COLORS_HEX,
   TEXT_COLORS: HARD_COLORS_TEXT
 } = HARD;
+
+/**
+ * THEMES object for scalable theme management
+ * Each theme references the existing BASIC, EASY, HARD objects and adds background effect config
+ */
+export const THEMES = {
+  basic: {
+    ...BASIC,
+    background: {
+      effect: "static",
+      asset: "bg.png",
+      color: PALETTE.BACKGROUND.DARKER
+    }
+  },
+  easy: {
+    ...EASY,
+    background: {
+      effect: "bubbles",
+      color: PALETTE.BACKGROUND.EASY_DARKEST,
+      params: { bubbleCount: 20, speed: 0.5 }
+    }
+  },
+  hard: {
+    ...HARD,
+    background: {
+      effect: "electric",
+      color: PALETTE.BACKGROUND.HARD_DARKEST,
+      params: { lightningFrequency: 0.2 }
+    }
+  }
+};
+
+/**
+ * Active theme selection logic
+ */
+export let ACTIVE_THEME = "easy";
+
+/**
+ * Set the active theme by name
+ * @param {string} themeName
+ */
+export function setActiveTheme(themeName) {
+  if (THEMES[themeName]) ACTIVE_THEME = themeName;
+}
+
+/**
+ * Get the current active theme object
+ * @returns {object}
+ */
+export function getActiveTheme() {
+  return THEMES[ACTIVE_THEME];
+}

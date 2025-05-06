@@ -143,7 +143,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         // Clean up input handlers to prevent ghost inputs
-        this.input.keyboard.removeAllListeners('keydown');
+        this.input.keyboard.removeAllListeners('keyup');
         
         // Reset all visual elements to a stable state
         this.cursorVisible = false;
@@ -202,7 +202,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         // Clear input handlers
-        this.input.keyboard.removeAllListeners('keydown');
+        this.input.keyboard.removeAllListeners('keyup');
         
         // Ensure cursor is reset
         this.cursorVisible = false;
@@ -680,7 +680,9 @@ export default class BaseGameScene extends Phaser.Scene {
         this.setupInputHandlers();
     }
 
+    
     setupInputHandlers() {
+        
         // First make sure we have a basic text displayed
         if (this.inputText) {
             // Force update with initial cursor state
@@ -688,9 +690,13 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cursorVisible = true;
         }
         
-        this.input.keyboard.removeAllListeners('keydown');
-        this.input.keyboard.on("keydown", (event) => {
+        this.input.keyboard.removeAllListeners('keyup');
+
+        this.input.keyboard.on("keyup", (event) => {
+
+            
             this.inputActive = true;
+
 
             if(this.activeTimeout) {
                 clearTimeout(this.activeTimeout);
@@ -709,9 +715,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 'ArrowLeft', 'ArrowDown', 'ArrowUp'
             ];
             
-            if (ignoreKeys.includes(event.key)) {
-                return;
-            }
+
 
             if (event.key === " ") {
                 const words = this.userInput.trim().split(" ");
@@ -811,6 +815,9 @@ export default class BaseGameScene extends Phaser.Scene {
             }
             
             this.updateCursor();
+            setTimeout(() => {
+                this.keyProcessing = false;
+            }, 50);
         });
         
         if (this.cursorTimer) {
@@ -1624,43 +1631,16 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     createInputBoxClickEffect(x, y) {
-        // Create multiple ripple circles
-        for (let i = 0; i < 3; i++) {
-            const circle = this.add.circle(x, y, 5, 0xffffff, 0.5).setDepth(15);
-            
-            this.tweens.add({
-                targets: circle,
-                scale: { from: 0.5, to: 2.5 },
-                alpha: { from: 0.5, to: 0 },
-                duration: 800 + i * 200,
-                ease: 'Quad.easeOut',
-                onComplete: () => circle.destroy()
-            });
-        }
-
-        // Add a flash effect
-        const flash = this.add.circle(x, y, 15, 0xffffff, 0.3).setDepth(15);
+        const circle = this.add.circle(x, y, 5, 0xffffff, 0.5).setDepth(15);
+        
         this.tweens.add({
-            targets: flash,
-            scale: { from: 0.8, to: 1.2 },
-            alpha: { from: 0.3, to: 0 },
-            duration: 300,
+            targets: circle,
+            scale: { from: 0.5, to: 2 },
+            alpha: { from: 0.5, to: 0 },
+            duration: 500,
             ease: 'Quad.easeOut',
-            onComplete: () => flash.destroy()
+            onComplete: () => circle.destroy()
         });
-
-        // Add particles burst
-        const particles = this.add.particles(x, y, 'ball', {
-            speed: { min: 50, max: 100 },
-            scale: { start: 0.1, end: 0 },
-            alpha: { start: 0.3, end: 0 },
-            lifespan: 500,
-            quantity: 8,
-            emitting: false
-        }).setDepth(15);
-
-        particles.explode(8);
-        this.time.delayedCall(500, () => particles.destroy());
     }
 
 

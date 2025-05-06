@@ -186,8 +186,8 @@ export default class FeedbackScene extends Phaser.Scene {
         this.inputText.updateText(); // Force redraw explicitly
     
         // Keyboard event handler (your existing logic...)
-        this.input.keyboard.removeAllListeners('keydown');
-        this.input.keyboard.on("keydown", (event) => {
+        this.input.keyboard.removeAllListeners('keyup');
+        this.input.keyboard.on("keyup", (event) => {
             this.inputActive = true;
             if (this.activeTimeout) clearTimeout(this.activeTimeout);
             this.activeTimeout = setTimeout(() => { this.inputActive = false; }, 3000);
