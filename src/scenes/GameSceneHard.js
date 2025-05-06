@@ -26,8 +26,8 @@ export default class GameSceneHard extends BaseGameScene {
         super.setupInputHandlers();
         
         // Remove existing listeners and add our modified ones
-        this.input.keyboard.removeAllListeners('keyup');
-        this.input.keyboard.on("keyup", (event) => {
+        this.input.keyboard.removeAllListeners('keydown');
+        this.input.keyboard.on("keydown", (event) => {
             this.inputActive = true;
 
             if(this.activeTimeout) {
@@ -365,6 +365,11 @@ export default class GameSceneHard extends BaseGameScene {
     create(data) {
         // Log the data received from other mode for debugging
         console.log("GameSceneHard received data:", data);
+        
+        // Initialize with empty suggestion arrays
+        this.aiSuggestedWords = [];
+        this.suggestionBoxes = [];
+        this.suggestionTexts = [];
         
         super.create && super.create();
         

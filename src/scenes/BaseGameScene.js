@@ -102,23 +102,29 @@ export default class BaseGameScene extends Phaser.Scene {
             totalWordCount: 0
         };
         
-    // Safety check - log what we're transferring
-    console.log(`Transferring to ${mode} mode with reset data:`, dataToTransfer);
-    
-    // Prepare for scene transition by cleaning up resources
-    this.prepareForSceneTransition();
-    
-    // Give a small delay to ensure cleanup completes
-    if (mode === 'hard') {
-        this.time.delayedCall(50, () => {
-            this.scene.start('GameSceneHard', dataToTransfer);
-        });
-    }
-    else if (mode === 'easy') {
-        this.time.delayedCall(50, () => {
-            this.scene.start('GameSceneEasy', dataToTransfer);
-        });
-    }
+        // Safety check - log what we're transferring
+        console.log(`Transferring to ${mode} mode with reset data:`, dataToTransfer);
+        
+        // Explicitly clear autocomplete suggestions before transition
+        this.aiSuggestedWords = [];
+        if (this.autocompleteText) {
+            this.autocompleteText.setText('');
+        }
+        
+        // Prepare for scene transition by cleaning up resources
+        this.prepareForSceneTransition();
+        
+        // Give a small delay to ensure cleanup completes
+        if (mode === 'hard') {
+            this.time.delayedCall(50, () => {
+                this.scene.start('GameSceneHard', dataToTransfer);
+            });
+        }
+        else if (mode === 'easy') {
+            this.time.delayedCall(50, () => {
+                this.scene.start('GameSceneEasy', dataToTransfer);
+            });
+        }
     }
 
     // Scene transition helper - call this before switching scenes to ensure clean transitions
@@ -143,7 +149,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         // Clean up input handlers to prevent ghost inputs
-        this.input.keyboard.removeAllListeners('keyup');
+        this.input.keyboard.removeAllListeners('keydown');
         
         // Reset all visual elements to a stable state
         this.cursorVisible = false;
@@ -161,9 +167,10 @@ export default class BaseGameScene extends Phaser.Scene {
         
         if (this.autocompleteText) {
             try {
-                this.autocompleteText.setText('');
+                this.autocompleteText.destroy();
+                this.autocompleteText = null;
             } catch(e) {
-                console.warn("Could not reset autocomplete text during transition");
+                console.warn("Could not destroy autocomplete text during transition:", e);
             }
         }
         
@@ -180,6 +187,9 @@ export default class BaseGameScene extends Phaser.Scene {
             this.suggestionTexts.forEach(text => text.destroy());
             this.suggestionTexts = [];
         }
+
+        // Ensure no autocompletion data remains
+        this.showSuggestions([]);
         
         console.log("Scene transition preparation complete - input and suggestions cleared");
     }
@@ -187,7 +197,6 @@ export default class BaseGameScene extends Phaser.Scene {
     shutdown() {
         console.log("BaseGameScene shutdown");
         // Properly clean up all timers
-
         
         // Clear any active timeout
         if (this.activeTimeout) {
@@ -202,10 +211,34 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         // Clear input handlers
-        this.input.keyboard.removeAllListeners('keyup');
+        this.input.keyboard.removeAllListeners('keydown');
         
         // Ensure cursor is reset
         this.cursorVisible = false;
+        
+        // Properly clean up autocomplete text
+        if (this.autocompleteText) {
+            try {
+                this.autocompleteText.destroy();
+                this.autocompleteText = null;
+            } catch(e) {
+                console.warn("Could not destroy autocomplete text during shutdown:", e);
+            }
+        }
+        
+        // Clear AI suggestions
+        this.aiSuggestedWords = [];
+        
+        // Remove suggestion visual elements if they exist
+        if (this.suggestionBoxes) {
+            this.suggestionBoxes.forEach(box => box.destroy());
+            this.suggestionBoxes = [];
+        }
+        
+        if (this.suggestionTexts) {
+            this.suggestionTexts.forEach(text => text.destroy());
+            this.suggestionTexts = [];
+        }
         
         // Clear any pending tweens that might affect scene transitions
         if (this.tweens) {
@@ -690,10 +723,10 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cursorVisible = true;
         }
         
-        this.input.keyboard.removeAllListeners('keyup');
+        // Remove any existing keyboard listeners to prevent duplicates
+        this.input.keyboard.removeAllListeners('keydown');
 
-        this.input.keyboard.on("keyup", (event) => {
-
+        this.input.keyboard.on("keydown", (event) => {
             
             this.inputActive = true;
 
@@ -824,7 +857,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cursorTimer.remove();
         }
         this.cursorTimer = this.time.addEvent({
-            delay: 500,
+            delay: 250,  // Reduced from 500ms to 250ms for faster blinking
             loop: true,
             callback: () => {
                 this.cursorVisible = !this.cursorVisible;
@@ -835,7 +868,7 @@ export default class BaseGameScene extends Phaser.Scene {
                             this.cursorVisible = !this.cursorVisible;
                             this.updateCursor();
                         }
-                    }, 250);
+                    }, 125);  // Reduced from 250ms to 125ms for faster response when active
                 }
                 
                 this.updateCursor();
@@ -1685,64 +1718,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Update the word count display
         this.updateWordCountDisplay();
         
-        
-        // Check for milestone achievements
-        if (oldPercentage > 0 && newPercentage <= 0) {
-            // Reached perfect score
-            this.celebrateNeedsWork();
-            const newLevel = Math.max(this.levelValue - 1, 1);
-            if (newLevel !== this.levelValue) {
-                // Process existing text in the input box before changing level
-                
-                this.levelValue = newLevel;
-                if (this.levelLabel) {
-                    this.levelLabel.setText(`Level: ${this.levelValue}`);
-                }
-                
-                // Update slider position to match the new level
-                if (this.levelSliderHandle) {
-                    // Use the stored class properties instead of relying on dragStartX
-                    const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-                    const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
-                    this.levelSliderHandle.x = newX;
-                }
-                
-                //this.updatePromptBasedOnLevel();
-                // Update background for the new level if implemented by child class
-                if (typeof this.updateBackgroundForLevel === 'function') {
-                    this.updateBackgroundForLevel();
-                }
-                //this.progressPercentage = newPercentage;
-            }
-            
-        } else if (oldPercentage < 100 && newPercentage >= 100) {
-            // Reached needs work
-            this.celebrateSuccess();
-            const newLevel = Math.min(this.levelValue + 1, 3);
-            if (newLevel !== this.levelValue) {
-                // Process existing text in the input box before changing level
-                
-                this.levelValue = newLevel;
-                if (this.levelLabel) {
-                    this.levelLabel.setText(`Level: ${this.levelValue}`);
-                }
-                
-                // Update slider position to match the new level
-                if (this.levelSliderHandle) {
-                    // Use the stored class properties instead of relying on dragStartX
-                    const t = (newLevel - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-                    const newX = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
-                    this.levelSliderHandle.x = newX;
-                }
-                
-                //this.updatePromptBasedOnLevel();
-                // Update background for the new level if implemented by child class
-                if (typeof this.updateBackgroundForLevel === 'function') {
-                    this.updateBackgroundForLevel();
-                }
-                //this.progressPercentage = newPercentage;
-            }
-        }
+    
         this.progressPercentage = newPercentage;
         
         

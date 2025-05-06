@@ -31,6 +31,12 @@ export default class GameSceneEasy extends BaseGameScene {
         this.updateCursor();
     }
 
+    // Override setupInputHandlers to ensure we're using keydown consistently
+    setupInputHandlers() {
+        // Call the parent method which now uses keydown events
+        super.setupInputHandlers();
+    }
+
     
 
     onFeedbackClick() {
@@ -41,6 +47,11 @@ export default class GameSceneEasy extends BaseGameScene {
     create(data) {
         // Log the data received from other mode for debugging
         console.log("GameSceneEasy received data:", data);
+        
+        // Initialize with empty suggestion arrays
+        this.aiSuggestedWords = [];
+        this.suggestionBoxes = [];
+        this.suggestionTexts = [];
         
         super.create && super.create();
         
