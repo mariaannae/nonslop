@@ -277,7 +277,7 @@ export default class LevelScene extends Phaser.Scene {
 
     // === Start Game Function (Handles Difficulty) ===
     startGame(difficulty) {
-        console.log("LLM Engine saved to registry:", this.registry.get('llmEngine'));
+        console.log("LLM Engine retrieved from registry:", this.registry.get('llmEngine'));
 
         console.log(`Starting GameScenein ${difficulty} mode...`);
         if (difficulty === "hard") {

@@ -365,6 +365,8 @@ export default class GameSceneHard extends BaseGameScene {
     create(data) {
         // Log the data received from other mode for debugging
         console.log("GameSceneHard received data:", data);
+        this.registry.events.on('changedata', this.logRegistryChange, this);
+
         
         // Initialize with empty suggestion arrays
         this.aiSuggestedWords = [];
@@ -441,22 +443,7 @@ export default class GameSceneHard extends BaseGameScene {
             'Share your feedback'
         );
 
-        // Create a mode toggle switch in the top left where the indicator was
-        this.modeToggle = ToggleFactory.createToggle(
-            this,
-            this.mode,
-            (newMode) => this.scene.start('GameSceneEasy', { // Switch to easy mode
-                progressPercentage: this.progressPercentage,
-                levelValue: this.levelValue,
-                topKValue: this.topKValue,
-                originalWordCount: this.originalWordCount,
-                aiWordCount: this.aiWordCount,
-                totalWordCount: this.totalWordCount,
-                wordCount: this.wordCount
-            }),
-            padding,
-            this.menuBarHeight + padding
-        );
+        // Mode toggle moved to settings popup
         
         // Initialize the progress bar with the percentage passed from the other mode
         this.createFailsCounter();
@@ -582,60 +569,6 @@ export default class GameSceneHard extends BaseGameScene {
         // Update mode indicator badge if it exists
         if (this.modeIndicator) {
             this.modeIndicator.destroy();
-        }
-    }
-
-
-    createEnergyArcs() {
-        const arcCount = this.levelValue === 2 ? 4 : 6;
-        const arcDuration = this.levelValue === 2 ? 2000 : 1500;
-        
-        for (let i = 0; i < arcCount; i++) {
-            const startX = Math.random() * this.cameras.main.width;
-            const startY = Math.random() * this.cameras.main.height;
-            const endX = startX + (Math.random() * 200 - 100);
-            const endY = startY + (Math.random() * 200 - 100);
-            
-            const arc = this.add.graphics();
-            this.particleContainer.add(arc);
-            
-            const drawArc = () => {
-                arc.clear();
-                
-                // Draw main arc
-                arc.lineStyle(3, 0xff00ff, 0.8);  // Bright magenta with higher opacity
-                const path = new Phaser.Curves.Path(startX, startY);
-                
-                const controlPoint1X = startX + (endX - startX) * 0.5 + (Math.random() * 40 - 20);
-                const controlPoint1Y = startY + (Math.random() * 40 - 20);
-                const controlPoint2X = startX + (endX - startX) * 0.5 + (Math.random() * 40 - 20);
-                const controlPoint2Y = endY + (Math.random() * 40 - 20);
-                
-                path.cubicBezierTo(endX, endY, controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y);
-                path.draw(arc);
-                
-                // Add glow effect
-                arc.lineStyle(6, 0xff00ff, 0.3);  // Bright magenta glow with higher opacity
-                path.draw(arc);
-            };
-            
-            // Animate arc
-            const animate = () => {
-                if (this.scene.isTransitioning) return;
-                
-                this.tweens.add({
-                    targets: arc,
-                    alpha: { from: 0.8, to: 0.2 },
-                    duration: arcDuration,
-                    onUpdate: drawArc,
-                    onComplete: () => {
-                        arc.clear();
-                        animate();
-                    }
-                });
-            };
-            
-            animate();
         }
     }
 }

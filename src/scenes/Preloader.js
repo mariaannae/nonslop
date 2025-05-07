@@ -1,5 +1,6 @@
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT} from "../config/design.js";
 import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
+import registryManager from "../services/RegistryManager.js";
 
 const loadWebLLM = async () => {
     const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
@@ -11,7 +12,7 @@ export default class Preloader extends Phaser.Scene {
         super('Preloader');
         this.progressBar = null;
         this.playButtons = null;
-        this.progress = 0; // Track progress state
+        this.progress = .001; // Track progress state
         this.llmLoaded = false;
         this.loadingText = null;
         this.stopWords = [];
@@ -496,7 +497,7 @@ export default class Preloader extends Phaser.Scene {
 
             // === Simulated Progress Bar Update ===
             let progressInterval = setInterval(() => {
-                if (this.progress < .9) { 
+                if (this.progress < .95) { 
                     this.progress += Phaser.Math.Clamp(Phaser.Math.Between(.5, .15), 0, .90 - this.progress); // Prevent overflow
                     this.drawProgressBar(this.progress, progressBarLeftX, progressBarY, progressBarWidth);
                 }
@@ -539,12 +540,15 @@ export default class Preloader extends Phaser.Scene {
 
         if (this.progress >= 1 && this.llmLoaded) {
             saveInteraction("LLM successfully loaded", "preloader");
-            console.log(this);
+            console.log("LLM loaded: ", llmEngine);
             
-            
+            // Store in both the registry manager and local variable
             this.llmEngine = llmEngine;
-            this.registry.set('llmEngine', llmEngine);
-            console.log("LLM Engine saved to registry:", this.registry.get('llmEngine'));
+            
+            // Use registry manager to store the engine
+            registryManager.set("llmEngine", llmEngine);
+            console.log("LLM Engine saved to registry manager:", registryManager.get('llmEngine'));
+            
 
             
             // Center the button horizontally
@@ -557,8 +561,6 @@ export default class Preloader extends Phaser.Scene {
             const buttonCenterY = this.progressBarY + this.progressBarHeight + textToBarDistance + DESIGN.UI.BUTTON.HEIGHT / 2 +10;
     
             
-            console.log("about to create donebutton");
-            console.log(buttonCenterX, buttonCenterY);
             // Create the button
             
             this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
@@ -584,6 +586,7 @@ export default class Preloader extends Phaser.Scene {
 
 
     drawProgressBar(progress, progressBarLeftX, y, width) {
+        
         const barHeight = 30;
         
         // Store the Y position of the progress bar for reference elsewhere
@@ -618,16 +621,20 @@ export default class Preloader extends Phaser.Scene {
         this.progressBar.fillStyle(DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS, 1); // ✅ Use correct color
     
         // ✅ Fix width scaling: Ensure fill fully extends when at 100%
-        const fillWidth = Phaser.Math.Clamp(width * progress, 1, width); // ✅ Ensure width matches the outline
-    
-
-        this.progressBar.fillRoundedRect(
-            progressBarLeftX, // ✅ Keep fill aligned with the left edge of the outline
-            y, // ✅ Ensure fill is aligned with the outline (not too high)
-            fillWidth, // ✅ Fix width scaling issue
-            barHeight, // ✅ Ensure height matches the outline
-            10
-        );
+        const clampedProgress = Phaser.Math.Clamp(progress, 0, 1);
+        const fillWidth = width * clampedProgress;
+        
+        
+        if (fillWidth > .6) {
+            this.progressBar.fillRoundedRect(
+                progressBarLeftX, // ✅ Keep fill aligned with the left edge of the outline
+                y, // ✅ Ensure fill is aligned with the outline (not too high)
+                fillWidth, // ✅ Fix width scaling issue
+                barHeight, // ✅ Ensure height matches the outline
+                10
+                
+            );
+        }
        
         
     }

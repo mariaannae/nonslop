@@ -31,12 +31,6 @@ export default class GameSceneEasy extends BaseGameScene {
         this.updateCursor();
     }
 
-    // Override setupInputHandlers to ensure we're using keydown consistently
-    setupInputHandlers() {
-        // Call the parent method which now uses keydown events
-        super.setupInputHandlers();
-    }
-
     
 
     onFeedbackClick() {
@@ -47,6 +41,8 @@ export default class GameSceneEasy extends BaseGameScene {
     create(data) {
         // Log the data received from other mode for debugging
         console.log("GameSceneEasy received data:", data);
+        this.registry.events.on('changedata', this.logRegistryChange, this);
+
         
         // Initialize with empty suggestion arrays
         this.aiSuggestedWords = [];
@@ -121,22 +117,7 @@ export default class GameSceneEasy extends BaseGameScene {
             'Share your feedback'
         );
         
-        // Create a mode toggle switch in the top left where the indicator was
-        this.modeToggle = ToggleFactory.createToggle(
-            this,
-            this.mode,
-            (newMode) => this.scene.start('GameSceneHard', { // Switch to hard mode
-                progressPercentage: this.progressPercentage,
-                levelValue: this.levelValue,
-                topKValue: this.topKValue,
-                originalWordCount: this.originalWordCount,
-                aiWordCount: this.aiWordCount,
-                totalWordCount: this.totalWordCount,
-                wordCount: this.wordCount
-            }),
-            padding,
-            this.menuBarHeight + padding
-        );
+        // Mode toggle moved to settings popup
 
         // Initialize the progress bar with the percentage passed from the other mode
         this.createFailsCounter();
@@ -233,134 +214,6 @@ export default class GameSceneEasy extends BaseGameScene {
     }
 
 
-    addSoftGlow(ctx, width, height) {
-        const glowPoints = [
-            { x: width * 0.2, y: height * 0.2, size: 200 },
-            { x: width * 0.8, y: height * 0.3, size: 180 },
-            { x: width * 0.3, y: height * 0.7, size: 220 },
-            { x: width * 0.7, y: height * 0.8, size: 190 },
-            { x: width * 0.5, y: height * 0.5, size: 250 }
-        ];
-
-        glowPoints.forEach(point => {
-            const glow = ctx.createRadialGradient(
-                point.x, point.y, 0,
-                point.x, point.y, point.size
-            );
-            glow.addColorStop(0, 'rgba(2, 5, 29, 0.15)');   // Deep midnight blue
-            glow.addColorStop(0.5, 'rgba(3, 6, 45, 0.1)');  // Dark navy
-            glow.addColorStop(1, 'rgba(1, 2, 19, 0)');      // Transparent nearly black
-
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-    }
-
-    addFlowingPatterns(ctx, width, height) {
-        const patternCount = 8;
-        for (let i = 0; i < patternCount; i++) {
-            const startX = Math.random() * width;
-            const startY = Math.random() * height;
-            
-            ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            
-            // Create flowing curve
-            const cp1x = startX + Math.random() * 200 - 100;
-            const cp1y = startY + Math.random() * 200 - 100;
-            const cp2x = startX + Math.random() * 200 - 100;
-            const cp2y = startY + Math.random() * 200 - 100;
-            const endX = startX + Math.random() * 200 - 100;
-            const endY = startY + Math.random() * 200 - 100;
-            
-            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
-            
-            const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
-            gradient.addColorStop(0, 'rgba(2, 5, 29, 0.05)');   // Deep midnight blue
-            gradient.addColorStop(1, 'rgba(5, 26, 47, 0.03)');  // Dark teal-navy
-            
-            ctx.strokeStyle = gradient;
-            ctx.lineWidth = Math.random() * 3 + 1;
-            ctx.stroke();
-        }
-    }
-    
-    addEnhancedNoise(ctx, width, height, opacity) {
-        for (let x = 0; x < width; x += 3) {
-            for (let y = 0; y < height; y += 3) {
-                if (Math.random() > 0.95) {  // Reduce frequency
-                    const alpha = Math.random() * (opacity * 0.3);  // Reduce opacity
-                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-                    ctx.fillRect(x, y, 1, 1);
-                }
-            }
-        }
-    }
-    
-    addModerateDensityParticles(ctx, width, height) {
-        for (let i = 0; i < 85; i++) {
-            const x = Math.random() * width;
-            const y = Math.random() * height;
-            const size = Math.random() * 1.8 + 0.4;
-            const alpha = Math.random() * 0.2 + 0.1;
-            
-            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-    
-    addSubtleGlowAreas(ctx, width, height) {
-        const glowPositions = [
-            {x: width * 0.2, y: height * 0.2, size: 120, color: [2, 5, 29]},    // Deep midnight blue
-            {x: width * 0.8, y: height * 0.3, size: 150, color: [3, 6, 45]},    // Dark navy
-            {x: width * 0.3, y: height * 0.7, size: 130, color: [5, 26, 47]},   // Dark teal-navy
-            {x: width * 0.7, y: height * 0.8, size: 140, color: [1, 2, 19]},    // Nearly black
-            {x: width * 0.5, y: height * 0.5, size: 180, color: [2, 5, 29]},    // Deep midnight blue
-        ];
-        
-        glowPositions.forEach(glow => {
-            const alpha = Math.random() * 0.06 + 0.04;
-            
-            const gradientGlow = ctx.createRadialGradient(
-                glow.x, glow.y, 0, 
-                glow.x, glow.y, glow.size
-            );
-            gradientGlow.addColorStop(0, `rgba(${glow.color[0]}, ${glow.color[1]}, ${glow.color[2]}, ${alpha})`);
-            gradientGlow.addColorStop(1, `rgba(${glow.color[0]}, ${glow.color[1]}, ${glow.color[2]}, 0)`);
-            
-            ctx.fillStyle = gradientGlow;
-            ctx.beginPath();
-            ctx.arc(glow.x, glow.y, glow.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-    }
-
-    // Update background when level changes
-    updateBackgroundForLevel() {
-        this.clearAllEffects && this.clearAllEffects();
-
-        // Destroy existing background
-        if (this.background) {
-            this.background.destroy();
-        }
-
-        // Recreate background with the current level colors using centralized logic
-        createBackground(this, THEMES.easy.background, this.levelValue);
-
-        // Update mode indicator badge if it exists
-        if (this.modeIndicator) {
-            this.modeIndicator.destroy();
-        }
-
-        // Recreate mode indicator with current level styling
-        //this.addModeIndicator('EASY', 0x64d2ba);
-    }
-    
-
 
     cleanupParticles() {
         this.isShuttingDown = true;
@@ -401,4 +254,7 @@ export default class GameSceneEasy extends BaseGameScene {
             super.shutdown();
         }
     }
+    
+
+    
 }

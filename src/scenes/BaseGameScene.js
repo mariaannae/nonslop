@@ -3,6 +3,7 @@ import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
+import registryManager from "../services/RegistryManager.js";
 
 
 export default class BaseGameScene extends Phaser.Scene {
@@ -19,6 +20,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Higher percentage is worse (more AI words)
         // Lower percentage is better (more original words)
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+        this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
         
         // Enhanced word counting
         this.totalWordCount = 0; // Track total word count
@@ -32,39 +34,19 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     update() {
-        if (!this.registry.get('llmEngine')) {
+        if (!registryManager.get('llmEngine')) {
             console.warn("LLM Engine missing entirely. Attempting to recover...");
-            this.tryRecoverEngine();
+            registryManager.attemptEngineRecovery();
         }
     }
-    
-    tryRecoverEngine() {
-        // Try to recover the engine before redirecting to Preloader
-        const maxRetries = 3;
-        let currentRetry = 0;
-        
-        const attemptRecovery = () => {
-            // If engine exists in global window object but not in registry
-            if (window.llmEngine && !this.registry.get('llmEngine')) {
-                console.log("Recovered llmEngine from global scope");
-                this.registry.set('llmEngine', window.llmEngine);
-                return true;
-            }
-            
-            currentRetry++;
-            if (currentRetry >= maxRetries) {
-                console.error("Engine recovery failed after multiple attempts");
-                this.scene.start('Preloader');
-                return false;
-            }
-            
-            console.log(`Recovery attempt ${currentRetry}/${maxRetries}`);
-            setTimeout(attemptRecovery, 300);
-            return false;
-        };
-        
-        attemptRecovery();
+
+    logRegistryChange() {
+        this.registry.events.on('changedata', (parent, key, data) => {
+            console.log(`Registry changed: ${key} = ${data}`);
+        });
     }
+
+    // The tryRecoverEngine method is no longer needed as we're using the registry manager
     createToggle(mode, callback, centerX, centerY, tooltipText) {
         if (!this.inputTextBorder) {
             console.warn("Input text border not found! Skipping toggle creation.");
@@ -110,6 +92,9 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.autocompleteText) {
             this.autocompleteText.setText('');
         }
+        // Update the indicator before transition
+        this.mode = mode; // Set the mode temporarily for the indicator update
+        this.updateLevelModeIndicator();
         
         // Prepare for scene transition by cleaning up resources
         this.prepareForSceneTransition();
@@ -191,7 +176,6 @@ export default class BaseGameScene extends Phaser.Scene {
         // Ensure no autocompletion data remains
         this.showSuggestions([]);
         
-        console.log("Scene transition preparation complete - input and suggestions cleared");
     }
 
     shutdown() {
@@ -344,13 +328,15 @@ export default class BaseGameScene extends Phaser.Scene {
             // Clean up the evaluating text
             evaluatingText.destroy();
             this.scene.start('DoneScene', {
-            mode: this.mode,
-            levelValue: this.levelValue,
-            topKValue: this.topKValue,
-            userInput : this.userInput,
-            outputText: output,
-            prompt: this.currentPrompt,
-            failCount: this.failCount,
+                mode: this.mode,
+                levelValue: this.levelValue,
+                topKValue: this.topKValue,
+                userInput : this.userInput,
+                outputText: output,
+                prompt: this.currentPrompt,
+                failCount: this.failCount,
+                score: this.progressPercentage,
+                wordCount: this.wordCount
         });
         } catch (error) {
             // Clean up the evaluating text even if there's an error
@@ -380,9 +366,10 @@ export default class BaseGameScene extends Phaser.Scene {
     onResetButtonClick() {
   
         // Reset the fail count and progress percentage
-        //this.failCount = 0;
-        //this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-        //this.updateProgressFill();
+        this.failCount = 0;
+        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+        this.updateProgressFill();
+        
     
         // Clear the input text box and autocomplete text
         this.clearInputTextBox();
@@ -490,10 +477,18 @@ export default class BaseGameScene extends Phaser.Scene {
         const lastNewlineIndex = userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
     
-        console.log("checking llm: ", this.registry.get('llmEngine'));
-        if (!this.registry.get('llmEngine')) {
-            console.warn("LLM Engine missing entirely. Recovering...");
-            this.tryRecoverEngine();
+        // Get the LLM engine from the registry manager
+        const llmEngine = registryManager.get('llmEngine');
+        console.log("checking llm: ", llmEngine);
+        
+        if (!llmEngine) {
+            console.warn("LLM Engine missing. Attempting to recover with registry manager...");
+            // Use registry manager's recovery mechanism
+            registryManager.attemptEngineRecovery((engine) => {
+                console.log("Engine recovered by registry manager");
+                // We could restart suggestion generation here, but it's safer
+                // to let the next typing event trigger it
+            });
             return;
         }
     
@@ -508,7 +503,8 @@ export default class BaseGameScene extends Phaser.Scene {
         
         while (!success && currentRetry < maxRetries) {
             try {
-                reply = await this.registry.get('llmEngine').completions.create({
+                // Use the engine from registry manager
+                reply = await llmEngine.completions.create({
                     prompt: trimmedcontext,
                     echo: false,
                     n: 1,
@@ -533,9 +529,8 @@ export default class BaseGameScene extends Phaser.Scene {
                     if (this.autocompleteText) {
                         this.autocompleteText.setText('');
                     }
-                    console.warn("LLM Engine missing entirely. Recovering...");
-                    this.tryRecoverEngine();
-                    
+                    // Try to recover the engine using registry manager
+                    registryManager.attemptEngineRecovery();
                     return;
                 } else {
                     throw error; // Re-throw other types of errors
@@ -723,18 +718,54 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cursorVisible = true;
         }
         
-        // Remove any existing keyboard listeners to prevent duplicates
         this.input.keyboard.removeAllListeners('keydown');
 
+        // Initialize properties for debounce and typing state
+        this.lastKeyTime = 0;
+        this.isActivelyTyping = false;
+        this.lastKeyPressed = '';
+        
         this.input.keyboard.on("keydown", (event) => {
+            // Get current time for debouncing
+            const currentTime = Date.now();
             
+            // Prevent duplicate keystrokes from happening too quickly
+            // This helps avoid "sticky keys" where the same key registers multiple times
+            if (currentTime - this.lastKeyTime < 40 && event.key === this.lastKeyPressed) {
+                console.log("Debouncing duplicate keystroke:", event.key);
+                return;
+            }
+            
+            // Update last key information for debounce check
+            this.lastKeyTime = currentTime;
+            this.lastKeyPressed = event.key;
+            
+            // Mark that we're actively typing (stops cursor blink)
+            this.isActivelyTyping = true;
+            this.cursorVisible = true; // Keep cursor visible while typing
+            
+            // Clear any existing typing timeout
+            if (this.typingTimeout) {
+                clearTimeout(this.typingTimeout);
+            }
+            
+            // Set timeout to end actively typing state - shorter to ensure autocomplete works properly
+            this.typingTimeout = setTimeout(() => {
+                this.isActivelyTyping = false;
+                // Update cursor to ensure autocomplete is visible after typing stops
+                this.updateCursor();
+                
+                // Generate new suggestions after typing pause
+                if (event.key.length === 1 || event.key === "Backspace" || event.key === "Enter" || event.key === " ") {
+                    this.generateAISuggestions(this.userInput);
+                }
+            }, 300); // Shorter timeout to make autocomplete more responsive
+            
+            // Also maintain the older input activity flag for backwards compatibility
             this.inputActive = true;
-
-
-            if(this.activeTimeout) {
+            if (this.activeTimeout) {
                 clearTimeout(this.activeTimeout);
             }
-
             this.activeTimeout = setTimeout(() => {
                 this.inputActive = false;
             }, 3000);
@@ -748,7 +779,11 @@ export default class BaseGameScene extends Phaser.Scene {
                 'ArrowLeft', 'ArrowDown', 'ArrowUp'
             ];
             
-
+            // Skip processing for modifier keys
+            if (ignoreKeys.includes(event.key)) {
+                return;
+            }
+            
 
             if (event.key === " ") {
                 const words = this.userInput.trim().split(" ");
@@ -857,21 +892,14 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cursorTimer.remove();
         }
         this.cursorTimer = this.time.addEvent({
-            delay: 250,  // Reduced from 500ms to 250ms for faster blinking
+            delay: 500,  // Slightly slower blink for better stability
             loop: true,
             callback: () => {
-                this.cursorVisible = !this.cursorVisible;
-                
-                if (this.inputActive) {
-                    setTimeout(() => {
-                        if (this.inputActive) {
-                            this.cursorVisible = !this.cursorVisible;
-                            this.updateCursor();
-                        }
-                    }, 125);  // Reduced from 250ms to 125ms for faster response when active
+                // Only blink cursor when not actively typing
+                if (!this.isActivelyTyping) {
+                    this.cursorVisible = !this.cursorVisible;
+                    this.updateCursor();
                 }
-                
-                this.updateCursor();
             }
         });
 
@@ -887,99 +915,98 @@ export default class BaseGameScene extends Phaser.Scene {
             Phaser.Geom.Rectangle.Contains
         ).setDepth(20);
 
-        this.inputTextBorder.on('pointerdown', (pointer) => {
-            this.createInputBoxClickEffect(pointer.x, pointer.y);
-        });
+        // this.inputTextBorder.on('pointerdown', (pointer) => {
+        //     this.createInputBoxClickEffect(pointer.x, pointer.y);
+        // });
     }
 
     setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, { menuBar, menuBarBorder, titleText }) {
-        // Use existing levelValue or default to 1
-        const levelLabelX = this.cameras.main.centerX - 120;
-        this.levelLabel = this.add.text(
-            levelLabelX, menuBarHeight / 2, 
-            `Level: ${this.levelValue}`, 
-            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
-        ).setOrigin(0, 0.5);
-    
-        const levelSliderWidth = 120;
-        const levelSliderX = levelLabelX + this.levelLabel.displayWidth + gap;
-        const levelSliderY = menuBarHeight / 2;
-    
-        const levelSlider = this.add.graphics();
-        levelSlider.fillStyle(0xffffff, 1);
-        levelSlider.fillRect(levelSliderX, levelSliderY - 5, levelSliderWidth, 10);
-    
-        // Position slider handle based on current level
-        const t = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-        const levelHandleX = Phaser.Math.Linear(levelSliderX, levelSliderX + levelSliderWidth - 5, t);
-        this.levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, 10, 20, 0xffaa00).setInteractive();
-        this.input.setDraggable(this.levelSliderHandle);
-    
-        // Store these values as class properties for use in updateFailsCounter
-        this.levelSliderMinX = levelSliderX;
-        this.levelSliderMaxX = levelSliderX + levelSliderWidth - 5;
-    
-        this.input.on('drag', (pointer, gameObject, dragX) => {
-            if (gameObject === this.levelSliderHandle) {
-                gameObject.x = Phaser.Math.Clamp(dragX, this.levelSliderMinX, this.levelSliderMaxX);
-                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (gameObject.x - this.levelSliderMinX) / (this.levelSliderMaxX - this.levelSliderMinX)));
-    
-                if (newLevel !== this.levelValue) {
-                    // Process existing text in the input box before changing level
-                    if (this.userInput && this.userInput.trim().length > 0) {
-                        this.onDoneButtonClick();
-                    }
-                    
-                    this.levelValue = newLevel;
-                    this.levelLabel.setText(`Level: ${this.levelValue}`);
-                    this.updatePromptBasedOnLevel();
-                    
-                    // Update the background when level changes (if implemented by child class)
-                    if (typeof this.updateBackgroundForLevel === 'function') {
-                        this.updateBackgroundForLevel();
-                    }
-                }
+        // Save level value for settings popup
+        this.levelValue = this.levelValue || 1;
+
+        
+        // Add Settings button to menu bar
+        const settingsButtonX = this.cameras.main.width - padding - 40;
+        const settingsButtonY = menuBarHeight / 2;
+
+
+        // Create mode and level indicator in center of menu bar
+        const modeText = this.mode === 'hard' ? 'HARD' : 'EASY';
+        const indicatorText = `LEVEL ${this.levelValue} | ${modeText}`;
+        
+        // Fixed positioning for the center of the menu bar
+        const bannerWidth = 180; 
+        const bannerHeight = 34;
+        const bannerX = this.cameras.main.centerX - bannerWidth / 2;
+        const bannerY = menuBarHeight / 2 - bannerHeight / 2;
+        
+        // Create the banner background as a single graphics object
+        this.levelModeBanner = this.add.graphics();
+        
+        // Banner color based on mode
+        const bannerColor = COLORS_HEX.ACCENT //this.mode === 'hard' ? 0xff0066 : 0x8800ff;
+        const glowColor = COLORS_HEX.ACCENT//this.mode === 'hard' ? 0xff3366 : 0x9933ff;
+        
+        // Draw banner with glow effect
+        this.levelModeBanner.fillStyle(glowColor, 0.3);
+        this.levelModeBanner.fillRoundedRect(bannerX - 3, bannerY - 3, bannerWidth + 6, bannerHeight + 6, 16);
+        this.levelModeBanner.fillStyle(bannerColor, 0.8);
+        this.levelModeBanner.fillRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
+        this.levelModeBanner.lineStyle(2, 0xffffff, 0.5);
+        this.levelModeBanner.strokeRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
+        
+        // Create the text with no container - just directly positioned
+        this.levelModeIndicator = this.add.text(
+            this.cameras.main.centerX,
+            menuBarHeight / 2,
+            indicatorText,
+            {
+                fontFamily: 'Nunito',
+                fontSize: '18px',
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                align: 'center'
             }
-        });
-    
-        const topKLabelX = this.cameras.main.width - padding - rightMargin - 180 - shiftLeft;
-        const topKLabelY = menuBarHeight / 2;
-        const topKLabel = this.add.text(
-            topKLabelX, topKLabelY, 
-            `Top K: ${this.topKValue}`,
-            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
-        ).setOrigin(0, 0.5);
-    
-        const sliderWidth = 120;
-        const sliderX = topKLabelX + topKLabel.displayWidth + gap;
-        const sliderY = menuBarHeight / 2;
-        const slider = this.add.graphics();
-        slider.fillStyle(0xffffff, 1);
-        slider.fillRect(sliderX, sliderY - 5, sliderWidth, 10);
-    
-        // Position slider handle based on current topK
-        const topKT = (this.topKValue - 1) / 4; // 0 for topK 1, 0.25 for topK 2, etc.
-        const topKHandleX = Phaser.Math.Linear(sliderX, sliderX + sliderWidth - 5, topKT);
-        this.sliderHandle = this.add.rectangle(topKHandleX, sliderY, 10, 20, 0xffaa00).setInteractive();
-        this.input.setDraggable(this.sliderHandle);
-    
-        const sliderMinX = sliderX;
-        const sliderMaxX = sliderMinX + sliderWidth - 5;
-    
-        this.input.on('drag', (pointer, gameObject, dragX) => {
-            if (gameObject === this.sliderHandle) {
-                gameObject.x = Phaser.Math.Clamp(dragX, sliderMinX, sliderMaxX);
-                const newTopK = Math.round(Phaser.Math.Linear(1, 5, (gameObject.x - sliderMinX) / (sliderMaxX - sliderMinX)));
-    
-                if (newTopK !== this.topKValue) {
-                    this.topKValue = newTopK;
-                    topKLabel.setText(`Top K: ${this.topKValue}`);
-                }
-            }
-        });
-    
+        ).setOrigin(0.5, 0.5);
+        
+        // Add a subtle pulse glow effect
         this.tweens.add({
-            targets: [menuBar, menuBarBorder, titleText, this.levelLabel, levelSlider, this.levelSliderHandle, topKLabel, slider, this.sliderHandle],
+            targets: this.levelModeIndicator,
+            alpha: { from: 1, to: 0.8 },
+            yoyo: true,
+            repeat: -1,
+            duration: 1500,
+            ease: 'Sine.InOut'
+        });
+        
+        
+        this.settingsButton = this.add.text(
+            settingsButtonX, settingsButtonY, 
+            '⚙️',
+            { fontFamily: 'Nunito', fontSize: '40px', fill: '#ffffff' }
+        ).setOrigin(0.5, 0.5)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => {
+            this.settingsButton.setScale(1.2);
+            this.showTooltip('Settings', this.settingsButton.x, this.settingsButton.y + 30 + this.settingsButton.height);
+        })
+        .on('pointerout', () => {
+            this.settingsButton.setScale(1);
+            this.hideTooltips();
+        })
+        .on('pointerdown', () => {
+            this.settingsButton.setScale(0.9);
+        })
+        .on('pointerup', () => {
+            this.settingsButton.setScale(1.2);
+            this.toggleSettingsPopup();
+        });
+        
+        // Save topK values for settings popup
+        this.topKValue = this.topKValue || 1;
+        
+        this.tweens.add({
+            targets: [menuBar, menuBarBorder, titleText, this.levelModeIndicator],
             alpha: 1,
             duration: 800,
             ease: 'Quad.Out'
@@ -1093,11 +1120,328 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.promptText) {
             this.promptText.setText(this.currentPrompt);
         }
-    
+        this.updateLevelModeIndicator();
+    }
+
+    // Add this method to BaseGameScene.js
+    updateLevelModeIndicator() {
+        if (!this.levelModeIndicator) return;
+        
+        const modeText = this.mode === 'hard' ? 'HARD' : 'EASY';
+        const indicatorText = `LEVEL ${this.levelValue} | ${modeText}`;
+        
+        // Update text content
+        this.levelModeIndicator.setText(indicatorText);
+        
+        // Update banner colors
+        if (this.levelModeBanner) {
+            const bannerWidth = 180;
+            const bannerHeight = 34;
+            const bannerX = this.cameras.main.centerX - bannerWidth / 2;
+            const bannerY = this.menuBarHeight / 2 - bannerHeight / 2;
+            
+            const bannerColor = COLORS_HEX.ACCENT// this.mode === //'hard' ? 0xff0066 : 0x8800ff;
+            const glowColor = COLORS_HEX.ACCENT//this.mode === COLORS_HEX.ACCENT//'hard' ? 0xff3366 : 0x9933ff;
+            
+            this.levelModeBanner.clear();
+            this.levelModeBanner.fillStyle(glowColor, 0.3);
+            this.levelModeBanner.fillRoundedRect(bannerX - 3, bannerY - 3, bannerWidth + 6, bannerHeight + 6, 16);
+            this.levelModeBanner.fillStyle(bannerColor, 0.8);
+            this.levelModeBanner.fillRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
+            this.levelModeBanner.lineStyle(2, 0xffffff, 0.5);
+            this.levelModeBanner.strokeRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
+        }
     }
     
 
     // Common utility methods
+    // Create and show settings popup with Level, Top K sliders and Mode Toggle
+    toggleSettingsPopup() {
+        if (this.settingsPopup) {
+            // If popup exists, close it
+            this.closeSettingsPopup();
+            return;
+        }
+        
+        // Create popup container
+        this.settingsPopup = this.add.container(0, 0).setDepth(100);
+        
+        // Add semi-transparent background overlay (full screen)
+        const overlay = this.add.rectangle(
+            0, 0,
+            this.cameras.main.width,
+            this.cameras.main.height,
+            0x000000, 0.7
+        ).setOrigin(0, 0);
+        overlay.setInteractive()
+            .on('pointerdown', (pointer) => {
+                // Only close if clicked outside the popup window
+                const popupBounds = new Phaser.Geom.Rectangle(
+                    popupX, popupY, popupWidth, popupHeight
+                );
+                
+                if (!Phaser.Geom.Rectangle.Contains(popupBounds, pointer.x, pointer.y)) {
+                    this.closeSettingsPopup();
+                }
+            });
+        this.settingsPopup.add(overlay);
+        
+        // Create popup window
+        const popupWidth = 320;
+        const popupHeight = 280; // Increased height for mode toggle
+        const popupX = this.cameras.main.centerX - popupWidth/2;
+        const popupY = this.cameras.main.centerY - popupHeight/2;
+        
+        // Create an interactive rectangle for the popup window
+        const popupArea = this.add.rectangle(
+            popupX + popupWidth/2, 
+            popupY + popupHeight/2,
+            popupWidth, 
+            popupHeight
+        ).setOrigin(0.5);
+        popupArea.setInteractive()
+            .on('pointerdown', (pointer) => {
+                // Stop event propagation to prevent closing
+                pointer.event.stopPropagation();
+            });
+        this.settingsPopup.add(popupArea);
+        
+        // Popup background
+        const popupBg = this.add.graphics();
+        popupBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
+        popupBg.fillRoundedRect(popupX, popupY, popupWidth, popupHeight, 15);
+        popupBg.lineStyle(3, this.COLORS_HEX.BOX_OUTLINE, 1);
+        popupBg.strokeRoundedRect(popupX, popupY, popupWidth, popupHeight, 15);
+        this.settingsPopup.add(popupBg);
+        
+        // Title
+        const title = this.add.text(
+            this.cameras.main.centerX, 
+            popupY + 30,
+            'Settings',
+            { fontFamily: 'Nunito', fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
+        ).setOrigin(0.5);
+        this.settingsPopup.add(title);
+        
+        const sliderWidth = 150;
+        const gap = 20;
+        
+        // Add Level slider
+        const levelLabelX = popupX + 30;
+        const levelLabelY = popupY + 80;
+        const levelLabel = this.add.text(
+            levelLabelX, levelLabelY, 
+            `Level: ${this.levelValue}`,
+            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
+        this.settingsPopup.add(levelLabel);
+        
+        const levelSliderX = levelLabelX + levelLabel.displayWidth + gap;
+        const levelSliderY = levelLabelY;
+        const levelSlider = this.add.graphics();
+        levelSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1); // Use basic palette highlight color for slider track
+        levelSlider.fillRect(levelSliderX, levelSliderY - 5, sliderWidth, 10);
+        levelSlider.lineStyle(2, 0xffffff, 0.3); // Add subtle outline
+        levelSlider.strokeRect(levelSliderX, levelSliderY - 5, sliderWidth, 10);
+        this.settingsPopup.add(levelSlider);
+        
+        // Position level slider handle based on current level
+        const levelT = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
+        const levelHandleX = Phaser.Math.Linear(levelSliderX, levelSliderX + sliderWidth - 10, levelT);
+        const levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, 10, 20, COLORS_HEX.ACCENT).setInteractive(); // Use basic accent color for handle
+        this.input.setDraggable(levelSliderHandle);
+        this.settingsPopup.add(levelSliderHandle);
+        
+        // Add Top K slider
+        const topKLabelX = popupX + 30;
+        const topKLabelY = popupY + 130; // Positioned below level slider
+        const topKLabel = this.add.text(
+            topKLabelX, topKLabelY, 
+            `Top K: ${this.topKValue}`,
+            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
+        this.settingsPopup.add(topKLabel);
+        
+        const topKSliderX = topKLabelX + topKLabel.displayWidth + gap;
+        const topKSliderY = topKLabelY;
+        const topKSlider = this.add.graphics();
+        topKSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1); // Use basic palette highlight color for slider track
+        topKSlider.fillRect(topKSliderX, topKSliderY - 5, sliderWidth, 10);
+        topKSlider.lineStyle(2, 0xffffff, 0.3); // Add subtle outline
+        topKSlider.strokeRect(topKSliderX, topKSliderY - 5, sliderWidth, 10);
+        this.settingsPopup.add(topKSlider);
+        
+        // Position Top K slider handle based on current topK
+        const topKT = (this.topKValue - 1) / 4; // 0 for topK 1, 0.25 for topK 2, etc.
+        const topKHandleX = Phaser.Math.Linear(topKSliderX, topKSliderX + sliderWidth - 10, topKT);
+        const topKSliderHandle = this.add.rectangle(topKHandleX, topKSliderY, 10, 20, COLORS_HEX.ACCENT).setInteractive(); // Use basic accent color for handle
+        this.input.setDraggable(topKSliderHandle);
+        this.settingsPopup.add(topKSliderHandle);
+        
+        // Add Mode Toggle
+        const modeToggleLabelX = popupX + 30;
+        const modeToggleLabelY = popupY + 180; // Below the Top K slider
+        const modeToggleLabel = this.add.text(
+            modeToggleLabelX, modeToggleLabelY, 
+            "Mode:",
+            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
+        this.settingsPopup.add(modeToggleLabel);
+        
+        // Use current pending mode or current actual mode
+        const currentToggleMode = this.pendingModeChange || this.mode || 'easy';
+        
+        // Create the mode toggle
+        const modeToggle = ToggleFactory.createToggle(
+            this,
+            currentToggleMode, // Use current toggle state
+            (newMode) => {
+                // Track the visual toggle state immediately
+                this.pendingModeChange = newMode;
+                
+                // Re-create the toggle with the new visual state
+                modeToggle.destroy();
+                
+                // This ensures the toggle visually updates
+                const updatedToggle = ToggleFactory.createToggle(
+                    this,
+                    newMode, // Use the new mode for visual state
+                    (newerMode) => {
+                        this.pendingModeChange = newerMode;
+                    },
+                    modeToggleLabelX + modeToggleLabel.width + gap,
+                    modeToggleLabelY
+                );
+                this.settingsPopup.add(updatedToggle);
+            },
+            modeToggleLabelX + modeToggleLabel.width + gap,
+            modeToggleLabelY
+        );
+        this.settingsPopup.add(modeToggle);
+        
+        // Close button
+        const closeBtn = this.add.text(
+            popupX + popupWidth - 25, 
+            popupY + 20,
+            '✕',
+            { fontFamily: 'Nunito', fontSize: '24px', fill: '#ffffff' }
+        ).setOrigin(0.5)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => closeBtn.setScale(1.2))
+        .on('pointerout', () => closeBtn.setScale(1))
+        .on('pointerdown', () => this.closeSettingsPopup());
+        this.settingsPopup.add(closeBtn);
+        
+        // Confirm button
+        const confirmBtn = this.add.text(
+            this.cameras.main.centerX, 
+            popupY + popupHeight - 40,
+            'Apply Changes',
+            { 
+                fontFamily: 'Nunito', 
+                fontSize: '20px', 
+                fill: '#ffffff',
+                backgroundColor: this.COLORS_HEX.BUTTON.FILL,
+                padding: { x: 15, y: 10 },
+                borderRadius: 8
+            }
+        ).setOrigin(0.5)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => confirmBtn.setScale(1.1))
+        .on('pointerout', () => confirmBtn.setScale(1))
+        .on('pointerdown', () => {
+            // Apply mode change if pending
+            if (this.pendingModeChange && this.pendingModeChange !== this.mode) {
+                this.onModeToggle(this.pendingModeChange);
+                // Mode change will trigger scene change, so we don't need to close popup
+                return;
+            }
+            
+            // Apply any changes and close
+            this.closeSettingsPopup();
+        });
+        this.settingsPopup.add(confirmBtn);
+        
+        // Slider dragging functionality
+        const levelSliderMinX = levelSliderX;
+        const levelSliderMaxX = levelSliderMinX + sliderWidth - 10;
+        const topKSliderMinX = topKSliderX;
+        const topKSliderMaxX = topKSliderMinX + sliderWidth - 10;
+        
+        this.input.on('drag', (pointer, gameObject, dragX) => {
+            if (gameObject === levelSliderHandle) {
+                gameObject.x = Phaser.Math.Clamp(dragX, levelSliderMinX, levelSliderMaxX);
+                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (gameObject.x - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
+                
+                if (newLevel !== this.levelValue) {
+                    this.levelValue = newLevel;
+                    levelLabel.setText(`Level: ${this.levelValue}`);
+                    
+                    // Update prompt based on level immediately
+                    this.updatePromptBasedOnLevel();
+                    
+                    // Update the background when level changes (if implemented by child class)
+                    if (typeof this.updateBackgroundForLevel === 'function') {
+                        this.updateBackgroundForLevel();
+                    }
+                }
+            }
+            else if (gameObject === topKSliderHandle) {
+                gameObject.x = Phaser.Math.Clamp(dragX, topKSliderMinX, topKSliderMaxX);
+                const newTopK = Math.round(Phaser.Math.Linear(1, 5, (gameObject.x - topKSliderMinX) / (topKSliderMaxX - topKSliderMinX)));
+                
+                if (newTopK !== this.topKValue) {
+                    this.topKValue = newTopK;
+                    topKLabel.setText(`Top K: ${this.topKValue}`);
+                }
+            }
+        });
+        
+        // Animate popup appearance
+        this.settingsPopup.setScale(0.8);
+        this.tweens.add({
+            targets: this.settingsPopup,
+            scale: 1,
+            duration: 200,
+            ease: 'Back.Out'
+        });
+    }
+    
+    closeSettingsPopup() {
+        if (!this.settingsPopup) return;
+        
+        // Apply any pending mode change before closing
+        const hasModeChange = this.pendingModeChange && this.pendingModeChange !== this.mode;
+        if (!hasModeChange) {
+            this.updateLevelModeIndicator();
+        }
+        
+        // First destroy the popup with animation
+        this.tweens.add({
+            targets: this.settingsPopup,
+            alpha: 0,
+            scale: 0.8,
+            duration: 200,
+            ease: 'Back.In',
+            onComplete: () => {
+                if (this.settingsPopup) {
+                    this.settingsPopup.destroy();
+                    this.settingsPopup = null;
+                    // Remove any event listeners specifically for popup
+                    this.input.off('drag');
+                    
+                    // After popup is destroyed, apply mode change if needed
+                    if (hasModeChange) {
+                        // Short delay to ensure popup is fully gone
+                        this.time.delayedCall(50, () => {
+                            this.onModeToggle(this.pendingModeChange);
+                        });
+                    }
+                }
+            }
+        });
+    }
+
     ensureProperLayering() {
         if (this.promptTextBox) this.promptTextBox.setDepth(5);
         if (this.promptText) this.promptText.setDepth(6);
@@ -1108,7 +1452,9 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.doneButton) this.doneButton.setDepth(10);
         if (this.resetButton) this.resetButton.setDepth(10);
         if (this.feedbackButton) this.feedbackButton.setDepth(10);
+        if (this.settingsButton) this.settingsButton.setDepth(10);
         if (this.wordCountDisplay) this.wordCountDisplay.setDepth(55);
+        if (this.settingsPopup) this.settingsPopup.setDepth(100);
     }
     
     createWordCountDisplay() {
@@ -1399,26 +1745,29 @@ export default class BaseGameScene extends Phaser.Scene {
             
             // Get autocomplete suggestion
             let suggestion = '';
-            //let autocompleteSuggestion = '';
             if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
                 const autocompleteSuggestion = this.generateAutocomplete();
-                suggestion = autocompleteSuggestion ? `[color=${DESIGN.COLORS.AUTOCOMPLETE}]${autocompleteSuggestion}[/color]` : "";
+                if (autocompleteSuggestion) {
+                    // Format suggestion with color tag - use "#ff0000" directly since DESIGN.COLORS might not be defined properly
+                    suggestion = `[color=#ff0000]${autocompleteSuggestion}[/color]`;
+                }
             }
-            let displayText = userText;
-           
             
-            // Add cursor or autocomplete
+            // Prepare display text with user input
+            let displayText = this.userInput;
+            
+            // Add cursor or autocomplete to display text
             if (suggestion && this.cursorVisible) {
                 // Use red color for autocomplete suggestion
-                // The cursor is implied as the start of the autocomplete
-                displayText = `${this.userInput}${suggestion}`;
-            } else {
-                // No autocomplete, just show cursor
-                displayText = `${this.userInput}${cursor}`;
+                displayText += suggestion;
+            } else if (this.cursorVisible) {
+                // Add cursor when visible
+                displayText += "_";
             }
-            if (displayText) {
-                this.inputText.setText(displayText);
-            }
+            
+            // Ensure text is set and visible
+            this.inputText.setText(displayText);
+            this.inputText.setVisible(true);
             
             // We no longer need to update a separate autocomplete text object
             if (this.autocompleteText) {
@@ -1468,15 +1817,13 @@ export default class BaseGameScene extends Phaser.Scene {
         // Set X position with the same padding as buttons have from right side
         const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + buttonPadding;
         const scoreY = inputBoxY + inputBoxHeight + padding;
-
+    
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-
-        // Progress fill with rounded corners - reversed color gradation
-        // Initialize with a default color (yellow/warning) 
-        let color = DESIGN.UI.PROGRESS_BAR.COLORS.WARNING;
         
+        // Progress fill with rounded corners - reversed color gradation
+        let color;
         if (this.progressPercentage === 50) {
             color = DESIGN.UI.PROGRESS_BAR.COLORS.WARNING;
         } else if (this.progressPercentage < 50) {
@@ -1683,16 +2030,18 @@ export default class BaseGameScene extends Phaser.Scene {
     updateFailsCounter(success) {
         const oldPercentage = this.progressPercentage;
         let newPercentage;
+        const wordRatio = 100/(Math.max(this.wordCount, 1))
+        this.progressIncrement = Math.min(wordRatio, DESIGN.UI.PROGRESS_BAR.INCREMENT);
         
         if (success) {
             // Non-AI word
-            newPercentage = this.progressPercentage + DESIGN.UI.PROGRESS_BAR.INCREMENT;
+            newPercentage = this.progressPercentage + this.progressIncrement;
             // Update original word count
             this.originalWordCount++;
             this.totalWordCount++;
         } else {
             // AI word     
-            newPercentage = this.progressPercentage - DESIGN.UI.PROGRESS_BAR.DECREMENT;
+            newPercentage = this.progressPercentage - this.progressIncrement;
             this.shakeScreen();
             
             // Use the first AI suggestion as our "current word" since that's what would be autocompleted
@@ -1901,22 +2250,26 @@ export default class BaseGameScene extends Phaser.Scene {
 
     updateProgressFill() {
         if (!this.failsCounter) return;
+
         
         this.failsCounter.clear();
 
         const scoreWidth = DESIGN.UI.BUTTON.WIDTH * 2 + DESIGN.UI.BUTTON.SPACING;
         const scoreHeight = DESIGN.UI.BUTTON.HEIGHT;
+        console.log("progress percentage", this.progressPercentage);
         
-        const minFill = Math.max(0, this.progressPercentage);
 
-        const fillPercentage = Math.min(minFill, 100);
-        console.log("Fill percentage:", this.progressPercentage);
-        console.log("minfill:", minFill);
-        console.log("maxfill:", fillPercentage);
+        const fillPercentage = Phaser.Math.Clamp(this.progressPercentage, 0, 100);
         
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);
+        if (this.progressPercentage > 0) {
+            this.failsCounter.fillStyle(COLORS_HEX.BACKGROUND, 0.5);
+        }
+
+        
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
+        
         
         // Progress fill with rounded corners - reversed color gradation
         let color;
@@ -1938,8 +2291,10 @@ export default class BaseGameScene extends Phaser.Scene {
             color = (r << 16) | (g << 8) | b;
         }
         this.failsCounter.fillStyle(color, 1);
-        this.failsCounter.fillRoundedRect(0, 0, (scoreWidth * fillPercentage) / 100, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-        
+        if (fillPercentage > 0) {
+            this.failsCounter.fillRoundedRect(0, 0, (scoreWidth * fillPercentage) / 100, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
+        }
+
         // White outline
         this.failsCounter.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
@@ -2017,6 +2372,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
     init(data) {
         console.log("BaseGameScene init called with data:", data);
+        console.log("LlmEngine retrieved from registry: ", this.registry.get('llmEngine'));
         
         // If this is a reset from DoneScene or FeedbackScene, reset game state but preserve level and topK
         if (data && data.requiresReset) {
@@ -2026,22 +2382,12 @@ export default class BaseGameScene extends Phaser.Scene {
             // Preserve level and topK if they were passed
             if (data.levelValue) {
                 this.levelValue = data.levelValue;
-                // Update slider position to match preserved level
-                if (this.levelSliderHandle && this.levelSliderMinX && this.levelSliderMaxX) {
-                    const t = (this.levelValue - 1) / 2;
-                    this.levelSliderHandle.x = Phaser.Math.Linear(this.levelSliderMinX, this.levelSliderMaxX, t);
-                }
+                // No need to update slider position - it will be set when settings popup opens
             }
             
             if (data.topKValue) {
                 this.topKValue = data.topKValue;
-                // Update slider position to match preserved topK
-                if (this.sliderHandle) {
-                    const t = (this.topKValue - 1) / 4;
-                    const sliderMinX = this.sliderHandle.x - (this.topKValue - 1) * 30;
-                    const sliderMaxX = sliderMinX + 120 - 5;
-                    this.sliderHandle.x = Phaser.Math.Linear(sliderMinX, sliderMaxX, t);
-                }
+                // No need to update slider position - it will be set when settings popup opens
             }
             
             // Reset other game state

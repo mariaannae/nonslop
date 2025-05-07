@@ -1,4 +1,5 @@
 import { waitForAuth } from "../config/firebase.js";
+import registryManager from "../services/RegistryManager.js";
 
 export default class Boot extends Phaser.Scene
 {
@@ -45,6 +46,10 @@ export default class Boot extends Phaser.Scene
 
     async create ()
     {
+        // Initialize the registry manager
+        registryManager.init(this.registry);
+        console.log("Registry Manager initialized in Boot scene");
+        
         console.log("Waiting for fonts to fully load...");
 
         // ✅ Check if all fonts are ready
