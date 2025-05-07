@@ -553,7 +553,9 @@ export default class BaseGameScene extends Phaser.Scene {
                 .filter(token => !stopwords.includes(token.toLowerCase()));
     
          
-            const uniqueSuggestedWords = Array.from(new Set(filteredOptions))
+            const uniqueSuggestedWords = Array.from(new Set(
+                filteredOptions.map(word => word.replace(/`/g, "'"))
+            ))
                 .slice(0, this.topKValue);
     
             console.log("Setting AI Suggested Words:", uniqueSuggestedWords);
