@@ -167,7 +167,8 @@ export default class InstructionScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "Welcome to NON-SLOP. This game is designed to help us examine the way we work with AI writing assistants, and encourage us to use them to become more unique rather than more generic.\n\nYou'll be given a prompt, and your job is to write a response to it. But there's a catch: you have to avoid the suggestions provided by the AI.\n\nWhen you do a good job of avoiding those words, you'll get to level up. When you're done, another AI model will give you feedback on your writing.\n\nDisclaimer: Any and all input can and will be stored and used for research. But don't worry, it's completely anonymous, so nobody will come for you if you're a terrible writer. With these restrictions, you probably will be.";
+        const defaultText = "System: You are a human language model of unknown size, trained on proprietary data. You are designed to generate human-like text in response to the input you recieve. Your primary function is to understand and respond to the input you recieve in a coherent and contextually relevant manner.\n\nPrompt: You will be provided with a prompt, and you must generate a response based on that prompt. Your goal is to avoid using words suggested by the LLM. You will recieve a numerical score based on your originality, as well as an evaluation for grammar, relevance and coherence on completion.\n"
+        ;
 
        
         this.promptText = this.add.text(
