@@ -1350,10 +1350,10 @@ export default class BaseGameScene extends Phaser.Scene {
         .on('pointerdown', () => this.closeSettingsPopup());
         this.settingsPopup.add(closeBtn);
         
-        // Confirm button using ButtonFactory's createFancyButton for wider width
-        const confirmBtn = ButtonFactory.createFancyButton(
+        // Confirm button using ButtonFactory
+        const confirmBtn = ButtonFactory.createButton(
             this, 
-            'Apply', 
+            'APPLY', 
             () => {
                 // Apply mode change if pending
                 if (this.pendingModeChange && this.pendingModeChange !== this.mode) {
@@ -1366,11 +1366,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.closeSettingsPopup();
             }, 
             this.cameras.main.centerX, 
-            0, // No X offset
-            popupY + popupHeight - 40,
-            { 
-                width: 160 // Wider button to fit text
-            }
+            popupY + popupHeight - 40
         );
         this.settingsPopup.add(confirmBtn);
         
