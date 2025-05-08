@@ -417,10 +417,10 @@ export default class DoneScene extends Phaser.Scene {
     
         let defaultText;
         if (this.mode === "hard") {
-            defaultText = `Total Words: ${this.wordCount}\n` + `Unoriginal Words Attempted: ${this.failCount} \nOriginality Score ${this.score}` ;
+            defaultText = `Total Words: ${this.wordCount}\n` + `Unoriginal Words Attempted: ${this.failCount} \nOriginality Score: ${this.score}` ;
         }
         else if (this.mode === "easy") {
-            defaultText = `Total Words: ${this.wordCount}\n` + `Unoriginal Words Used: ${this.failCount} \nOriginality Score ${this.score}` ;
+            defaultText = `Total Words: ${this.wordCount}\n` + `Unoriginal Words Used: ${this.failCount} \nOriginality Score: ${this.score}` ;
         }
 
 
