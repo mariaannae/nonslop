@@ -991,7 +991,7 @@ export default class BaseGameScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => {
             this.settingsButton.setScale(1.2);
-            this.showTooltip('Settings', this.settingsButton.x, this.settingsButton.y + 30 + this.settingsButton.height);
+            this.showTooltip('Settings: \nLevel\nMax AI Words \nMode', this.settingsButton.x, this.settingsButton.y + 50 + this.settingsButton.height);
         })
         .on('pointerout', () => {
             this.settingsButton.setScale(1);
@@ -1190,7 +1190,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.settingsPopup.add(overlay);
         
         // Create popup window
-        const popupWidth = 320;
+        const popupWidth = 400; // Increased from 320 to 400 to accommodate slider overflow
         const popupHeight = 280; // Increased height for mode toggle
         const popupX = this.cameras.main.centerX - popupWidth/2;
         const popupY = this.cameras.main.centerY - popupHeight/2;
@@ -1260,7 +1260,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const topKLabelY = popupY + 130; // Positioned below level slider
         const topKLabel = this.add.text(
             topKLabelX, topKLabelY, 
-            `Top K: ${this.topKValue}`,
+            `Max AI Words: ${this.topKValue}`,
             { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(topKLabel);
@@ -1286,7 +1286,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const modeToggleLabelY = popupY + 180; // Below the Top K slider
         const modeToggleLabel = this.add.text(
             modeToggleLabelX, modeToggleLabelY, 
-            "Mode:",
+            "Hard Mode:",
             { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(modeToggleLabel);
@@ -1294,33 +1294,48 @@ export default class BaseGameScene extends Phaser.Scene {
         // Use current pending mode or current actual mode
         const currentToggleMode = this.pendingModeChange || this.mode || 'easy';
         
-        // Create the mode toggle
-        const modeToggle = ToggleFactory.createToggle(
+        // Create a reference object to store the current toggle
+        this.currentToggleRef = { toggle: null };
+        
+        // Create a reusable callback for toggle creation
+        const toggleCallback = (newMode) => {
+            // Track the visual toggle state immediately
+            this.pendingModeChange = newMode;
+            
+            // Store the current mode for visual state
+            const currentMode = newMode;
+            
+            // Remove existing toggle
+            if (this.currentToggleRef.toggle) {
+                this.currentToggleRef.toggle.destroy();
+            }
+            
+            // Create new toggle with same callback to ensure it can be toggled multiple times
+            const newToggle = ToggleFactory.createToggle(
+                this,
+                currentMode,
+                toggleCallback,
+                modeToggleLabelX + modeToggleLabel.width + gap,
+                modeToggleLabelY
+            );
+            
+            // Update the reference and add to popup
+            this.currentToggleRef.toggle = newToggle;
+            this.settingsPopup.add(newToggle);
+        };
+        
+        // Initial toggle creation
+        const initialToggle = ToggleFactory.createToggle(
             this,
-            currentToggleMode, // Use current toggle state
-            (newMode) => {
-                // Track the visual toggle state immediately
-                this.pendingModeChange = newMode;
-                
-                // Re-create the toggle with the new visual state
-                modeToggle.destroy();
-                
-                // This ensures the toggle visually updates
-                const updatedToggle = ToggleFactory.createToggle(
-                    this,
-                    newMode, // Use the new mode for visual state
-                    (newerMode) => {
-                        this.pendingModeChange = newerMode;
-                    },
-                    modeToggleLabelX + modeToggleLabel.width + gap,
-                    modeToggleLabelY
-                );
-                this.settingsPopup.add(updatedToggle);
-            },
+            currentToggleMode,
+            toggleCallback,
             modeToggleLabelX + modeToggleLabel.width + gap,
             modeToggleLabelY
         );
-        this.settingsPopup.add(modeToggle);
+        
+        // Store reference and add to popup
+        this.currentToggleRef.toggle = initialToggle;
+        this.settingsPopup.add(initialToggle);
         
         // Close button
         const closeBtn = this.add.text(
@@ -1335,34 +1350,28 @@ export default class BaseGameScene extends Phaser.Scene {
         .on('pointerdown', () => this.closeSettingsPopup());
         this.settingsPopup.add(closeBtn);
         
-        // Confirm button
-        const confirmBtn = this.add.text(
+        // Confirm button using ButtonFactory's createFancyButton for wider width
+        const confirmBtn = ButtonFactory.createFancyButton(
+            this, 
+            'Apply', 
+            () => {
+                // Apply mode change if pending
+                if (this.pendingModeChange && this.pendingModeChange !== this.mode) {
+                    this.onModeToggle(this.pendingModeChange);
+                    // Mode change will trigger scene change, so we don't need to close popup
+                    return;
+                }
+                
+                // Apply any changes and close
+                this.closeSettingsPopup();
+            }, 
             this.cameras.main.centerX, 
+            0, // No X offset
             popupY + popupHeight - 40,
-            'Apply Changes',
             { 
-                fontFamily: 'Nunito', 
-                fontSize: '20px', 
-                fill: '#ffffff',
-                backgroundColor: this.COLORS_HEX.BUTTON.FILL,
-                padding: { x: 15, y: 10 },
-                borderRadius: 8
+                width: 160 // Wider button to fit text
             }
-        ).setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerover', () => confirmBtn.setScale(1.1))
-        .on('pointerout', () => confirmBtn.setScale(1))
-        .on('pointerdown', () => {
-            // Apply mode change if pending
-            if (this.pendingModeChange && this.pendingModeChange !== this.mode) {
-                this.onModeToggle(this.pendingModeChange);
-                // Mode change will trigger scene change, so we don't need to close popup
-                return;
-            }
-            
-            // Apply any changes and close
-            this.closeSettingsPopup();
-        });
+        );
         this.settingsPopup.add(confirmBtn);
         
         // Slider dragging functionality
