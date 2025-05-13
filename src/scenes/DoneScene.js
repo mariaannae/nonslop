@@ -295,9 +295,9 @@ export default class DoneScene extends Phaser.Scene {
         console.log("Initial levelvalue: ", this.levelValue);
 
         
-        if (this.score >= 100) {
+        if (this.score >= 10) {
             this.levelValue = Math.min(this.levelValue+ 1, 3);
-        } else if (this.score <= 0) {
+        } else if (this.score <= 5) {
             this.levelValue = Math.max(this.levelValue - 1, 1);
         } 
         
@@ -415,30 +415,14 @@ export default class DoneScene extends Phaser.Scene {
             this.promptText.destroy();
         }
 
-        // Extract all digits X in the form X/5 from this.evaluation, in order
-        let xOver5Digits = [];
-        if (typeof this.evaluation === "string") {
-            const regex = /\b(\d)\/5\b/g;
-            let match;
-            while ((match = regex.exec(this.evaluation)) !== null) {
-                xOver5Digits.push(match[1]);
-            }
-            console.log("Digits in X/5 form:", xOver5Digits);
-        }
-        function sumArray(arr) {
-          return arr.reduce((acc, val) => acc + Number(val), 0);
-        }
-        const score = sumArray(xOver5Digits);
-        //const wordCountScore = Math.min(this.totalWordCount, 20);
-        const failCountScore = Math.min(this.failCount, 15);
-        const totalScore = score  - failCountScore
+        
         
         let defaultText;
         if (this.mode === "hard") {
-            defaultText = `Total Words: ${this.totalWordCount - this.failCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${score}/15\nTotal Score: ${totalScore}/15`;
+            defaultText = `Total Words: ${this.totalWordCount - this.failCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
         }
         else if (this.mode === "easy") {
-            defaultText = `Total Words: ${this.totalWordCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${score}/15\nTotal Score: ${totalScore}/15`;
+            defaultText = `Total Words: ${this.totalWordCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
         }
 
 
@@ -653,15 +637,35 @@ export default class DoneScene extends Phaser.Scene {
             () => this.onFeedbackClick(), 
             DESIGN.UI.BUTTON.WIDTH / 2 + padding, 
             this.cameras.main.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
-            'Share your feedback'
-        );
+            'Share your feedback'     
+          );
+
+        // Extract all digits X in the form X/5 from this.evaluation, in order
+        let xOver5Digits = [];
+        if (typeof this.evaluation === "string") {
+            const regex = /\b(\d)\/5\b/g;
+            let match;
+            while ((match = regex.exec(this.evaluation)) !== null) {
+                xOver5Digits.push(match[1]);
+            }
+            console.log("Digits in X/5 form:", xOver5Digits);
+        }
+        function sumArray(arr) {
+          return arr.reduce((acc, val) => acc + Number(val), 0);
+        }
+        this.aiScore = sumArray(xOver5Digits);
+        //const wordCountScore = Math.min(this.totalWordCount, 20);
+        this.failCountScore = Math.min(this.failCount, 15);
+        this.totalScore = aiScore  - failCountScore
+
+   
         
 
         this.addButtonClickEffects();
 
-        if (this.score >= 100) {
+        if (this.totalScore >= 10) {
             this.createScoreRewardEffect();
-          } else if (this.score <= 0) {
+          } else if (this.totalScore <= 5) {
             this.createLowScoreWarning();
           } else {
             this.createMidScoreEffect();
@@ -715,7 +719,7 @@ export default class DoneScene extends Phaser.Scene {
 
 
 createLowScoreWarning() {
-    if (this.score <= 0) {
+    if (this.totalScore <= 5) {
       // Create red warning overlay
       const warningOverlay = this.add.rectangle(
         this.cameras.main.centerX,
