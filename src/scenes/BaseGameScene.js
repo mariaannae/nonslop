@@ -31,6 +31,12 @@ export default class BaseGameScene extends Phaser.Scene {
         this.uiBoxWidth = null; // Will be set in createInputTextBox
         this.tooltips = []; // Array to store active tooltips
         this.wordCountDisplay = null; // Container for word count visualization
+
+        // Track latest suggestion request to avoid race conditions
+        this.suggestionRequestId = 0;
+
+        // Debounced suggestion generator (will be set in setupInputHandlers)
+        this.debouncedGenerateAISuggestions = null;
     }
 
     update() {
@@ -42,7 +48,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
     logRegistryChange() {
         this.registry.events.on('changedata', (parent, key, data) => {
-            console.log(`Registry changed: ${key} = ${data}`);
+            console.log(`Registry changed: ${key} = ${data}, ${data[0]} ${data[1]}`);
         });
     }
 
@@ -363,32 +369,6 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     }
 
-    onResetButtonClick() {
-  
-        // Reset the fail count and progress percentage
-        this.failCount = 0;
-        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-        this.updateProgressFill();
-        
-    
-        // Clear the input text box and autocomplete text
-        this.clearInputTextBox();
-    
-        // Explicitly clear AI suggestions
-        this.aiSuggestedWords = [];
-        this.showSuggestions([]);
-    
-        // Select a new prompt following existing logic
-        this.updatePromptBasedOnLevel();
-    
-        // Update the visual progress indicator text if applicable
-        if (this.failsText) {
-            this.failsText.setText(` `);
-        }
-    }
-    
-
-    // Common evaluation methods
     async evaluateText(userInput) {
 
         console.log("Evaluating user input:", userInput);
@@ -463,8 +443,13 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     async generateAISuggestions(userInput) {
+        // Track the request ID and input for this invocation
+        const requestId = ++this.suggestionRequestId;
+        const inputAtRequest = userInput;
+
         // Don't generate suggestions for empty input
         if (!userInput) {
+            if (requestId !== this.suggestionRequestId) return;
             this.aiSuggestedWords = [];
             this.showSuggestions([]);
             if (this.autocompleteText) {
@@ -480,9 +465,22 @@ export default class BaseGameScene extends Phaser.Scene {
     
         // Get the LLM engine from the registry manager
         const llmEngine = registryManager.get('llmEngine');
-        console.log("checking llm: ", llmEngine);
-        
+        // Enhanced diagnostics for llmEngine
+        if (llmEngine) {
+            console.log("llmEngine type:", typeof llmEngine);
+            console.log("llmEngine keys:", Object.keys(llmEngine));
+            console.log("llmEngine.completions:", llmEngine.completions);
+            if (llmEngine.completions) {
+                console.log("llmEngine.completions.create:", llmEngine.completions.create, "is function:", typeof llmEngine.completions.create === "function");
+            } else {
+                console.warn("llmEngine.completions is missing or undefined");
+            }
+        } else {
+            console.warn("llmEngine is null or undefined");
+        }
+
         if (!llmEngine) {
+            if (requestId !== this.suggestionRequestId) return;
             console.warn("LLM Engine missing. Attempting to recover with registry manager...");
             // Use registry manager's recovery mechanism
             registryManager.attemptEngineRecovery((engine) => {
@@ -516,7 +514,16 @@ export default class BaseGameScene extends Phaser.Scene {
                 success = true;
             } catch (error) {
                 currentRetry++;
+                // Enhanced error logging
                 console.error(`Attempt ${currentRetry}/${maxRetries} failed:`, error);
+                if (error && typeof error === "object") {
+                    console.error("Error details:", {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name,
+                        ...error
+                    });
+                }
                 
                 // Handle VectorInt binding error specifically
                 if (error.toString().includes("VectorInt") && currentRetry < maxRetries) {
@@ -524,6 +531,7 @@ export default class BaseGameScene extends Phaser.Scene {
                     // Short delay before retry
                     await new Promise(resolve => setTimeout(resolve, 100 * currentRetry));
                 } else if (currentRetry >= maxRetries) {
+                    if (requestId !== this.suggestionRequestId) return;
                     console.error("Max retries reached, giving up on suggestions");
                     this.aiSuggestedWords = [];
                     this.showSuggestions([]);
@@ -539,6 +547,9 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }
     
+        // Only process the result if this is the latest request AND input matches current userInput
+        if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) return;
+
         try {
             if (!reply.choices || reply.choices.length === 0 || !reply.choices[0].logprobs) {
                 console.warn("AI response is missing expected properties.");
@@ -562,6 +573,7 @@ export default class BaseGameScene extends Phaser.Scene {
             console.log("Setting AI Suggested Words:", uniqueSuggestedWords);
             this.aiSuggestedWords = uniqueSuggestedWords;
             this.showSuggestions(uniqueSuggestedWords);
+            this.updateCursor(); // Ensure UI refreshes with the latest suggestion
     
             // Log current state
             console.log("Current input:", this.userInput);
@@ -706,14 +718,16 @@ export default class BaseGameScene extends Phaser.Scene {
       
 
         this.updateCursor();
-        
+
+        // Trigger suggestions for empty input immediately
+        this.generateAISuggestions('');
+
         // Set up input handlers after text objects are created
         this.setupInputHandlers();
     }
 
     
-    setupInputHandlers() {
-        
+    setupInputHandlers() {       
         // First make sure we have a basic text displayed
         if (this.inputText) {
             // Force update with initial cursor state
@@ -727,42 +741,26 @@ export default class BaseGameScene extends Phaser.Scene {
         this.lastKeyTime = 0;
         this.isActivelyTyping = false;
         this.lastKeyPressed = '';
-        
+
+        // Debounce utility
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Debounced suggestion generator
+        this.debouncedGenerateAISuggestions = debounce((input) => {
+            this.generateAISuggestions(input);
+        }, 300);
+
         this.input.keyboard.on("keydown", (event) => {
-            // Get current time for debouncing
-            const currentTime = Date.now();
-            
-            // Prevent duplicate keystrokes from happening too quickly
-            // This helps avoid "sticky keys" where the same key registers multiple times
-            if (currentTime - this.lastKeyTime < 40 && event.key === this.lastKeyPressed) {
-                console.log("Debouncing duplicate keystroke:", event.key);
-                return;
-            }
-            
-            // Update last key information for debounce check
-            this.lastKeyTime = currentTime;
-            this.lastKeyPressed = event.key;
-            
+
             // Mark that we're actively typing (stops cursor blink)
             this.isActivelyTyping = true;
-            this.cursorVisible = true; // Keep cursor visible while typing
-            
-            // Clear any existing typing timeout
-            if (this.typingTimeout) {
-                clearTimeout(this.typingTimeout);
-            }
-            
-            // Set timeout to end actively typing state - shorter to ensure autocomplete works properly
-            this.typingTimeout = setTimeout(() => {
-                this.isActivelyTyping = false;
-                // Update cursor to ensure autocomplete is visible after typing stops
-                this.updateCursor();
-                
-                // Generate new suggestions after typing pause
-                if (event.key.length === 1 || event.key === "Backspace" || event.key === "Enter" || event.key === " ") {
-                    this.generateAISuggestions(this.userInput);
-                }
-            }, 300); // Shorter timeout to make autocomplete more responsive
+            if (!this.cursorVisible) this.cursorVisible = true; // Only set to true if it was false
             
             // Also maintain the older input activity flag for backwards compatibility
             this.inputActive = true;
@@ -770,8 +768,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 clearTimeout(this.activeTimeout);
             }
             this.activeTimeout = setTimeout(() => {
-                this.inputActive = false;
-            }, 3000);
+                this.isActivelyTyping = false;
+            }, 500);
 
             const ignoreKeys = [
                 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 
@@ -810,7 +808,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 
                 this.userInput += " ";
                 this.updateCursor();
-                this.generateAISuggestions(this.userInput);
+                this.debouncedGenerateAISuggestions(this.userInput);
             } else if (event.key === "Tab") {
                 event.preventDefault();
                 if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
@@ -829,7 +827,7 @@ export default class BaseGameScene extends Phaser.Scene {
                             console.log("AI word used (Tab):", suggestion);
                             this.updateFailsCounter(false);
                             this.updateCursor();
-                            this.generateAISuggestions(this.userInput);
+                            this.debouncedGenerateAISuggestions(this.userInput);
                         }
                     } else {
                         // Find matching suggestion for current word
@@ -842,13 +840,14 @@ export default class BaseGameScene extends Phaser.Scene {
                             console.log("AI word used (Tab):", suggestion);
                             this.updateFailsCounter(false);
                             this.updateCursor();
-                            this.generateAISuggestions(this.userInput);
+                            this.debouncedGenerateAISuggestions(this.userInput);
                         }
                     }
                 }
             } else if (event.key.length === 1) {
                 this.userInput += event.key;
                 this.updateCursor();
+                this.debouncedGenerateAISuggestions(this.userInput);
             } else if (event.key === "Backspace") {
                 this.userInput = this.userInput.slice(0, -1);
                 this.updateCursor();
@@ -858,7 +857,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 const lastNewlineIndex = this.userInput.lastIndexOf('\n');
                 const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
                 if (lastBreakIndex === this.userInput.length - 1) {
-                    this.generateAISuggestions(this.userInput);
+                    this.debouncedGenerateAISuggestions(this.userInput);
                 }
             } else if (event.key === "Enter") {
                 const words = this.userInput.trim().split(" ");
@@ -882,7 +881,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 
                 this.userInput += "\n";
                 this.updateCursor();
-                this.generateAISuggestions(this.userInput);
+                this.debouncedGenerateAISuggestions(this.userInput);
             }
             
             this.updateCursor();
@@ -895,7 +894,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cursorTimer.remove();
         }
         this.cursorTimer = this.time.addEvent({
-            delay: 500,  // Slightly slower blink for better stability
+            delay: 400,  // Slightly slower blink for better stability
             loop: true,
             callback: () => {
                 // Only blink cursor when not actively typing
@@ -1400,7 +1399,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 
                 if (newTopK !== this.topKValue) {
                     this.topKValue = newTopK;
-                    topKLabel.setText(`Top K: ${this.topKValue}`);
+                    topKLabel.setText(`Max AI Words: ${this.topKValue}`);
                 }
             }
         });
@@ -1548,7 +1547,7 @@ export default class BaseGameScene extends Phaser.Scene {
             titleText, 
             originalIcon, originalLabel, this.originalCountText,
             aiIcon, aiLabel, this.aiCountText,
-            totalLabel, this.totalCountText
+            //totalLabel, this.totalCountText
         ]);
         
         // Position the container
@@ -1727,56 +1726,78 @@ export default class BaseGameScene extends Phaser.Scene {
         // Handle word wrapping for each line
         const wrappedLines = [];
         const maxWidth = this.uiBoxWidth - (padding * 2);
-        
-        try {
-            for (const line of lines) {
-                let currentLine = '';
-                const words = line.split(/(\s+)/);
-                let tempText = this.add.text(0, 0, '', this.inputText.style);
-        
-                for (const word of words) {
-                    tempText.setText(currentLine + word);
-                    if (tempText.width > maxWidth && currentLine !== '') {
-                        wrappedLines.push(currentLine);
-                        currentLine = word;
-                    } else {
-                        currentLine += word;
-                    }
-                }
-                wrappedLines.push(currentLine);
-                tempText.destroy();
-            }
-            
-            const userText = wrappedLines.join('\n');
-            const cursor = this.cursorVisible ? `[color=${DESIGN.COLORS.CURSOR}]_[/color]` : " ";
 
-            
-            // Get autocomplete suggestion
+        try {
+            // Get autocomplete suggestion (BBCode formatted)
             let suggestion = '';
+            let autocompleteSuggestion = '';
             if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-                const autocompleteSuggestion = this.generateAutocomplete();
+                autocompleteSuggestion = this.generateAutocomplete();
                 if (autocompleteSuggestion) {
-                    // Format suggestion with color tag - use "#ff0000" directly since DESIGN.COLORS might not be defined properly
                     suggestion = `[color=#ff0000]${autocompleteSuggestion}[/color]`;
                 }
             }
-            
-            // Prepare display text with user input
-            let displayText = this.userInput;
-            
-            // Add cursor or autocomplete to display text
+
+            // Find the current word being typed (after last space/newline)
+            let lastBreakIndex = Math.max(this.userInput.lastIndexOf(' '), this.userInput.lastIndexOf('\n'));
+            let currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
+            let beforeCurrentWord = lastBreakIndex >= 0 ? this.userInput.slice(0, lastBreakIndex + 1) : '';
+
+            // We'll build the display text line by line, considering the suggestion
+            let tempText = this.add.text(0, 0, '', this.inputText.style);
+
+            // Flatten all lines into a single string for easier processing
+            let allText = this.userInput;
+            let displayText = '';
+            let cursor = this.cursorVisible ? `[color=${DESIGN.COLORS.CURSOR}]_[/color]` : " ";
+
+            // If there is a suggestion and the cursor is visible
             if (suggestion && this.cursorVisible) {
-                // Use red color for autocomplete suggestion
-                displayText += suggestion;
-            } else if (this.cursorVisible) {
-                // Add cursor when visible
-                displayText += "_";
+                if (currentWord.length > 0) {
+                    // Only apply word+suggestion wrapping logic when typing a word
+                    let lastLineBreak = allText.lastIndexOf('\n');
+                    let lineStart = lastLineBreak >= 0 ? lastLineBreak + 1 : 0;
+                    let lineSoFar = allText.slice(lineStart, allText.length - currentWord.length);
+
+                    tempText.setText(lineSoFar + currentWord + autocompleteSuggestion);
+                    let combinedWidth = tempText.width;
+
+                    tempText.setText(lineSoFar);
+                    let lineWidth = tempText.width;
+
+                    tempText.setText(currentWord + autocompleteSuggestion);
+                    let wordSuggestionWidth = tempText.width;
+
+                    // If the combined width of lineSoFar + currentWord + suggestion exceeds maxWidth,
+                    // and the word+suggestion itself is wider than maxWidth, just let it overflow.
+                    // Otherwise, move the whole word+suggestion to the next line.
+                    if (lineWidth + wordSuggestionWidth > maxWidth && wordSuggestionWidth < maxWidth) {
+                        // Insert a line break before the current word
+                        displayText = allText.slice(0, allText.length - currentWord.length) + '\n' + currentWord;
+                    } else {
+                        displayText = allText;
+                    }
+                    displayText += suggestion;
+                } else {
+                    // At word boundary (after space/newline), just append suggestion after cursor
+                    displayText = allText + suggestion;
+                }
+            } else {
+                // No suggestion, use normal logic
+                displayText = allText;
+                if (this.cursorVisible) {
+                    displayText += "_";
+                } else {
+                    displayText += " ";
+                }
             }
-            
+
+            tempText.destroy();
+
             // Ensure text is set and visible
             this.inputText.setText(displayText);
             this.inputText.setVisible(true);
-            
+
             // We no longer need to update a separate autocomplete text object
             if (this.autocompleteText) {
                 this.autocompleteText.setText('');
@@ -2077,11 +2098,14 @@ export default class BaseGameScene extends Phaser.Scene {
         // Update the word count display
         this.updateWordCountDisplay();
         
-    
+        newPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
+
         this.progressPercentage = newPercentage;
-        
-        
-        
+
+        // Trigger progress bar effects
+        if (typeof this.animateProgressBarChange === "function") {
+            this.animateProgressBarChange(success ? "increment" : "decrement");
+        }
         
         if (this.failsText) {
             this.failsText.setText(` `);
@@ -2090,9 +2114,104 @@ export default class BaseGameScene extends Phaser.Scene {
         this.updateProgressFill();
     }
 
+    // Visual effects for progress bar: scale pop, color flash, shake, and particle burst
+    animateProgressBarChange(type) {
+        if (!this.failsCounter) return;
+        const bar = this.failsCounter;
+        const scene = this;
+
+        // Store original position for shake reset
+        if (bar.originalX === undefined) {
+            bar.originalX = bar.x;
+        }
+
+        // Scale pop
+        scene.tweens.add({
+            targets: bar,
+            scaleX: 1.15,
+            scaleY: 1.25,
+            yoyo: true,
+            duration: 120,
+            ease: "Back.Out",
+            onComplete: () => {
+                // Color flash (tint)
+                const flashColor = type === "increment" ? 0xffff00 : 0xff0000;
+                bar.setTint?.(flashColor);
+                if (bar.fillStyle) {
+                    // For Graphics, we can redraw with a flash color overlay
+                    bar.flashOverlay = scene.add.graphics();
+                    bar.flashOverlay.fillStyle(flashColor, 0.4);
+                    bar.flashOverlay.fillRoundedRect(bar.x, bar.y, bar.width || 180, bar.height || 40, 10);
+                    bar.flashOverlay.setDepth(bar.depth + 1);
+                    scene.time.delayedCall(100, () => {
+                        bar.flashOverlay?.destroy();
+                        bar.flashOverlay = null;
+                    });
+                }
+                scene.time.delayedCall(100, () => {
+                    bar.clearTint?.();
+                });
+
+                // Shake
+                scene.tweens.add({
+                    targets: bar,
+                    x: bar.originalX + (type === "increment" ? 10 : -10),
+                    yoyo: true,
+                    repeat: 3,
+                    duration: 40,
+                    onComplete: () => {
+                        bar.x = bar.originalX;
+                    }
+                });
+
+                // Particle burst
+                scene.emitProgressBarParticles(type);
+            }
+        });
+    }
+
+    // Particle burst for progress bar
+    emitProgressBarParticles(type) {
+        if (!this.failsCounter) return;
+        const bar = this.failsCounter;
+        const scene = this;
+
+        // Get bar position (center of progress bar)
+        const scoreWidth = scene.DESIGN?.UI?.BUTTON?.WIDTH * 2 + scene.DESIGN?.UI?.BUTTON?.SPACING || 180;
+        const scoreHeight = scene.DESIGN?.UI?.BUTTON?.HEIGHT || 40;
+        const barX = bar.x + scoreWidth / 2;
+        const barY = bar.y + scoreHeight / 2;
+
+        // Particle color
+        const color = type === "increment" ? 0xffff00 : 0xff0000;
+
+        // Only use graphics-based burst (draw circles and animate them)
+        for (let i = 0; i < 16; i++) {
+            const angle = Phaser.Math.DegToRad(Phaser.Math.Between(0, 360));
+            const distance = Phaser.Math.Between(30, 80);
+            const size = Phaser.Math.Between(6, 14);
+            const startX = barX;
+            const startY = barY;
+            const endX = startX + Math.cos(angle) * distance;
+            const endY = startY + Math.sin(angle) * distance;
+            const circle = scene.add.circle(startX, startY, size, color, 0.8).setDepth(199);
+            scene.tweens.add({
+                targets: circle,
+                x: endX,
+                y: endY,
+                alpha: 0,
+                scale: { from: 1, to: 0 },
+                duration: 500,
+                ease: 'Quad.Out',
+                onComplete: () => circle.destroy()
+            });
+        }
+    }
+
     // Custom celebration effect without using particle emitters
     celebrateSuccess() {
         // Get positions based on the progress bar
+
         const scoreWidth = DESIGN.UI.BUTTON.WIDTH * 2 + DESIGN.UI.BUTTON.SPACING;
         const scoreHeight = DESIGN.UI.BUTTON.HEIGHT;
         const inputBoxY = this.cameras.main.centerY - 240 / 2;
@@ -2105,7 +2224,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const text = this.add.text(
             scoreX + scoreWidth/2,
             scoreY,
-            'Perfect!',
+            'Great Work!',
             {
                 fontFamily: 'Nunito',
                 fontSize: '32px',
@@ -2187,7 +2306,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const text = this.add.text(
             scoreX + scoreWidth/2,
             scoreY,
-            'Keep Trying!',
+            'Terrible!',
             {
                 fontFamily: 'Nunito',
                 fontSize: '32px',
@@ -2306,6 +2425,12 @@ export default class BaseGameScene extends Phaser.Scene {
         // White outline
         this.failsCounter.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
+
+        if (this.progressPercentage == 100) {
+            this.celebrateSuccess();
+        } else if (this.progressPercentage == 0) {
+            this.celebrateNeedsWork();
+        }
 
   
     }

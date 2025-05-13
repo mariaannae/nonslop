@@ -1,11 +1,7 @@
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT} from "../config/design.js";
 import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
 import registryManager from "../services/RegistryManager.js";
-
-const loadWebLLM = async () => {
-    const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
-    return WebLLM;
-};
+import getLLMEngine from "../services/llmEngineSingleton.js";
 
 export default class Preloader extends Phaser.Scene {
     constructor() {
@@ -473,28 +469,6 @@ export default class Preloader extends Phaser.Scene {
     
 
         try {
-            // Load WebLLM dynamically
-            const WebLLM = await loadWebLLM();
-            const { CreateMLCEngine } = await loadWebLLM();
-
-            const model_id = "Qwen2.5-0.5B-Instruct-q0f32-MLC";
-
-            const appConfig = {
-                model_list: [
-                    {
-                        model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q0f32-MLC",
-                        model_id: model_id,
-                        model_lib: WebLLM.modelLibURLPrefix +
-                                   WebLLM.modelVersion + 
-                                   "/Qwen2-0.5B-Instruct-q0f32-ctx4k_cs1k-webgpu.wasm",
-                        overrides: {
-                            context_window_size: 4096,
-                        },
-                    },
-                ],
-                runtime: "webgpu"
-            };
-
             // === Simulated Progress Bar Update ===
             let progressInterval = setInterval(() => {
                 if (this.progress < .95) { 
@@ -503,21 +477,17 @@ export default class Preloader extends Phaser.Scene {
                 }
             }, 300);
 
-            // Initialize WebLLM Engine
-            const llmEngine = await CreateMLCEngine(model_id, {
-                appConfig: appConfig,
-                logLevel: "INFO",
-            });
+            // --- TRUE GLOBAL SINGLETON LLM ENGINE INIT ---
+            const llmEngine = await getLLMEngine();
 
             clearInterval(progressInterval); // Stop progress updates
             this.progress = 1; // Set to full once LLM is loaded
             this.drawProgressBar(this.progress, progressBarLeftX, progressBarY, progressBarWidth);
 
-            console.log("WebLLM Engine initialized with WebGPU.");
+            console.log("WebLLM Engine ready.");
             this.llmLoaded = true; // Mark LLM as loaded
             this.loadingText.setText("Done loading");
             this.checkIfReady(llmEngine); // Check if everything is ready
-
 
         } catch (error) {
             console.error("Failed to initialize WebLLM:", error);

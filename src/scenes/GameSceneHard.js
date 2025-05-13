@@ -426,13 +426,13 @@ export default class GameSceneHard extends BaseGameScene {
 
         //console.log(this.doneButton)
         
-        this.resetButton = this.createButton(
-            "RESET", 
-            () => this.onResetButtonClick(), 
-            buttonCenterX - 120, 
-            buttonCenterY,
-            'Clear text and start over'
-        );
+        // this.resetButton = this.createButton(
+        //     "RESET", 
+        //     () => this.onResetButtonClick(), 
+        //     buttonCenterX - 120, 
+        //     buttonCenterY,
+        //     'Clear text and start over'
+        // );
         
  
         this.feedbackButton = this.createButton(

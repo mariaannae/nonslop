@@ -100,13 +100,13 @@ export default class GameSceneEasy extends BaseGameScene {
             'Submit your text for evaluation'
         );
         
-        this.resetButton = this.createButton(
-            "RESET", 
-            () => this.onResetButtonClick(), 
-            buttonCenterX - 120, 
-            buttonCenterY,
-            'Clear text and start over'
-        );
+        // this.resetButton = this.createButton(
+        //     "RESET", 
+        //     () => this.onResetButtonClick(), 
+        //     buttonCenterX - 120, 
+        //     buttonCenterY,
+        //     'Clear text and start over'
+        // );
         
 
         this.feedbackButton = this.createButton(
