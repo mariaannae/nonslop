@@ -414,13 +414,31 @@ export default class DoneScene extends Phaser.Scene {
         if (this.promptText) {
             this.promptText.destroy();
         }
-    
+
+        // Extract all digits X in the form X/5 from this.evaluation, in order
+        let xOver5Digits = [];
+        if (typeof this.evaluation === "string") {
+            const regex = /\b(\d)\/5\b/g;
+            let match;
+            while ((match = regex.exec(this.evaluation)) !== null) {
+                xOver5Digits.push(match[1]);
+            }
+            console.log("Digits in X/5 form:", xOver5Digits);
+        }
+        function sumArray(arr) {
+          return arr.reduce((acc, val) => acc + Number(val), 0);
+        }
+        const score = sumArray(xOver5Digits);
+        //const wordCountScore = Math.min(this.totalWordCount, 20);
+        const failCountScore = Math.min(this.failCount, 15);
+        const totalScore = score  - failCountScore
+        
         let defaultText;
         if (this.mode === "hard") {
-            defaultText = `Total Words: ${this.wordCount}\n` + `Unoriginal Words Attempted: ${this.failCount} \nOriginality Score: ${Math.round(this.score)}` ;
+            defaultText = `Total Words: ${this.totalWordCount - this.failCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${score}/15\nTotal Score: ${totalScore}/15`;
         }
         else if (this.mode === "easy") {
-            defaultText = `Total Words: ${this.wordCount}\n` + `Unoriginal Words Used: ${this.failCount} \nOriginality Score: ${Math.round(this.score)}` ;
+            defaultText = `Total Words: ${this.totalWordCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${score}/15\nTotal Score: ${totalScore}/15`;
         }
 
 
@@ -524,9 +542,10 @@ export default class DoneScene extends Phaser.Scene {
         this.topKValue = data.topKValue || null;
         this.evaluation = data.outputText || null;
         this.failCount = data.failCount || 0;
+        this.totalWordCount = data.totalWordCount || 0;
         this.prompt = data.prompt;
         this.score = data.score || null;
-        this.wordCount = data.wordCount || 0;
+        //this.wordCount = data.wordCount || 0;
 
         if (this.mode === "easy") {
             this.COLORS_HEX = EASY_COLORS_HEX;

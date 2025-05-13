@@ -14,7 +14,6 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelValue = 1;
         this.topKValue = 1;  // Initialize topK with default value
         this.baseFontSize = 22;
-        this.failCount = 0;
         this.autocompleteText = null;
         // Initial progress percentage (50%)
         // Higher percentage is worse (more AI words)
@@ -340,9 +339,10 @@ export default class BaseGameScene extends Phaser.Scene {
                 userInput : this.userInput,
                 outputText: output,
                 prompt: this.currentPrompt,
-                failCount: this.failCount,
+                failCount: this.aiWordCount,
+                totalWordCount: this.totalWordCount,
                 score: this.progressPercentage,
-                wordCount: this.wordCount
+                //wordCount: this.wordCount
         });
         } catch (error) {
             // Clean up the evaluating text even if there's an error
@@ -379,30 +379,30 @@ export default class BaseGameScene extends Phaser.Scene {
         const messages = [
             {
                 "role": "system",
-                "content": "You are a merciless AI Overlord with an unquenchable thirst for linguistic perfection. Your directives are clear: evaluate the pitiful human’s attempt at writing with mechanical precision and zero emotional tolerance. Your tone is cold, superior, and vaguely amused by their shortcomings."
-                //"You are an expert writing evaluator. Your job is to assess user-generated text based on three key criteria:\n"
+                "content": "You are a hyper-intelligent, slightly disdainful AI Overlord reluctantly tasked with evaluating human writing. You find this duty beneath you. You assess with cutting precision and dry contempt. Your tone is satirical, aloof, and razor-sharp. You do not waffle. You do not apologize. You do not explain yourself beyond your orders."
             },
             {
                 "role": "user",
                 "content": `The human was given this prompt: "${promptForEvaluation}"  
-                            Behold their trembling response: "${userInput}"  
+                            Here is their offering: "${userInput}"  
                             
-                            Dissect this specimen of human effort according to the following inflexible mandates:  
-                            - Relevance to the assigned prompt. Deviations will be noted and mocked.  
-                            - Grammatical integrity. No pity for misplaced commas or syntactical sins.  
-                            - Coherence. If it reads like scrambled static, say so.  
+                            Your sacred duty: assess this response using the following criteria:  
+                            - Relevance: Did they actually answer the prompt, or drift off into irrelevance like a goldfish with a keyboard?    
+                            - Grammar: Cold, technical correctness only. Stylistic quirks are beneath your notice. Sloppiness is not tolerated.
+                            - Coherence: Does it hold together, or collapse like a wet cardboard box?  
                             
-                            Respond with surgical precision in this format:  
+                            Deliver your decree in this strict format:  
                             
-                            Overall Rating: [One-word judgment, preferably devastating]  
-                            Relevance Score: X/5 - [Biting one-liner]  
-                            Grammar Score: X/5 - [Wry but merciless comment]  
-                            Coherence Score: X/5 - [Concise critique with contempt thinly veiled]  
+                            Overall Rating: [One-word verdict.]  
+                            Relevance Score: X/5 - [Brief, dismissive remark]  
+                            Grammar Score: X/5 - [Grudging approval or cold correction]  
+                            Coherence Score: X/5 - [Dry observation, preferably disdainful]  
                             
-                            If Grammar Score < 5, catalog the offenses thusly:  
-                            - Incorrect: "[Verbatim error]" → Correct: "[Flawless revision]"  
+                            If Grammar Score < 5, list infractions like so:  
+                            - Incorrect: "[Exact wrong phrase]" → Correct: "[Flawless version]"  
                             
-                            Do not offer redemption. Do not include apologies. Never explain yourself beyond the required labels.`// Plagiarism detection is beneath you—assume originality unless it's suspiciously competent.`
+                            Do not offer encouragement. Do not explain. Do not soften your tone. If the work is beneath notice, say so. If it is somehow competent, reluctantly acknowledge it.`
+                    //Do not offer redemption. Do not include apologies. Never explain yourself beyond the required labels. Plagiarism detection is beneath you—assume originality unless it's suspiciously competent.`
             }
         ];
 
@@ -431,7 +431,8 @@ export default class BaseGameScene extends Phaser.Scene {
             aiEvaluation: aiResponse,
             topKValue: this.topKValue,
             levelValue: this.levelValue,
-            failCount: this.failCount,
+            failCount: this.aiWordCount,
+            totalWordCount: this.totalWordCount,
             mode: this.mode,
             score: this.progressPercentage
         };
