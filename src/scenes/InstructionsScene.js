@@ -167,7 +167,7 @@ export default class InstructionScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "System: \nYou are a human language model of unknown size, trained on proprietary data. You are designed to generate human-like text in response to the input you receive. Your primary function is to understand and respond to the input you recieve in a coherent and contextually relevant manner.\n\nPrompt: \nYou will be provided with a prompt, and you must generate a response based on that prompt. Your goal is to avoid using words suggested by the LLM. You will recieve a numerical score based on your originality, as well as an evaluation for grammar, relevance and coherence on completion.\n"
+        const defaultText = "System: \nYou are a human language model of unknown size, trained on proprietary data. You are designed to generate human-like text in response to the input you receive. Your primary function is to understand and respond to the input you receive in a coherent and contextually relevant manner.\n\nPrompt: \nYou will be provided with a prompt, and you must generate a response based on that prompt. Your goal is to avoid using words suggested by the LLM. You will receive a numerical score based on your originality, as well as an evaluation for grammar, relevance and coherence on completion.\n"
         ;
 
        
