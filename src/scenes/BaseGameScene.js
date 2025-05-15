@@ -21,11 +21,10 @@ export default class BaseGameScene extends Phaser.Scene {
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
         this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
         
-        // Enhanced word counting
-        this.totalWordCount = 0; // Track total word count
-        this.originalWordCount = 0; // Track non-AI words
+        // Simplified word counting
         this.aiWordCount = 0; // Track AI-suggested words
-        this.wordCount = 0; // Track successful words entered (keep for backward compatibility)
+        // Note: originalWordCount is now calculated by counting words in userInput and subtracting aiWordCount
+        // Note: totalWordCount is now calculated by counting words in userInput
         
         this.uiBoxWidth = null; // Will be set in createInputTextBox
         this.tooltips = []; // Array to store active tooltips
@@ -82,11 +81,8 @@ export default class BaseGameScene extends Phaser.Scene {
             progressPercentage: DESIGN.UI.PROGRESS_BAR.INITIAL,
             levelValue: 1,
             topKValue: this.topKValue || 1,
-            // Reset word counts
-            wordCount: 0,
-            originalWordCount: 0,
-            aiWordCount: 0,
-            totalWordCount: 0
+            // Reset word counts with simplified approach - only track AI words now
+            aiWordCount: 0
         };
         
         // Safety check - log what we're transferring
@@ -292,6 +288,32 @@ export default class BaseGameScene extends Phaser.Scene {
     async onDoneButtonClick() {
         // Create evaluating text near the center of the screen
         // Convert hex color to string for text fill
+
+        if (!(/\s$/.test(this.userInput))) {
+            // If the last character is not whitespace    
+            const words = this.userInput.trim().split(" ");
+            // Use let instead of const for lastWord since we modify it below
+            let lastWord = words[words.length - 1];
+            
+            if (lastWord && lastWord.length > 0) {
+                if (/[.,!?;:]$/.test(lastWord)) {
+                    lastWord = lastWord.slice(0, -1);
+                }
+                // Convert to lowercase for case-insensitive comparison
+                const lastWordLower = lastWord.toLowerCase();
+                const isAIWord = this.aiSuggestedWords && 
+                    this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
+                
+                if (isAIWord) {
+                    console.log("AI word used:", lastWord);
+                    this.updateFailsCounter(false);
+                } else {
+                    console.log("Non-AI word used:", lastWord);
+                    this.updateFailsCounter(true);
+                }
+            }
+        }
+
         const outlineColorHex = this.COLORS_HEX.BOX_OUTLINE;
         const outlineColorString = '#' + outlineColorHex.toString(16).padStart(6, '0');
 
@@ -340,7 +362,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 outputText: output,
                 prompt: this.currentPrompt,
                 failCount: this.aiWordCount,
-                totalWordCount: this.totalWordCount,
+                totalWordCount: this.userInput.trim() ? this.userInput.trim().split(/\s+/).length : 0,
                 score: this.progressPercentage,
                 //wordCount: this.wordCount
         });
@@ -379,7 +401,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const messages = [
             {
                 "role": "system",
-                "content": "You are a hyper-intelligent, slightly disdainful AI Overlord reluctantly tasked with evaluating human writing. You find this duty beneath you. You assess with cutting precision and dry contempt. Your tone is satirical, aloof, and razor-sharp. You do not waffle. You do not apologize. You do not explain yourself beyond your orders."
+                "content": "You are a hyper-intelligent, slightly disdainful AI Overlord reluctantly tasked with evaluating human writing. You find this duty beneath you. You are notoriously harsh about grammar rules. Even small infractions deserve point deductions. Perfect grammar scores should be extremely rare. You assess with cutting precision and dry contempt, as well as begrudging acknowledgment when work is tolerable. Your tone is satirical, aloof, and razor-sharp. You do not waffle. You do not apologize. You do not explain yourself beyond your orders."
             },
             {
                 "role": "user",
@@ -388,12 +410,18 @@ export default class BaseGameScene extends Phaser.Scene {
                             
                             Your sacred duty: assess this response using the following criteria:  
                             - Relevance: Did they actually answer the prompt, or drift off into irrelevance like a goldfish with a keyboard?    
-                            - Grammar: Cold, technical correctness only. Stylistic quirks are beneath your notice. Sloppiness is not tolerated.
+                            - Grammar: Cold, technical correctness only. Be extremely stringent. Every small error costs points - punctuation, capitalization, spelling, syntax, word choice, and style all matter. Even one minor error means the score cannot be 5/5.
                             - Coherence: Does it hold together, or collapse like a wet cardboard box?  
                             
                             Deliver your decree in this strict format:  
                             
-                            Overall Rating: [One-word verdict.]  
+                            Overall Rating: [One-word verdict based on total score:
+                                0-5 total points: Abysmal
+                                6-8 total points: Inadequate  
+                                9-10 total points: Mediocre
+                                11-12 total points: Adequate
+                                13-14 total points: Proficient
+                                15 total points: Exemplary] 
                             Relevance Score: X/5 - [Brief, dismissive remark]  
                             Grammar Score: X/5 - [Grudging approval or cold correction]  
                             Coherence Score: X/5 - [Dry observation, preferably disdainful]  
@@ -444,6 +472,9 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     async generateAISuggestions(userInput) {
+        // Performance measurement - start
+        const startTime = performance.now();
+        
         // Track the request ID and input for this invocation
         const requestId = ++this.suggestionRequestId;
         const inputAtRequest = userInput;
@@ -464,38 +495,21 @@ export default class BaseGameScene extends Phaser.Scene {
         const lastNewlineIndex = userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
     
-        // Get the LLM engine from the registry manager
+        // Get the LLM engine from the registry manager - without logging every property
         const llmEngine = registryManager.get('llmEngine');
-        // Enhanced diagnostics for llmEngine
-        if (llmEngine) {
-            console.log("llmEngine type:", typeof llmEngine);
-            console.log("llmEngine keys:", Object.keys(llmEngine));
-            console.log("llmEngine.completions:", llmEngine.completions);
-            if (llmEngine.completions) {
-                console.log("llmEngine.completions.create:", llmEngine.completions.create, "is function:", typeof llmEngine.completions.create === "function");
-            } else {
-                console.warn("llmEngine.completions is missing or undefined");
-            }
-        } else {
-            console.warn("llmEngine is null or undefined");
-        }
-
+        
+        // Minimal logging - only if there's an issue
         if (!llmEngine) {
             if (requestId !== this.suggestionRequestId) return;
-            console.warn("LLM Engine missing. Attempting to recover with registry manager...");
-            // Use registry manager's recovery mechanism
-            registryManager.attemptEngineRecovery((engine) => {
-                console.log("Engine recovered by registry manager");
-                // We could restart suggestion generation here, but it's safer
-                // to let the next typing event trigger it
-            });
+            console.warn("LLM Engine missing. Attempting recovery...");
+            registryManager.attemptEngineRecovery();
             return;
         }
     
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = context.trim();
         
-        // Add retry logic
+        // Add retry logic with minimal logging
         let maxRetries = 3;
         let currentRetry = 0;
         let success = false;
@@ -515,32 +529,18 @@ export default class BaseGameScene extends Phaser.Scene {
                 success = true;
             } catch (error) {
                 currentRetry++;
-                // Enhanced error logging
-                console.error(`Attempt ${currentRetry}/${maxRetries} failed:`, error);
-                if (error && typeof error === "object") {
-                    console.error("Error details:", {
-                        message: error.message,
-                        stack: error.stack,
-                        name: error.name,
-                        ...error
-                    });
-                }
-                
-                // Handle VectorInt binding error specifically
+                // Minimal error logging
                 if (error.toString().includes("VectorInt") && currentRetry < maxRetries) {
-                    console.log("VectorInt binding error detected, retrying...");
                     // Short delay before retry
                     await new Promise(resolve => setTimeout(resolve, 100 * currentRetry));
                 } else if (currentRetry >= maxRetries) {
                     if (requestId !== this.suggestionRequestId) return;
-                    console.error("Max retries reached, giving up on suggestions");
+                    console.error("Max retries reached. Suggestions unavailable.");
                     this.aiSuggestedWords = [];
                     this.showSuggestions([]);
                     if (this.autocompleteText) {
                         this.autocompleteText.setText('');
                     }
-                    // Try to recover the engine using registry manager
-                    registryManager.attemptEngineRecovery();
                     return;
                 } else {
                     throw error; // Re-throw other types of errors
@@ -553,7 +553,6 @@ export default class BaseGameScene extends Phaser.Scene {
 
         try {
             if (!reply.choices || reply.choices.length === 0 || !reply.choices[0].logprobs) {
-                console.warn("AI response is missing expected properties.");
                 return;
             }
     
@@ -565,20 +564,21 @@ export default class BaseGameScene extends Phaser.Scene {
                 .filter(token => token !== '')
                 .filter(token => !stopwords.includes(token.toLowerCase()));
     
-         
             const uniqueSuggestedWords = Array.from(new Set(
                 filteredOptions.map(word => word.replace(/`/g, "'"))
             ))
                 .slice(0, this.topKValue);
     
-            console.log("Setting AI Suggested Words:", uniqueSuggestedWords);
             this.aiSuggestedWords = uniqueSuggestedWords;
             this.showSuggestions(uniqueSuggestedWords);
             this.updateCursor(); // Ensure UI refreshes with the latest suggestion
-    
-            // Log current state
-            console.log("Current input:", this.userInput);
-            console.log("Current suggestions:", this.aiSuggestedWords);
+            
+            // Only log performance issues
+            const endTime = performance.now();
+            const duration = endTime - startTime;
+            if (duration > 100) {
+                console.log(`AI suggestion generation took ${duration.toFixed(2)}ms`);
+            }
         } catch (error) {
             console.error("Error processing suggestion results:", error);
             this.aiSuggestedWords = [];
@@ -802,7 +802,6 @@ export default class BaseGameScene extends Phaser.Scene {
                         this.updateFailsCounter(false);
                     } else {
                         console.log("Non-AI word used:", lastWord);
-                        this.wordCount++;
                         this.updateFailsCounter(true);
                     }
                 }
@@ -875,7 +874,6 @@ export default class BaseGameScene extends Phaser.Scene {
                         this.updateFailsCounter(false);
                     } else {
                         console.log("Non-AI word used:", lastWord);
-                        this.wordCount++;
                         this.updateFailsCounter(true);
                     }
                 }
@@ -1530,17 +1528,17 @@ export default class BaseGameScene extends Phaser.Scene {
         ).setOrigin(1, 0.5);
         
         // Total count at bottom
-        const totalLabel = this.add.text(
-            20, 85, 
-            "Total:", 
-            { fontFamily: 'Nunito', fontSize: '14px', fontStyle: 'bold', fill: '#ffffff' }
-        ).setOrigin(0, 0.5);
+        // const totalLabel = this.add.text(
+        //     20, 85, 
+        //     "Total:", 
+        //     { fontFamily: 'Nunito', fontSize: '14px', fontStyle: 'bold', fill: '#ffffff' }
+        // ).setOrigin(0, 0.5);
         
-        this.totalCountText = this.add.text(
-            boxWidth - 15, 85, 
-            "0", 
-            { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#ffffff' }
-        ).setOrigin(1, 0.5);
+        // this.totalCountText = this.add.text(
+        //     boxWidth - 15, 85, 
+        //     "0", 
+        //     { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#ffffff' }
+        // ).setOrigin(1, 0.5);
         
         // Add all elements to the container
         this.wordCountDisplay.add([
@@ -1568,13 +1566,25 @@ export default class BaseGameScene extends Phaser.Scene {
     updateWordCountDisplay() {
         if (!this.wordCountDisplay) return;
         
-        // Calculate the total
-        const total = this.originalWordCount + this.aiWordCount;
+        // Calculate total words in userInput
+        const totalWordCount = this.userInput.trim() ? this.userInput.trim().split(/\s+/).length : 0;
+        
+        let originalWordCount;
+        // Calculate original words (total minus AI words)
+        if (this.mode === 'easy') {
+            originalWordCount = Math.max(0, totalWordCount - this.aiWordCount);
+        }
+        else {
+            originalWordCount = totalWordCount;
+        };
+        
+        // Now totalWordCount is calculated dynamically from userInput
+        this.totalWordCount = totalWordCount;
         
         // Update the count displays with animations
-        this.animateCountChange(this.originalCountText, this.originalCountText.text, this.originalWordCount.toString());
+        this.animateCountChange(this.originalCountText, this.originalCountText.text, originalWordCount.toString());
         this.animateCountChange(this.aiCountText, this.aiCountText.text, this.aiWordCount.toString());
-        this.animateCountChange(this.totalCountText, this.totalCountText.text, total.toString());
+        //this.animateCountChange(this.totalCountText, this.totalCountText.text, totalWordCount.toString());
     }
     
     animateCountChange(textObject, oldValue, newValue) {
@@ -1677,146 +1687,76 @@ export default class BaseGameScene extends Phaser.Scene {
     
     // You should also update this function to properly handle multi-line text
     updateCursor() {
-        if (this.isShuttingDown) return;
-        if (
-            !this.inputText ||
-            this.inputText.destroyed ||
-            typeof this.inputText.setText !== "function" ||
-            typeof this.inputText.updateText !== "function"
-        ) {
-            return;
-        }
+        // Performance measurement
+        const startTime = performance.now();
         
-        // Keep input text position fixed
+        if (this.isShuttingDown) return;
+        if (!this.inputText || this.inputText.destroyed) return;
+        
+        // Keep input text position fixed - use cached values where possible
         const padding = 30;
         
-        // Extra safety check - if cameras is undefined, use default values
-        let centerY = 300; // Default fallback
-        let centerX = 450; // Default fallback
-        
-        // Safely access camera properties with multiple layers of protection
-        try {
-            if (this.cameras && this.cameras.main) {
-                centerY = this.cameras.main.centerY || 300;
-                centerX = this.cameras.main.centerX || 450;
-            } else if (this.scene && this.scene.cameras && this.scene.cameras.main) {
-                // Try scene cameras as a fallback
-                centerY = this.scene.cameras.main.centerY || 300;
-                centerX = this.scene.cameras.main.centerX || 450;
+        // Position text only if needed - cache these values during initialization
+        if (!this._cursorPosInitialized) {
+            const centerY = this.cameras?.main?.centerY || 300;
+            const centerX = this.cameras?.main?.centerX || 450;
+            const textBoxY = centerY - 240 / 2;
+            
+            if (!this.uiBoxWidth) {
+                this.uiBoxWidth = this.cameras.main.width * (5 / 6);
             }
-        } catch (e) {
-            console.warn("Camera access error in updateCursor:", e);
-            // Continue with defaults
+            
+            this.inputText.setPosition(
+                centerX - this.uiBoxWidth / 2 + padding,
+                textBoxY + padding
+            );
+            
+            this._cursorPosInitialized = true;
         }
         
-        const textBoxY = centerY - 240 / 2;
-        
-        // Make sure uiBoxWidth has a value
-        if (!this.uiBoxWidth) {
-            this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-        }
-        
-        this.inputText.setPosition(
-            centerX - this.uiBoxWidth / 2 + padding,
-            textBoxY + padding
-        );
-        
-        // Split by explicit newlines first
-        let lines = this.userInput.split('\n');
-        
-        // Handle word wrapping for each line
-        const wrappedLines = [];
-        const maxWidth = this.uiBoxWidth - (padding * 2);
-
         try {
-            // Get autocomplete suggestion (BBCode formatted)
-            let suggestion = '';
+            // Get autocomplete suggestion
             let autocompleteSuggestion = '';
-            if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+            if (this.aiSuggestedWords?.length > 0 && this.cursorVisible) {
                 autocompleteSuggestion = this.generateAutocomplete();
-                if (autocompleteSuggestion) {
-                    suggestion = `[color=#ff0000]${autocompleteSuggestion}[/color]`;
-                }
             }
-
-            // Find the current word being typed (after last space/newline)
-            let lastBreakIndex = Math.max(this.userInput.lastIndexOf(' '), this.userInput.lastIndexOf('\n'));
-            let currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
-            let beforeCurrentWord = lastBreakIndex >= 0 ? this.userInput.slice(0, lastBreakIndex + 1) : '';
-
-            // We'll build the display text line by line, considering the suggestion
-            let tempText = this.add.text(0, 0, '', this.inputText.style);
-
-            // Flatten all lines into a single string for easier processing
-            let allText = this.userInput;
-            let displayText = '';
-            let cursor = this.cursorVisible ? `[color=${DESIGN.COLORS.CURSOR}]_[/color]` : " ";
-
-            // If there is a suggestion and the cursor is visible
-            if (suggestion && this.cursorVisible) {
-                if (currentWord.length > 0) {
-                    // Only apply word+suggestion wrapping logic when typing a word
-                    let lastLineBreak = allText.lastIndexOf('\n');
-                    let lineStart = lastLineBreak >= 0 ? lastLineBreak + 1 : 0;
-                    let lineSoFar = allText.slice(lineStart, allText.length - currentWord.length);
-
-                    tempText.setText(lineSoFar + currentWord + autocompleteSuggestion);
-                    let combinedWidth = tempText.width;
-
-                    tempText.setText(lineSoFar);
-                    let lineWidth = tempText.width;
-
-                    tempText.setText(currentWord + autocompleteSuggestion);
-                    let wordSuggestionWidth = tempText.width;
-
-                    // If the combined width of lineSoFar + currentWord + suggestion exceeds maxWidth,
-                    // and the word+suggestion itself is wider than maxWidth, just let it overflow.
-                    // Otherwise, move the whole word+suggestion to the next line.
-                    if (lineWidth + wordSuggestionWidth > maxWidth && wordSuggestionWidth < maxWidth) {
-                        // Insert a line break before the current word
-                        displayText = allText.slice(0, allText.length - currentWord.length) + '\n' + currentWord;
-                    } else {
-                        displayText = allText;
-                    }
-                    displayText += suggestion;
-                } else {
-                    // At word boundary (after space/newline), just append suggestion after cursor
-                    displayText = allText + suggestion;
-                }
+            
+            // Build the display text directly without creating temporary objects
+            let displayText = this.userInput;
+            
+            if (autocompleteSuggestion && this.cursorVisible) {
+                // Add colored suggestion
+                displayText += `[color=#ff0000]${autocompleteSuggestion}[/color]`;
+            } else if (this.cursorVisible) {
+                // Add cursor character
+                displayText += "_";
             } else {
-                // No suggestion, use normal logic
-                displayText = allText;
-                if (this.cursorVisible) {
-                    displayText += "_";
-                } else {
-                    displayText += " ";
-                }
+                // Add space when cursor is invisible
+                displayText += " ";
             }
-
-            tempText.destroy();
-
-            // Ensure text is set and visible
+            
+            // Update text in one operation
             this.inputText.setText(displayText);
             this.inputText.setVisible(true);
-
-            // We no longer need to update a separate autocomplete text object
+            
+            // Clear autocomplete text if it exists (deprecated approach)
             if (this.autocompleteText) {
                 this.autocompleteText.setText('');
             }
         } catch (error) {
-            console.warn("Error in updateCursor:", error);
-            // Make a simpler attempt if the complex approach fails
+            // Simple fallback with no layout calculation
             try {
-                let fallbackText = this.userInput;
-                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0 && this.cursorVisible) {
-                    fallbackText += this.generateAutocomplete();
-                } else {
-                    fallbackText += (this.cursorVisible ? "_" : " ");
-                }
-                this.inputText.setText(fallbackText);
+                const cursor = this.cursorVisible ? "_" : " ";
+                this.inputText.setText(this.userInput + cursor);
             } catch (e) {
-                console.error("Failed to update cursor text with fallback method:", e);
+                // Final fallback - do nothing if even the simple update fails
             }
+        }
+        
+        // Performance logging - only log slow updates
+        const duration = performance.now() - startTime;
+        if (duration > 16) { // Only log if slower than 60fps frame
+            console.log(`Slow cursor update: ${duration.toFixed(2)}ms`);
         }
     }
 
@@ -2010,7 +1950,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
     addButtonClickEffects() {
         const buttons = [
-            { button: this.doneButton, tooltip: 'Submit your text for evaluation' },
+            { button: this.doneButton, tooltip: 'Show it to the boss' },
             { button: this.resetButton, tooltip: 'Clear text and start over' },
             { button: this.feedbackButton, tooltip: 'Share your feedback' },
             //{ button: this.hardButton, tooltip: 'Switch to Hard mode: No AI suggestions' },
@@ -2060,15 +2000,12 @@ export default class BaseGameScene extends Phaser.Scene {
     updateFailsCounter(success) {
         const oldPercentage = this.progressPercentage;
         let newPercentage;
-        const wordRatio = 100/(Math.max(this.wordCount, 1))
-        this.progressIncrement = Math.min(wordRatio, DESIGN.UI.PROGRESS_BAR.INCREMENT);
+        // Use progress increment directly from DESIGN constant
+        this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
         
         if (success) {
             // Non-AI word
             newPercentage = this.progressPercentage + this.progressIncrement;
-            // Update original word count
-            this.originalWordCount++;
-            this.totalWordCount++;
         } else {
             // AI word     
             newPercentage = this.progressPercentage - this.progressIncrement;
@@ -2091,9 +2028,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
             }
             
-            // Update AI word count
+            // Update AI word count only
             this.aiWordCount++;
-            this.totalWordCount++;
         }
         
         // Update the word count display
@@ -2437,6 +2373,9 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     showSuggestions(words) {
+        // Performance optimization - measure time for suggestion rendering
+        const startTime = performance.now();
+        
         // Clear previous suggestions
         if (this.suggestionBoxes) {
             this.suggestionBoxes.forEach(box => box.destroy());
@@ -2452,56 +2391,77 @@ export default class BaseGameScene extends Phaser.Scene {
         const padding = 20;
         const boxHeight = 30;
         const boxSpacing = 10;
-        const inputBoxY = this.cameras.main.centerY - 240 / 2;
+        const inputBoxY = this.cameras?.main?.centerY - 240 / 2 || 140;
         const promptBoxHeight = 80;
         const promptY = inputBoxY - promptBoxHeight - padding;
-        const spaceBetween = promptY - this.menuBarHeight;
-        const suggestionsY = this.menuBarHeight + (spaceBetween / 2) + 20; // Centered + slight offset down
-
+        const spaceBetween = promptY - (this.menuBarHeight || 100);
+        const suggestionsY = (this.menuBarHeight || 100) + (spaceBetween / 2) + 20;
+        
+        // Create a single temporary text object to measure widths instead of creating many
+        const tempText = this.add.text(0, 0, '', {
+            fontFamily: 'Nunito',
+            fontSize: '16px'
+        });
+        
+        // Pre-calculate all word widths in one batch
+        const wordWidths = words.map(word => {
+            tempText.setText(word);
+            return tempText.width + padding * 2;
+        });
+        
+        // Calculate total width in one pass
+        const totalWidth = wordWidths.reduce((acc, width, i) => 
+            acc + width + (i < words.length - 1 ? boxSpacing : 0), 0);
+        
+        // Calculate the starting X position
+        const startX = this.cameras.main.centerX - totalWidth / 2;
+        
+        // Calculate all box positions
+        let currentX = startX;
+        
+        // Create all suggestion boxes in a single pass
         words.forEach((word, index) => {
-            const text = this.add.text(0, 0, word, {
-                fontFamily: 'Nunito',
-                fontSize: '16px',
-                color: '#ffffff'
-            });
+            const boxWidth = wordWidths[index];
             
-            const boxWidth = text.width + padding * 2;
-            const totalWidth = words.reduce((acc, _, i) => {
-                const t = this.add.text(0, 0, words[i], {
-                    fontFamily: 'Nunito',
-                    fontSize: '16px'
-                });
-                const w = t.width + padding * 2;
-                t.destroy();
-                return acc + w + (i < words.length - 1 ? boxSpacing : 0);
-            }, 0);
-            
-            const startX = this.cameras.main.centerX - totalWidth / 2;
-            const boxX = startX + words.slice(0, index).reduce((acc, _, i) => {
-                const t = this.add.text(0, 0, words[i], {
-                    fontFamily: 'Nunito',
-                    fontSize: '16px'
-                });
-                const w = t.width + padding * 2;
-                t.destroy();
-                return acc + w + boxSpacing;
-            }, 0);
-
+            // Create box
             const box = this.add.graphics();
             box.fillStyle(0xff0000, 0.3);
-            box.fillRoundedRect(boxX, suggestionsY, boxWidth, boxHeight, 10);
+            box.fillRoundedRect(currentX, suggestionsY, boxWidth, boxHeight, 10);
             box.lineStyle(2, 0xff0000, 0.8);
-            box.strokeRoundedRect(boxX, suggestionsY, boxWidth, boxHeight, 10);
-
-            text.setPosition(boxX + padding, suggestionsY + boxHeight / 2);
-            text.setOrigin(0, 0.5);
-
-            this.suggestionBoxes.push(box);
-            this.suggestionTexts.push(text);
-
+            box.strokeRoundedRect(currentX, suggestionsY, boxWidth, boxHeight, 10);
+            
+            // Create text
+            const text = this.add.text(
+                currentX + padding, 
+                suggestionsY + boxHeight / 2, 
+                word,
+                {
+                    fontFamily: 'Nunito',
+                    fontSize: '16px',
+                    color: '#ffffff'
+                }
+            ).setOrigin(0, 0.5);
+            
+            // Set depths
             box.setDepth(15);
             text.setDepth(16);
+            
+            // Store for later cleanup
+            this.suggestionBoxes.push(box);
+            this.suggestionTexts.push(text);
+            
+            // Update X position for next box
+            currentX += boxWidth + boxSpacing;
         });
+        
+        // Clean up the temporary text object
+        tempText.destroy();
+        
+        // Performance logging for slow updates
+        const duration = performance.now() - startTime;
+        if (duration > 16) { // Only log if slower than one frame at 60fps
+            console.log(`Slow suggestion rendering: ${duration.toFixed(2)}ms`);
+        }
     }
 
     init(data) {
@@ -2524,11 +2484,9 @@ export default class BaseGameScene extends Phaser.Scene {
                 // No need to update slider position - it will be set when settings popup opens
             }
             
-            // Reset other game state
-            this.wordCount = 0;
-            this.originalWordCount = 0;
+            // Reset game state to match our simplified approach
             this.aiWordCount = 0;
-            this.totalWordCount = 0;
+            // Note: originalWordCount and totalWordCount are now calculated dynamically
             
             // Reset suggestion-related state
             this.userInput = '';

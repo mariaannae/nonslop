@@ -1,5 +1,5 @@
 import { DESIGN, HARD_COLORS_HEX, HARD_COLORS_TEXT, EASY_COLORS_TEXT, EASY_COLORS_HEX} from "../config/design.js";
-import { saveInteraction } from "../config/firebase.js";
+import { saveInteraction, isHighScore } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 
 //, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, colors_hex, colors_text, DESIGN.UI.BUTTON.WIDTH
@@ -14,6 +14,13 @@ export default class DoneScene extends Phaser.Scene {
 
     onFeedbackClick() {
         this.scene.start('FeedbackScene', {mode: this.mode});
+    }
+    
+    showLeaderboard() {
+        this.scene.start('LeaderboardScene', {
+            mode: this.mode,
+            previousScene: 'DoneScene'
+        });
     }
 
     createOutputTextBox() {
@@ -277,9 +284,15 @@ export default class DoneScene extends Phaser.Scene {
         return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
     }
     
-    onDoneButtonClick() {
-        const interaction = this.userInput;
+    async onDoneButtonClick() {
+        // Save the user input before clearing it
+        const userInputCopy = this.userInput;
+        
+        const interaction = userInputCopy;
         saveInteraction(interaction, 'feedback');
+        
+        // Log user input before clearing
+        console.log("User input before clearing:", userInputCopy);
         
         // Clean up resources before transitioning
         this.clearInputTextBox();
@@ -301,7 +314,6 @@ export default class DoneScene extends Phaser.Scene {
             this.levelValue = Math.max(this.levelValue - 1, 1);
         } 
         
-        // Add a small delay to ensure cleanup completes
         // Prepare reset data for game scene, preserving level and topK
         console.log("level_value", this.levelValue);
         const resetData = {
@@ -314,15 +326,70 @@ export default class DoneScene extends Phaser.Scene {
             totalWordCount: 0,
             requiresReset: true // Flag to indicate this is a reset from DoneScene
         };
-
-        this.time.delayedCall(50, () => {
+        
+        // Check if this is a high score
+        const scoreData = {
+            score: this.totalScore,
+            mode: this.mode,
+            failCount: this.failCount,
+            totalWordCount: this.totalWordCount,
+            originalWordCount: this.originalWordCount || (this.totalWordCount - this.failCount),
+            prompt: this.prompt,
+            response: userInputCopy,  // Use the saved copy, not this.userInput which is now cleared
+            inputText: userInputCopy  // Use the saved copy, not this.userInput which is now cleared
+        };
+        
+        // Debug log to verify the data
+        console.log("scoreData before high score check:", JSON.stringify(scoreData, null, 2));
+        
+        try {
+            // Add loading indicator while checking
+            const loadingText = this.add.text(
+                this.cameras.main.centerX,
+                this.cameras.main.centerY,
+                'Checking scores...',
+                {
+                    fontFamily: 'Nunito',
+                    fontSize: '24px',
+                    color: '#ffffff',
+                    backgroundColor: '#000000',
+                    padding: { x: 20, y: 10 },
+                    borderRadius: 8
+                }
+            ).setOrigin(0.5).setDepth(1000);
+            
+            const isHighScoreResult = await isHighScore(this.totalScore, this.mode);
+            
+            // Remove loading text
+            loadingText.destroy();
+            console.log("scoredata: ", scoreData);
+            if (isHighScoreResult) {
+                // It's a high score! Go to the username entry scene
+                console.log("High score achieved! Going to username entry");
+                this.scene.start('UsernameScene', {
+                    mode: this.mode,
+                    scoreData: scoreData
+                });
+            } else {
+                // Not a high score, just go to the next game
+                console.log("Not a high score, continuing to next game");
+                if (this.mode === "easy") {
+                    this.scene.start('GameSceneEasy', resetData);
+                }
+                else if (this.mode === "hard") {
+                    this.scene.start('GameSceneHard', resetData);
+                }
+            }
+        } catch (error) {
+            console.error("Error checking high score:", error);
+            // In case of error, just go to the next game
             if (this.mode === "easy") {
                 this.scene.start('GameSceneEasy', resetData);
             }
             else if (this.mode === "hard") {
                 this.scene.start('GameSceneHard', resetData);
             }
-        });
+        }
     }
 
     createInputTextBox(y) {    
@@ -591,6 +658,25 @@ export default class DoneScene extends Phaser.Scene {
         this.cameras.main.scrollY = 0; 
         this.createBackgroundEffect();
 
+        // Extract all digits X in the form X/5 from this.evaluation, in order
+        let xOver5Digits = [];
+        if (typeof this.evaluation === "string") {
+            const regex = /\b(\d)\/5\b/g;
+            let match;
+            while ((match = regex.exec(this.evaluation)) !== null) {
+                xOver5Digits.push(match[1]);
+            }
+            console.log("Digits in X/5 form:", xOver5Digits);
+        }
+        function sumArray(arr) {
+          return arr.reduce((acc, val) => acc + Number(val), 0);
+        }
+        this.aiScore = sumArray(xOver5Digits);
+        //const wordCountScore = Math.min(this.totalWordCount, 20);
+        this.failCountScore = Math.min(this.failCount, 15);
+        this.totalScore = this.aiScore  - this.failCountScore
+
+
         // Input Box Creation
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
 
@@ -638,25 +724,19 @@ export default class DoneScene extends Phaser.Scene {
             DESIGN.UI.BUTTON.WIDTH / 2 + padding, 
             this.cameras.main.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
             'Share your feedback'     
-          );
+        );
+        
+        // Add leaderboard button
+        this.leaderboardButton = this.createButton(
+            "HIGHSCORES", 
+            () => this.showLeaderboard(), 
+            this.cameras.main.width - DESIGN.UI.BUTTON.WIDTH / 2 - padding, 
+            this.cameras.main.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
+            'View high scores'
+        );
 
-        // Extract all digits X in the form X/5 from this.evaluation, in order
-        let xOver5Digits = [];
-        if (typeof this.evaluation === "string") {
-            const regex = /\b(\d)\/5\b/g;
-            let match;
-            while ((match = regex.exec(this.evaluation)) !== null) {
-                xOver5Digits.push(match[1]);
-            }
-            console.log("Digits in X/5 form:", xOver5Digits);
-        }
-        function sumArray(arr) {
-          return arr.reduce((acc, val) => acc + Number(val), 0);
-        }
-        this.aiScore = sumArray(xOver5Digits);
-        //const wordCountScore = Math.min(this.totalWordCount, 20);
-        this.failCountScore = Math.min(this.failCount, 15);
-        this.totalScore = aiScore  - failCountScore
+        
+        
 
    
         

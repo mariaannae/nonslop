@@ -8,6 +8,8 @@ import FeedbackScene from "./scenes/FeedbackScene.js";
 import InstructionScene from "./scenes/InstructionsScene.js";  
 import LevelScene from "./scenes/LevelScene.js";
 import DoneScene from "./scenes/DoneScene.js";
+import LeaderboardScene from "./scenes/LeaderboardScene.js";
+import UsernameScene from "./scenes/UsernameScene.js";
 
 
 
@@ -18,7 +20,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene],
+    scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene],
     physics: { default: 'arcade', arcade: { debug: false } },
     plugins: {
         global: [{
