@@ -13,6 +13,7 @@ export default class LeaderboardScene extends Phaser.Scene {
 
     init(data) {
         this.mode = data.mode || 'easy';
+        this.level = data.level || 1;
         //this.previousScene = data.previousScene || 'DoneScene';
 
         // Set colors based on mode
@@ -343,8 +344,15 @@ export default class LeaderboardScene extends Phaser.Scene {
             headerStyle
         ).setOrigin(0, 0.5);
 
+        const levelText = this.add.text(
+            this.cameras.main.centerX - 50,
+            y + boxHeight / 2,
+            'LEVEL',
+            headerStyle
+        ).setOrigin(0, 0.5);
+
         const scoreText = this.add.text(
-            this.cameras.main.centerX + 80,
+            this.cameras.main.centerX + 50,
             y + boxHeight / 2,
             'SCORE',
             headerStyle
@@ -362,6 +370,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             headerGraphics,
             rankText,
             nameText,
+            levelText,
             scoreText,
             dateText
         ]);
@@ -448,9 +457,25 @@ export default class LeaderboardScene extends Phaser.Scene {
         ).setOrigin(0, 0.5);
         container.add(nameText);
         
+        // Add level with special styling
+        const levelValue = score.level || 1;
+        const levelColor = this.getLevelColor(levelValue);
+        const levelText = this.add.text(
+            this.cameras.main.centerX - 50,
+            boxHeight / 2,
+            `${levelValue}`,
+            {
+                fontFamily: 'Nunito',
+                fontSize: '18px',
+                color: levelColor,
+                fontStyle: 'bold'
+            }
+        ).setOrigin(0, 0.5);
+        container.add(levelText);
+        
         // Add score
         const scoreText = this.add.text(
-            this.cameras.main.centerX + 80,
+            this.cameras.main.centerX + 50,
             boxHeight / 2,
             `${score.score}`,
             {
@@ -541,9 +566,10 @@ export default class LeaderboardScene extends Phaser.Scene {
         }
         
         const width = this.cameras.main.width * 0.7;
-        const height = this.cameras.main.height * 0.6;
+        // Start with a minimum height - will adjust based on content
+        let minHeight = this.cameras.main.height * 0.6;
         const x = this.cameras.main.centerX - width / 2;
-        const y = this.cameras.main.centerY - height / 2;
+        const y = this.cameras.main.centerY - minHeight / 2;
         
         // Container for all modal elements
         this.detailsModal = this.add.container(0, 0);
@@ -556,12 +582,8 @@ export default class LeaderboardScene extends Phaser.Scene {
             0x000000, 0.7
         ).setOrigin(0);
         
-        // Add modal background
-        const modalBg = this.add.graphics();
-        modalBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
-        modalBg.fillRoundedRect(x, y, width, height, 16);
-        modalBg.lineStyle(3, this.COLORS_HEX.ACCENT, 1);
-        modalBg.strokeRoundedRect(x, y, width, height, 16);
+        // We'll create the background after measuring content
+        let modalBg;
         
         // Add title
         const titleText = this.add.text(
@@ -585,45 +607,87 @@ export default class LeaderboardScene extends Phaser.Scene {
         const details = [
             { label: "Player:", value: score.username || "Anonymous Player" },
             { label: "Score:", value: score.score },
+            { label: "Level:", value: score.level || 1, customColor: this.getLevelColor(score.level || 1) },
             { label: "Mode:", value: score.mode === 'easy' ? 'Easy' : 'Hard' },
-            { label: "Input Text:", value: score.inputText || "No input text available" },
+            { label: "Prompt:", value: score.prompt || "No prompt available", isLongText: true },
+            { label: "Input Text:", value: score.inputText || "No input text available", isLongText: true },
             { label: "Original Words:", value: score.originalWordCount || 0 },
             { label: "AI Words Used:", value: score.aiWordCount || 0 },
             { label: "Total Words:", value: score.wordCount || 0 },
             { label: "Date:", value: `${formattedDate} at ${formattedTime}` }
         ];
         
+        // Calculate available width for text wrapping
+        const textWrapWidth = width - 270; // Space for the value text considering margins
+        
         const detailsContainer = this.add.container(0, 0);
-        details.forEach((detail, index) => {
-            const yPos = y + 100 + (index * 40);
+        let currentY = y + 100;
+        
+        details.forEach((detail) => {
+            // Configure text style with word wrap for value text
+            const textStyle = {
+                fontFamily: 'Nunito',
+                fontSize: '18px',
+                color: detail.customColor || '#ffffff',
+                fontStyle: 'bold',
+                wordWrap: { width: textWrapWidth, useAdvancedWrap: true }
+            };
             
+            // Create value text first to measure its height
+            const valueText = this.add.text(
+                x + 220,
+                0, // Temporary y-position, will adjust based on alignment
+                detail.value.toString(),
+                textStyle
+            ).setOrigin(0, 0); // Top-left aligned
+            
+            // Determine if this will be a multi-line text based on width vs available space
+            const isMultiLine = valueText.width > textWrapWidth || detail.isLongText;
+            
+            // Calculate label Y position based on whether value is multi-line
+            const labelY = isMultiLine ? currentY : currentY;
+            
+            // Create label text
             const labelText = this.add.text(
                 x + 50,
-                yPos,
+                labelY,
                 detail.label,
                 {
                     fontFamily: 'Nunito',
                     fontSize: '18px',
                     color: '#cccccc'
                 }
-            ).setOrigin(0, 0.5);
+            ).setOrigin(0, 0); // Top-left aligned to match valueText
             
-            const valueText = this.add.text(
-                x + 220,
-                yPos,
-                detail.value.toString(),
-                {
-                    fontFamily: 'Nunito',
-                    fontSize: '18px',
-                    color: '#ffffff',
-                    fontStyle: 'bold'
-                }
-            ).setOrigin(0, 0.5);
+            // Position value text at the same y as the label (top-aligned)
+            valueText.setY(labelY);
             
             detailsContainer.add([labelText, valueText]);
+            
+            // For both regular and long text fields, spacing is determined by:
+            // 1. The height of the value text (to accommodate wrapping)
+            // 2. A consistent padding between rows (40px for all fields)
+            
+            // Get the actual height of the value text (minimum 20px)
+            const textHeight = Math.max(valueText.height, 20);
+            
+            // For all fields, use the text height plus standard spacing
+            currentY += textHeight + 20; // 20px consistent padding between all rows
         });
         
-        // Add close button
+        // Calculate the actual height needed based on content
+        // Add extra space for the title at the top and close button at the bottom
+        const contentHeight = currentY - y;  // currentY now contains the bottom of the content
+        const totalHeight = Math.max(minHeight, contentHeight + 120); // 80px for title + bottom padding
+        
+        // Create modal background with the calculated height
+        modalBg = this.add.graphics();
+        modalBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
+        modalBg.fillRoundedRect(x, y, width, totalHeight, 16);
+        modalBg.lineStyle(3, this.COLORS_HEX.ACCENT, 1);
+        modalBg.strokeRoundedRect(x, y, width, totalHeight, 16);
+        
+        // Add close button at the bottom of the modal
         const closeButton = this.createButton(
             "CLOSE",
             () => {
@@ -635,7 +699,7 @@ export default class LeaderboardScene extends Phaser.Scene {
                 });
             },
             this.cameras.main.centerX,
-            y + height - 40
+            y + totalHeight - 40 // Position from the bottom of the new calculated height
         );
         
         // Add elements to modal container
@@ -686,10 +750,35 @@ export default class LeaderboardScene extends Phaser.Scene {
         return button;
     }
 
+    // Helper method to get color based on level
+    getLevelColor(level) {
+        switch(Number(level)) {
+            case 1:
+                return '#42f5a1'; // Light green
+            case 2:
+                return '#42c5f5'; // Light blue
+            case 3:
+                return '#f542c5'; // Pink
+            default:
+                return '#ffffff'; // White
+        }
+    }
+    
     goBack() {
+        // Prepare reset data for game scene, preserving level but resetting progress
+        const resetData = {
+            progressPercentage: 50, // Reset to initial value
+            levelValue: this.level, // Preserve current level
+            wordCount: 0,
+            originalWordCount: 0,
+            aiWordCount: 0,
+            totalWordCount: 0,
+            requiresReset: true // Flag to indicate this is a reset from LeaderboardScene
+        };
+        
         if (this.mode == 'easy')
-            this.scene.start('GameSceneEasy', { mode: this.mode });
+            this.scene.start('GameSceneEasy', resetData);
         else
-            this.scene.start('GameSceneHard', { mode: this.mode });
+            this.scene.start('GameSceneHard', resetData);
     }
 }

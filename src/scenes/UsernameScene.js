@@ -13,9 +13,14 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     init(data) {
+        console.log("UsernameScene init called with data:", JSON.stringify(data));
         this.mode = data.mode || 'easy';
         this.scoreData = data.scoreData || null;
         this.username = data.username || '';
+        this.level = data.level || 1;
+        console.log("UsernameScene initialized with mode:", this.mode);
+        console.log("UsernameScene score data:", this.scoreData);
+        console.log("UsernameScene level:", this.level);
 
         // Set colors based on mode
         if (this.mode === "easy") {
@@ -348,13 +353,19 @@ export default class UsernameScene extends Phaser.Scene {
                 console.log("About to save score data:", JSON.stringify(this.scoreData));
                 
                 this.scoreData.username = username;
+                // Make sure level is set in scoreData (in case it wasn't passed correctly)
+                if (!this.scoreData.level && this.level) {
+                    this.scoreData.level = this.level;
+                }
+                
                 await saveHighScore(this.scoreData);
                 
                 // Navigate to leaderboard
                 this.hideLoadingIndicator();
                 this.scene.start('LeaderboardScene', {
                     mode: this.mode,
-                    //previousScene: 'DoneScene'
+                    level: this.level,
+                    
                 });
             } catch (error) {
                 console.error("Error saving high score:", error);
@@ -374,7 +385,8 @@ export default class UsernameScene extends Phaser.Scene {
         this.hideLoadingIndicator();
         this.scene.start('LeaderboardScene', {
             mode: this.mode,
-            previousScene: 'DoneScene'
+            level: this.level,
+            
         });
     }
     

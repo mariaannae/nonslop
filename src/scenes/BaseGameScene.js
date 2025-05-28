@@ -2315,13 +2315,11 @@ export default class BaseGameScene extends Phaser.Scene {
     updateProgressFill() {
         if (!this.failsCounter) return;
 
-        
         this.failsCounter.clear();
 
         const scoreWidth = DESIGN.UI.BUTTON.WIDTH * 2 + DESIGN.UI.BUTTON.SPACING;
         const scoreHeight = DESIGN.UI.BUTTON.HEIGHT;
         console.log("progress percentage", this.progressPercentage);
-        
 
         const fillPercentage = Phaser.Math.Clamp(this.progressPercentage, 0, 100);
         
@@ -2330,36 +2328,119 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.progressPercentage > 0) {
             this.failsCounter.fillStyle(COLORS_HEX.BACKGROUND, 0.5);
         }
-
         
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
         
+        // Calculate segment width based on the increment percentage
+        const incrementPercentage = DESIGN.UI.PROGRESS_BAR.INCREMENT;
+        const totalSegments = Math.ceil(100 / incrementPercentage);
         
-        // Progress fill with rounded corners - reversed color gradation
-        let color;
-        if (fillPercentage === 50) {
-            color = DESIGN.UI.PROGRESS_BAR.COLORS.WARNING;
-        } else if (fillPercentage < 50) {
-            // Interpolate between red and yellow (red at 0%, yellow at 50%)
-            const t = fillPercentage / 50;
-            const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.DANGER & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)));
-            color = (r << 16) | (g << 8) | b;
-        } else {
-            // Interpolate between yellow and green (yellow at 50%, green at 100%)
-            const t = (fillPercentage - 50) / 50;
-            const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS & 0xFF)));
-            color = (r << 16) | (g << 8) | b;
-        }
-        this.failsCounter.fillStyle(color, 1);
-        if (fillPercentage > 0) {
-            this.failsCounter.fillRoundedRect(0, 0, (scoreWidth * fillPercentage) / 100, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
+        // Draw segments as individual rectangles
+        const segmentGap = 2; // Gap between segments
+        
+        // Calculate the exact width of each segment
+        const totalGapWidth = segmentGap * (totalSegments - 1);
+        const segmentWidth = (scoreWidth - totalGapWidth) / totalSegments;
+        
+        // Calculate how many segments to fill based on current progress
+        const segmentsToFill = Math.ceil(fillPercentage / incrementPercentage);
+        
+        // Draw each segment individually
+        for (let i = 0; i < segmentsToFill; i++) {
+            // Calculate color for this segment
+            const segmentPercentage = (i + 1) * incrementPercentage;
+            let color;
+            
+            if (segmentPercentage <= 50) {
+                // Interpolate between red and yellow (red at 0%, yellow at 50%)
+                const t = segmentPercentage / 50;
+                const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)));
+                const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)));
+                const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.DANGER & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)));
+                color = (r << 16) | (g << 8) | b;
+            } else {
+                // Interpolate between yellow and green (yellow at 50%, green at 100%)
+                const t = (segmentPercentage - 50) / 50;
+                const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 16) & 0xFF)));
+                const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 8) & 0xFF)));
+                const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS & 0xFF)));
+                color = (r << 16) | (g << 8) | b;
+            }
+            
+            this.failsCounter.fillStyle(color, 1);
+            
+            // Calculate the position for this segment
+            const segmentX = i * (segmentWidth + segmentGap);
+            
+            // Make sure we're using the correct color
+            this.failsCounter.fillStyle(color, 1);
+            
+            // Draw the segment
+            if (i === 0 && segmentsToFill === 1) {
+                // Only one segment - round both sides (and narrower on both sides)
+                this.failsCounter.fillRoundedRect(
+                    segmentX, 
+                    0, 
+                    segmentWidth, 
+                    scoreHeight, 
+                    DESIGN.UI.BUTTON.CORNER_RADIUS
+                );
+            } else if (i === 0) {
+                // First segment - round left side only
+                this.failsCounter.fillRoundedRect(
+                    segmentX, 
+                    0, 
+                    segmentWidth, 
+                    scoreHeight, 
+                    {
+                        tl: DESIGN.UI.BUTTON.CORNER_RADIUS,
+                        bl: DESIGN.UI.BUTTON.CORNER_RADIUS,
+                        tr: 0,
+                        br: 0
+                    }
+                );
+            } else if (i === segmentsToFill - 1) {
+                // Last segment - round the right corners if this is at 100%
+                if (fillPercentage >= 99) {
+                    // Ensure we're using the correct green color for the rightmost segment at 100%
+                    // Force green color for the final segment when at 100%
+                    if (fillPercentage >= 99) {
+                        this.failsCounter.fillStyle(DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS, 1);
+                    }
+                    
+                    this.failsCounter.fillRoundedRect(
+                        segmentX, 
+                        0, 
+                        segmentWidth, 
+                        scoreHeight, 
+                        {
+                            tl: 0,
+                            bl: 0,
+                            tr: DESIGN.UI.BUTTON.CORNER_RADIUS,
+                            br: DESIGN.UI.BUTTON.CORNER_RADIUS
+                        }
+                    );
+                } else {
+                    // Otherwise keep square corners
+                    this.failsCounter.fillRect(
+                        segmentX, 
+                        0, 
+                        segmentWidth, 
+                        scoreHeight
+                    );
+                }
+            } else {
+                // Middle segment - no rounding
+                this.failsCounter.fillRect(
+                    segmentX, 
+                    0, 
+                    segmentWidth, 
+                    scoreHeight
+                );
+            }
         }
 
-        // White outline
+        // White outline for the entire bar - always has rounded corners
         this.failsCounter.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
 
@@ -2368,8 +2449,6 @@ export default class BaseGameScene extends Phaser.Scene {
         } else if (this.progressPercentage == 0) {
             this.celebrateNeedsWork();
         }
-
-  
     }
 
     showSuggestions(words) {

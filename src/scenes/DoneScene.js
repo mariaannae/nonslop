@@ -19,6 +19,7 @@ export default class DoneScene extends Phaser.Scene {
     showLeaderboard() {
         this.scene.start('LeaderboardScene', {
             mode: this.mode,
+            level: this.levelValue,
             previousScene: 'DoneScene'
         });
     }
@@ -206,35 +207,44 @@ export default class DoneScene extends Phaser.Scene {
     
     addButtonClickEffects() {
         // Apply to all buttons
-        const buttons = [this.doneButton];
+        console.log("Adding button click effects");
         
-        buttons.forEach(button => {
-          if (!button) return;
-          
-          // Add click listener for particle effect
-          button.setInteractive();
-          
-          // Replace any existing click handlers with a new one that includes particles
-          button.off('pointerdown');
-          button.on('pointerdown', (pointer) => {
-            // Create the particle effect
-            this.createButtonClickParticles(button.x, button.y);
+        // Define the click handler function - separate from the button setup
+        const addClickEffect = (button, callback) => {
+            if (!button) return;
             
-            // Simulate button press animation
-            this.tweens.add({
-              targets: button,
-              scaleX: 0.95,
-              scaleY: 0.95,
-              duration: 100,
-              yoyo: true,
-              ease: "Quad.Out",
-              onComplete: () => {
-                // Call the appropriate button function based on button type
-                this.onDoneButtonClick();
-              }
+            // Add click listener for particle effect
+            button.setInteractive();
+            
+            // Replace any existing click handlers with a new one that includes particles
+            button.off('pointerdown');
+            button.on('pointerdown', (pointer) => {
+                console.log("Button clicked:", button.name || "unnamed button");
+                
+                // Create the particle effect
+                this.createButtonClickParticles(button.x, button.y);
+                
+                // Simulate button press animation
+                this.tweens.add({
+                    targets: button,
+                    scaleX: 0.95,
+                    scaleY: 0.95,
+                    duration: 100,
+                    yoyo: true,
+                    ease: "Quad.Out",
+                    onComplete: () => {
+                        // Call the provided callback
+                        if (typeof callback === 'function') {
+                            callback();
+                        }
+                    }
+                });
             });
-          });
-        });
+        };
+        
+        // Apply to each button with its own callback
+        addClickEffect(this.doneButton, () => this.onDoneButtonClick());
+        addClickEffect(this.feedbackButton, () => this.onFeedbackClick());
     }
       
     createButtonClickParticles(x, y) {
@@ -284,6 +294,26 @@ export default class DoneScene extends Phaser.Scene {
         return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
     }
     
+    testUsernameScene() {
+        // Direct test function to go to username scene
+        console.log("TEST: Directly starting UsernameScene with test data");
+        
+        // Create minimal test data
+        const testScoreData = {
+            score: 100,
+            mode: this.mode || 'easy',
+            level: this.levelValue || 1,
+            prompt: "Test prompt",
+            inputText: "Test input"
+        };
+        
+        this.scene.start('UsernameScene', {
+            mode: this.mode || 'easy',
+            scoreData: testScoreData,
+            level: this.levelValue || 1
+        });
+    }
+    
     async onDoneButtonClick() {
         // Save the user input before clearing it
         const userInputCopy = this.userInput;
@@ -306,11 +336,14 @@ export default class DoneScene extends Phaser.Scene {
             this.activeTimeout = null;
         }
         console.log("Initial levelvalue: ", this.levelValue);
-
         
-        if (this.score >= 10) {
-            this.levelValue = Math.min(this.levelValue+ 1, 3);
-        } else if (this.score <= 5) {
+        // Store the original level value before updating it
+        const originalLevelValue = this.levelValue;
+        
+        if (this.totalScore >= 10) {
+            this.levelValue = Math.min(this.levelValue + 1, 3);
+            
+        } else if (this.totalScore <= 5) {
             this.levelValue = Math.max(this.levelValue - 1, 1);
         } 
         
@@ -331,6 +364,7 @@ export default class DoneScene extends Phaser.Scene {
         const scoreData = {
             score: this.totalScore,
             mode: this.mode,
+            level: originalLevelValue, // Use the original level value, not the updated one
             failCount: this.failCount,
             totalWordCount: this.totalWordCount,
             originalWordCount: this.originalWordCount || (this.totalWordCount - this.failCount),
@@ -358,27 +392,31 @@ export default class DoneScene extends Phaser.Scene {
                 }
             ).setOrigin(0.5).setDepth(1000);
             
+            console.log("About to check if high score:", this.totalScore, this.mode);
+            // Call the actual isHighScore function instead of using a hardcoded value
             const isHighScoreResult = await isHighScore(this.totalScore, this.mode);
             
             // Remove loading text
             loadingText.destroy();
             console.log("scoredata: ", scoreData);
+            console.log("Is high score result:", isHighScoreResult);
+            
             if (isHighScoreResult) {
                 // It's a high score! Go to the username entry scene
                 console.log("High score achieved! Going to username entry");
+                console.log("Passing to UsernameScene - Mode:", this.mode, "Level:", originalLevelValue, "ScoreData:", JSON.stringify(scoreData));
                 this.scene.start('UsernameScene', {
                     mode: this.mode,
-                    scoreData: scoreData
+                    scoreData: scoreData,
+                    level: originalLevelValue, // Use original level, not the updated one
                 });
             } else {
-                // Not a high score, just go to the next game
-                console.log("Not a high score, continuing to next game");
-                if (this.mode === "easy") {
-                    this.scene.start('GameSceneEasy', resetData);
-                }
-                else if (this.mode === "hard") {
-                    this.scene.start('GameSceneHard', resetData);
-                }
+                // Not a high score, go to the leaderboard
+                console.log("Not a high score, going to leaderboard");
+                this.scene.start('LeaderboardScene', {
+                    mode: this.mode,
+                    level: originalLevelValue // Use original level, not the updated one
+                });
             }
         } catch (error) {
             console.error("Error checking high score:", error);
@@ -486,10 +524,13 @@ export default class DoneScene extends Phaser.Scene {
         
         let defaultText;
         if (this.mode === "hard") {
-            defaultText = `Total Words: ${this.totalWordCount - this.failCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
+            //defaultText = `Total Words: ${this.totalWordCount - this.failCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
+            defaultText =`Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
+
         }
         else if (this.mode === "easy") {
-            defaultText = `Total Words: ${this.totalWordCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
+            //defaultText = `Total Words: ${this.totalWordCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
+            defaultText = `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
         }
 
 
@@ -597,6 +638,7 @@ export default class DoneScene extends Phaser.Scene {
         this.prompt = data.prompt;
         this.score = data.score || null;
         //this.wordCount = data.wordCount || 0;
+        console.log("DoneScene initialized with mode:", this.mode, "levelValue:", this.levelValue, "topKValue:", this.topKValue, "score:", this.score);
 
         if (this.mode === "easy") {
             this.COLORS_HEX = EASY_COLORS_HEX;
@@ -709,8 +751,11 @@ export default class DoneScene extends Phaser.Scene {
         const buttonCenterX = this.cameras.main.centerX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
         const buttonCenterY = this.outputBoxY + this.outputBoxHeight + 30 + DESIGN.UI.BUTTON.HEIGHT / 2;
         this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
-            depth: 102 // ensure button is visible
+            depth: 102, // ensure button is visible
+            name: 'doneButton'
         });
+        // Set the name on the Game Object for debugging
+        this.doneButton.name = 'doneButton';
 
         // Tooltip on hover (match BaseGameScene style)
         this.doneButton.setInteractive()
@@ -726,14 +771,7 @@ export default class DoneScene extends Phaser.Scene {
             'Share your feedback'     
         );
         
-        // Add leaderboard button
-        this.leaderboardButton = this.createButton(
-            "HIGHSCORES", 
-            () => this.showLeaderboard(), 
-            this.cameras.main.width - DESIGN.UI.BUTTON.WIDTH / 2 - padding, 
-            this.cameras.main.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
-            'View high scores'
-        );
+        // Test button removed as requested
 
         
         
@@ -745,7 +783,7 @@ export default class DoneScene extends Phaser.Scene {
 
         if (this.totalScore >= 10) {
             this.createScoreRewardEffect();
-          } else if (this.totalScore <= 5) {
+          } else if (this.totalScore < 5) {
             this.createLowScoreWarning();
           } else {
             this.createMidScoreEffect();
@@ -799,7 +837,7 @@ export default class DoneScene extends Phaser.Scene {
 
 
 createLowScoreWarning() {
-    if (this.totalScore <= 5) {
+    if (this.totalScore < 5) {
       // Create red warning overlay
       const warningOverlay = this.add.rectangle(
         this.cameras.main.centerX,
@@ -947,7 +985,7 @@ createLowScoreWarning() {
   }
 
   createScoreRewardEffect() {
-    if (this.score >= 100) {
+    if (this.totalScore >= 10) {
       // Create a flashing screen effect
       const flashOverlay = this.add.rectangle(
         this.cameras.main.centerX,
@@ -1022,7 +1060,7 @@ createLowScoreWarning() {
   }
   
   createMidScoreEffect() {
-    if (this.score > 0 && this.score < 100) {
+    if (this.totalScore >= 5 && this.totalScore < 10) {
       // Create a mild amber overlay
       const warningOverlay = this.add.rectangle(
         this.cameras.main.centerX,

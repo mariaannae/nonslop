@@ -49,6 +49,7 @@ const PALETTE = {
     GREEN: 0xb4ffae,
     GREEN_LIGHTER: 0xcdffda,
     GREEN_LIGHTEST: 0xebfff7,
+    BRIGHT_GREEN: 0x00cc00, // More vibrant green for progress bar success
   }
 };
 
@@ -62,7 +63,7 @@ const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
  */
 const UI = {
   BUTTON: {
-    WIDTH: 100,
+    WIDTH: 105,
     HEIGHT: 40,
     SPACING: 40,
     OUTLINE_WIDTH: 2,
@@ -81,7 +82,7 @@ const UI = {
     INCREMENT: 3,
     DECREMENT: 3,
     COLORS: {
-      SUCCESS: PALETTE.HIGHLIGHT.GREEN,
+      SUCCESS: PALETTE.HIGHLIGHT.BRIGHT_GREEN,
       WARNING: PALETTE.HIGHLIGHT.YELLOW,
       DANGER: PALETTE.ACCENT.RED
     }

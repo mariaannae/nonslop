@@ -163,6 +163,8 @@ async function saveHighScore(scoreData) {
       username: scoreData.username || "Anonymous Player",
       score: scoreData.score || 0,
       mode: scoreData.mode || "easy",
+      level: scoreData.level || 1,
+      prompt: scoreData.prompt || "",
       timestamp: timestamp,
       date: date,
       time: time,
@@ -263,8 +265,18 @@ async function getTopScores(gameMode = null, maxResults = 10) {
             ? allScores.filter(score => score.mode === gameMode)
             : allScores;
             
-          // Sort by score descending - handle potential invalid score values
+          // Sort by level descending first, then by score descending
           filteredScores.sort((a, b) => {
+            // Get level values, default to 1 if not present
+            const levelA = typeof a.level === 'number' ? a.level : 1;
+            const levelB = typeof b.level === 'number' ? b.level : 1;
+            
+            // If levels are different, sort by level
+            if (levelB !== levelA) {
+              return levelB - levelA;
+            }
+            
+            // If levels are the same, sort by score
             const scoreA = typeof a.score === 'number' ? a.score : 0;
             const scoreB = typeof b.score === 'number' ? b.score : 0;
             return scoreB - scoreA;
