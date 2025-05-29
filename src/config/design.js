@@ -66,7 +66,7 @@ const UI = {
     WIDTH: 105,
     HEIGHT: 40,
     SPACING: 40,
-    OUTLINE_WIDTH: 2,
+    OUTLINE_WIDTH: 3,
     CORNER_RADIUS: 10
   },
   OUTLINE: {

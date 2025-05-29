@@ -11,6 +11,8 @@ export default class BaseGameScene extends Phaser.Scene {
         super(config);
         this.userInput = '';
         this.inputText = null; 
+        this.keyEventQueue = []; // To store incoming key events
+        this.isProcessingQueuedKeys = false; // Flag to indicate if the queue is being processed
         this.levelValue = 1;
         this.topKValue = 1;  // Initialize topK with default value
         this.baseFontSize = 22;
@@ -727,7 +729,151 @@ export default class BaseGameScene extends Phaser.Scene {
         this.setupInputHandlers();
     }
 
-    
+    handleSingleKeyEvent(event) {
+        // This is the main logic extracted from original keydown handler's try block
+        try {
+            this.isActivelyTyping = true;
+            if (!this.cursorVisible) this.cursorVisible = true;
+
+            this.inputActive = true; // Legacy flag
+            if (this.activeTimeout) {
+                clearTimeout(this.activeTimeout);
+            }
+            this.activeTimeout = setTimeout(() => {
+                this.isActivelyTyping = false;
+            }, 500);
+
+            const ignoreKeys = [
+                'Shift', 'Control', 'Alt', 'Meta', 'CapsLock',
+                'Escape', 'F1', 'F2', 'F3', 'F4', 'F5',
+                'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
+                'NumLock', 'ScrollLock', 'Pause', 'Insert', 'Home',
+                'PageUp', 'Delete', 'End', 'PageDown', 'ArrowRight',
+                'ArrowLeft', 'ArrowDown', 'ArrowUp'
+            ];
+
+            if (ignoreKeys.includes(event.key)) {
+                return; // Simply return, the queue processing will continue
+            }
+
+            // --- Main Key Processing Logic ---
+            if (event.key === " ") {
+                const words = this.userInput.trim().split(" ");
+                const lastWord = words[words.length - 1];
+                if (lastWord && lastWord.length > 0) {
+                    const lastWordLower = lastWord.toLowerCase();
+                    const isAIWord = this.aiSuggestedWords &&
+                        this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
+                    if (isAIWord) {
+                        console.log("AI word used:", lastWord);
+                        this.updateFailsCounter(false);
+                    } else {
+                        console.log("Non-AI word used:", lastWord);
+                        this.updateFailsCounter(true);
+                    }
+                }
+                this.userInput += " ";
+                this.updateCursor();
+                this.debouncedGenerateAISuggestions(this.userInput);
+            } else if (event.key === "Tab") {
+                event.preventDefault();
+                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+                    const lastSpaceIndex = this.userInput.lastIndexOf(' ');
+                    const lastNewlineIndex = this.userInput.lastIndexOf('\n');
+                    const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+                    const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
+                    const previousContent = lastBreakIndex >= 0 ? this.userInput.slice(0, lastBreakIndex + 1) : '';
+
+                    let suggestionToUse = null;
+                    if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
+                        suggestionToUse = this.aiSuggestedWords[0];
+                    } else {
+                        suggestionToUse = this.aiSuggestedWords.find(word =>
+                            word.toLowerCase().startsWith(currentWord.toLowerCase())
+                        );
+                    }
+                    
+                    if (suggestionToUse) {
+                        this.userInput = previousContent + suggestionToUse + ' ';
+                        console.log("AI word used (Tab):", suggestionToUse);
+                        this.updateFailsCounter(false);
+                        this.updateCursor();
+                        this.debouncedGenerateAISuggestions(this.userInput);
+                    }
+                }
+            } else if (event.key.length === 1) { // Printable characters
+                this.userInput += event.key;
+                this.updateCursor();
+                this.debouncedGenerateAISuggestions(this.userInput);
+            } else if (event.key === "Backspace") {
+                this.userInput = this.userInput.slice(0, -1);
+                this.updateCursor();
+                const lastSpaceIndex = this.userInput.lastIndexOf(' ');
+                const lastNewlineIndex = this.userInput.lastIndexOf('\n');
+                const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+                if (lastBreakIndex === this.userInput.length - 1 || this.userInput === '') {
+                    this.debouncedGenerateAISuggestions(this.userInput);
+                }
+            } else if (event.key === "Enter") {
+                const words = this.userInput.trim().split(" ");
+                const lastWord = words[words.length - 1];
+                if (lastWord && lastWord.length > 0) {
+                    const lastWordLower = lastWord.toLowerCase();
+                    const isAIWord = this.aiSuggestedWords &&
+                        this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
+                    if (isAIWord) {
+                        console.log("AI word used:", lastWord);
+                        this.updateFailsCounter(false);
+                    } else {
+                        console.log("Non-AI word used:", lastWord);
+                        this.updateFailsCounter(true);
+                    }
+                }
+                this.userInput += "\n";
+                this.updateCursor();
+                this.debouncedGenerateAISuggestions(this.userInput);
+            }
+            // Ensure no old `this.keyProcessing` or `setTimeout` for it here
+        } catch (error) {
+            console.error("Error processing single key event:", error, event);
+            // Even if an error occurs, the queue processing loop in _processNextEventInQueue will continue
+        }
+    }
+
+
+    triggerProcessQueue() {
+        if (this.isProcessingQueuedKeys) {
+            return; // Queue is already being processed
+        }
+        if (this.keyEventQueue.length === 0) {
+            return; // Queue is empty
+        }
+
+        this.isProcessingQueuedKeys = true; // Set the flag, as we are starting to process
+        this.processNextEventInQueue();    // Start processing
+    }
+
+    processNextEventInQueue() {
+        if (this.keyEventQueue.length === 0) {
+            this.isProcessingQueuedKeys = false; // Queue is now empty, release the lock
+            return;
+        }
+
+        const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
+
+        // Handle the single key event using the extracted logic
+        this.handleSingleKeyEvent(eventToProcess);
+
+        // After handling, immediately attempt to process the next event in the queue.
+        // This creates a sequential processing loop.
+        // Using requestAnimationFrame or setTimeout(0) could yield to the browser if processing is heavy,
+        // but for typical key inputs, direct recursion/chaining is usually fine.
+        // Phaser's game loop might also provide natural breaks if calls are scheduled via its timer.
+        // For simplicity, we'll call it directly to ensure immediate sequential processing.
+        this.processNextEventInQueue();
+    }
+
+
     setupInputHandlers() {       
         // First make sure we have a basic text displayed
         if (this.inputText) {
@@ -758,135 +904,8 @@ export default class BaseGameScene extends Phaser.Scene {
         }, 300);
 
         this.input.keyboard.on("keydown", (event) => {
-
-            // Mark that we're actively typing (stops cursor blink)
-            this.isActivelyTyping = true;
-            if (!this.cursorVisible) this.cursorVisible = true; // Only set to true if it was false
-            
-            // Also maintain the older input activity flag for backwards compatibility
-            this.inputActive = true;
-            if (this.activeTimeout) {
-                clearTimeout(this.activeTimeout);
-            }
-            this.activeTimeout = setTimeout(() => {
-                this.isActivelyTyping = false;
-            }, 500);
-
-            const ignoreKeys = [
-                'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 
-                'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 
-                'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
-                'NumLock', 'ScrollLock', 'Pause', 'Insert', 'Home', 
-                'PageUp', 'Delete', 'End', 'PageDown', 'ArrowRight', 
-                'ArrowLeft', 'ArrowDown', 'ArrowUp'
-            ];
-            
-            // Skip processing for modifier keys
-            if (ignoreKeys.includes(event.key)) {
-                return;
-            }
-            
-
-            if (event.key === " ") {
-                const words = this.userInput.trim().split(" ");
-                const lastWord = words[words.length - 1];
-                
-                if (lastWord && lastWord.length > 0) {
-                    // Convert to lowercase for case-insensitive comparison
-                    const lastWordLower = lastWord.toLowerCase();
-                    const isAIWord = this.aiSuggestedWords && 
-                        this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
-                    
-                    if (isAIWord) {
-                        console.log("AI word used:", lastWord);
-                        this.updateFailsCounter(false);
-                    } else {
-                        console.log("Non-AI word used:", lastWord);
-                        this.updateFailsCounter(true);
-                    }
-                }
-                
-                this.userInput += " ";
-                this.updateCursor();
-                this.debouncedGenerateAISuggestions(this.userInput);
-            } else if (event.key === "Tab") {
-                event.preventDefault();
-                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-                    // Get current word being typed
-                    const lastSpaceIndex = this.userInput.lastIndexOf(' ');
-                    const lastNewlineIndex = this.userInput.lastIndexOf('\n');
-                    const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
-                    const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
-                    const previousContent = lastBreakIndex >= 0 ? this.userInput.slice(0, lastBreakIndex + 1) : '';
-
-                    // If at word boundary, use first suggestion
-                    if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
-                        const suggestion = this.aiSuggestedWords[0];
-                        if (suggestion) {
-                            this.userInput = this.userInput + suggestion + ' ';
-                            console.log("AI word used (Tab):", suggestion);
-                            this.updateFailsCounter(false);
-                            this.updateCursor();
-                            this.debouncedGenerateAISuggestions(this.userInput);
-                        }
-                    } else {
-                        // Find matching suggestion for current word
-                        const suggestion = this.aiSuggestedWords.find(word => 
-                            word.toLowerCase().startsWith(currentWord.toLowerCase())
-                        );
-                        
-                        if (suggestion) {
-                            this.userInput = previousContent + suggestion + ' ';
-                            console.log("AI word used (Tab):", suggestion);
-                            this.updateFailsCounter(false);
-                            this.updateCursor();
-                            this.debouncedGenerateAISuggestions(this.userInput);
-                        }
-                    }
-                }
-            } else if (event.key.length === 1) {
-                this.userInput += event.key;
-                this.updateCursor();
-                this.debouncedGenerateAISuggestions(this.userInput);
-            } else if (event.key === "Backspace") {
-                this.userInput = this.userInput.slice(0, -1);
-                this.updateCursor();
-                
-                // Only generate new suggestions if we're at a word boundary
-                const lastSpaceIndex = this.userInput.lastIndexOf(' ');
-                const lastNewlineIndex = this.userInput.lastIndexOf('\n');
-                const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
-                if (lastBreakIndex === this.userInput.length - 1) {
-                    this.debouncedGenerateAISuggestions(this.userInput);
-                }
-            } else if (event.key === "Enter") {
-                const words = this.userInput.trim().split(" ");
-                const lastWord = words[words.length - 1];
-                
-                if (lastWord && lastWord.length > 0) {
-                    // Convert to lowercase for case-insensitive comparison
-                    const lastWordLower = lastWord.toLowerCase();
-                    const isAIWord = this.aiSuggestedWords && 
-                        this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
-                    
-                    if (isAIWord) {
-                        console.log("AI word used:", lastWord);
-                        this.updateFailsCounter(false);
-                    } else {
-                        console.log("Non-AI word used:", lastWord);
-                        this.updateFailsCounter(true);
-                    }
-                }
-                
-                this.userInput += "\n";
-                this.updateCursor();
-                this.debouncedGenerateAISuggestions(this.userInput);
-            }
-            
-            this.updateCursor();
-            setTimeout(() => {
-                this.keyProcessing = false;
-            }, 50);
+            this.keyEventQueue.push(event); // Add event to the queue
+            this.triggerProcessQueue();    // Attempt to process the queue
         });
         
         if (this.cursorTimer) {
@@ -2051,7 +2070,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.updateProgressFill();
     }
 
-    // Visual effects for progress bar: scale pop, color flash, shake, and particle burst
+    // Visual effects for progress bar: scale pop, color flash, shake
     animateProgressBarChange(type) {
         if (!this.failsCounter) return;
         const bar = this.failsCounter;
@@ -2062,49 +2081,18 @@ export default class BaseGameScene extends Phaser.Scene {
             bar.originalX = bar.x;
         }
 
-        // Scale pop
+        // Shake
         scene.tweens.add({
             targets: bar,
-            scaleX: 1.15,
-            scaleY: 1.25,
+            x: bar.originalX + (type === "increment" ? 2 : -2),
             yoyo: true,
-            duration: 120,
-            ease: "Back.Out",
+            repeat: 3,
+            duration: 40,
             onComplete: () => {
-                // Color flash (tint)
-                const flashColor = type === "increment" ? 0xffff00 : 0xff0000;
-                bar.setTint?.(flashColor);
-                if (bar.fillStyle) {
-                    // For Graphics, we can redraw with a flash color overlay
-                    bar.flashOverlay = scene.add.graphics();
-                    bar.flashOverlay.fillStyle(flashColor, 0.4);
-                    bar.flashOverlay.fillRoundedRect(bar.x, bar.y, bar.width || 180, bar.height || 40, 10);
-                    bar.flashOverlay.setDepth(bar.depth + 1);
-                    scene.time.delayedCall(100, () => {
-                        bar.flashOverlay?.destroy();
-                        bar.flashOverlay = null;
-                    });
-                }
-                scene.time.delayedCall(100, () => {
-                    bar.clearTint?.();
-                });
-
-                // Shake
-                scene.tweens.add({
-                    targets: bar,
-                    x: bar.originalX + (type === "increment" ? 10 : -10),
-                    yoyo: true,
-                    repeat: 3,
-                    duration: 40,
-                    onComplete: () => {
-                        bar.x = bar.originalX;
-                    }
-                });
-
-                // Particle burst
-                scene.emitProgressBarParticles(type);
+                bar.x = bar.originalX;
             }
         });
+ 
     }
 
     // Particle burst for progress bar

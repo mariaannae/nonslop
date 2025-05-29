@@ -167,7 +167,7 @@ export default class LevelScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "Easy: You can use AI-suggested words, but you'll lose points. Your score will be based on the percentage of typed words that were AI-suggested.\n\nHard: You can only use your own words. No AI suggestions allowed. Your score will be based on the number of times you attempt to use an AI-suggested word.\n\nMake your choice.";
+        const defaultText = "Easy: You can use AI-suggested words, but you'll lose points. \n\nHard: You can only use your own words. No AI suggestions may be used, and you will be penalized for each attempt to do so.\n\nMake your choice.";
 
         this.promptText = this.add.text(
             this.cameras.main.centerX, 

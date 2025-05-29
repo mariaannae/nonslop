@@ -569,7 +569,7 @@ export default class Preloader extends Phaser.Scene {
             this.progressBarOutline.clear();
         }
     
-        this.progressBarOutline.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH+1, COLORS_HEX.ACCENT, 1);
+        this.progressBarOutline.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.ACCENT, 1);
     
         // ✅ Store the correct left-edge position
         
