@@ -13,6 +13,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.inputText = null; 
         this.keyEventQueue = []; // To store incoming key events
         this.isProcessingQueuedKeys = false; // Flag to indicate if the queue is being processed
+        this.keyProcessingComplete = true; // Flag to indicate if key processing is complete
         this.levelValue = 1;
         this.topKValue = 1;  // Initialize topK with default value
         this.baseFontSize = 22;
@@ -509,6 +510,8 @@ export default class BaseGameScene extends Phaser.Scene {
             if (this.autocompleteText) {
                 this.autocompleteText.setText('');
             }
+            // Mark processing as complete - important even for empty input
+            this.keyProcessingComplete = true;
             return;
         }
     
@@ -890,7 +893,12 @@ export default class BaseGameScene extends Phaser.Scene {
         const currentInput = this.userInput;
         // Only call the debounced function if we have a valid input
         if (this.debouncedGenerateAISuggestions) {
+            // Don't block UI updates - let suggestions generate in background
             this.debouncedGenerateAISuggestions(currentInput);
+            
+            // No need to wait for suggestions to finish before processing next key
+            // Let the UI update immediately without waiting
+            this.keyProcessingComplete = true;
         }
     }
 
@@ -905,9 +913,15 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.keyEventQueue.length === 0) {
             return;
         }
+        
+        // Don't process if a previous key is still being processed
+        if (!this.keyProcessingComplete) {
+            return;
+        }
 
         // Set processing flag to prevent concurrent processing
         this.isProcessingQueuedKeys = true;
+        this.keyProcessingComplete = false;
         
         // Use Phaser timer to avoid deep recursion and allow frame rendering
         this.time.delayedCall(0, this.processNextEventInQueue, [], this);
@@ -917,39 +931,53 @@ export default class BaseGameScene extends Phaser.Scene {
         // Exit if we're shutting down to prevent processing during scene transitions
         if (this.isShuttingDown) {
             this.isProcessingQueuedKeys = false;
+            this.keyProcessingComplete = true;
             this.keyEventQueue = []; // Clear any remaining events
             return;
         }
         
-        // Process a maximum number of events per frame to prevent input lag
-        const maxEventsPerFrame = 5;
-        let eventsProcessed = 0;
-        
-        while (this.keyEventQueue.length > 0 && eventsProcessed < maxEventsPerFrame) {
+        // Process just one event at a time to prevent input issues
+        if (this.keyEventQueue.length > 0) {
             const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
             
             // Skip repeated key events of the same key if they happen in quick succession
             // (helps prevent duplications from key repeat)
             if (this.lastProcessedKey === eventToProcess.key && 
-                (Date.now() - this.lastKeyProcessTime) < 50) {
-                continue;
+                (Date.now() - this.lastKeyProcessTime) < 30) { // Reduced from 50ms to 30ms
+                // Skip this key but mark processing as complete for this event
+                this.keyProcessingComplete = true;
+                
+                // If there are more events to process, schedule another processing frame immediately
+                if (this.keyEventQueue.length > 0) {
+                    this.time.delayedCall(0, this.processNextEventInQueue, [], this); // Removed 50ms delay
+                } else {
+                    // Reset processing flag when queue is empty
+                    this.isProcessingQueuedKeys = false;
+                }
+                return;
             }
             
             // Record this key and time for duplication prevention
             this.lastProcessedKey = eventToProcess.key;
             this.lastKeyProcessTime = Date.now();
             
-            // Handle the single key event
+            // Handle the single key event - this immediately updates the display
             this.handleSingleKeyEvent(eventToProcess);
-            eventsProcessed++;
-        }
-        
-        // If there are more events to process, schedule another processing frame
-        if (this.keyEventQueue.length > 0) {
-            this.time.delayedCall(0, this.processNextEventInQueue, [], this);
+            
+            // Mark as complete right away so UI updates immediately
+            this.keyProcessingComplete = true;
+            
+            // If there are more events to process, schedule another processing frame
+            if (this.keyEventQueue.length > 0) {
+                this.time.delayedCall(0, this.processNextEventInQueue, [], this); // Removed 50ms delay
+            } else {
+                // Reset processing flag when queue is empty
+                this.isProcessingQueuedKeys = false;
+            }
         } else {
-            // Reset processing flag when queue is empty
+            // Reset processing flags when queue is empty
             this.isProcessingQueuedKeys = false;
+            this.keyProcessingComplete = true;
         }
     }
 
@@ -995,7 +1023,7 @@ export default class BaseGameScene extends Phaser.Scene {
             };
         }
 
-        // Debounced suggestion generator with a longer base delay
+        // Debounced suggestion generator with faster initial display
         this.debouncedGenerateAISuggestions = debounce((input) => {
             // Use a snapshot of input to prevent race conditions
             const currentInput = input;
@@ -1003,7 +1031,7 @@ export default class BaseGameScene extends Phaser.Scene {
             if (currentInput === this.userInput && !this.isShuttingDown) {
                 this.generateAISuggestions(currentInput);
             }
-        }, 350); // Increased from 300ms to 350ms for more stability
+        }, 250); // Reduced delay for better responsiveness
 
         // Keyboard handler that prevents key repeat issues
         this.input.keyboard.on("keydown", (event) => {
