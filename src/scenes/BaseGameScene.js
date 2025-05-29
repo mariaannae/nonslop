@@ -45,6 +45,11 @@ export default class BaseGameScene extends Phaser.Scene {
 
         // Debounced suggestion generator (will be set in setupInputHandlers)
         this.debouncedGenerateAISuggestions = null;
+        
+        // Word streak tracking
+        this.wordStreak = 0;               // Current streak of original words
+        this.maxWordStreak = 0;            // Highest streak achieved
+        this.lastWordWasOriginal = false;  // Flag to track if last word was original
     }
 
     update() {
@@ -646,9 +651,16 @@ export default class BaseGameScene extends Phaser.Scene {
         const boxHeight = 80; // Fixed height for prompt box
         const boxStyle = this.getPromptBoxStyle();
         
+        // Calculate position below Word Stats panel
+        const statsBoxWidth = 180;
+        const statsBoxHeight = 130;
+        const statsDisplayY = this.menuBarHeight + padding;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        
+        // Set the prompt box 20px below the Word Stats panel
+        const promptY = statsBottomEdge + 20;
+        
         this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-        const inputBoxY = this.cameras.main.centerY - 240 / 2; // Input box Y position
-        const promptY = inputBoxY - boxHeight - padding; // Position prompt above input box
         
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - textBoxWidth / 2,
@@ -685,7 +697,20 @@ export default class BaseGameScene extends Phaser.Scene {
         const padding = 30;
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         const textBoxHeight = 240;
-        const textBoxY = this.cameras.main.centerY - textBoxHeight / 2;
+        
+        // Calculate position below Word Stats panel and prompt box
+        const statsBoxWidth = 180;
+        const statsBoxHeight = 130;
+        const statsDisplayY = this.menuBarHeight + padding;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        
+        // Prompt box is 20px below stats box
+        const promptY = statsBottomEdge + 20;
+        const promptBoxHeight = 80;
+        const promptBottomEdge = promptY + promptBoxHeight;
+        
+        // Input box is 20px below prompt box
+        const textBoxY = promptBottomEdge + 20;
         
         // Clear any existing elements first
         if (this.inputTextBorder) {
@@ -1113,10 +1138,20 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelValue = this.levelValue || 1;
 
         
-        // Add Settings button to menu bar
+        // Add Settings button to menu bar using SVG
         const settingsButtonX = this.cameras.main.width - padding - 40;
         const settingsButtonY = menuBarHeight / 2;
 
+        // Load the settings.svg if not already available
+        if (!this.textures.exists('settings')) {
+            this.load.svg('settings', 'assets/settings.svg');
+            this.load.once('complete', () => {
+                this.createSettingsButton(settingsButtonX, settingsButtonY);
+            });
+            this.load.start();
+        } else {
+            this.createSettingsButton(settingsButtonX, settingsButtonY);
+        }
 
         // Create mode and level indicator in center of menu bar
         const modeText = this.mode === 'hard' ? 'HARD' : 'EASY';
@@ -1168,27 +1203,6 @@ export default class BaseGameScene extends Phaser.Scene {
         });
         
         
-        this.settingsButton = this.add.text(
-            settingsButtonX, settingsButtonY, 
-            '⚙️',
-            { fontFamily: 'Nunito', fontSize: '40px', fill: '#ffffff' }
-        ).setOrigin(0.5, 0.5)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerover', () => {
-            this.settingsButton.setScale(1.2);
-            this.showTooltip('Settings: \nLevel\nMax AI Words \nMode', this.settingsButton.x, this.settingsButton.y + 50 + this.settingsButton.height);
-        })
-        .on('pointerout', () => {
-            this.settingsButton.setScale(1);
-            this.hideTooltips();
-        })
-        .on('pointerdown', () => {
-            this.settingsButton.setScale(0.9);
-        })
-        .on('pointerup', () => {
-            this.settingsButton.setScale(1.2);
-            this.toggleSettingsPopup();
-        });
         
         // Save topK values for settings popup
         this.topKValue = this.topKValue || 1;
@@ -1358,6 +1372,11 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.failsCounter) {
             this.updateProgressFill();
         }
+        
+        // Reset word streak counter
+        this.wordStreak = 0;
+        this.lastWordWasOriginal = false;
+        this.updateStreakCounter(false);
     }
 
 
@@ -1768,7 +1787,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         const padding = 20;
         const boxWidth = 180;
-        const boxHeight = 95;
+        const boxHeight = 130; // Increased height to accommodate streak counter
         const cornerRadius = 10;
         
         // Position in the upper right corner, mirroring the mode badge position
@@ -1822,18 +1841,44 @@ export default class BaseGameScene extends Phaser.Scene {
             { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#ff3366' }
         ).setOrigin(1, 0.5);
         
-        // Total count at bottom
-        // const totalLabel = this.add.text(
-        //     20, 85, 
-        //     "Total:", 
-        //     { fontFamily: 'Nunito', fontSize: '14px', fontStyle: 'bold', fill: '#ffffff' }
-        // ).setOrigin(0, 0.5);
+        // Streak counter (third row)
+        const streakColor = this.getStreakColor(this.wordStreak);
+        const streakIcon = this.add.circle(20, 90, 6, streakColor);
+        const streakLabel = this.add.text(
+            35, 90,
+            "Current Streak:",
+            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
         
-        // this.totalCountText = this.add.text(
-        //     boxWidth - 15, 85, 
-        //     "0", 
-        //     { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#ffffff' }
-        // ).setOrigin(1, 0.5);
+        this.streakText = this.add.text(
+            boxWidth - 15, 90,
+            `${this.wordStreak}`,
+            { 
+                fontFamily: 'Nunito', 
+                fontSize: '16px', 
+                fontStyle: 'bold', 
+                fill: '#' + streakColor.toString(16).padStart(6, '0')
+            }
+        ).setOrigin(1, 0.5);
+        
+        // Max streak (fourth row)
+        const maxStreakIcon = this.add.circle(20, 115, 6, 0xffd700); // Gold color for max streak
+        const maxStreakLabel = this.add.text(
+            35, 115,
+            "Best Streak:",
+            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+        ).setOrigin(0, 0.5);
+        
+        this.maxStreakText = this.add.text(
+            boxWidth - 15, 115,
+            `${this.maxWordStreak}`,
+            { 
+                fontFamily: 'Nunito', 
+                fontSize: '16px', 
+                fontStyle: 'bold', 
+                fill: '#ffd700' 
+            }
+        ).setOrigin(1, 0.5);
         
         // Add all elements to the container
         this.wordCountDisplay.add([
@@ -1841,7 +1886,8 @@ export default class BaseGameScene extends Phaser.Scene {
             titleText, 
             originalIcon, originalLabel, this.originalCountText,
             aiIcon, aiLabel, this.aiCountText,
-            //totalLabel, this.totalCountText
+            streakIcon, streakLabel, this.streakText,
+            maxStreakIcon, maxStreakLabel, this.maxStreakText
         ]);
         
         // Position the container
@@ -1856,6 +1902,9 @@ export default class BaseGameScene extends Phaser.Scene {
             repeat: -1,
             ease: 'Sine.InOut'
         });
+        
+        // Store a reference to the streak icon to update its color
+        this.streakIcon = streakIcon;
     }
     
     updateWordCountDisplay() {
@@ -1880,6 +1929,28 @@ export default class BaseGameScene extends Phaser.Scene {
         this.animateCountChange(this.originalCountText, this.originalCountText.text, originalWordCount.toString());
         this.animateCountChange(this.aiCountText, this.aiCountText.text, this.aiWordCount.toString());
         //this.animateCountChange(this.totalCountText, this.totalCountText.text, totalWordCount.toString());
+        
+        // Update streak counter if it exists
+        if (this.streakText) {
+            this.streakText.setText(`${this.wordStreak}`);
+            
+            // Update streak text color based on streak count
+            if (this.wordStreak >= 3) {
+                this.streakText.setFill('#' + this.getStreakColor(this.wordStreak).toString(16).padStart(6, '0')); // Match icon color
+            } else {
+                this.streakText.setFill('#' + this.getStreakColor(this.wordStreak).toString(16).padStart(6, '0')); // Match icon color
+            }
+        }
+        
+        // Update max streak counter if it exists
+        if (this.maxStreakText) {
+            this.maxStreakText.setText(`${this.maxWordStreak}`);
+        }
+        
+        // Update streak icon color
+        if (this.streakIcon) {
+            this.streakIcon.fillColor = this.getStreakColor(this.wordStreak);
+        }
     }
     
     animateCountChange(textObject, oldValue, newValue) {
@@ -1978,9 +2049,7 @@ export default class BaseGameScene extends Phaser.Scene {
         return '';
     }
     
-    // We no longer need the calculateTextPosition method as we're using a single text object approach
-    
-    // You should also update this function to properly handle multi-line text
+    // Update cursor and input text display
     updateCursor() {
         // Performance measurement
         const startTime = performance.now();
@@ -1988,21 +2057,32 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.isShuttingDown) return;
         if (!this.inputText || this.inputText.destroyed) return;
         
-        // Keep input text position fixed - use cached values where possible
+        // Calculate correct text position based on the new layout
         const padding = 30;
         
-        // Position text only if needed - cache these values during initialization
-        if (!this._cursorPosInitialized) {
-            const centerY = this.cameras?.main?.centerY || 300;
-            const centerX = this.cameras?.main?.centerX || 450;
-            const textBoxY = centerY - 240 / 2;
+        // Reset text position to match the current input box position
+        // This ensures text appears in the correct position even after layout changes
+        if (!this._cursorPosInitialized || true) { // Always update position to ensure consistency
+            // Get the current position of our input text box from the calculated layout values
+            const statsBoxWidth = 180;
+            const statsBoxHeight = 130;
+            const statsDisplayY = this.menuBarHeight + padding;
+            const statsBottomEdge = statsDisplayY + statsBoxHeight;
+            
+            // Prompt box is 20px below stats box
+            const promptY = statsBottomEdge + 20;
+            const promptBoxHeight = 80;
+            const promptBottomEdge = promptY + promptBoxHeight;
+            
+            // Input box is 20px below prompt box
+            const textBoxY = promptBottomEdge + 20;
             
             if (!this.uiBoxWidth) {
                 this.uiBoxWidth = this.cameras.main.width * (5 / 6);
             }
             
             this.inputText.setPosition(
-                centerX - this.uiBoxWidth / 2 + padding,
+                this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
                 textBoxY + padding
             );
             
@@ -2055,6 +2135,38 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     }
 
+    createSettingsButton(x, y) {
+        // Create settings button using the SVG
+        const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
+        
+        // Scale the icon appropriately
+        settingsIcon.setScale(0.25);
+        
+        // Make the settings icon white
+        settingsIcon.setTint(0xffffff);
+        
+        // Make it interactive
+        settingsIcon.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => {
+                settingsIcon.setScale(0.3);
+                this.showTooltip('Settings: \nLevel\nMax AI Words \nMode', settingsIcon.x, settingsIcon.y + 50);
+            })
+            .on('pointerout', () => {
+                settingsIcon.setScale(0.25);
+                this.hideTooltips();
+            })
+            .on('pointerdown', () => {
+                settingsIcon.setScale(0.22);
+            })
+            .on('pointerup', () => {
+                settingsIcon.setScale(0.3);
+                this.toggleSettingsPopup();
+            });
+        
+        // Store reference to the button
+        this.settingsButton = settingsIcon;
+    }
+
     createFailsCounter() {
         if (this.failsCounter) {
             this.failsCounter.clear();
@@ -2070,18 +2182,28 @@ export default class BaseGameScene extends Phaser.Scene {
         const scoreWidth = DESIGN.UI.BUTTON.WIDTH * 2 + DESIGN.UI.BUTTON.SPACING;
         const scoreHeight = DESIGN.UI.BUTTON.HEIGHT;
         
-        // Position at bottom left of input box
-        const inputBoxY = this.cameras.main.centerY - 240 / 2;
-        const inputBoxHeight = 240;
-        const padding = 20;
+        // Calculate position using the new layout calculation
+        const statsBoxWidth = 180;
+        const statsBoxHeight = 130;
+        const statsDisplayY = this.menuBarHeight + 20;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
         
-        // Calculate the offset from edge - match the Done button's distance
-        // Assume standard button padding from design_easy.js
+        // Prompt box is 20px below stats box
+        const promptY = statsBottomEdge + 20;
+        const promptBoxHeight = 80;
+        const promptBottomEdge = promptY + promptBoxHeight;
+        
+        // Input box is 20px below prompt box
+        const inputBoxY = promptBottomEdge + 20;
+        const inputBoxHeight = 240;
+        const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
+        
+        const padding = 20;
         const buttonPadding = 70; // Standard padding used for buttons
         
         // Set X position with the same padding as buttons have from right side
         const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + buttonPadding;
-        const scoreY = inputBoxY + inputBoxHeight + padding;
+        const scoreY = inputBoxBottomEdge + padding * 2;
     
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);
@@ -2330,6 +2452,9 @@ export default class BaseGameScene extends Phaser.Scene {
         // Update the word count display
         this.updateWordCountDisplay();
         
+        // Update the streak counter - success means original word
+        this.updateStreakCounter(success);
+        
         newPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
 
         this.progressPercentage = newPercentage;
@@ -2371,6 +2496,145 @@ export default class BaseGameScene extends Phaser.Scene {
  
     }
 
+    // Get appropriate color based on streak count
+    getStreakColor(streak) {
+        if (streak >= 10) return 0xffd700; // Gold
+        if (streak >= 7) return 0xff4500;  // Orange-red
+        if (streak >= 5) return 0xff8c00;  // Dark orange
+        if (streak >= 3) return 0x32cd32;  // Lime green
+        return 0x4169e1;                   // Royal blue
+    }
+    
+    // Get appropriate color based on streak count
+    getStreakColor(streak) {
+        if (streak >= 10) return 0xffd700; // Gold
+        if (streak >= 7) return 0xff4500;  // Orange-red
+        if (streak >= 5) return 0xff8c00;  // Dark orange
+        if (streak >= 3) return 0x32cd32;  // Lime green
+        return 0x4169e1;                   // Royal blue
+    }
+    
+    // Update the streak counter with animations
+    updateStreakCounter(isOriginalWord) {
+        // Track if this is a new streak
+        const previousStreak = this.wordStreak;
+        
+        if (isOriginalWord) {
+            // Increment streak for original words
+            this.wordStreak++;
+            this.lastWordWasOriginal = true;
+            
+            // Update max streak if needed
+            if (this.wordStreak > this.maxWordStreak) {
+                this.maxWordStreak = this.wordStreak;
+            }
+        } else {
+            // Reset streak for AI words
+            this.wordStreak = 0;
+            this.lastWordWasOriginal = false;
+        }
+        
+        // Update the word count display which contains the streak counters
+        this.updateWordCountDisplay();
+        
+        // If streak has increased, add celebration effects at milestones
+        if (isOriginalWord && this.wordStreak > previousStreak) {
+            // Add streak milestone effects
+            this.celebrateStreakMilestone(this.wordStreak, previousStreak);
+        }
+    }
+    
+    // Celebrate streak milestones with special effects
+    celebrateStreakMilestone(currentStreak, previousStreak) {
+        // Define milestone thresholds
+        const milestones = [3, 5, 7, 10, 15, 20];
+        
+        // Check if we crossed any milestone
+        for (const milestone of milestones) {
+            if (previousStreak < milestone && currentStreak >= milestone) {
+                // We crossed a milestone, add celebration effects
+                const text = milestone === 3 ? "STREAK!" : 
+                            milestone === 5 ? "NICE STREAK!" : 
+                            milestone === 7 ? "GREAT STREAK!" :
+                            milestone === 10 ? "AMAZING STREAK!" :
+                            milestone === 15 ? "INCREDIBLE STREAK!" :
+                            "UNSTOPPABLE!";
+                
+                // Position celebration text at the top-right near the word stats panel
+                const padding = 20;
+                const displayX = this.cameras.main.width - 180 - padding; // Same as word stats x position
+                
+                // Celebration text that appears near the word stats
+                const celebrationText = this.add.text(
+                    displayX + 90, // Center of the word stats panel
+                    this.menuBarHeight + 150, // Below the word stats panel
+                    text,
+                    {
+                        fontFamily: 'Nunito',
+                        fontSize: '28px',
+                        fontStyle: 'bold',
+                        fill: '#ffffff',
+                        stroke: '#000000',
+                        strokeThickness: 4,
+                        shadow: {
+                            offsetX: 2,
+                            offsetY: 2,
+                            color: '#000000',
+                            blur: 5,
+                            stroke: true,
+                            fill: true
+                        }
+                    }
+                ).setOrigin(0.5, 0.5).setDepth(100);
+                
+                // Animate the celebration text
+                this.tweens.add({
+                    targets: celebrationText,
+                    y: celebrationText.y - 50, // Move up from its starting position
+                    alpha: { start: 0, from: 1, to: 0 },
+                    scale: { from: 0.8, to: 1.2 },
+                    duration: 1500,
+                    ease: 'Power2',
+                    onComplete: () => celebrationText.destroy()
+                });
+                
+                // Highlight the word stats panel for a moment
+                if (this.wordCountDisplay) {
+                    this.tweens.add({
+                        targets: this.wordCountDisplay,
+                        scale: { from: 1, to: 1.05, duration: 200 },
+                        yoyo: true,
+                        repeat: 2,
+                        ease: 'Sine.InOut'
+                    });
+                }
+                
+                // Screen flash for big milestones
+                if (milestone >= 10) {
+                    const flashColor = milestone >= 15 ? 0xffd700 : 0xff8c00;
+                    const flash = this.add.rectangle(
+                        0, 0,
+                        this.cameras.main.width,
+                        this.cameras.main.height,
+                        flashColor,
+                        0.3
+                    ).setOrigin(0).setDepth(99);
+                    
+                    this.tweens.add({
+                        targets: flash,
+                        alpha: 0,
+                        duration: 500,
+                        ease: 'Power2',
+                        onComplete: () => flash.destroy()
+                    });
+                }
+                
+                // Only celebrate the highest milestone crossed
+                break;
+            }
+        }
+    }
+    
     // Particle burst for progress bar
     emitProgressBarParticles(type) {
         if (!this.failsCounter) return;
@@ -2734,11 +2998,20 @@ export default class BaseGameScene extends Phaser.Scene {
         const padding = 20;
         const boxHeight = 30;
         const boxSpacing = 10;
-        const inputBoxY = this.cameras?.main?.centerY - 240 / 2 || 140;
+        
+        // Calculate position between prompt box and input box
+        const statsBoxWidth = 180;
+        const statsBoxHeight = 130;
+        const statsDisplayY = this.menuBarHeight + padding;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        
+        // Prompt box is 20px below stats box
+        const promptY = statsBottomEdge + 20;
         const promptBoxHeight = 80;
-        const promptY = inputBoxY - promptBoxHeight - padding;
-        const spaceBetween = promptY - (this.menuBarHeight || 100);
-        const suggestionsY = (this.menuBarHeight || 100) + (spaceBetween / 2) + 20;
+        const promptBottomEdge = promptY + promptBoxHeight;
+        
+        // Position suggestions 20px ABOVE the prompt box
+        const suggestionsY = promptY - 20 - boxHeight;
         
         // Create a single temporary text object to measure widths instead of creating many
         const tempText = this.add.text(0, 0, '', {

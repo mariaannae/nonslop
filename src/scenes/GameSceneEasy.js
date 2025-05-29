@@ -87,20 +87,35 @@ export default class GameSceneEasy extends BaseGameScene {
         this.createInputTextBox();
         this.updatePromptBasedOnLevel();
 
-        const inputBoxX = this.cameras.main.centerX;
-        const inputBoxY = this.cameras.main.centerY;
         const inputBoxWidth = this.cameras.main.width * (5 / 6);
-        const inputBoxHeight = 240;
-        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - this.design.BUTTON.WIDTH - 20;
-        const buttonCenterY = inputBoxY + inputBoxHeight / 2 + this.design.BUTTON.SPACING;
         const padding = 20;
+        const buttonCenterX = this.cameras.main.centerX + inputBoxWidth / 2 - this.design.BUTTON.WIDTH - 20;
+
+        // Calculate position using the new layout calculation
+        const statsBoxWidth = 180;
+        const statsBoxHeight = 130;
+        const statsDisplayY = this.menuBarHeight + padding;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        
+        // Prompt box is 20px below stats box
+        const promptY = statsBottomEdge + 20;
+        const promptBoxHeight = 80;
+        const promptBottomEdge = promptY + promptBoxHeight;
+        
+        // Input box is 20px below prompt box
+        const inputBoxY = promptBottomEdge + 20;
+        const inputBoxHeight = 240;
+        const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
+        
+        // Position button further below input box bottom edge (increased spacing)
+        const doneButtonY = inputBoxBottomEdge + padding * 2 + this.design.BUTTON.HEIGHT / 2;
 
         // Create buttons with tooltips
         this.doneButton = this.createButton(
             "DONE", 
             () => this.onDoneButtonClick(), 
             buttonCenterX, 
-            buttonCenterY,
+            doneButtonY,
             'Submit your text for evaluation'
         );
         
