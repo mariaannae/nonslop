@@ -40,6 +40,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.timerValue = 20; // 20 seconds
         this.timerText = null;
         this.timerEvent = null;
+        this.timerStarted = false; // Flag to track if timer has been started
 
         // Debounced suggestion generator (will be set in setupInputHandlers)
         this.debouncedGenerateAISuggestions = null;
@@ -761,6 +762,18 @@ export default class BaseGameScene extends Phaser.Scene {
             this.isActivelyTyping = true;
             if (!this.cursorVisible) this.cursorVisible = true;
 
+            // Start the timer on first keystroke if it hasn't been started yet
+            if (!this.timerStarted) {
+                // Start the countdown timer
+                this.timerEvent = this.time.addEvent({
+                    delay: 1000,
+                    callback: this.updateTimer,
+                    callbackScope: this,
+                    loop: true
+                });
+                this.timerStarted = true;
+            }
+
             this.inputActive = true; // Legacy flag
             if (this.activeTimeout) {
                 clearTimeout(this.activeTimeout);
@@ -1263,13 +1276,9 @@ export default class BaseGameScene extends Phaser.Scene {
             fill: '#ff0000'
         });
         
-        // Start the countdown timer
-        this.timerEvent = this.time.addEvent({
-            delay: 1000,
-            callback: this.updateTimer,
-            callbackScope: this,
-            loop: true
-        });
+        // Don't start the countdown timer right away - wait for first keypress
+        // Just initialize the timerValue
+        this.timerValue = 20;
     }
     
     updateTimer() {
