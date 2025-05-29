@@ -1488,6 +1488,27 @@ export default class BaseGameScene extends Phaser.Scene {
                     
                     // Update the background when level changes
                     this.updateBackgroundForLevel();
+                    
+                    // Reset score bar to initial value
+                    this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+                    if (this.failsCounter) {
+                        this.updateProgressFill();
+                    }
+                    
+                    // Reset AI word count
+                    this.aiWordCount = 0;
+                    
+                    // Clear AI suggestions
+                    this.aiSuggestedWords = [];
+                    this.showSuggestions([]);
+                    
+                    // Clear input text box
+                    this.clearInputTextBox();
+                    
+                    // Update word count display if it exists
+                    if (this.wordCountDisplay) {
+                        this.updateWordCountDisplay();
+                    }
                 }
             }
             else if (gameObject === topKSliderHandle) {

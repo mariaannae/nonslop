@@ -358,7 +358,11 @@ export default class GameSceneHard extends BaseGameScene {
     }
 
     onFeedbackClick() {
-        this.scene.start('FeedbackScene', {mode: this.mode});
+        this.scene.start('FeedbackScene', {
+            mode: this.mode,
+            levelValue: this.levelValue,
+            topKValue: this.topKValue
+        });
     }
 
     // Mode-specific scene setup

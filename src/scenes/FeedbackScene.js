@@ -1,6 +1,7 @@
-import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIGN} from "../config/design.js";
+import { BASIC_COLORS_HEX, EASY_COLORS_HEX, HARD_COLORS_HEX, BASIC_COLORS_TEXT, EASY_COLORS_TEXT, HARD_COLORS_TEXT, DESIGN, THEMES } from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import { createBackground } from "../backgrounds/createBackground.js";
 
 // DESIGN.UI.OUTLINE.WIDTH, DESIGN.UI.OUTLINE.CORNER_RADIUS, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, DESIGN.UI.BUTTON.WIDTH
 
@@ -8,7 +9,10 @@ export default class FeedbackScene extends Phaser.Scene {
     constructor() {
         super({ key: 'FeedbackScene' });
         this.mode = null;
-        this.userInput = '';     
+        this.userInput = '';
+        this.levelValue = 1;
+        this.COLORS_HEX = BASIC_COLORS_HEX;
+        this.COLORS_TEXT = BASIC_COLORS_TEXT;
     }
 
     
@@ -49,44 +53,6 @@ export default class FeedbackScene extends Phaser.Scene {
         return ButtonFactory.createClickParticles(this, x, y);
     }
 
-    createBackgroundEffect() {
-        let width = this.cameras.main.width;
-        let height = this.cameras.main.height;
-        
-        let gradientTextureKey = 'gradientBackground';
-    
-        if (!this.textures.exists(gradientTextureKey)) {
-            let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
-            let ctx = gradientCanvas.getContext();
-    
-            if (!ctx) {
-                console.error("Failed to get canvas context for background effect.");
-                return;
-            }
-    
-            let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, '#' + COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0'));
-            grd.addColorStop(1, '#' + COLORS_HEX.BACKGROUND_MID.toString(16).padStart(6, '0'));
-    
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, 0, width, height);
-            gradientCanvas.refresh();
-        }
-    
-        this.background = this.add.image(0, 0, gradientTextureKey)
-            .setOrigin(0)
-            .setDisplaySize(width, height)
-            .setDepth(-1);
-    
-        this.tweens.add({
-            targets: this.background,
-            alpha: { from: 0.8, to: 1 },
-            duration: 4000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.InOut'
-        });
-    }    
 
     createButton(label, callback, centerX, centerY, options = {}) {
         return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
@@ -149,7 +115,7 @@ export default class FeedbackScene extends Phaser.Scene {
             textBoxHeight,
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
-        this.inputTextBorder.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.ACCENT, 1);
+        this.inputTextBorder.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.ACCENT, 1);
         this.inputTextBorder.strokeRoundedRect(
             this.cameras.main.centerX - textBoxWidth / 2,
             this.cameras.main.centerY - textBoxHeight / 2,
@@ -244,7 +210,7 @@ export default class FeedbackScene extends Phaser.Scene {
             {
                 fontFamily: "Nunito",
                 fontSize: "22px",
-                color: COLORS_TEXT.PRIMARY,
+                color: this.COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "center"
             }
@@ -254,7 +220,7 @@ export default class FeedbackScene extends Phaser.Scene {
         const textHeight = this.promptText.height + padding * 2;
     
         // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
+        this.promptTextBox.fillStyle(this.COLORS_HEX.BACKGROUND, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
@@ -264,7 +230,7 @@ export default class FeedbackScene extends Phaser.Scene {
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
@@ -322,56 +288,42 @@ export default class FeedbackScene extends Phaser.Scene {
             console.log("mode successfully received in FeedbackScene.");
         }
         this.mode = data.mode || null;
-        this.levelValue = data.levelValue || null;
+        this.levelValue = data.levelValue || 1;
         this.topKValue = data.topKValue || null;
+
+        // Set colors based on the mode
+        if (this.mode === "easy") {
+            this.COLORS_HEX = EASY_COLORS_HEX;
+            this.COLORS_TEXT = EASY_COLORS_TEXT;
+        } else if (this.mode === "hard") {
+            this.COLORS_HEX = HARD_COLORS_HEX;
+            this.COLORS_TEXT = HARD_COLORS_TEXT;
+        } else {
+            this.COLORS_HEX = BASIC_COLORS_HEX;
+            this.COLORS_TEXT = BASIC_COLORS_TEXT;
+        }
 
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
         this.promptText = null;
     }
 
-    createBackgroundPattern() {
-        const patternKey = 'patternCanvas';
-        
-        // ✅ Check if texture already exists and remove it before recreating
-        if (this.textures.exists(patternKey)) {
-            this.textures.remove(patternKey);
-        }
-        // Create pattern texture
-        const pattern = this.textures.createCanvas(patternKey, 100, 100);
-        const ctx = pattern.getContext();
-        
-        // Draw pattern (dots, stars, or any subtle pattern)
-        ctx.fillStyle = '#' + COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0');
-        ctx.fillRect(0, 0, 100, 100);
-        
-        for (let i = 0; i < 10; i++) {
-          ctx.fillStyle = '#' + COLORS_HEX.BACKGROUND_MID.toString(16).padStart(6, '0');
-          ctx.beginPath();
-          ctx.arc(Math.random() * 100, Math.random() * 100, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        
-        pattern.refresh();
-        
-        // Add pattern as background
-        const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, patternKey)
-          .setOrigin(0)
-          .setDepth(-2);
-          
-        // Add subtle movement
-        this.tweens.add({
-          targets: bg,
-          tilePositionX: { from: 0, to: 100 },
-          tilePositionY: { from: 0, to: 100 },
-          duration: 20000,
-          repeat: -1
-        });
-    }
 
     async create() {
-        this.cameras.main.scrollY = 0; 
-        this.createBackgroundEffect();
+        this.cameras.main.scrollY = 0;
+        
+        // Create the appropriate background based on mode
+        let backgroundConfig;
+        if (this.mode === "easy") {
+            backgroundConfig = THEMES.easy.background;
+        } else if (this.mode === "hard") {
+            backgroundConfig = THEMES.hard.background;
+        } else {
+            backgroundConfig = THEMES.basic.background;
+        }
+        
+        // Create background with the appropriate theme and level
+        createBackground(this, backgroundConfig, this.levelValue);
     
         // Input Box Creation
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);

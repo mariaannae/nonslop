@@ -504,7 +504,7 @@ export default class DoneScene extends Phaser.Scene {
     }
     
     createPromptTextBox() {
-        this.promptBoxY = 110;
+        this.promptBoxY = 130;
     
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         const padding = 30;
@@ -759,7 +759,7 @@ export default class DoneScene extends Phaser.Scene {
 
         // Button positioning: 30px below output box bottom
         const buttonCenterX = this.cameras.main.centerX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
-        const buttonCenterY = this.outputBoxY + this.outputBoxHeight + 30 + DESIGN.UI.BUTTON.HEIGHT / 2;
+        const buttonCenterY = this.outputBoxY + this.outputBoxHeight + 20 + DESIGN.UI.BUTTON.HEIGHT / 2;
         this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
             depth: 102, // ensure button is visible
             name: 'doneButton'
@@ -1090,14 +1090,14 @@ createLowScoreWarning() {
         onComplete: () => warningOverlay.destroy()
       });
       
-      // Display "NOT QUITE" text with typewriter effect
+      // Create the text immediately with complete content
       const notQuiteText = this.add.text(
         this.cameras.main.centerX,
         60,
-        "",
+        "NOT QUITE",
         {
           fontFamily: "Nunito",
-          fontSize: "36px",
+          fontSize: "60px",
           color: "#FFAA00", // Amber
           stroke: "#000000",
           strokeThickness: 3,
@@ -1105,41 +1105,141 @@ createLowScoreWarning() {
         }
       ).setOrigin(0.5).setDepth(201);
       
+      // Remember original position and text
+      const originalX = notQuiteText.x;
+      const originalY = notQuiteText.y;
+      const fullText = "NOT QUITE";
+      
+      // Hide text initially - we'll show it with the typewriter effect
+      notQuiteText.setText("");
+      
       // Typewriter animation
-      let message = "NOT QUITE";
       let currentChar = 0;
       
-      this.time.addEvent({
+      const typewriterTimer = this.time.addEvent({
         delay: 80,
-        repeat: message.length - 1,
+        repeat: fullText.length - 1,
         callback: () => {
-          notQuiteText.text += message[currentChar];
+          notQuiteText.text += fullText[currentChar];
           currentChar++;
         },
-        onComplete: () => {
-          // Make text wobble slightly
-          this.tweens.add({
-            targets: notQuiteText,
-            y: "+=5",
-            duration: 400,
-            yoyo: true,
-            repeat: 2,
-            ease: "Sine.InOut",
-            onComplete: () => {
-              this.tweens.add({
-                targets: notQuiteText,
-                alpha: 0,
-                y: "-=20",
-                duration: 800,
-                onComplete: () => notQuiteText.destroy()
-              });
-            }
-          });
-        }
+        callbackScope: this
       });
       
-      // Add some subtle particle effects
-      this.createAmberParticles();
+      // Calculate when typewriter will be complete
+      const typewriterDuration = 80 * fullText.length;
+      
+      // Start flickering after typewriter completes
+      this.time.delayedCall(typewriterDuration + 100, () => {
+        let flickerCount = 0;
+        const maxFlickers = 16; // More flickers for a longer effect
+        
+        // Create a realistic flicker sequence with randomness
+        const createFlickerEffect = () => {
+          if (flickerCount >= maxFlickers) {
+            // End of flicker effect - ensure text is visible and in original position
+            notQuiteText.setText(fullText);
+            notQuiteText.setPosition(originalX, originalY);
+            notQuiteText.setColor("#FFAA00"); // Reset to original color
+            return;
+          }
+          
+          flickerCount++;
+          
+          // Choose a random flicker effect for this cycle
+          const effectType = Phaser.Math.Between(0, 7);
+          
+          switch (effectType) {
+            case 0: // Completely off
+              notQuiteText.setText("");
+              break;
+              
+            case 1: // Partially garbled text
+              let garbled = "";
+              for (let i = 0; i < fullText.length; i++) {
+                if (Math.random() > 0.3) {
+                  garbled += fullText[i];
+                } else {
+                  garbled += " ";
+                }
+              }
+              notQuiteText.setText(garbled);
+              break;
+              
+            case 2: // Text with random position shift
+              notQuiteText.setText(fullText);
+              notQuiteText.setPosition(
+                originalX + Phaser.Math.Between(-4, 4),
+                originalY + Phaser.Math.Between(-2, 2)
+              );
+              break;
+              
+            case 3: // Text with color change
+              notQuiteText.setText(fullText);
+              notQuiteText.setColor("#FFFFFF"); // Flash to white
+              break;
+              
+            case 4: // Normal text (brief stability in the flicker)
+              notQuiteText.setText(fullText);
+              notQuiteText.setPosition(originalX, originalY);
+              notQuiteText.setColor("#FFAA00");
+              break;
+              
+            case 5: // Corrupted text (with symbols)
+              let corrupted = "";
+              for (let i = 0; i < fullText.length; i++) {
+                if (Math.random() > 0.2) {
+                  corrupted += fullText[i];
+                } else {
+                  corrupted += ".#@*"[Math.floor(Math.random() * 4)];
+                }
+              }
+              notQuiteText.setText(corrupted);
+              break;
+              
+            case 6: // Doubled text (brief artifact)
+              notQuiteText.setText(fullText);
+              const ghostText = this.add.text(
+                originalX + 2,
+                originalY + 2,
+                fullText,
+                {
+                  fontFamily: "Nunito",
+                  fontSize: "36px",
+                  color: "#FFFFFF",
+                  alpha: 0.4
+                }
+              ).setOrigin(0.5).setDepth(200);
+              
+              this.time.delayedCall(60, () => {
+                ghostText.destroy();
+              });
+              break;
+              
+            case 7: // Dimmer text
+              notQuiteText.setText(fullText);
+              notQuiteText.setAlpha(0.5);
+              break;
+          }
+          
+          // Schedule next flicker with irregular timing
+          const nextDelay = Phaser.Math.Between(30, 150);
+          this.time.delayedCall(nextDelay, createFlickerEffect, [], this);
+          
+          // Occasionally reset back to normal between effects
+          if (Math.random() > 0.7) {
+            this.time.delayedCall(Phaser.Math.Between(10, 30), () => {
+              notQuiteText.setText(fullText);
+              notQuiteText.setPosition(originalX, originalY);
+              notQuiteText.setColor("#FFAA00");
+              notQuiteText.setAlpha(1);
+            });
+          }
+        };
+        
+        // Start the flickering effect
+        createFlickerEffect();
+      });
     }
   }
   
