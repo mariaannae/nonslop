@@ -215,6 +215,23 @@ export default class GameSceneEasy extends BaseGameScene {
 
 
 
+    // Update background when level changes
+    updateBackgroundForLevel() {
+        // Destroy existing background
+        if (this.background) {
+            this.background.destroy();
+        }
+        
+        // Recreate background with the current level colors using centralized logic
+        createBackground(this, THEMES.easy.background, this.levelValue);
+        
+        // Destroy and recreate any particles if they exist
+        if (this.particleContainer) {
+            this.particleContainer.destroy();
+            this.createFloatingParticles && this.createFloatingParticles();
+        }
+    }
+    
     cleanupParticles() {
         this.isShuttingDown = true;
         this.clearAllEffects && this.clearAllEffects();

@@ -1,6 +1,8 @@
-import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT } from "../config/design.js";
+import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT, THEMES } from "../config/design.js";
 import { getTopScores } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import ToggleFactory from "../utils/ToggleFactory.js";
+import { createBackground } from "../backgrounds/createBackground.js";
 
 export default class LeaderboardScene extends Phaser.Scene {
     constructor() {
@@ -27,8 +29,12 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
 
     async create() {
-        // Create background
-        this.createBackgroundEffect();
+        // Create background based on mode and level
+        if (this.mode === "easy") {
+            createBackground(this, THEMES.easy.background, this.level);
+        } else {
+            createBackground(this, THEMES.hard.background, this.level);
+        }
 
         // Create title
         this.createTitle();
@@ -94,7 +100,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         const titleStyle = {
             fontFamily: 'barcade3d',
             fontSize: '50px',
-            color: this.COLORS_TEXT.PRIMARY,
+            color: this.COLORS_TEXT.TITLE,
             align: 'center',
             shadow: {
                 offsetX: 2,
@@ -114,36 +120,50 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
 
     createModeToggle() {
-        // Create toggle for easy/hard mode
-        this.easyButton = this.createButton(
-            "EASY",
-            () => this.changeMode('easy'),
-            this.cameras.main.centerX - 100,
-            120
+        // Create a container for the toggle and labels
+        this.modeToggleContainer = this.add.container(this.cameras.main.centerX, 120);
+        
+        // Add labels for the toggle
+        const easyLabel = this.add.text(-50, 0, "EASY", {
+            fontFamily: 'Nunito',
+            fontSize: '20px',
+            color: this.mode === 'easy' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(1, 0.5);
+        
+        const hardLabel = this.add.text(50, 0, "HARD", {
+            fontFamily: 'Nunito',
+            fontSize: '20px',
+            color: this.mode === 'hard' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0, 0.5);
+        
+        // Create the toggle switch
+        const toggleLeftX = -20; // Position relative to center
+        this.modeToggle = ToggleFactory.createToggle(
+            this,
+            this.mode,
+            this.changeMode.bind(this),
+            toggleLeftX,
+            0
         );
-
-        this.hardButton = this.createButton(
-            "HARD",
-            () => this.changeMode('hard'),
-            this.cameras.main.centerX + 100,
-            120
-        );
-
-        // Highlight the active mode button
-        this.updateActiveButton();
+        
+        // Add elements to the container
+        this.modeToggleContainer.add([easyLabel, hardLabel, this.modeToggle]);
+        
+        // Update the label colors based on current mode
+        this.updateModeLabels();
     }
     
-    updateActiveButton() {
-        // Reset both buttons to normal size
-        this.easyButton.setScale(1);
-        this.hardButton.setScale(1);
+    updateModeLabels() {
+        // Update label colors based on the current mode
+        const children = this.modeToggleContainer.getAll();
         
-        // Enlarge the active button
-        if (this.mode === 'easy') {
-            this.easyButton.setScale(1.2);
-        } else {
-            this.hardButton.setScale(1.2);
-        }
+        // First child is the "EASY" label
+        children[0].setColor(this.mode === 'easy' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff');
+        
+        // Second child is the "HARD" label
+        children[1].setColor(this.mode === 'hard' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff');
     }
 
     createButton(label, callback, centerX, centerY, options = {}) {
@@ -167,8 +187,13 @@ export default class LeaderboardScene extends Phaser.Scene {
         this.hideLoadingIndicator();
         this.displayScores();
         
-        // Update the active button size
-        this.updateActiveButton();
+        // Update the toggle labels to reflect the current mode
+        this.updateModeLabels();
+        
+        // Make sure the toggle's visual state matches the mode
+        if (this.modeToggle && this.modeToggle.updateState) {
+            this.modeToggle.updateState(mode);
+        }
 
         // Update UI colors based on mode
         if (this.mode === "easy") {
@@ -179,8 +204,12 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.COLORS_TEXT = HARD_COLORS_TEXT;
         }
 
-        // Recreate the background with the new colors
-        this.createBackgroundEffect();
+        // Recreate the background with the new colors and level
+        if (this.mode === "easy") {
+            createBackground(this, THEMES.easy.background, this.level);
+        } else {
+            createBackground(this, THEMES.hard.background, this.level);
+        }
     }
 
     showLoadingIndicator() {

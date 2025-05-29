@@ -381,6 +381,22 @@ export default class Preloader extends Phaser.Scene {
                     titleText.x += slideSpeed;
                 } else {
                     titleText.x = targetX;
+                    
+                    // Add shine effect to the text - it animates automatically
+                    titleText.postFX.addShine(1, .2, 5);
+                    
+                    // To create a repeating shine effect, we'll periodically add and remove the effect
+                    this.time.addEvent({
+                        delay: 3000, // Every 3 seconds
+                        callback: () => {
+                            // Remove any existing shine effects
+                            titleText.postFX.clear();
+                            // Add a new shine effect
+                            titleText.postFX.addShine(1, .2, 5);
+                        },
+                        loop: true
+                    });
+                    
                     this.tweens.add({
                         targets: titleText,
                         x: { from: targetX, to: targetX - 20 },

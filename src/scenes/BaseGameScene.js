@@ -1486,10 +1486,8 @@ export default class BaseGameScene extends Phaser.Scene {
                     // Update prompt based on level immediately
                     this.updatePromptBasedOnLevel();
                     
-                    // Update the background when level changes (if implemented by child class)
-                    if (typeof this.updateBackgroundForLevel === 'function') {
-                        this.updateBackgroundForLevel();
-                    }
+                    // Update the background when level changes
+                    this.updateBackgroundForLevel();
                 }
             }
             else if (gameObject === topKSliderHandle) {

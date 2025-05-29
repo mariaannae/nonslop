@@ -1,6 +1,7 @@
-import { DESIGN, HARD_COLORS_HEX, HARD_COLORS_TEXT, EASY_COLORS_TEXT, EASY_COLORS_HEX} from "../config/design.js";
+import { DESIGN, HARD_COLORS_HEX, HARD_COLORS_TEXT, EASY_COLORS_TEXT, EASY_COLORS_HEX, THEMES } from "../config/design.js";
 import { saveInteraction, isHighScore } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import { createBackground } from "../backgrounds/createBackground.js";
 
 //, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, colors_hex, colors_text, DESIGN.UI.BUTTON.WIDTH
 
@@ -697,8 +698,17 @@ export default class DoneScene extends Phaser.Scene {
 
 
     async create() {
-        this.cameras.main.scrollY = 0; 
-        this.createBackgroundEffect();
+        this.cameras.main.scrollY = 0;
+        
+        // Use the same background based on mode and level
+        if (this.mode === "easy") {
+            createBackground(this, THEMES.easy.background, this.levelValue);
+        } else if (this.mode === "hard") {
+            createBackground(this, THEMES.hard.background, this.levelValue);
+        } else {
+            // Fallback to the old background effect if mode is invalid
+            this.createBackgroundEffect();
+        }
 
         // Extract all digits X in the form X/5 from this.evaluation, in order
         let xOver5Digits = [];
