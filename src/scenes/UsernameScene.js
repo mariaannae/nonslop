@@ -1,6 +1,7 @@
 import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT, THEMES } from "../config/design.js";
 import { saveHighScore } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 
 export default class UsernameScene extends Phaser.Scene {
@@ -478,13 +479,17 @@ export default class UsernameScene extends Phaser.Scene {
                 
                 await saveHighScore(this.scoreData);
                 
-                // Navigate to leaderboard
+                // Navigate to leaderboard with smooth transition
                 this.hideLoadingIndicator();
-                this.scene.start('LeaderboardScene', {
+                
+                // Take a snapshot of current scene before transition
+                await SceneTransitionManager.prepareTransition(this);
+                
+                // Use transition manager to fade to the leaderboard
+                SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
                     mode: this.mode,
-                    level: this.level,
-                    
-                });
+                    level: this.level
+                }, 500, '#000000');
             } catch (error) {
                 console.error("Error saving high score:", error);
                 this.hideLoadingIndicator();
@@ -497,15 +502,19 @@ export default class UsernameScene extends Phaser.Scene {
         }
     }
     
-    skipUsername() {
+    async skipUsername() {
         // When user chooses to skip, don't save the score at all
-        // and navigate directly to the leaderboard
+        // and navigate directly to the leaderboard with a smooth transition
         this.hideLoadingIndicator();
-        this.scene.start('LeaderboardScene', {
+        
+        // Take a snapshot of current scene before transition
+        await SceneTransitionManager.prepareTransition(this);
+        
+        // Use transition manager to fade to the leaderboard
+        SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
             mode: this.mode,
-            level: this.level,
-            
-        });
+            level: this.level
+        }, 500, '#000000');
     }
     
     showLoadingIndicator() {
@@ -580,12 +589,18 @@ export default class UsernameScene extends Phaser.Scene {
         
         const okButton = this.createButton(
             "OK",
-            () => {
+            async () => {
                 errorContainer.destroy();
-                this.scene.start('LeaderboardScene', {
+                
+                // Take a snapshot of current scene before transition
+                await SceneTransitionManager.prepareTransition(this);
+                
+                // Use transition manager to fade to the leaderboard
+                SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
                     mode: this.mode,
+                    level: this.level,
                     previousScene: 'DoneScene'
-                });
+                }, 500, '#000000');
             },
             0, 60
         );

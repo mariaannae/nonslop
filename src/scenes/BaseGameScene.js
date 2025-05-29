@@ -2,6 +2,7 @@ import { stopwords } from "../config/stopwords.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
+import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
 import registryManager from "../services/RegistryManager.js";
 
@@ -375,18 +376,24 @@ export default class BaseGameScene extends Phaser.Scene {
             const output = await this.evaluateText(this.userInput);
             // Clean up the evaluating text
             evaluatingText.destroy();
-            this.scene.start('DoneScene', {
+            
+            // Prepare scene transition data
+            const sceneData = {
                 mode: this.mode,
                 levelValue: this.levelValue,
                 topKValue: this.topKValue,
-                userInput : this.userInput,
+                userInput: this.userInput,
                 outputText: output,
                 prompt: this.currentPrompt,
                 failCount: this.aiWordCount,
                 totalWordCount: this.userInput.trim() ? this.userInput.trim().split(/\s+/).length : 0,
                 score: this.progressPercentage,
-                //wordCount: this.wordCount
-        });
+            };
+            
+            // Use the transition manager for a smooth transition
+            await SceneTransitionManager.prepareTransition(this);
+            SceneTransitionManager.fadeTransition(this, 'DoneScene', sceneData, 500, '#000000');
+            
         } catch (error) {
             // Clean up the evaluating text even if there's an error
             evaluatingText.destroy();

@@ -1,6 +1,7 @@
 import { DESIGN, HARD_COLORS_HEX, HARD_COLORS_TEXT, EASY_COLORS_TEXT, EASY_COLORS_HEX, THEMES } from "../config/design.js";
 import { saveInteraction, isHighScore } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 
 //, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, colors_hex, colors_text, DESIGN.UI.BUTTON.WIDTH
@@ -402,31 +403,42 @@ export default class DoneScene extends Phaser.Scene {
             console.log("scoredata: ", scoreData);
             console.log("Is high score result:", isHighScoreResult);
             
+            // Prepare transition - take a snapshot of current scene
+            await SceneTransitionManager.prepareTransition(this);
+            
             if (isHighScoreResult) {
-                // It's a high score! Go to the username entry scene
+                // It's a high score! Go to the username entry scene with a transition
                 console.log("High score achieved! Going to username entry");
-                console.log("Passing to UsernameScene - Mode:", this.mode, "Level:", originalLevelValue, "ScoreData:", JSON.stringify(scoreData));
-                this.scene.start('UsernameScene', {
+                console.log("Passing to UsernameScene - Mode:", this.mode, "Level:", originalLevelValue);
+                
+                // Use the transition manager with username scene
+                SceneTransitionManager.fadeTransition(this, 'UsernameScene', {
                     mode: this.mode,
                     scoreData: scoreData,
-                    level: originalLevelValue, // Use original level, not the updated one
-                });
+                    level: originalLevelValue // Use original level, not the updated one
+                }, 500, '#000000');
             } else {
-                // Not a high score, go to the leaderboard
+                // Not a high score, go to the leaderboard with a transition
                 console.log("Not a high score, going to leaderboard");
-                this.scene.start('LeaderboardScene', {
+                
+                // Use the transition manager with leaderboard scene
+                SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
                     mode: this.mode,
                     level: originalLevelValue // Use original level, not the updated one
-                });
+                }, 500, '#000000');
             }
         } catch (error) {
             console.error("Error checking high score:", error);
-            // In case of error, just go to the next game
+            // In case of error, just go to the next game with a transition
+            
+            // Prepare transition
+            await SceneTransitionManager.prepareTransition(this);
+            
             if (this.mode === "easy") {
-                this.scene.start('GameSceneEasy', resetData);
+                SceneTransitionManager.fadeTransition(this, 'GameSceneEasy', resetData, 500, '#000000');
             }
             else if (this.mode === "hard") {
-                this.scene.start('GameSceneHard', resetData);
+                SceneTransitionManager.fadeTransition(this, 'GameSceneHard', resetData, 500, '#000000');
             }
         }
     }
