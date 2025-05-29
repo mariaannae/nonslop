@@ -264,58 +264,196 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     createCelebrationEffect() {
+        // Create a star texture dynamically for particles
+        this.createStarTexture();
+        
         // Create particle emitters for celebration
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
         
-        // Left side confetti
-        for (let i = 0; i < 20; i++) {
-            const x = Phaser.Math.Between(0, width / 3);
-            const y = -20;
-            const size = Phaser.Math.Between(5, 15);
-            const color = Phaser.Math.RND.pick([0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff]);
-            
-            const confetti = this.add.graphics();
-            confetti.fillStyle(color, 0.8);
-            confetti.fillRect(0, 0, size, size);
-            confetti.rotation = Phaser.Math.Between(0, Math.PI * 2);
-            confetti.setPosition(x, y);
-            
-            this.tweens.add({
-                targets: confetti,
-                x: x + Phaser.Math.Between(-100, 100),
-                y: height + 50,
-                rotation: Phaser.Math.Between(Math.PI * 4, Math.PI * 8),
-                duration: Phaser.Math.Between(3000, 6000),
-                delay: Phaser.Math.Between(0, 2000),
-                ease: 'Quad.Out',
-                onComplete: () => confetti.destroy()
-            });
+        // Define color palettes for different modes
+        let particleTints;
+        
+        if (this.mode === 'easy') {
+            // Purple/pink colors for easy mode
+            particleTints = [
+                0xff80ff,  // Light pink
+                0xcc66cc,  // Medium pink
+                0xaa55dd,  // Purple-pink
+                0xdd44dd,  // Bright pink
+                0xd020d0   // Deep pink
+            ];
+        } else {
+            // Yellow/white spark colors for hard mode
+            particleTints = [
+                0xffffff,  // Pure white
+                0xffffaa,  // Pale yellow
+                0xffff80,  // Light yellow
+                0xffdd55,  // Golden yellow
+                0xffcc00   // Deep gold
+            ];
         }
         
-        // Right side confetti
-        for (let i = 0; i < 20; i++) {
-            const x = Phaser.Math.Between(width * 2/3, width);
-            const y = -20;
-            const size = Phaser.Math.Between(5, 15);
-            const color = Phaser.Math.RND.pick([0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff]);
-            
-            const confetti = this.add.graphics();
-            confetti.fillStyle(color, 0.8);
-            confetti.fillRect(0, 0, size, size);
-            confetti.rotation = Phaser.Math.Between(0, Math.PI * 2);
-            confetti.setPosition(x, y);
-            
-            this.tweens.add({
-                targets: confetti,
-                x: x + Phaser.Math.Between(-100, 100),
-                y: height + 50,
-                rotation: Phaser.Math.Between(Math.PI * 4, Math.PI * 8),
-                duration: Phaser.Math.Between(3000, 6000),
-                delay: Phaser.Math.Between(0, 2000),
-                ease: 'Quad.Out',
-                onComplete: () => confetti.destroy()
+        // Create a single central point for confetti throwing
+        const centerX = width/2;
+        const centerY = height/2 - 30;
+        
+        // Create the main thrown confetti effect
+        const mainEmitter = this.add.particles(centerX, centerY, 'star', {
+            // Upward initial velocity for thrown effect
+            speed: { min: 300, max: 500 },
+            // Angle is mostly upward with some spread
+            angle: { min: 230, max: 310 },
+            // Longer lifespan for full arc motion
+            lifespan: { min: 3000, max: 5000 },
+            // Strong gravity to create arcing path
+            gravityY: 300,
+            // Initial burst
+            quantity: 30,
+            frequency: -1,
+            // Good size range for visibility
+            scale: { min: 0.3, max: 0.6 },
+            alpha: { min: 0.7, max: 1.0 },
+            // Fast rotation for tumbling confetti effect
+            rotate: { start: 0, end: 600, ease: 'Sine.easeInOut' },
+            tint: particleTints,
+            blendMode: 'SCREEN',
+            // Add drag to slow particles naturally
+            drag: { x: 20, y: 10 },
+            // Add some turbulence
+            accelerationX: { min: -50, max: 50 },
+            // Wide emit cone for hand-thrown appearance
+            emitZone: {
+                type: 'random',
+                source: new Phaser.Geom.Circle(0, 0, 15),
+                quantity: 30
+            }
+        });
+        
+        // Explode all at once for thrown appearance
+        mainEmitter.explode(40, 0, 0);
+        
+        // Create a secondary delayed throw
+        this.time.delayedCall(200, () => {
+            const secondaryEmitter = this.add.particles(centerX + 20, centerY + 10, 'star', {
+                speed: { min: 300, max: 450 },
+                angle: { min: 220, max: 320 },
+                lifespan: { min: 3000, max: 4500 },
+                gravityY: 300,
+                quantity: 20,
+                frequency: -1,
+                scale: { min: 0.25, max: 0.5 },
+                alpha: { min: 0.7, max: 1.0 },
+                rotate: { start: 0, end: 600, ease: 'Sine.easeInOut' },
+                tint: particleTints,
+                blendMode: 'SCREEN',
+                drag: { x: 20, y: 10 },
+                accelerationX: { min: -30, max: 30 }
             });
+            
+            secondaryEmitter.explode(25, 0, 0);
+        });
+        
+        // Add a third burst for more volume
+        this.time.delayedCall(400, () => {
+            const thirdEmitter = this.add.particles(centerX - 15, centerY - 5, 'star', {
+                speed: { min: 250, max: 400 },
+                angle: { min: 210, max: 330 }, // Wider angle for more spread
+                lifespan: { min: 3000, max: 4000 },
+                gravityY: 300,
+                quantity: 15,
+                frequency: -1,
+                scale: { min: 0.2, max: 0.5 },
+                alpha: { min: 0.7, max: 1.0 },
+                rotate: { start: 0, end: 500, ease: 'Sine.easeInOut' },
+                tint: particleTints,
+                blendMode: 'SCREEN',
+                drag: { x: 20, y: 10 },
+                accelerationX: { min: -40, max: 40 }
+            });
+            
+            thirdEmitter.explode(20, 0, 0);
+        });
+        
+        // Add continuous emitters around the edges for sustained effect
+        const positions = [
+            { x: width/4, y: height/4 },
+            { x: width*3/4, y: height/4 },
+            { x: width/4, y: height*3/4 - 100 },
+            { x: width*3/4, y: height*3/4 - 100 }
+        ];
+        
+        positions.forEach(pos => {
+            const emitter = this.add.particles(pos.x, pos.y, 'star', {
+                angle: { min: 0, max: 360 },
+                speed: { min: 50, max: 100 },
+                lifespan: { min: 2000, max: 3000 },
+                gravityY: 40,
+                quantity: 1,
+                frequency: 500,
+                scale: { min: 0.3, max: 0.5 },
+                alpha: { min: 0.7, max: 0.9 },
+                rotate: { min: 0, max: 360 },
+                tint: particleTints,
+                blendMode: 'SCREEN'
+            });
+            
+            emitter.particleBringToTop = false;
+        });
+    }
+    
+    createStarTexture() {
+        // Create a sharper glowing dot texture if it doesn't exist
+        if (!this.textures.exists('star')) {
+            const size = 48; // Slightly smaller for sharper dots
+            const canvas = this.textures.createCanvas('star', size, size);
+            const ctx = canvas.getContext('2d');
+            
+            // Clear the canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = size / 6; // Slightly larger core for sharper appearance
+            
+            // Create a radial gradient with more distinct steps for the glow effect
+            const gradient = ctx.createRadialGradient(
+                centerX, centerY, radius * 0.5,
+                centerX, centerY, size / 2
+            );
+            
+            if (this.mode === 'easy') {
+                // Purple/pink gradient for easy mode
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');    // Bright white center
+                gradient.addColorStop(0.1, 'rgba(255, 210, 255, 1)');  // Near-white pink
+                gradient.addColorStop(0.3, 'rgba(240, 150, 255, 0.9)'); // Vibrant pink
+                gradient.addColorStop(0.6, 'rgba(220, 100, 255, 0.6)'); // Purple-pink
+                gradient.addColorStop(0.8, 'rgba(200, 70, 220, 0.2)');  // Faded edge
+                gradient.addColorStop(1, 'rgba(180, 70, 220, 0)');      // Transparent edge
+            } else {
+                // Yellow/white spark gradient for hard mode
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');     // Bright white center
+                gradient.addColorStop(0.1, 'rgba(255, 255, 230, 1)');   // Near-white yellow
+                gradient.addColorStop(0.3, 'rgba(255, 255, 180, 0.9)'); // Pale yellow
+                gradient.addColorStop(0.5, 'rgba(255, 230, 120, 0.7)'); // Yellow
+                gradient.addColorStop(0.7, 'rgba(255, 200, 60, 0.4)');  // Golden yellow
+                gradient.addColorStop(0.9, 'rgba(255, 180, 0, 0.2)');   // Deep gold
+                gradient.addColorStop(1, 'rgba(255, 150, 0, 0)');       // Transparent edge
+            }
+            
+            // Draw the core (brighter center)
+            ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw the glowing dot with gradient
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            canvas.refresh();
         }
     }
 

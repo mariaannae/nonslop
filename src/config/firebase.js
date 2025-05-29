@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js";
-import { collection, addDoc, getDocs, query, orderBy, limit, where } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, orderBy, limit, where, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 
 // TODO: Add SDKs for Firebase products that you want to use
@@ -146,6 +146,68 @@ async function waitForAuth() {
   }
 }
 
+// Function to delete scores that no longer qualify as high scores
+async function cleanupOldScores(gameMode, maxResults = 10) {
+  await authReady;
+  
+  try {
+    console.log(`Cleaning up old scores for ${gameMode} mode...`);
+    
+    // Get all scores for the mode without limit
+    let scoresQuery;
+    
+    if (gameMode) {
+      scoresQuery = query(
+        collection(db, 'highscores'),
+        where("mode", "==", gameMode),
+        orderBy("score", "desc")
+      );
+    } else {
+      scoresQuery = query(
+        collection(db, 'highscores'),
+        orderBy("score", "desc")
+      );
+    }
+    
+    const querySnapshot = await getDocs(scoresQuery);
+    const scores = [];
+    
+    querySnapshot.forEach((doc) => {
+      scores.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    // If we have more scores than maxResults, delete the excess
+    if (scores.length > maxResults) {
+      console.log(`Found ${scores.length} scores, keeping top ${maxResults}, deleting ${scores.length - maxResults}`);
+      
+      // Get the scores to delete (everything after the top maxResults)
+      const scoresToDelete = scores.slice(maxResults);
+      
+      // Delete each score
+      for (const scoreData of scoresToDelete) {
+        try {
+          await deleteDoc(doc(db, 'highscores', scoreData.id));
+          console.log(`Deleted score with ID: ${scoreData.id}, score: ${scoreData.score}`);
+        } catch (deleteError) {
+          console.error(`Error deleting score ${scoreData.id}:`, deleteError);
+        }
+      }
+      
+      console.log(`Cleanup completed, deleted ${scoresToDelete.length} scores`);
+    } else {
+      console.log(`Only ${scores.length} scores found, no cleanup needed`);
+    }
+    
+    return true;
+  } catch (e) {
+    console.error("Error cleaning up old scores:", e);
+    return false;
+  }
+}
+
 // Function to save a high score
 async function saveHighScore(scoreData) {
   await authReady;
@@ -181,6 +243,14 @@ async function saveHighScore(scoreData) {
     const docRef = await addDoc(collection(db, 'highscores'), highScoreData);
     
     console.log("High score saved with ID:", docRef.id);
+    
+    // After saving the high score, clean up any old scores that no longer qualify
+    try {
+      await cleanupOldScores(scoreData.mode, 10); // Keep top 10 scores per mode
+    } catch (cleanupError) {
+      console.error("Error during score cleanup:", cleanupError);
+      // Continue even if cleanup fails
+    }
     
     // Debug: Verify the document was saved by retrieving it
     try {
@@ -350,5 +420,6 @@ export {
   waitForAuth, 
   saveHighScore, 
   getTopScores, 
-  isHighScore 
+  isHighScore,
+  cleanupOldScores 
 };

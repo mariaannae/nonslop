@@ -996,33 +996,14 @@ createLowScoreWarning() {
 
   createScoreRewardEffect() {
     if (this.totalScore >= 10) {
-      // Create a flashing screen effect
-      const flashOverlay = this.add.rectangle(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY,
-        this.cameras.main.width,
-        this.cameras.main.height,
-        0x33FF33, // Terminal green
-        0.3
-      ).setDepth(200);
-      
-      // Flash the screen
-      this.tweens.add({
-        targets: flashOverlay,
-        alpha: { from: 0.3, to: 0 },
-        duration: 150,
-        repeat: 3,
-        onComplete: () => flashOverlay.destroy()
-      });
-      
-      // Display "LEVEL UP!" text with typewriter effect
+      // Create the level up text with full content immediately
       const levelUpText = this.add.text(
         this.cameras.main.centerX,
         60,
-        "",
+        "NOT BAD, HUMAN",
         {
           fontFamily: "Courier Prime",
-          fontSize: "40px",
+          fontSize: "60px",
           color: "#33FF33", // Terminal green
           stroke: "#000000",
           strokeThickness: 4,
@@ -1030,42 +1011,68 @@ createLowScoreWarning() {
         }
       ).setOrigin(0.5).setDepth(201);
       
-      // Typewriter animation
-      let message = ">>> LEVEL UP! <<<";
-      let currentChar = 0;
+      // Add pulsing glow effect to the text
+      const glowFX = levelUpText.postFX.addGlow(0xffffff, 0, 0, false, 0.1, 24);
       
-      this.time.addEvent({
-        delay: 50,
-        repeat: message.length - 1,
-        callback: () => {
-          levelUpText.text += message[currentChar];
-          currentChar++;
-          // Add sound effect for each character typed
-          // this.sound.play('type'); // Uncomment if you have sound
-        },
-        onComplete: () => {
-          // Make text pulse
-          this.tweens.add({
-            targets: levelUpText,
-            scale: { from: 1, to: 1.2 },
-            duration: 500,
-            yoyo: true,
-            repeat: 2,
-            onComplete: () => {
-              this.tweens.add({
-                targets: levelUpText,
-                alpha: 0,
-                y: this.cameras.main.centerY - 100,
-                duration: 800,
-                onComplete: () => levelUpText.destroy()
-              });
-            }
-          });
-        }
+      // Create a pulsing effect for the glow
+      this.tweens.add({
+        targets: glowFX,
+        outerStrength: 4,
+        yoyo: true,
+        loop: -1,
+        ease: 'sine.inout',
+        duration: 1000
       });
       
-      // Add "Matrix" falling code effect in background
-      this.createMatrixRainEffect();
+      // Add a subtle scaling animation for the text
+      this.tweens.add({
+        targets: levelUpText,
+        scale: { from: 1, to: 1.1 },
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'sine.inout'
+      });
+      
+      // Create a subtle background effect
+      const glowBackground = this.add.rectangle(
+        this.cameras.main.centerX,
+        60,
+        levelUpText.width + 100,
+        levelUpText.height + 30,
+        0x33FF33, // Terminal green
+        0.1
+      ).setDepth(200);
+      
+      // Add pulsing effect to the background
+      this.tweens.add({
+        targets: glowBackground,
+        alpha: { from: 0.1, to: 0.2 },
+        width: { from: levelUpText.width + 100, to: levelUpText.width + 120 },
+        height: { from: levelUpText.height + 30, to: levelUpText.height + 40 },
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'sine.inout'
+      });
+      
+      // Remove only background effect after 5 seconds, keep text visible
+      this.time.delayedCall(5000, () => {
+        // Fade out only the background effect
+        this.tweens.add({
+          targets: glowBackground,
+          alpha: 0,
+          duration: 800,
+          onComplete: () => {
+            glowBackground.destroy();
+          }
+        });
+        
+        // Keep the text but stop its animations
+        this.tweens.killTweensOf(levelUpText);
+        // Reset scale to normal
+        levelUpText.setScale(1);
+      });
     }
   }
   

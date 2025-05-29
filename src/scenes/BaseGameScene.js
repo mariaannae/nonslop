@@ -35,6 +35,11 @@ export default class BaseGameScene extends Phaser.Scene {
         // Track latest suggestion request to avoid race conditions
         this.suggestionRequestId = 0;
 
+        // Timer properties
+        this.timerValue = 20; // 20 seconds
+        this.timerText = null;
+        this.timerEvent = null;
+
         // Debounced suggestion generator (will be set in setupInputHandlers)
         this.debouncedGenerateAISuggestions = null;
     }
@@ -131,6 +136,12 @@ export default class BaseGameScene extends Phaser.Scene {
             this.activeTimeout = null;
         }
         
+        // Stop the countdown timer
+        if (this.timerEvent) {
+            this.timerEvent.remove();
+            this.timerEvent = null;
+        }
+        
         // Clear any pending animations
         if (this.tweens) {
             this.tweens.killAll();
@@ -195,6 +206,12 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.cursorTimer) {
             this.cursorTimer.remove();
             this.cursorTimer = null;
+        }
+        
+        // Remove timer
+        if (this.timerEvent) {
+            this.timerEvent.remove();
+            this.timerEvent = null;
         }
         
         // Clear input handlers
@@ -778,6 +795,12 @@ export default class BaseGameScene extends Phaser.Scene {
                         this.updateFailsCounter(true);
                     }
                 }
+                // Reset timer when space is pressed
+                this.timerValue = 20;
+                if (this.timerText) {
+                    this.timerText.setText('0:20');
+                }
+                
                 this.userInput += " ";
                 this.updateCursor();
                 // Only generate suggestions once text has been updated
@@ -811,6 +834,15 @@ export default class BaseGameScene extends Phaser.Scene {
                 }
             } else if (event.key.length === 1) { // Printable characters
                 this.userInput += event.key;
+                
+                // Reset timer when a period is typed
+                if (event.key === '.') {
+                    this.timerValue = 20;
+                    if (this.timerText) {
+                        this.timerText.setText('0:20');
+                    }
+                }
+                
                 this.updateCursor();
                 // Only generate suggestions once text has been updated
                 this.scheduleAISuggestions();
@@ -834,6 +866,13 @@ export default class BaseGameScene extends Phaser.Scene {
                         this.updateFailsCounter(true);
                     }
                 }
+                
+                // Reset timer when Enter is pressed
+                this.timerValue = 20;
+                if (this.timerText) {
+                    this.timerText.setText('0:20');
+                }
+                
                 this.userInput += "\n";
                 this.updateCursor();
                 // Only generate suggestions once text has been updated
@@ -1152,6 +1191,9 @@ export default class BaseGameScene extends Phaser.Scene {
         menuBarShadow.fillStyle(0x000000, 0.3);
         menuBarShadow.fillRect(0, menuBarHeight, this.cameras.main.width, 10);
         menuBarShadow.setDepth(this.menuBar.depth - 1);
+        
+        // Create the timer after menu bar is set up
+        this.createTimer();
     }
 
     // Abstract style methods that must be implemented by child classes
@@ -1182,6 +1224,96 @@ export default class BaseGameScene extends Phaser.Scene {
     // Abstract methods that must be implemented by child classes
     createBackgroundEffect() {
         throw new Error('createBackgroundEffect must be implemented by child class');
+    }
+    
+    createTimer() {
+        // Create timer text in the upper left corner
+        this.timerText = this.add.text(20, this.menuBarHeight + 20, '0:20', {
+            fontFamily: 'Nunito',
+            fontSize: '40px',
+            fontStyle: 'bold',
+            fill: '#ff0000'
+        });
+        
+        // Start the countdown timer
+        this.timerEvent = this.time.addEvent({
+            delay: 1000,
+            callback: this.updateTimer,
+            callbackScope: this,
+            loop: true
+        });
+    }
+    
+    updateTimer() {
+        this.timerValue--;
+        
+        // Format the time as minutes:seconds
+        const minutes = Math.floor(this.timerValue / 60);
+        const seconds = this.timerValue % 60;
+        const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Update the timer text
+        this.timerText.setText(formattedTime);
+        
+        // Reset the timer when it reaches 0
+        if (this.timerValue <= 0) {
+            this.resetOnTimerEnd();
+            this.timerValue = 20; // Reset to 20 seconds
+        }
+    }
+    
+    resetOnTimerEnd() {
+        // 1. Make the screen shake
+        this.shakeScreen();
+        
+        // 2. Make the timer pop and shake
+        if (this.timerText) {
+            // Store original position
+            const originalX = this.timerText.x;
+            const originalY = this.timerText.y;
+            
+            // Flash the timer red with more intensity
+            this.timerText.setTint(0xff0000);
+            
+            // Create pop and shake effect
+            this.tweens.add({
+                targets: this.timerText,
+                scale: { from: 1, to: 1.5, duration: 200, yoyo: true },
+                x: originalX + 5,
+                y: originalY - 5,
+                ease: 'Elastic.Out',
+                duration: 500,
+                yoyo: true,
+                onComplete: () => {
+                    this.timerText.setScale(1);
+                    this.timerText.x = originalX;
+                    this.timerText.y = originalY;
+                    this.timerText.clearTint();
+                }
+            });
+        }
+        
+        // 3. Delete the user input text
+        this.clearInputTextBox();
+        
+        // 4. Clear the AI suggestions
+        this.aiSuggestedWords = [];
+        this.showSuggestions([]);
+        if (this.autocompleteText) {
+            this.autocompleteText.setText('');
+        }
+        
+        // 5 & 6. Clear and reset the word stats
+        this.aiWordCount = 0;
+        if (this.wordCountDisplay) {
+            this.updateWordCountDisplay();
+        }
+        
+        // Reset progress percentage to initial value
+        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+        if (this.failsCounter) {
+            this.updateProgressFill();
+        }
     }
 
 
@@ -1623,7 +1755,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const originalIcon = this.add.circle(20, 40, 6, this.design.PROGRESS_BAR.COLORS.SUCCESS);
         const originalLabel = this.add.text(
             35, 40, 
-            "Original:", 
+            "Original Words:", 
             { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
@@ -1633,7 +1765,7 @@ export default class BaseGameScene extends Phaser.Scene {
             { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#7cfc00' }
         ).setOrigin(1, 0.5);
         
-        const aiIcon = this.add.circle(20, 65, 6, this.design.PROGRESS_BAR.COLORS.WARNING);
+        const aiIcon = this.add.circle(20, 65, 6, 0xff3366); // Red color to match the AI counter
         const aiLabel = this.add.text(
             35, 65, 
             "AI Words:", 

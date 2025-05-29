@@ -1,5 +1,5 @@
 import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT, THEMES } from "../config/design.js";
-import { getTopScores } from "../config/firebase.js";
+import { getTopScores, cleanupOldScores } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
@@ -284,6 +284,9 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Create table header
         this.createTableHeader(startY, width);
+        
+        // Add cleanup button
+        this.createCleanupButton(startY, width);
         
         if (this.scores.length === 0) {
             this.noScoresText = this.add.text(
@@ -763,6 +766,303 @@ export default class LeaderboardScene extends Phaser.Scene {
             });
     }
 
+    createCleanupButton(y, width) {
+        // Create a small "cleanup" button that appears in the header row
+        const iconSize = 30;
+        const padding = 10;
+        
+        // Position at the top right of the leaderboard
+        const buttonX = this.cameras.main.centerX + width / 2 - iconSize / 2 - padding;
+        
+        // Create a trash icon for the cleanup button
+        const cleanupIcon = this.add.graphics();
+        cleanupIcon.fillStyle(0xFFFFFF, 0.8);
+        
+        // Draw a simple trash can icon
+        // Trash can body
+        cleanupIcon.fillRect(-8, -10, 16, 20);
+        
+        // Trash can lid
+        cleanupIcon.fillRect(-10, -14, 20, 4);
+        
+        // Trash can handle
+        cleanupIcon.fillRect(-3, -18, 6, 4);
+        
+        // Create a circular background for the icon
+        const iconBg = this.add.circle(0, 0, iconSize/2, this.COLORS_HEX.ACCENT, 0.7);
+        
+        // Group icon and background in a container
+        const cleanupButton = this.add.container(buttonX, y + 20, [iconBg, cleanupIcon]);
+        cleanupButton.setSize(iconSize, iconSize);
+        cleanupButton.setInteractive(new Phaser.Geom.Circle(0, 0, iconSize/2), Phaser.Geom.Circle.Contains);
+        
+        // Add hover and click effects
+        cleanupButton
+            .on('pointerover', () => {
+                iconBg.setFillStyle(this.COLORS_HEX.ACCENT, 1);
+                this.showTooltip("Remove old scores", buttonX, y - 10);
+            })
+            .on('pointerout', () => {
+                iconBg.setFillStyle(this.COLORS_HEX.ACCENT, 0.7);
+                if (this.tooltip) {
+                    this.tooltip.destroy();
+                    this.tooltip = null;
+                }
+            })
+            .on('pointerdown', async () => {
+                await this.performCleanup();
+            });
+            
+        return cleanupButton;
+    }
+    
+    showTooltip(text, x, y) {
+        // Remove existing tooltip if any
+        if (this.tooltip) {
+            this.tooltip.destroy();
+        }
+        
+        // Create background for tooltip
+        const tooltipBg = this.add.graphics();
+        tooltipBg.fillStyle(0x000000, 0.8);
+        
+        // Create text
+        const tooltipText = this.add.text(0, 0, text, {
+            fontFamily: 'Nunito',
+            fontSize: '14px',
+            color: '#ffffff',
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        // Size the background based on text
+        const padding = 8;
+        const width = tooltipText.width + padding * 2;
+        const height = tooltipText.height + padding * 2;
+        
+        // Draw the rounded rectangle for the tooltip
+        tooltipBg.fillRoundedRect(-width/2, -height/2, width, height, 6);
+        
+        // Create container for tooltip
+        this.tooltip = this.add.container(x, y - 30, [tooltipBg, tooltipText]);
+        this.tooltip.setDepth(1000); // Ensure it's on top
+        
+        // Animate tooltip appearance
+        this.tooltip.setScale(0.8);
+        this.tooltip.setAlpha(0);
+        this.tweens.add({
+            targets: this.tooltip,
+            scale: 1,
+            alpha: 1,
+            duration: 200,
+            ease: 'Back.Out'
+        });
+    }
+    
+    async performCleanup() {
+        // Show confirmation dialog
+        this.showConfirmationDialog();
+    }
+    
+    showConfirmationDialog() {
+        // Create confirmation dialog
+        if (this.confirmDialog) {
+            this.confirmDialog.destroy();
+        }
+        
+        // Create container for the dialog
+        this.confirmDialog = this.add.container(0, 0);
+        this.confirmDialog.setDepth(1000);
+        
+        // Add dark overlay
+        const overlay = this.add.rectangle(
+            0, 0,
+            this.cameras.main.width,
+            this.cameras.main.height,
+            0x000000, 0.7
+        ).setOrigin(0);
+        
+        // Add dialog background
+        const dialogWidth = 400;
+        const dialogHeight = 200;
+        const x = this.cameras.main.centerX - dialogWidth / 2;
+        const y = this.cameras.main.centerY - dialogHeight / 2;
+        
+        const dialogBg = this.add.graphics();
+        dialogBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
+        dialogBg.fillRoundedRect(x, y, dialogWidth, dialogHeight, 16);
+        dialogBg.lineStyle(3, this.COLORS_HEX.ACCENT, 1);
+        dialogBg.strokeRoundedRect(x, y, dialogWidth, dialogHeight, 16);
+        
+        // Add title and message
+        const titleText = this.add.text(
+            this.cameras.main.centerX,
+            y + 40,
+            'Confirm Cleanup',
+            {
+                fontFamily: 'Nunito',
+                fontSize: '24px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }
+        ).setOrigin(0.5);
+        
+        const messageText = this.add.text(
+            this.cameras.main.centerX,
+            y + 80,
+            'This will permanently delete scores that are\nnot in the top 10. Continue?',
+            {
+                fontFamily: 'Nunito',
+                fontSize: '16px',
+                color: '#ffffff',
+                align: 'center'
+            }
+        ).setOrigin(0.5);
+        
+        // Add buttons
+        const cancelButton = this.createButton(
+            "CANCEL",
+            () => {
+                this.tweens.add({
+                    targets: this.confirmDialog,
+                    alpha: 0,
+                    duration: 200,
+                    onComplete: () => this.confirmDialog.destroy()
+                });
+            },
+            this.cameras.main.centerX - 80,
+            y + dialogHeight - 40
+        );
+        
+        const confirmButton = this.createButton(
+            "CONFIRM",
+            async () => {
+                // Close dialog
+                this.confirmDialog.destroy();
+                
+                // Show loading indicator
+                this.showLoadingIndicator();
+                
+                try {
+                    // Call cleanup function
+                    await cleanupOldScores(this.mode, 10);
+                    
+                    // Reload scores after cleanup
+                    await this.loadScores();
+                    
+                    // Hide loading and show success message
+                    this.hideLoadingIndicator();
+                    this.showSuccessMessage("Scores cleaned up successfully!");
+                    
+                    // Refresh display
+                    this.displayScores();
+                } catch (error) {
+                    console.error("Error during cleanup:", error);
+                    this.hideLoadingIndicator();
+                    this.showErrorMessage("Failed to clean up scores");
+                }
+            },
+            this.cameras.main.centerX + 80,
+            y + dialogHeight - 40
+        );
+        
+        // Make overlay interactive to close on click outside
+        overlay.setInteractive()
+            .on('pointerdown', () => {
+                this.tweens.add({
+                    targets: this.confirmDialog,
+                    alpha: 0,
+                    duration: 200,
+                    onComplete: () => this.confirmDialog.destroy()
+                });
+            });
+        
+        // Add all elements to the container
+        this.confirmDialog.add([
+            overlay,
+            dialogBg,
+            titleText,
+            messageText,
+            cancelButton,
+            confirmButton
+        ]);
+        
+        // Animation for dialog appearance
+        this.confirmDialog.setScale(0.8);
+        this.confirmDialog.setAlpha(0);
+        this.tweens.add({
+            targets: this.confirmDialog,
+            scale: 1,
+            alpha: 1,
+            duration: 300,
+            ease: 'Back.Out'
+        });
+    }
+    
+    showSuccessMessage(message) {
+        this.showNotification(message, 0x33FF33);
+    }
+    
+    showErrorMessage(message) {
+        this.showNotification(message, 0xFF3333);
+    }
+    
+    showNotification(message, color) {
+        // Create notification toast
+        const padding = 20;
+        const toastText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY,
+            message,
+            {
+                fontFamily: 'Nunito',
+                fontSize: '18px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }
+        ).setOrigin(0.5);
+        
+        const width = toastText.width + padding * 2;
+        const height = toastText.height + padding * 2;
+        
+        const toastBg = this.add.graphics();
+        toastBg.fillStyle(color, 0.9);
+        toastBg.fillRoundedRect(
+            this.cameras.main.centerX - width / 2,
+            this.cameras.main.centerY - height / 2,
+            width,
+            height,
+            10
+        );
+        
+        const toast = this.add.container(0, 0, [toastBg, toastText]);
+        toast.setDepth(1000);
+        
+        // Animate toast
+        toast.setAlpha(0);
+        toast.setY(this.cameras.main.centerY + 50);
+        
+        this.tweens.add({
+            targets: toast,
+            alpha: 1,
+            y: this.cameras.main.centerY,
+            duration: 300,
+            ease: 'Back.Out',
+            onComplete: () => {
+                // Auto-hide after 2 seconds
+                this.time.delayedCall(2000, () => {
+                    this.tweens.add({
+                        targets: toast,
+                        alpha: 0,
+                        y: this.cameras.main.centerY - 50,
+                        duration: 300,
+                        ease: 'Back.In',
+                        onComplete: () => toast.destroy()
+                    });
+                });
+            }
+        });
+    }
+    
     createBackButton() {
         const button = this.createButton(
             "DONE",
