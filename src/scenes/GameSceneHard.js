@@ -472,7 +472,7 @@ export default class GameSceneHard extends BaseGameScene {
         return {
             fontFamily: "Nunito",
             fontSize: "22px",
-            color: this.COLORS_TEXT.PRIMARY,
+            fill: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6,
             shadow: {
@@ -487,7 +487,7 @@ export default class GameSceneHard extends BaseGameScene {
 
     getPromptBoxStyle() {
         return {
-            fillColor: this.COLORS_HEX.BACKGROUND,
+            fillColor: this.COLORS_HEX.BOX_FILL,
             fillAlpha: 0.5,
             hasOutline: true,
             outlineWidth: this.OUTLINE_WIDTH,

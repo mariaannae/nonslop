@@ -10,6 +10,12 @@ const PALETTE = {
     DARKER: 0x03062D,     // Dark purple
     DARK: 0x170548,       // Less dark purple
     MID: 0x3d0364,        // Mid purple
+    // Cool purple colors for BASIC mode (based on 0x101551)
+    PURPLE_DARKEST: 0x0a0c36,    // Very dark cool purple
+    PURPLE_DARKER: 0x101551,     // Your chosen cool purple
+    PURPLE_DARK: 0x1a1f6c,       // Medium dark cool purple
+    PURPLE_MID: 0x242987,        // Cool purple mid
+    PURPLE_LIGHT: 0x2e33a2,      // Lighter cool purple
     // Serene colors for GameSceneEasy
     EASY_DARKEST: 0x001620,    // Deep ocean blue
     EASY_DARKER: 0x002435,     // Midnight ocean
@@ -36,7 +42,13 @@ const PALETTE = {
     DARK: 0x00292a,
     GLOW: 0x00ffff,    // Glowing teal for effects
   },
-  MAGENTA: {           // New magenta palette for hard mode
+  COOL_PURPLE: {
+    MAIN: 0x5a6bc4,       // Cool purple accent (based on your color)
+    DARK: 0x101551,       // Your chosen cool purple
+    GLOW: 0x7986d3,       // Light cool purple glow
+    ACCENT: 0x3f4ba3,     // Medium cool purple accent
+  },
+  MAGENTA: {              // Keep for hard mode
     MAIN: 0xff00ff,
     DARK: 0x800080,
     GLOW: 0xff40ff,
@@ -53,10 +65,19 @@ const PALETTE = {
   }
 };
 
+
+
 /**
  * Utility function to convert hex color to CSS string
+ * Added null check to prevent "Cannot read properties of undefined" error
  */
-const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
+const hexToString = (hex) => {
+  if (hex === undefined || hex === null) {
+    console.warn('Undefined or null color value passed to hexToString');
+    return '#000000'; // Default to black when color is undefined
+  }
+  return '#' + hex.toString(16).padStart(6, '0');
+};
 
 /**
  * Common UI element dimensions and properties
@@ -82,7 +103,7 @@ const UI = {
     INCREMENT: 3,
     DECREMENT: 3,
     COLORS: {
-      SUCCESS: PALETTE.HIGHLIGHT.BRIGHT_GREEN,
+      SUCCESS: 0x009972,//PALETTE.HIGHLIGHT.BRIGHT_GREEN,
       WARNING: PALETTE.HIGHLIGHT.YELLOW,
       DANGER: PALETTE.ACCENT.RED
     }
@@ -94,19 +115,19 @@ const UI = {
  */
 const BASIC = {
   COLORS: {
-    BACKGROUND: PALETTE.BACKGROUND.DARKER,
-    BACKGROUND_LESS_DARK: PALETTE.BACKGROUND.DARK,
-    BOX_OUTLINE: PALETTE.TEAL.MAIN,
-    BOX_FILL: PALETTE.BACKGROUND.DARKEST,
-    BACKGROUND_MID: PALETTE.BACKGROUND.MID,
-    BACKGROUND_ALT: PALETTE.TEAL.DARK,
-    ACCENT: PALETTE.ACCENT.PINK,
-    HIGHLIGHT: PALETTE.HIGHLIGHT.GREEN_LIGHT,
-    TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
-    GREEN: PALETTE.HIGHLIGHT.GREEN,
+    BACKGROUND: PALETTE.BACKGROUND.PURPLE_DARKEST,      // Very dark cool purple background (0x0a0c36)
+    BACKGROUND_LESS_DARK: PALETTE.BACKGROUND.PURPLE_DARKER, // Your chosen cool purple (0x101551)
+    BOX_OUTLINE: PALETTE.TEAL.GLOW,              // Cool purple for outlines (0x5a6bc4)
+    BOX_FILL: PALETTE.BACKGROUND.DARKEST,               // Keep original box fill
+    BACKGROUND_MID: PALETTE.BACKGROUND.PURPLE_MID,      // Cool purple mid (0x242987)
+    BACKGROUND_ALT: PALETTE.TEAL.DARK,                  // Keep original alt background
+    ACCENT: PALETTE.ACCENT.PINK,                        // Keep original accent
+    HIGHLIGHT: PALETTE.HIGHLIGHT.GREEN_LIGHT,           // Keep original highlight
+    TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,             // Keep original text
+    GREEN: PALETTE.HIGHLIGHT.GREEN,                     // Keep original green
     BUTTON: {
-      FILL: PALETTE.ACCENT.PINK,
-      OVERLAY: PALETTE.ACCENT.PINK_RED
+      FILL: PALETTE.ACCENT.PINK,                        // Keep original button fill
+      OVERLAY: PALETTE.ACCENT.PINK_RED                  // Keep original button overlay
     }
   },
   TEXT_COLORS: {
@@ -120,6 +141,9 @@ const BASIC = {
   }
 };
 
+
+
+
 /**
  * Easy mode color configuration
  */
@@ -127,11 +151,13 @@ const EASY = {
   COLORS: {
     BACKGROUND: PALETTE.BACKGROUND.EASY_DARKEST,
     BOX_OUTLINE: PALETTE.ACCENT.PINK,
+    BOX_FILL: PALETTE.BACKGROUND.DARKEST, 
     BACKGROUND_ALT: PALETTE.BACKGROUND.EASY_DARKER,
     BACKGROUND_MID: PALETTE.BACKGROUND.EASY_MID,
     ACCENT: PALETTE.TEAL.MAIN,
     HIGHLIGHT: PALETTE.HIGHLIGHT.YELLOW,
     TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
+    WARNING: PALETTE.ACCENT.ORANGE_LIGHT,
     BUTTON: {
       FILL: PALETTE.ACCENT.PINK,
       OVERLAY: PALETTE.ACCENT.PINK_RED
@@ -142,7 +168,7 @@ const EASY = {
     SECONDARY: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHTER),
     HIGHLIGHT: hexToString(PALETTE.HIGHLIGHT.YELLOW),
     ACCENT: hexToString(PALETTE.HIGHLIGHT.GREEN_LIGHT),
-    SUCCESS: hexToString(PALETTE.HIGHLIGHT.GREEN_YELLOW),
+    SUCCESS: hexToString(PALETTE.HIGHLIGHT.BRIGHT_GREEN),
     ERROR: hexToString(PALETTE.ACCENT.RED),
     TITLE: hexToString(PALETTE.HIGHLIGHT.YELLOW),
   }
@@ -157,12 +183,14 @@ const HARD = {
     BACKGROUND_ALT: PALETTE.BACKGROUND.HARD_DARKER,
     BACKGROUND_MID: PALETTE.BACKGROUND.HARD_MID,
     BOX_OUTLINE: PALETTE.TEAL.MAIN,
+    BOX_FILL: PALETTE.BACKGROUND.DARKEST, 
     ACCENT: PALETTE.ACCENT.MAGENTA,
     HIGHLIGHT: PALETTE.BACKGROUND.HARD_DARK,
     ERROR: PALETTE.ACCENT.RED,
     TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
+    WARNING: PALETTE.ACCENT.ORANGE_LIGHT,
     BUTTON: {
-      FILL: PALETTE.ACCENT.MAGENTA,
+      FILL: PALETTE.ACCENT.PINK,
       OVERLAY: PALETTE.ACCENT.PINK_RED
     },
     SLIDER: {
@@ -228,9 +256,10 @@ export const THEMES = {
   basic: {
     ...BASIC,
     background: {
-      effect: "static",
-      asset: "bg.png",
-      color: PALETTE.BACKGROUND.DARKER
+      effect: "gradient",
+      color: PALETTE.BACKGROUND.PURPLE_DARKEST,    // 0x0a0c36
+      gradientTo: PALETTE.BACKGROUND.PURPLE_DARKER, // 0x101551
+      asset: "bg.png"
     }
   },
   easy: {

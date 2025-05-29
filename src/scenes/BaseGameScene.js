@@ -2532,11 +2532,11 @@ export default class BaseGameScene extends Phaser.Scene {
         this.failsCounter.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
 
-        if (this.progressPercentage == 100) {
-            this.celebrateSuccess();
-        } else if (this.progressPercentage == 0) {
-            this.celebrateNeedsWork();
-        }
+        // if (this.progressPercentage == 100) {
+        //     //this.celebrateSuccess();
+        // } else if (this.progressPercentage == 0) {
+        //     //this.celebrateNeedsWork();
+        // }
     }
 
     showSuggestions(words) {

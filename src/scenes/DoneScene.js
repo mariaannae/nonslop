@@ -1077,7 +1077,7 @@ createLowScoreWarning() {
         this.cameras.main.centerY,
         this.cameras.main.width,
         this.cameras.main.height,
-        0xFFAA00, // Amber
+        EASY_COLORS_HEX.WARNING, // Amber
         0.1
       ).setDepth(200);
       
@@ -1096,9 +1096,9 @@ createLowScoreWarning() {
         60,
         "NOT QUITE",
         {
-          fontFamily: "Nunito",
+          fontFamily: "Courier Prime",
           fontSize: "60px",
-          color: "#FFAA00", // Amber
+          color: EASY_COLORS_HEX.WARNING, 
           stroke: "#000000",
           strokeThickness: 3,
           shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, fill: true }
@@ -1242,41 +1242,7 @@ createLowScoreWarning() {
       });
     }
   }
-  
-  createAmberParticles() {
-    const particles = this.add.particles(0, 0, 'particle', {
-      frame: 0,
-      lifespan: 2000,
-      speed: { min: 10, max: 30 },
-      scale: { start: 0.2, end: 0 },
-      alpha: { start: 0.5, end: 0 },
-      gravityY: 20,
-      quantity: 1,
-      frequency: 100,
-      blendMode: 'ADD',
-      emitZone: {
-        type: 'random',
-        source: new Phaser.Geom.Rectangle(0, 30, this.cameras.main.width, 50)
-      }
-    }).setDepth(199);
-    
-    // If particle texture doesn't exist, create it
-    if (!this.textures.exists('particle')) {
-      const particleCanvas = this.textures.createCanvas('particle', 8, 8);
-      const ctx = particleCanvas.getContext();
-      const grd = ctx.createRadialGradient(4, 4, 0, 4, 4, 4);
-      grd.addColorStop(0, '#FFDD00');
-      grd.addColorStop(1, 'rgba(255, 170, 0, 0)');
-      ctx.fillStyle = grd;
-      ctx.fillRect(0, 0, 8, 8);
-      particleCanvas.refresh();
-    }
-    
-    // Stop emitting after 2 seconds
-    this.time.delayedCall(2000, () => {
-      particles.destroy();
-    });
-  }
+
   
   createMatrixRainEffect() {
     const drops = [];

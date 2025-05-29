@@ -155,7 +155,7 @@ export default class GameSceneEasy extends BaseGameScene {
 
     getPromptBoxStyle() {
         return {
-            fillColor: this.COLORS_HEX.BACKGROUND,
+            fillColor: this.COLORS_HEX.BOX_FILL,
             fillAlpha: 0.8,
             hasOutline: true,
             outlineWidth: this.OUTLINE_WIDTH,

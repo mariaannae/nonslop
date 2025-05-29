@@ -1,6 +1,7 @@
-import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT } from "../config/design.js";
+import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT, THEMES } from "../config/design.js";
 import { saveHighScore } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import { createBackground } from "../backgrounds/createBackground.js";
 
 export default class UsernameScene extends Phaser.Scene {
     constructor() {
@@ -53,41 +54,20 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     createBackgroundEffect() {
-        let width = this.cameras.main.width;
-        let height = this.cameras.main.height;
+        // Get the appropriate background configuration based on mode
+        const themeConfig = this.mode === 'easy' ? THEMES.easy : THEMES.hard;
         
-        let gradientTextureKey = 'gradientUsernameBackground';
-    
-        if (!this.textures.exists(gradientTextureKey)) {
-            let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
-            let ctx = gradientCanvas.getContext();
-    
-            if (!ctx) {
-                console.error("Failed to get canvas context for background effect.");
-                return;
-            }
-    
-            let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, '#' + this.COLORS_HEX.BACKGROUND.toString(16).padStart(6, '0'));
-            grd.addColorStop(1, '#' + this.COLORS_HEX.BACKGROUND_MID.toString(16).padStart(6, '0'));
-    
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, 0, width, height);
-            gradientCanvas.refresh();
-        }
-    
-        this.background = this.add.image(0, 0, gradientTextureKey)
-            .setOrigin(0)
-            .setDisplaySize(width, height)
-            .setDepth(-1);
+        // Use the createBackground function from the imported module
+        // This will create the appropriate background based on mode and level
+        createBackground(this, themeConfig.background, this.level);
     }
 
     createTitle() {
         // Create a title for entering username
         const titleStyle = {
             fontFamily: 'barcade3d',
-            fontSize: '40px',
-            color: this.COLORS_TEXT.PRIMARY,
+            fontSize: '60px',
+            color: this.COLORS_TEXT.TITLE,
             align: 'center',
             shadow: {
                 offsetX: 2,
@@ -108,14 +88,14 @@ export default class UsernameScene extends Phaser.Scene {
         // Add explanation text
         const subtitleStyle = {
             fontFamily: 'Nunito',
-            fontSize: '20px',
+            fontSize: '28px',
             color: '#ffffff',
             align: 'center'
         };
 
         this.add.text(
             this.cameras.main.centerX,
-            140,
+            this.cameras.main.centerY - 100,
             'Enter your name for the leaderboard:',
             subtitleStyle
         ).setOrigin(0.5);
@@ -125,13 +105,13 @@ export default class UsernameScene extends Phaser.Scene {
         const width = this.cameras.main.width * 0.6;
         const height = 60;
         const x = this.cameras.main.centerX - width / 2;
-        const y = this.cameras.main.centerY - 30;
+        const y = this.cameras.main.centerY - 50;
 
         // Create input field background
         this.inputBg = this.add.graphics();
         this.inputBg.fillStyle(0xffffff, 1);
         this.inputBg.fillRoundedRect(x, y, width, height, 10);
-        this.inputBg.lineStyle(3, this.COLORS_HEX.ACCENT, 1);
+        this.inputBg.lineStyle(3, this.COLORS_HEX.BOX_OUTLINE, 1);
         this.inputBg.strokeRoundedRect(x, y, width, height, 10);
 
         // Create text field
@@ -260,11 +240,11 @@ export default class UsernameScene extends Phaser.Scene {
         // Show score value
         const scoreText = this.add.text(
             this.cameras.main.centerX,
-            this.cameras.main.centerY - 100,
+            this.cameras.main.centerY - 150,
             `Score: ${this.scoreData?.score || 0}`,
             {
                 fontFamily: 'Nunito',
-                fontSize: '32px',
+                fontSize: '28px',
                 color: '#ffffff',
                 fontStyle: 'bold',
                 stroke: '#000000',

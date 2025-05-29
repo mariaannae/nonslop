@@ -604,7 +604,7 @@ export default class Preloader extends Phaser.Scene {
             this.progressBar.clear();
         }
           
-        this.progressBar.fillStyle(DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS, 1); // ✅ Use correct color
+        this.progressBar.fillStyle(COLORS_HEX.GREEN, 1); // ✅ Use correct color
     
         // ✅ Fix width scaling: Ensure fill fully extends when at 100%
         const clampedProgress = Phaser.Math.Clamp(progress, 0, 1);

@@ -99,7 +99,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Create a title for the leaderboard
         const titleStyle = {
             fontFamily: 'barcade3d',
-            fontSize: '50px',
+            fontSize: '60px',
             color: this.COLORS_TEXT.TITLE,
             align: 'center',
             shadow: {
@@ -113,7 +113,7 @@ export default class LeaderboardScene extends Phaser.Scene {
 
         this.add.text(
             this.cameras.main.centerX,
-            50,
+            70,
             '(LEADERBOARD)',
             titleStyle
         ).setOrigin(0.5);
@@ -121,7 +121,7 @@ export default class LeaderboardScene extends Phaser.Scene {
 
     createModeToggle() {
         // Create a container for the toggle and labels
-        this.modeToggleContainer = this.add.container(this.cameras.main.centerX, 120);
+        this.modeToggleContainer = this.add.container(this.cameras.main.centerX, 140);
         
         // Add labels for the toggle
         const easyLabel = this.add.text(-50, 0, "EASY", {
@@ -278,7 +278,7 @@ export default class LeaderboardScene extends Phaser.Scene {
     displayScores() {
         this.clearScoreDisplay();
         
-        const startY = 180;
+        const startY = 200;
         const spacing = 45;
         const width = this.cameras.main.width * 0.8;
         
