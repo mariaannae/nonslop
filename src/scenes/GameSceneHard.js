@@ -203,63 +203,276 @@ export default class GameSceneHard extends BaseGameScene {
         });
     }
 
-    // Add a method to show feedback when a word is blocked
-    // Replace the showBlockFeedback method with this fixed version
+    // Enhanced method to show feedback when a word is blocked
     showBlockFeedback(blockedWord) {
-        // Create a text notification
-        const text = this.add.text(
+        // Create warning text with dramatic styling - 10% smaller with newline
+        const blockedText = this.add.text(
             this.cameras.main.centerX,
             this.cameras.main.centerY - 100,
-            `"${blockedWord}" blocked - AI suggestion!`,
+            `AI WORD DETECTED:\n"${blockedWord}"`,
             {
                 fontFamily: 'Nunito',
-                fontSize: '24px',
-                fill: '#ff0000',
-                stroke: '#000000',
-                strokeThickness: 4,
-                backgroundColor: '#00000066',
-                padding: { x: 10, y: 5 }
+                fontSize: '25px', // Reduced from 28px
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                stroke: '#ff0000',
+                strokeThickness: 5, // Slightly reduced from 6
+                padding: { x: 15, y: 10 },
+                align: 'center'
             }
-        ).setOrigin(0.5).setDepth(100).setAlpha(0);
+        ).setOrigin(0.5).setDepth(101).setAlpha(0);
         
-        // Fade in
+        // Calculate the necessary width and height for the hexagon background with some padding
+        const width = blockedText.width + 80; // Add padding
+        const height = width; // Make height same as width for a balanced hexagon
+        
+        // Create a hexagonal background
+        const hexBg = this.add.graphics();
+        hexBg.fillStyle(0x800000, 0.8);
+        hexBg.lineStyle(4, 0xff0000, 1);
+        
+        // Create a simple hexagon that's wide enough for the text
+        const centerX = this.cameras.main.centerX;
+        const centerY = this.cameras.main.centerY - 100;
+        
+        // Draw a regular octagon (stop sign shape)
+        hexBg.beginPath();
+        
+        // Calculate radius based on the width needed for text (10% smaller overall)
+        const radius = width / 1.8 * 0.9; // Reduced by 10% to make the whole thing smaller
+        
+        // Draw octagon with 8 equal sides (like a stop sign)
+        for (let i = 0; i < 8; i++) {
+            // Start at 22.5 degrees to get flat top like a stop sign
+            const angle = (i * 45 + 22.5) * Math.PI / 180;
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+            
+            if (i === 0) {
+                hexBg.moveTo(x, y);
+            } else {
+                hexBg.lineTo(x, y);
+            }
+        }
+        // Back to start
+        hexBg.closePath();
+        
+        hexBg.fill();
+        hexBg.stroke();
+        hexBg.setDepth(100).setAlpha(0);
+        
+        // Add subtext - position in lower part of octagon
+        const subText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY - 100 + (radius * 0.4), // Position in lower section of octagon
+            "SECURITY VIOLATION - CONTENT PURGED",
+            {
+                fontFamily: 'Nunito',
+                fontSize: '16px', // Reduced from 18px to match overall size reduction
+                fontStyle: 'bold',
+                fill: '#ff5555',
+                stroke: '#000000',
+                strokeThickness: 2 // Reduced from 3
+            }
+        ).setOrigin(0.5).setDepth(101).setAlpha(0);
+        
+        // Animate all elements together - fade in quickly
         this.tweens.add({
-            targets: text,
+            targets: [hexBg, blockedText, subText],
             alpha: 1,
             duration: 200,
+            ease: 'Sine.easeOut',
             onComplete: () => {
-                // Hold at visible
+                // Add shake effect to text
                 this.tweens.add({
-                    targets: text,
-                    alpha: 1, 
-                    duration: 1000,
+                    targets: [blockedText, subText],
+                    x: { from: blockedText.x - 5, to: blockedText.x + 5 },
+                    duration: 50,
+                    yoyo: true,
+                    repeat: 4,
+                    ease: 'Sine.easeInOut'
+                });
+                
+                // Glitch effect on the blocked word
+                this.glitchText(blockedText);
+                
+                // Pulse the hexagon
+                this.tweens.add({
+                    targets: hexBg,
+                    scaleX: { from: 1, to: 1.05 },
+                    scaleY: { from: 1, to: 1.05 },
+                    duration: 400,
+                    yoyo: true,
+                    repeat: 2
+                });
+                
+                // Hold visible with subtle pulsing on the text
+                this.tweens.add({
+                    targets: blockedText,
+                    scaleX: { from: 1, to: 1.05 },
+                    scaleY: { from: 1, to: 1.05 },
+                    duration: 400,
+                    yoyo: true,
+                    repeat: 2,
                     onComplete: () => {
-                        // Fade out
+                        // Exit animation - fade out all elements
                         this.tweens.add({
-                            targets: text,
+                            targets: [hexBg, blockedText, subText],
                             alpha: 0,
-                            duration: 200,
-                            onComplete: () => text.destroy()
+                            duration: 300,
+                            ease: 'Sine.easeIn',
+                            onComplete: () => {
+                                hexBg.destroy();
+                                blockedText.destroy();
+                                subText.destroy();
+                            }
                         });
                     }
                 });
             }
         });
         
-        // Add a brief screen flash effect
-        const flash = this.add.rectangle(
-            0, 0, 
-            this.cameras.main.width, 
-            this.cameras.main.height,
-            0xff0000, 0.2
-        ).setOrigin(0).setDepth(90).setAlpha(0);
+        // Create dramatic screen effects
+        this.createBlockedWordScreenEffects(blockedWord);
+    }
+    
+    // Helper method to create glitch text effect
+    glitchText(textObject) {
+        // Store original text
+        const originalText = textObject.text;
+        let glitchCount = 0;
         
-        this.tweens.add({
-            targets: flash,
-            alpha: { from: 0.2, to: 0 },
-            duration: 300,
-            onComplete: () => flash.destroy()
+        // Create glitch interval
+        const glitchInterval = this.time.addEvent({
+            delay: 100,
+            callback: () => {
+                glitchCount++;
+                
+                // After several glitches, stop the effect
+                if (glitchCount > 10) {
+                    glitchInterval.remove();
+                    textObject.setText(originalText);
+                    return;
+                }
+                
+                // Skip some frames for more random effect
+                if (Math.random() > 0.5) {
+                    return;
+                }
+                
+                // Generate glitched text by replacing some characters
+                let glitchedText = '';
+                for (let i = 0; i < originalText.length; i++) {
+                    if (Math.random() > 0.8) {
+                        // Replace with a random character
+                        const chars = "!@#$%^&*<>0123456789";
+                        glitchedText += chars.charAt(Math.floor(Math.random() * chars.length));
+                    } else {
+                        glitchedText += originalText.charAt(i);
+                    }
+                }
+                
+                // Apply glitched text
+                textObject.setText(glitchedText);
+                
+                // Restore original after a short delay
+                this.time.delayedCall(50, () => {
+                    if (textObject.active) {
+                        textObject.setText(originalText);
+                    }
+                });
+            },
+            repeat: 10
         });
+    }
+    
+    // Method to create screen effects when words are blocked
+    createBlockedWordScreenEffects(blockedWord) {
+        // Create intense screen flash effect with multiple colors
+        const flashColors = [0xff0000, 0xff00ff, 0xaa00aa];
+        
+        flashColors.forEach((color, index) => {
+            const delay = index * 100;
+            const flash = this.add.rectangle(
+                0, 0, 
+                this.cameras.main.width, 
+                this.cameras.main.height,
+                color, 0.3
+            ).setOrigin(0).setDepth(90).setAlpha(0);
+            
+            this.tweens.add({
+                targets: flash,
+                alpha: { from: 0, to: 0.3 },
+                duration: 100,
+                delay: delay,
+                yoyo: true,
+                onComplete: () => flash.destroy()
+            });
+        });
+        
+        // Create electric zap effect from the input box to show word deletion
+        const inputBoxY = this.cameras.main.centerY;
+        const zapLines = 8;
+        
+        for (let i = 0; i < zapLines; i++) {
+            const zapLine = this.add.graphics().setDepth(95);
+            const lineWidth = Math.random() * 2 + 1;
+            const segments = Math.floor(Math.random() * 3) + 3;
+            
+            zapLine.lineStyle(lineWidth, 0xff00ff);
+            
+            // Draw a jagged line from the input box center outward
+            const startX = this.cameras.main.centerX;
+            const startY = inputBoxY;
+            let currentX = startX;
+            let currentY = startY;
+            
+            zapLine.beginPath();
+            zapLine.moveTo(currentX, currentY);
+            
+            for (let j = 0; j < segments; j++) {
+                const angle = (Math.random() * Math.PI / 2) - Math.PI / 4 + (i * Math.PI / 4);
+                const length = Math.random() * 80 + 40;
+                
+                currentX += Math.cos(angle) * length;
+                currentY += Math.sin(angle) * length;
+                
+                zapLine.lineTo(currentX, currentY);
+            }
+            
+            zapLine.strokePath();
+            
+            // Create particles at the end of each zap line
+            const particles = this.add.particles(currentX, currentY, 'ball', {
+                lifespan: 300,
+                speed: { min: 50, max: 150 },
+                scale: { start: 0.2, end: 0 },
+                quantity: 5,
+                emitting: false,
+                tint: 0xff00ff
+            }).setDepth(96);
+            
+            particles.explode(10);
+            
+            // Animate the zap line
+            this.tweens.add({
+                targets: zapLine,
+                alpha: { from: 1, to: 0 },
+                duration: 200,
+                delay: i * 50,
+                onComplete: () => {
+                    zapLine.destroy();
+                    // Destroy particles after they're done
+                    this.time.delayedCall(300, () => particles.destroy());
+                }
+            });
+        }
+        
+        // Add camera shake effect
+        this.cameras.main.shake(250, 0.01);
+        
+        // Create explosion effect centered on where the word would have been
+        this.createExplosionEffect(blockedWord, this.cameras.main.centerX, inputBoxY);
     }
     
     // Add a visual mode indicator with a more intense style for hard mode
