@@ -462,8 +462,17 @@ function createHardBackground(ctx, width, height, levelValue) {
   }
 }
 
-// Main entry point - kept the same for backward compatibility
-export function createBackground(scene, backgroundConfig, levelValue = 1) {
+// Helper function to get the streak intensity level (0-4)
+function getStreakIntensity(streak) {
+  if (streak >= 13) return 4;  // Epic streak (13+)
+  if (streak >= 8) return 3;   // Strong streak (8-12)
+  if (streak >= 4) return 2;   // Growing streak (4-7)
+  if (streak >= 1) return 1;   // Building streak (1-3)
+  return 0;                    // No streak
+}
+
+// Main entry point - updated to support streak-based effects
+export function createBackground(scene, backgroundConfig, levelValue = 1, wordStreak = 0) {
   const width = scene.cameras.main.width;
   const height = scene.cameras.main.height;
   const effect = backgroundConfig?.effect || "static";
@@ -480,8 +489,11 @@ export function createBackground(scene, backgroundConfig, levelValue = 1) {
     return;
   }
 
-  // Create a dynamic canvas background
-  const gradientTextureKey = `themeBackground_${effect}_level_${levelValue}`;
+  // Calculate streak intensity (0-4)
+  const streakIntensity = getStreakIntensity(wordStreak);
+  
+  // Create a dynamic canvas background with streak intensity included in the key
+  const gradientTextureKey = `themeBackground_${effect}_level_${levelValue}_streak_${streakIntensity}`;
   if (!scene.textures.exists(gradientTextureKey)) {
     const gradientCanvas = scene.textures.createCanvas(gradientTextureKey, width, height);
     const ctx = gradientCanvas.getContext();
@@ -506,23 +518,237 @@ export function createBackground(scene, backgroundConfig, levelValue = 1) {
     .setDisplaySize(width, height)
     .setDepth(-1);
 
-  // Smoother, more subtle animations
+  // Animation parameters based on streak intensity - ENHANCED effects
+  const alphaRange = 0.1 + (streakIntensity * 0.05); // 0.1 to 0.3
+  const scaleRange = 0.03 + (streakIntensity * 0.015); // 0.03 to 0.09
+  const durationBase = 8000 - (streakIntensity * 1500); // 8000 to 2000ms
+  
+  console.log(`Background effects for streak intensity: ${streakIntensity}, streak: ${wordStreak}`);
+  
+  // Only show streak indicator when streak > 0
+  if (wordStreak > 0) {
+    // Create a text indicator for feedback
+    const streakIndicator = scene.add.text(10, 10, `Streak: ${wordStreak}`, {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setDepth(100);
+    
+    // Make text fade out after 3 seconds
+    scene.tweens.add({
+      targets: streakIndicator,
+      alpha: { from: 1, to: 0 },
+      delay: 3000,
+      duration: 1000,
+      onComplete: () => streakIndicator.destroy()
+    });
+  }
+  
+  // More dramatic pulsing effect
   scene.tweens.add({
     targets: scene.background,
-    alpha: { from: 0.95, to: 1 },
-    duration: 8000,
+    alpha: { from: 0.9, to: 0.9 + alphaRange },
+    duration: durationBase,
     yoyo: true,
     repeat: -1,
     ease: 'Sine.InOut'
   });
 
+  // More noticeable scaling
   scene.tweens.add({
     targets: scene.background,
-    scaleX: { from: 1, to: 1.02 },
-    scaleY: { from: 1, to: 1.02 },
-    duration: 12000,
+    scaleX: { from: 1, to: 1 + scaleRange },
+    scaleY: { from: 1, to: 1 + scaleRange },
+    duration: durationBase * 1.2,
     yoyo: true,
     repeat: -1,
     ease: 'Sine.InOut'
   });
+  
+  // Only apply streak-specific effects when streak > 0
+  if (wordStreak > 0) {
+    console.log(`Applying all streak effects for streak: ${wordStreak}, intensity: ${streakIntensity}`);
+    
+    // Add effects for ALL streak levels, with increasing intensity
+    if (streakIntensity >= 1) {
+      // Even at low streaks, add a subtle rotation
+      const rotationAmount = 0.2 + (streakIntensity * 0.3); // 0.2 to 1.4 degrees
+      
+      scene.tweens.add({
+        targets: scene.background,
+        angle: { from: -rotationAmount, to: rotationAmount },
+        duration: durationBase * 1.5,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut'
+      });
+      
+      // Add a visual streak indicator (a colored border) that gets more intense with higher streaks
+      const borderColor = effect === "electric" || effect === "hard" ? 0xff00ff : 0x00ffff;
+      const borderWidth = 2 + (streakIntensity * 3); // 2px to 14px
+      const border = scene.add.rectangle(
+        width/2, 
+        height/2, 
+        width - 20, 
+        height - 20, 
+        borderColor, 
+        0
+      ).setStrokeStyle(borderWidth, borderColor, 0.3 + (streakIntensity * 0.15)) // Alpha 0.3 to 0.9
+        .setDepth(-0.5);
+      
+      // Pulse the border
+      scene.tweens.add({
+        targets: border,
+        scaleX: { from: 0.98, to: 1.02 },
+        scaleY: { from: 0.98, to: 1.02 },
+        duration: durationBase / (1 + streakIntensity * 0.5), // Gets faster with higher streaks
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut'
+      });
+      
+      // Add to scene.background for cleanup tracking
+      scene.background.streakBorder = border;
+    }
+  
+    // For medium and higher streaks, add particle effects
+    if (streakIntensity >= 2) {
+      try {
+        // Create particles for streaks
+        const particleColor = effect === "electric" || effect === "hard" ? 0xff00ff : 0x00ffff;
+        
+        // Create simple particles using circles
+        const particles = [];
+        const particleCount = 5 + (streakIntensity * 5); // 15 to 30 particles
+        
+        for (let i = 0; i < particleCount; i++) {
+          const particle = scene.add.circle(
+            Math.random() * width,
+            Math.random() * height,
+            2 + Math.random() * 4,
+            particleColor,
+            0.5 + (streakIntensity * 0.1) // Brightness increases with streak
+          ).setDepth(-0.6);
+          
+          // Animate each particle
+          scene.tweens.add({
+            targets: particle,
+            x: { from: particle.x, to: particle.x + (Math.random() * 200 - 100) },
+            y: { from: particle.y, to: particle.y + (Math.random() * 200 - 100) },
+            alpha: { from: particle.alpha, to: 0 },
+            scale: { from: 1, to: 0 },
+            duration: 1500 + Math.random() * 2000,
+            onComplete: () => {
+              // Respawn the particle
+              particle.x = Math.random() * width;
+              particle.y = Math.random() * height;
+              particle.alpha = 0.5 + (streakIntensity * 0.1);
+              particle.scale = 1;
+              
+              // Animate again
+              scene.tweens.add({
+                targets: particle,
+                x: { from: particle.x, to: particle.x + (Math.random() * 200 - 100) },
+                y: { from: particle.y, to: particle.y + (Math.random() * 200 - 100) },
+                alpha: { from: particle.alpha, to: 0 },
+                scale: { from: 1, to: 0 },
+                duration: 1500 + Math.random() * 2000,
+                repeat: -1
+              });
+            }
+          });
+          
+          particles.push(particle);
+        }
+        
+        // Store reference for cleanup
+        scene.background.particles = particles;
+      } catch (e) {
+        console.error("Error creating streak particles:", e);
+      }
+    }
+    
+    // For high streaks, add dramatic overlay effects
+    if (streakIntensity >= 3) {
+      // Create a glowing overlay
+      const glowColor = effect === "electric" || effect === "hard" ? 0xff00ff : 0x00ffff;
+      const glowAlpha = 0.15 + (streakIntensity * 0.05); // 0.15 to 0.35
+      const glow = scene.add.rectangle(
+        width/2, 
+        height/2, 
+        width, 
+        height, 
+        glowColor, 
+        glowAlpha
+      ).setDepth(-0.5);
+      
+      // Add to scene.background for cleanup tracking
+      scene.background.glowOverlay = glow;
+      
+      // Add pulsing effect
+      scene.tweens.add({
+        targets: glow,
+        alpha: { from: glowAlpha, to: glowAlpha * 2 },
+        duration: durationBase / 2,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut'
+      });
+      
+      // For Epic streak (level 4), add additional dramatic effects
+      if (streakIntensity === 4) {
+        // Add vignette effect (darkened corners)
+        const vignette = scene.add.graphics().setDepth(-0.4);
+        vignette.fillStyle(0x000000, 0.4);
+        
+        // Draw a radial gradient manually
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.max(width, height) * 0.7;
+        
+        for (let r = radius; r > 0; r -= 5) {
+          const alpha = 0.4 * (1 - (r / radius));
+          vignette.fillStyle(0x000000, alpha);
+          vignette.fillCircle(centerX, centerY, r);
+        }
+        
+        // Store for cleanup
+        scene.background.vignette = vignette;
+        
+        // Add corner flares
+        const flarePositions = [
+          {x: 0, y: 0},
+          {x: width, y: 0},
+          {x: 0, y: height},
+          {x: width, y: height}
+        ];
+        
+        const flares = [];
+        
+        flarePositions.forEach(pos => {
+          const flare = scene.add.circle(pos.x, pos.y, 120, glowColor, 0.2).setDepth(-0.3);
+          
+          // Pulse the flare
+          scene.tweens.add({
+            targets: flare,
+            scale: { from: 0.8, to: 1.2 },
+            alpha: { from: 0.1, to: 0.3 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.InOut'
+          });
+          
+          flares.push(flare);
+        });
+        
+        // Store for cleanup
+        scene.background.flares = flares;
+      }
+    }
+  } else {
+    console.log("No streak effects applied - streak is 0");
+  }
 }

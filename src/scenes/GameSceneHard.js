@@ -618,7 +618,7 @@ export default class GameSceneHard extends BaseGameScene {
         
         this.cameras.main.scrollY = 0;
         // Centralized background creation
-        createBackground(this, THEMES.hard.background, this.levelValue);
+        createBackground(this, THEMES.hard.background, this.levelValue, this.wordStreak);
         this.createMenuBar();
         this.createPromptTextBox();
         this.createInputTextBox();
@@ -782,20 +782,27 @@ export default class GameSceneHard extends BaseGameScene {
         };
     }
 
-    // Update background when level changes
+    // Update background when level changes or streak changes
     updateBackgroundForLevel() {
-        // Destroy existing background
+        // Destroy existing background and all streak-specific visuals
         if (this.background) {
+            // Clean up any streak-specific visuals first
+            this.cleanupStreakVisuals();
+            
+            // Then destroy the background itself
             this.background.destroy();
         }
         
-        // Recreate background with the current level colors using centralized logic
-        createBackground(this, THEMES.hard.background, this.levelValue);
+        // Log streak value for debugging
+        console.log(`Hard Mode - Creating background with streak: ${this.wordStreak}`);
+        
+        // Recreate background with the current level colors and streak value
+        createBackground(this, THEMES.hard.background, this.levelValue, this.wordStreak);
         
         // Destroy and recreate the floating particles for the new level
         if (this.particleContainer) {
             this.particleContainer.destroy();
-            this.createFloatingParticles();
+            this.createFloatingParticles && this.createFloatingParticles();
         }
         
         // Update mode indicator badge if it exists

@@ -2532,16 +2532,73 @@ export default class BaseGameScene extends Phaser.Scene {
             // Reset streak for AI words
             this.wordStreak = 0;
             this.lastWordWasOriginal = false;
+            
+            // Cleanup any existing streak-specific visual elements
+            this.cleanupStreakVisuals();
         }
         
         // Update the word count display which contains the streak counters
         this.updateWordCountDisplay();
+        
+        // Update background based on the new streak value
+        this.updateBackgroundForStreak();
         
         // If streak has increased, add celebration effects at milestones
         if (isOriginalWord && this.wordStreak > previousStreak) {
             // Add streak milestone effects
             this.celebrateStreakMilestone(this.wordStreak, previousStreak);
         }
+    }
+    
+    // Helper method to clean up any streak-specific visuals
+    cleanupStreakVisuals() {
+        // Clean up any existing streak-specific background elements
+        if (this.background) {
+            // Clean up the border if it exists
+            if (this.background.streakBorder) {
+                this.background.streakBorder.destroy();
+                this.background.streakBorder = null;
+            }
+            
+            // Clean up particles if they exist
+            if (this.background.particles) {
+                this.background.particles.forEach(particle => {
+                    if (particle && particle.active) {
+                        particle.destroy();
+                    }
+                });
+                this.background.particles = null;
+            }
+            
+            // Clean up glow overlay if it exists
+            if (this.background.glowOverlay) {
+                this.background.glowOverlay.destroy();
+                this.background.glowOverlay = null;
+            }
+            
+            // Clean up vignette if it exists
+            if (this.background.vignette) {
+                this.background.vignette.destroy();
+                this.background.vignette = null;
+            }
+            
+            // Clean up flares if they exist
+            if (this.background.flares) {
+                this.background.flares.forEach(flare => {
+                    if (flare && flare.active) {
+                        flare.destroy();
+                    }
+                });
+                this.background.flares = null;
+            }
+        }
+    }
+    
+    // Update background based on the current streak
+    updateBackgroundForStreak() {
+        // Simply call the scene's updateBackgroundForLevel method
+        // which will handle the background creation with the current streak value
+        this.updateBackgroundForLevel();
     }
     
     // Celebrate streak milestones with special effects

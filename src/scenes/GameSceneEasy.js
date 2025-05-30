@@ -81,7 +81,7 @@ export default class GameSceneEasy extends BaseGameScene {
         
         this.cameras.main.scrollY = 0;
         // Centralized background creation
-        createBackground(this, THEMES.easy.background, this.levelValue);
+        createBackground(this, THEMES.easy.background, this.levelValue, this.wordStreak);
         this.createMenuBar();
         this.createPromptTextBox();
         this.createInputTextBox();
@@ -234,20 +234,26 @@ export default class GameSceneEasy extends BaseGameScene {
 
 
 
-    // Update background when level changes
+    // Update background when level changes or streak changes
     updateBackgroundForLevel() {
-        // Destroy existing background
+        // Destroy existing background and all streak-specific visuals
         if (this.background) {
+            // Clean up any streak-specific visuals first
+            this.cleanupStreakVisuals();
+            
+            // Then destroy the background itself
             this.background.destroy();
         }
         
-        // Recreate background with the current level colors using centralized logic
-        createBackground(this, THEMES.easy.background, this.levelValue);
+        // Log streak value for debugging
+        console.log(`Creating background with streak: ${this.wordStreak}`);
         
-        // Destroy and recreate any particles if they exist
-        if (this.particleContainer) {
-            this.particleContainer.destroy();
-            this.createFloatingParticles && this.createFloatingParticles();
+        // Recreate background with the current level colors and streak value
+        createBackground(this, THEMES.easy.background, this.levelValue, this.wordStreak);
+        
+        // Update mode indicator badge if it exists
+        if (this.modeIndicator) {
+            this.modeIndicator.destroy();
         }
     }
     
@@ -290,7 +296,4 @@ export default class GameSceneEasy extends BaseGameScene {
             super.shutdown();
         }
     }
-    
-
-    
 }
