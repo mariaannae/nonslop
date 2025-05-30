@@ -485,11 +485,19 @@ export default class UsernameScene extends Phaser.Scene {
                 // Take a snapshot of current scene before transition
                 await SceneTransitionManager.prepareTransition(this);
                 
-                // Use transition manager to fade to the leaderboard
-                SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
-                    mode: this.mode,
-                    level: this.level
-                }, 500, '#000000');
+                // Use enhanced transition manager with HIGH_SCORE context for a more dramatic effect
+                // This will use a diagonal wipe transition by default for high scores
+                SceneTransitionManager.transition(this, 'LeaderboardScene', 
+                    {
+                        mode: this.mode,
+                        level: this.level
+                    }, 
+                    SceneTransitionManager.CONTEXT.HIGH_SCORE,
+                    {
+                        duration: 800,
+                        color: this.mode === 'hard' ? '#400045' : '#004565' // Mode-specific color
+                    }
+                );
             } catch (error) {
                 console.error("Error saving high score:", error);
                 this.hideLoadingIndicator();
@@ -504,17 +512,22 @@ export default class UsernameScene extends Phaser.Scene {
     
     async skipUsername() {
         // When user chooses to skip, don't save the score at all
-        // and navigate directly to the leaderboard with a smooth transition
+        // and navigate directly to the leaderboard with a different transition effect
         this.hideLoadingIndicator();
         
         // Take a snapshot of current scene before transition
         await SceneTransitionManager.prepareTransition(this);
         
-        // Use transition manager to fade to the leaderboard
-        SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
-            mode: this.mode,
-            level: this.level
-        }, 500, '#000000');
+        // Use pixel dissolve transition for skipping (different from submit for contrast)
+        SceneTransitionManager.pixelDissolveTransition(this, 'LeaderboardScene', 
+            {
+                mode: this.mode,
+                level: this.level
+            }, 
+            700, 
+            this.mode === 'hard' ? '#200025' : '#002435',
+            'grid'  // Use grid pattern for pixel dissolve
+        );
     }
     
     showLoadingIndicator() {
@@ -595,12 +608,17 @@ export default class UsernameScene extends Phaser.Scene {
                 // Take a snapshot of current scene before transition
                 await SceneTransitionManager.prepareTransition(this);
                 
-                // Use transition manager to fade to the leaderboard
-                SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
-                    mode: this.mode,
-                    level: this.level,
-                    previousScene: 'DoneScene'
-                }, 500, '#000000');
+                // Use glitch transition for error scenarios to communicate issues visually
+                SceneTransitionManager.glitchTransition(this, 'LeaderboardScene', 
+                    {
+                        mode: this.mode,
+                        level: this.level,
+                        previousScene: 'DoneScene'
+                    }, 
+                    600, 
+                    '#ff0000',  // Red color for error context
+                    7           // Higher intensity for error glitch effect
+                );
             },
             0, 60
         );

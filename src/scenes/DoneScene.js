@@ -342,11 +342,18 @@ export default class DoneScene extends Phaser.Scene {
         // Store the original level value before updating it
         const originalLevelValue = this.levelValue;
         
+        // Determine transition context based on score
+        let transitionContext = SceneTransitionManager.CONTEXT.NORMAL;
+        let transitionColor = this.mode === "hard" ? '#400045' : '#003450';
+        
         if (this.totalScore >= 10) {
             this.levelValue = Math.min(this.levelValue + 1, 3);
-            
+            transitionContext = SceneTransitionManager.CONTEXT.LEVEL_UP;
+            transitionColor = this.mode === "hard" ? '#600065' : '#004565'; // Brighter colors for success
         } else if (this.totalScore <= 5) {
             this.levelValue = Math.max(this.levelValue - 1, 1);
+            transitionContext = SceneTransitionManager.CONTEXT.LOW_SCORE;
+            transitionColor = this.mode === "hard" ? '#200025' : '#001620'; // Darker colors for low score
         } 
         
         // Prepare reset data for game scene, preserving level and topK
@@ -407,39 +414,43 @@ export default class DoneScene extends Phaser.Scene {
             await SceneTransitionManager.prepareTransition(this);
             
             if (isHighScoreResult) {
-                // It's a high score! Go to the username entry scene with a transition
+                // It's a high score! Go to the username entry scene with a cool radial transition
                 console.log("High score achieved! Going to username entry");
                 console.log("Passing to UsernameScene - Mode:", this.mode, "Level:", originalLevelValue);
                 
-                // Use the transition manager with username scene
-                SceneTransitionManager.fadeTransition(this, 'UsernameScene', {
+                // Use the radial transition for high scores - it creates an expanding circle effect
+                SceneTransitionManager.radialTransition(this, 'UsernameScene', {
                     mode: this.mode,
                     scoreData: scoreData,
                     level: originalLevelValue // Use original level, not the updated one
-                }, 500, '#000000');
+                }, 800, transitionColor, true); // true = expanding circle
             } else {
                 // Not a high score, go to the leaderboard with a transition
                 console.log("Not a high score, going to leaderboard");
                 
-                // Use the transition manager with leaderboard scene
-                SceneTransitionManager.fadeTransition(this, 'LeaderboardScene', {
-                    mode: this.mode,
-                    level: originalLevelValue // Use original level, not the updated one
-                }, 500, '#000000');
+                // Use a transition based on score context
+                SceneTransitionManager.transition(this, 'LeaderboardScene', 
+                    {
+                        mode: this.mode,
+                        level: originalLevelValue // Use original level, not the updated one
+                    },
+                    transitionContext,
+                    {
+                        duration: 700,
+                        color: transitionColor
+                    }
+                );
             }
         } catch (error) {
             console.error("Error checking high score:", error);
-            // In case of error, just go to the next game with a transition
+            // In case of error, use glitch transition to indicate error
             
             // Prepare transition
             await SceneTransitionManager.prepareTransition(this);
             
-            if (this.mode === "easy") {
-                SceneTransitionManager.fadeTransition(this, 'GameSceneEasy', resetData, 500, '#000000');
-            }
-            else if (this.mode === "hard") {
-                SceneTransitionManager.fadeTransition(this, 'GameSceneHard', resetData, 500, '#000000');
-            }
+            // Use glitch transition for error cases
+            const targetScene = this.mode === "easy" ? 'GameSceneEasy' : 'GameSceneHard';
+            SceneTransitionManager.glitchTransition(this, targetScene, resetData, 600, '#ff0000', 5);
         }
     }
 

@@ -88,7 +88,7 @@ export default class BaseGameScene extends Phaser.Scene {
         return toggle;
     }
 
-    onModeToggle(mode) {
+    async onModeToggle(mode) {
         // Reset data when transitioning between modes
         const dataToTransfer = {
             mode: mode,
@@ -115,16 +115,35 @@ export default class BaseGameScene extends Phaser.Scene {
         // Prepare for scene transition by cleaning up resources
         this.prepareForSceneTransition();
         
-        // Give a small delay to ensure cleanup completes
+        // Prepare transition with snapshot
+        await SceneTransitionManager.prepareTransition(this);
+        
+        // Determine target scene
+        const targetScene = mode === 'hard' ? 'GameSceneHard' : 'GameSceneEasy';
+        
+        // Use appropriate transition based on mode
         if (mode === 'hard') {
-            this.time.delayedCall(50, () => {
-                this.scene.start('GameSceneHard', dataToTransfer);
-            });
-        }
-        else if (mode === 'easy') {
-            this.time.delayedCall(50, () => {
-                this.scene.start('GameSceneEasy', dataToTransfer);
-            });
+            // Use glitch transition for hard mode (represents the challenge)
+            // Red/magenta color and medium intensity for the effect
+            SceneTransitionManager.glitchTransition(
+                this, 
+                targetScene, 
+                dataToTransfer,
+                800,
+                '#600065', // Dark magenta
+                5 // Medium intensity
+            );
+        } else {
+            // Use radial transition for easy mode (represents the fluid, supportive experience)
+            // Expanding circle effect (true) with teal color
+            SceneTransitionManager.radialTransition(
+                this,
+                targetScene,
+                dataToTransfer,
+                800,
+                '#004565', // Ocean blue
+                false // Contracting circle (starts large, contracts to reveal new scene)
+            );
         }
     }
 
@@ -2427,10 +2446,43 @@ export default class BaseGameScene extends Phaser.Scene {
         this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
         
         if (success) {
-            // Non-AI word
+            // Non-AI word - Create success effects!
             newPercentage = this.progressPercentage + this.progressIncrement;
+            
+            // Get the last word from user input
+            const words = this.userInput.trim().split(/\s+/);
+            const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, ''); // Remove punctuation
+            
+            if (lastWord && lastWord.length > 0) {
+                // Create a rising word effect
+                this.createRisingWordEffect(lastWord);
+                
+                // Create a particle burst at cursor position
+                this.createWordSuccessParticles();
+                
+                // Add a small camera flash if streak is building
+                if (this.wordStreak >= 2) {
+                    // Intensity increases with streak
+                    const flashIntensity = Math.min(0.1 + (this.wordStreak * 0.02), 0.3);
+                    const flash = this.add.rectangle(
+                        0, 0, 
+                        this.cameras.main.width, 
+                        this.cameras.main.height,
+                        0x00ff00, // Green
+                        flashIntensity
+                    ).setOrigin(0).setDepth(90);
+                    
+                    this.tweens.add({
+                        targets: flash,
+                        alpha: 0,
+                        duration: 300,
+                        ease: 'Cubic.Out',
+                        onComplete: () => flash.destroy()
+                    });
+                }
+            }
         } else {
-            // AI word     
+            // AI word - negative effects     
             newPercentage = this.progressPercentage - this.progressIncrement;
             this.shakeScreen();
             
@@ -2449,6 +2501,23 @@ export default class BaseGameScene extends Phaser.Scene {
             if (currentWord) {
                 const inputBoxY = this.cameras.main.centerY - 240 / 2;
                 this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
+                
+                // Add a red flash for AI word
+                const flash = this.add.rectangle(
+                    0, 0, 
+                    this.cameras.main.width, 
+                    this.cameras.main.height,
+                    0xff0000, // Red
+                    0.15
+                ).setOrigin(0).setDepth(90);
+                
+                this.tweens.add({
+                    targets: flash,
+                    alpha: 0,
+                    duration: 200,
+                    ease: 'Cubic.Out',
+                    onComplete: () => flash.destroy()
+                });
             }
             
             // Update AI word count only
@@ -2475,6 +2544,180 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         this.updateProgressFill();
+        
+        // Emit particles from progress bar when value changes
+        this.emitProgressBarParticles(success ? "increment" : "decrement");
+    }
+    
+    /**
+     * Create a floating effect for a successfully typed word
+     * @param {string} word - The word to animate
+     */
+    createRisingWordEffect(word) {
+        // Determine input position for the effect origin
+        const inputBoxY = this.cameras.main.centerY - 240 / 2;
+        const inputBoxHeight = 240;
+        const inputBoxCenterY = inputBoxY + inputBoxHeight / 2;
+        
+        // Create word text at cursor position
+        const wordText = this.add.text(
+            this.cameras.main.centerX,
+            inputBoxCenterY,
+            word,
+            {
+                fontFamily: 'Nunito',
+                fontSize: '24px',
+                fontStyle: 'bold',
+                fill: '#00ff00', // Green for success
+                stroke: '#000000',
+                strokeThickness: 3,
+                shadow: {
+                    offsetX: 1,
+                    offsetY: 1,
+                    color: '#000',
+                    blur: 1,
+                    stroke: true
+                }
+            }
+        ).setOrigin(0.5).setDepth(100).setAlpha(0);
+        
+        // Generate a random rise direction slightly to the left or right
+        const randomX = this.cameras.main.centerX + Phaser.Math.Between(-100, 100);
+        
+        // Rising animation sequence
+        this.tweens.add({
+            targets: wordText,
+            y: inputBoxCenterY - 100, // Rise up
+            x: randomX, // Drift horizontally
+            alpha: { from: 0, to: 1, duration: 200, ease: 'Cubic.Out' },
+            scale: { from: 0.8, to: 1.2 },
+            angle: { from: Phaser.Math.Between(-10, 10), to: 0 },
+            duration: 800,
+            ease: 'Back.Out',
+            onComplete: () => {
+                // Fade out
+                this.tweens.add({
+                    targets: wordText,
+                    alpha: 0,
+                    y: '-=50',
+                    scale: 1.5,
+                    duration: 400,
+                    ease: 'Cubic.In',
+                    onComplete: () => wordText.destroy()
+                });
+            }
+        });
+    }
+    
+    /**
+     * Create particle burst for successful word entry
+     */
+    createWordSuccessParticles() {
+        // Determine input position for the effect origin
+        const inputBoxY = this.cameras.main.centerY - 240 / 2;
+        const inputBoxHeight = 240;
+        const inputBoxCenterY = inputBoxY + inputBoxHeight / 2;
+        
+        // Calculate a dynamic color based on streak
+        let colors;
+        if (this.wordStreak >= 10) {
+            // Gold particles for high streaks
+            colors = [0xffd700, 0xffcc00, 0xffaa00, 0xff8800];
+        } else if (this.wordStreak >= 5) {
+            // Orange particles for medium streaks
+            colors = [0xff8c00, 0xff7700, 0xff6600, 0xff5500];
+        } else if (this.wordStreak >= 3) {
+            // Green particles for small streaks
+            colors = [0x00ff00, 0x33ff33, 0x66ff66, 0x99ff99];
+        } else {
+            // Blue particles for no streak
+            colors = [0x4169e1, 0x5a7de1, 0x6a95e1, 0x7aaae1];
+        }
+        
+        // Create particles
+        for (let i = 0; i < 15 + Math.min(this.wordStreak * 2, 30); i++) {
+            const size = Phaser.Math.Between(3, 6);
+            const color = colors[Phaser.Math.Between(0, colors.length - 1)];
+            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const speed = Phaser.Math.FloatBetween(100, 200);
+            
+            const particle = this.add.circle(
+                this.cameras.main.centerX,
+                inputBoxCenterY,
+                size,
+                color,
+                0.8
+            ).setDepth(95);
+            
+            // Calculate velocity
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            
+            // Animate the particle
+            this.tweens.add({
+                targets: particle,
+                x: particle.x + vx,
+                y: particle.y + vy,
+                alpha: 0,
+                scale: { from: 1, to: 0 },
+                duration: Phaser.Math.Between(600, 1000),
+                ease: 'Cubic.Out',
+                onComplete: () => particle.destroy()
+            });
+        }
+        
+        // Add some star particles for higher streaks
+        if (this.wordStreak >= 3) {
+            for (let i = 0; i < Math.min(this.wordStreak, 10); i++) {
+                const starSize = Phaser.Math.Between(10, 20);
+                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                const distance = Phaser.Math.Between(30, 100);
+                
+                // Create star shape
+                const star = this.add.graphics({
+                    x: this.cameras.main.centerX,
+                    y: inputBoxCenterY
+                }).setDepth(96);
+                
+                // Draw star shape
+                const color = colors[Phaser.Math.Between(0, colors.length - 1)];
+                star.fillStyle(color, 0.8);
+                
+                const points = 5;
+                const innerRadius = starSize * 0.4;
+                const outerRadius = starSize;
+                
+                // Draw star
+                star.beginPath();
+                for (let i = 0; i < points * 2; i++) {
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const angle = (i * Math.PI) / points;
+                    const x = radius * Math.cos(angle);
+                    const y = radius * Math.sin(angle);
+                    
+                    if (i === 0) {
+                        star.moveTo(x, y);
+                    } else {
+                        star.lineTo(x, y);
+                    }
+                }
+                star.closePath();
+                star.fill();
+                
+                // Animate the star
+                this.tweens.add({
+                    targets: star,
+                    x: star.x + Math.cos(angle) * distance,
+                    y: star.y + Math.sin(angle) * distance,
+                    alpha: 0,
+                    scale: { from: 0.5, to: 1.5 },
+                    angle: Phaser.Math.Between(180, 360),
+                    duration: Phaser.Math.Between(800, 1200),
+                    ease: 'Cubic.Out',
+                    onComplete: () => star.destroy()
+                });
+            }
+        }
     }
 
     // Visual effects for progress bar: scale pop, color flash, shake
