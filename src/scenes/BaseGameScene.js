@@ -848,19 +848,46 @@ export default class BaseGameScene extends Phaser.Scene {
 
             // --- Main Key Processing Logic ---
             if (event.key === " ") {
-                const words = this.userInput.trim().split(" ");
-                const lastWord = words[words.length - 1];
-                if (lastWord && lastWord.length > 0) {
-                    const lastWordLower = lastWord.toLowerCase();
-                    const isAIWord = this.aiSuggestedWords &&
-                        this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
-                    if (isAIWord) {
-                        console.log("AI word used:", lastWord);
-                        this.updateFailsCounter(false);
-                    } else {
-                        console.log("Non-AI word used:", lastWord);
-                        this.updateFailsCounter(true);
+                try {
+                    // Safely handle word checking with maximum safeguards
+                    if (this.userInput && typeof this.userInput === 'string') {
+                        const trimmedInput = this.userInput.trim();
+                        if (trimmedInput && trimmedInput.length > 0) {
+                            const words = trimmedInput.split(" ");
+                            if (words && Array.isArray(words) && words.length > 0) {
+                                const lastWordIndex = words.length - 1;
+                                if (lastWordIndex >= 0) {
+                                    const lastWord = words[lastWordIndex];
+                                    if (lastWord && typeof lastWord === 'string' && lastWord.length > 0) {
+                                        const lastWordLower = lastWord.toLowerCase();
+                                        
+                                        // Check if AI suggested words array exists and is an array before using .some()
+                                        const aiWordsValid = this.aiSuggestedWords && 
+                                            Array.isArray(this.aiSuggestedWords) && 
+                                            this.aiSuggestedWords.length > 0;
+                                            
+                                        let isAIWord = false;
+                                        if (aiWordsValid) {
+                                            isAIWord = this.aiSuggestedWords.some(word => {
+                                                return word && typeof word === 'string' && word.toLowerCase && word.toLowerCase() === lastWordLower;
+                                            });
+                                        }
+                                        
+                                        if (isAIWord) {
+                                            console.log("AI word used:", lastWord);
+                                            this.updateFailsCounter(false);
+                                        } else {
+                                            console.log("Non-AI word used:", lastWord);
+                                            this.updateFailsCounter(true);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+                } catch (error) {
+                    console.error("Error processing space key:", error);
+                    // Continue even if there's an error with word checking
                 }
                 // Reset timer when space is pressed
                 this.timerValue = 20;
@@ -919,18 +946,25 @@ export default class BaseGameScene extends Phaser.Scene {
                 // Only generate suggestions once text has been updated
                 this.scheduleAISuggestions();
             } else if (event.key === "Enter") {
-                const words = this.userInput.trim().split(" ");
-                const lastWord = words[words.length - 1];
-                if (lastWord && lastWord.length > 0) {
-                    const lastWordLower = lastWord.toLowerCase();
-                    const isAIWord = this.aiSuggestedWords &&
-                        this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
-                    if (isAIWord) {
-                        console.log("AI word used:", lastWord);
-                        this.updateFailsCounter(false);
-                    } else {
-                        console.log("Non-AI word used:", lastWord);
-                        this.updateFailsCounter(true);
+                // Safely handle word checking with the same safety pattern
+                if (this.userInput && this.userInput.trim()) {
+                    const words = this.userInput.trim().split(" ");
+                    if (words && words.length > 0) {
+                        const lastWord = words[words.length - 1];
+                        if (lastWord && lastWord.length > 0) {
+                            const lastWordLower = lastWord.toLowerCase();
+                            // Check if AI suggested words array exists and is an array before using .some()
+                            const isAIWord = this.aiSuggestedWords && 
+                                Array.isArray(this.aiSuggestedWords) &&
+                                this.aiSuggestedWords.some(word => word && word.toLowerCase && word.toLowerCase() === lastWordLower);
+                            if (isAIWord) {
+                                console.log("AI word used:", lastWord);
+                                this.updateFailsCounter(false);
+                            } else {
+                                console.log("Non-AI word used:", lastWord);
+                                this.updateFailsCounter(true);
+                            }
+                        }
                     }
                 }
                 
@@ -1000,40 +1034,55 @@ export default class BaseGameScene extends Phaser.Scene {
             return;
         }
         
-        // Process just one event at a time to prevent input issues
+        // Process events in small batches to improve responsiveness
+        // but still maintain order to prevent duplication
         if (this.keyEventQueue.length > 0) {
-            const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
+            const maxEventsPerBatch = 3; // Process up to 3 events in one batch
+            let eventsProcessed = 0;
+            let lastEvent = null;
             
-            // Skip repeated key events of the same key if they happen in quick succession
-            // (helps prevent duplications from key repeat)
-            if (this.lastProcessedKey === eventToProcess.key && 
-                (Date.now() - this.lastKeyProcessTime) < 30) { // Reduced from 50ms to 30ms
-                // Skip this key but mark processing as complete for this event
-                this.keyProcessingComplete = true;
-                
-                // If there are more events to process, schedule another processing frame immediately
-                if (this.keyEventQueue.length > 0) {
-                    this.time.delayedCall(0, this.processNextEventInQueue, [], this); // Removed 50ms delay
-                } else {
-                    // Reset processing flag when queue is empty
-                    this.isProcessingQueuedKeys = false;
+                // Process a small batch of events
+                while (this.keyEventQueue.length > 0 && eventsProcessed < maxEventsPerBatch) {
+                    const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
+                    
+                    // Skip if event is invalid
+                    if (!eventToProcess || !eventToProcess.key) {
+                        continue;
+                    }
+                    
+                    // Skip repeated key events of the same key if they happen in quick succession
+                    if (this.lastProcessedKey === eventToProcess.key && 
+                        (Date.now() - this.lastKeyProcessTime) < 25) { // Reduced threshold further
+                        continue; // Skip this key and continue to next one
+                    }
+                    
+                    // Skip duplicate keys that appear consecutively in the queue
+                    if (lastEvent && lastEvent.key === eventToProcess.key && 
+                        (eventToProcess.timestamp - lastEvent.timestamp) < 30) {
+                        continue; // Skip duplicate key in the batch
+                    }
+                    
+                    // Record this key and time for duplication prevention
+                    this.lastProcessedKey = eventToProcess.key;
+                    this.lastKeyProcessTime = Date.now();
+                    lastEvent = eventToProcess;
+                    
+                    try {
+                        // Handle the single key event - this immediately updates the display
+                        this.handleSingleKeyEvent(eventToProcess);
+                    } catch (error) {
+                        console.error("Error in handleSingleKeyEvent:", error);
+                        // Continue processing other keys even if one fails
+                    }
+                    eventsProcessed++;
                 }
-                return;
-            }
-            
-            // Record this key and time for duplication prevention
-            this.lastProcessedKey = eventToProcess.key;
-            this.lastKeyProcessTime = Date.now();
-            
-            // Handle the single key event - this immediately updates the display
-            this.handleSingleKeyEvent(eventToProcess);
             
             // Mark as complete right away so UI updates immediately
             this.keyProcessingComplete = true;
             
             // If there are more events to process, schedule another processing frame
             if (this.keyEventQueue.length > 0) {
-                this.time.delayedCall(0, this.processNextEventInQueue, [], this); // Removed 50ms delay
+                this.time.delayedCall(0, this.processNextEventInQueue, [], this);
             } else {
                 // Reset processing flag when queue is empty
                 this.isProcessingQueuedKeys = false;
@@ -1097,25 +1146,27 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }, 250); // Reduced delay for better responsiveness
 
-        // Keyboard handler that prevents key repeat issues
-        this.input.keyboard.on("keydown", (event) => {
-            // Skip if we're shutting down
-            if (this.isShuttingDown) return;
-            
-            // Add key repeat protection - if same key is pressed in quick succession, ignore it
-            if (event.repeat && event.key === this.lastKeyPressed && 
-                (Date.now() - this.lastKeyTime < 100)) {
-                return;
-            }
-            
-            // Record this key press
-            this.lastKeyPressed = event.key;
-            this.lastKeyTime = Date.now();
-            
-            // Add to processing queue
-            this.keyEventQueue.push(event);
-            this.triggerProcessQueue();
-        });
+    // Simple keyboard handler without overly aggressive filtering
+    this.input.keyboard.on("keydown", (event) => {
+        // Skip if we're shutting down
+        if (this.isShuttingDown) return;
+        
+        // Only filter browser-generated repeats, not manual key presses
+        if (event.repeat) {
+            return;
+        }
+        
+        // Record this key press
+        this.lastKeyPressed = event.key;
+        this.lastKeyTime = Date.now();
+        
+        // Process key event immediately
+        try {
+            this.handleSingleKeyEvent(event);
+        } catch (error) {
+            console.error("Error handling key event:", error);
+        }
+    });
         
         // Set up cursor blinking timer
         if (this.cursorTimer) {
