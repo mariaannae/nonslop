@@ -464,11 +464,19 @@ function createHardBackground(ctx, width, height, levelValue) {
 
 // Helper function to get the streak intensity level (0-4)
 function getStreakIntensity(streak) {
-  if (streak >= 13) return 4;  // Epic streak (13+)
-  if (streak >= 8) return 3;   // Strong streak (8-12)
-  if (streak >= 4) return 2;   // Growing streak (4-7)
-  if (streak >= 1) return 1;   // Building streak (1-3)
-  return 0;                    // No streak
+  // Use a continuous function that grows with streak and never decreases
+  // This ensures effects always increase and never "simmer down"
+  if (streak <= 0) return 0;  // No streak
+  
+  // Cap the streak at 16 for effect calculations to prevent issues at higher streaks
+  // This means visual effects will max out at streak 16 and stay consistent after that
+  const effectiveStreak = Math.min(16, streak);
+  
+  // For streaks 1+, we calculate a continuously growing value
+  // We use Math.min to cap visual effects at 4, but the calculation keeps growing
+  // Slightly stronger growth curve that never plateaus
+  const intensity = 1 + (effectiveStreak * 0.15) + (Math.sqrt(effectiveStreak) * 0.1);
+  return Math.min(4, intensity);
 }
 
 // Main entry point - updated to support streak-based effects
@@ -621,7 +629,10 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         
         // Create simple particles using circles
         const particles = [];
-        const particleCount = 5 + (streakIntensity * 5); // 15 to 30 particles
+        // More particles for higher streaks - capped to prevent issues at high streak values
+        // Using effectiveStreak (capped at 16) ensures consistent particle count at higher streaks
+        const effectiveStreak = Math.min(16, wordStreak);
+        const particleCount = 5 + (streakIntensity * 5) + Math.floor(Math.pow(effectiveStreak, 0.7));
         
         for (let i = 0; i < particleCount; i++) {
           const particle = scene.add.circle(
@@ -697,8 +708,8 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         ease: 'Sine.InOut'
       });
       
-      // For Epic streak (level 4), add additional dramatic effects
-      if (streakIntensity === 4) {
+      // For Epic streak (level 4 or higher), add additional dramatic effects
+      if (streakIntensity >= 4) {
         // Add vignette effect (darkened corners)
         const vignette = scene.add.graphics().setDepth(-0.4);
         vignette.fillStyle(0x000000, 0.4);

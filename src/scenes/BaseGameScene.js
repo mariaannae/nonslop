@@ -1377,6 +1377,12 @@ export default class BaseGameScene extends Phaser.Scene {
         this.wordStreak = 0;
         this.lastWordWasOriginal = false;
         this.updateStreakCounter(false);
+        
+        // Clean up any existing streak-specific background elements
+        this.cleanupStreakVisuals();
+        
+        // Explicitly update the background to reset effects
+        this.updateBackgroundForLevel();
     }
 
 
