@@ -10,46 +10,86 @@ import registryManager from "../services/RegistryManager.js";
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {
         super(config);
+        this.resetGameState();
+    }
+
+    /**
+     * Reset all relevant game state for a fresh scene start or mode transition.
+     * This should be called at the start of every scene's create().
+     */
+    resetGameState() {
+        // Core state
         this.userInput = '';
         this.inputText = null; 
-        this.keyEventQueue = []; // To store incoming key events
-        this.isProcessingQueuedKeys = false; // Flag to indicate if the queue is being processed
-        this.keyProcessingComplete = true; // Flag to indicate if key processing is complete
+        this.keyEventQueue = [];
+        this.isProcessingQueuedKeys = false;
+        this.keyProcessingComplete = true;
         this.levelValue = 1;
-        this.topKValue = 1;  // Initialize topK with default value
+        this.topKValue = 1;
         this.baseFontSize = 22;
         this.autocompleteText = null;
-        // Initial progress percentage (50%)
-        // Higher percentage is worse (more AI words)
-        // Lower percentage is better (more original words)
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
         this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
-        
-        // Simplified word counting
-        this.aiWordCount = 0; // Track AI-suggested words
-        // Note: originalWordCount is now calculated by counting words in userInput and subtracting aiWordCount
-        // Note: totalWordCount is now calculated by counting words in userInput
-        
-        this.uiBoxWidth = null; // Will be set in createInputTextBox
-        this.tooltips = []; // Array to store active tooltips
-        this.wordCountDisplay = null; // Container for word count visualization
-
-        // Track latest suggestion request to avoid race conditions
+        this.aiWordCount = 0;
+        this.uiBoxWidth = null;
+        this.tooltips = [];
+        this.wordCountDisplay = null;
         this.suggestionRequestId = 0;
-
-        // Timer properties
-        this.timerValue = 20; // 20 seconds
+        this.timerValue = 20;
         this.timerText = null;
         this.timerEvent = null;
-        this.timerStarted = false; // Flag to track if timer has been started
-
-        // Debounced suggestion generator (will be set in setupInputHandlers)
+        this.timerStarted = false;
         this.debouncedGenerateAISuggestions = null;
-        
-        // Word streak tracking
-        this.wordStreak = 0;               // Current streak of original words
-        this.maxWordStreak = 0;            // Highest streak achieved
-        this.lastWordWasOriginal = false;  // Flag to track if last word was original
+        this.wordStreak = 0;
+        this.maxWordStreak = 0;
+        this.lastWordWasOriginal = false;
+        this.isShuttingDown = false;
+        this.isActivelyTyping = false;
+        this.inputActive = false;
+        this.aiSuggestedWords = [];
+        this.suggestionBoxes = [];
+        this.suggestionTexts = [];
+        this.cursorVisible = true;
+        this.lastKeyPressed = '';
+        this.lastProcessedKey = null;
+        this.lastKeyProcessTime = 0;
+        this.activeTimeout = null;
+        this.cursorTimer = null;
+        this.promptTextBox = null;
+        this.promptText = null;
+        this.failsCounter = null;
+        this.failsText = null;
+        this.background = null;
+        this.menuBar = null;
+        this.menuBarHeight = null;
+        this.levelModeBanner = null;
+        this.levelModeIndicator = null;
+        this.settingsPopup = null;
+        this.pendingModeChange = null;
+        this.currentToggleRef = null;
+        this.inputTextBorder = null;
+        this.streakText = null;
+        this.maxStreakText = null;
+        this.streakIcon = null;
+        this.failsCounter = null;
+        this.failsText = null;
+        this.celebrationEmitters = null;
+        this.particleContainer = null;
+        this.bubbleContainers = [];
+        this.bubbleTweens = [];
+        this.isCleaningUp = false;
+        this.modeIndicator = null;
+        this.COLORS_HEX = undefined;
+        this.COLORS_TEXT = undefined;
+        this.design = undefined;
+        this.OUTLINE_WIDTH = undefined;
+        this.CORNER_RADIUS = undefined;
+        this.PROGRESS_BAR = undefined;
+        // Add more as needed for full reset
+        // Defensive: log reset
+        if (typeof console !== "undefined") {
+            console.log("[BaseGameScene] resetGameState called");
+        }
     }
 
     update() {
@@ -3459,7 +3499,7 @@ export default class BaseGameScene extends Phaser.Scene {
             
             // Reset game state to match our simplified approach
             this.aiWordCount = 0;
-            // Note: originalWordCount and totalWordCount are now calculated dynamically
+             // Note: originalWordCount and totalWordCount are now calculated dynamically
             
             // Reset suggestion-related state
             this.userInput = '';

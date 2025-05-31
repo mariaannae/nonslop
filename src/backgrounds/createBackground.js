@@ -533,26 +533,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
   
   console.log(`Background effects for streak intensity: ${streakIntensity}, streak: ${wordStreak}`);
   
-  // Only show streak indicator when streak > 0
-  if (wordStreak > 0) {
-    // Create a text indicator for feedback
-    const streakIndicator = scene.add.text(10, 10, `Streak: ${wordStreak}`, {
-      fontFamily: 'Arial',
-      fontSize: '16px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setDepth(100);
-    
-    // Make text fade out after 3 seconds
-    scene.tweens.add({
-      targets: streakIndicator,
-      alpha: { from: 1, to: 0 },
-      delay: 3000,
-      duration: 1000,
-      onComplete: () => streakIndicator.destroy()
-    });
-  }
   
   // More dramatic pulsing effect
   scene.tweens.add({

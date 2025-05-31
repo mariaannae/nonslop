@@ -30,6 +30,17 @@ export default class GameSceneHard extends BaseGameScene {
         this.input.keyboard.on("keydown", (event) => {
             this.inputActive = true;
 
+            // Start the timer on first valid keypress if not already started
+            if (!this.timerStarted) {
+                this.timerEvent = this.time.addEvent({
+                    delay: 1000,
+                    callback: this.updateTimer,
+                    callbackScope: this,
+                    loop: true
+                });
+                this.timerStarted = true;
+            }
+
             if(this.activeTimeout) {
                 clearTimeout(this.activeTimeout);
             }
@@ -580,11 +591,22 @@ export default class GameSceneHard extends BaseGameScene {
 
     // Mode-specific scene setup
     create(data) {
+        // --- Robust state reset for every transition ---
+        this.resetGameState();
+
+        // Re-apply mode-specific design/colors after reset
+        this.mode = 'hard';
+        this.design = DESIGN.UI;
+        this.COLORS_HEX = COLORS_HEX;
+        this.COLORS_TEXT = COLORS_TEXT;
+        this.OUTLINE_WIDTH = this.design.OUTLINE.WIDTH;
+        this.CORNER_RADIUS = this.design.CORNER_RADIUS;
+        this.PROGRESS_BAR = this.design.PROGRESS_BAR;
+
         // Log the data received from other mode for debugging
         console.log("GameSceneHard received data:", data);
         this.registry.events.on('changedata', this.logRegistryChange, this);
 
-        
         // Initialize with empty suggestion arrays
         this.aiSuggestedWords = [];
         this.suggestionBoxes = [];

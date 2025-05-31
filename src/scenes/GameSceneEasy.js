@@ -43,11 +43,21 @@ export default class GameSceneEasy extends BaseGameScene {
 
     // Mode-specific scene setup
     create(data) {
+        // --- Robust state reset for every transition ---
+        this.resetGameState();
+
+        // Re-apply mode-specific design/colors after reset
+        this.mode = 'easy';
+        this.design = DESIGN.UI;
+        this.COLORS_HEX = COLORS_HEX;
+        this.COLORS_TEXT = COLORS_TEXT;
+        this.OUTLINE_WIDTH = this.design.OUTLINE.WIDTH;
+        this.CORNER_RADIUS = this.design.OUTLINE.CORNER_RADIUS;
+
         // Log the data received from other mode for debugging
         console.log("GameSceneEasy received data:", data);
         this.registry.events.on('changedata', this.logRegistryChange, this);
 
-        
         // Initialize with empty suggestion arrays
         this.aiSuggestedWords = [];
         this.suggestionBoxes = [];
