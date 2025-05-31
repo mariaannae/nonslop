@@ -21,7 +21,7 @@ export default class DoneScene extends Phaser.Scene {
     showLeaderboard() {
         this.scene.start('LeaderboardScene', {
             mode: this.mode,
-            level: this.levelValue,
+            levelValue: this.levelValue,
             previousScene: 'DoneScene'
         });
     }
@@ -312,7 +312,7 @@ export default class DoneScene extends Phaser.Scene {
         this.scene.start('UsernameScene', {
             mode: this.mode || 'easy',
             scoreData: testScoreData,
-            level: this.levelValue || 1
+            levelValue: this.levelValue || 1
         });
     }
     
@@ -422,7 +422,7 @@ export default class DoneScene extends Phaser.Scene {
                 SceneTransitionManager.radialTransition(this, 'UsernameScene', {
                     mode: this.mode,
                     scoreData: scoreData,
-                    level: originalLevelValue // Use original level, not the updated one
+                    levelValue: this.levelValue // Pass updated levelValue
                 }, 800, transitionColor, true); // true = expanding circle
             } else {
                 // Not a high score, go to the leaderboard with a transition
@@ -432,7 +432,7 @@ export default class DoneScene extends Phaser.Scene {
                 SceneTransitionManager.transition(this, 'LeaderboardScene', 
                     {
                         mode: this.mode,
-                        level: originalLevelValue // Use original level, not the updated one
+                        levelValue: this.levelValue // Pass updated levelValue
                     },
                     transitionContext,
                     {

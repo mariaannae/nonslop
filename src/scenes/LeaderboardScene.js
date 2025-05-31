@@ -15,7 +15,7 @@ export default class LeaderboardScene extends Phaser.Scene {
 
     init(data) {
         this.mode = data.mode || 'easy';
-        this.level = data.level || 1;
+        this.levelValue = data.levelValue || 1;
         //this.previousScene = data.previousScene || 'DoneScene';
 
         // Set colors based on mode
@@ -31,9 +31,9 @@ export default class LeaderboardScene extends Phaser.Scene {
     async create() {
         // Create background based on mode and level
         if (this.mode === "easy") {
-            createBackground(this, THEMES.easy.background, this.level);
+            createBackground(this, THEMES.easy.background, this.levelValue);
         } else {
-            createBackground(this, THEMES.hard.background, this.level);
+            createBackground(this, THEMES.hard.background, this.levelValue);
         }
 
         // Create title
@@ -206,9 +206,9 @@ export default class LeaderboardScene extends Phaser.Scene {
 
         // Recreate the background with the new colors and level
         if (this.mode === "easy") {
-            createBackground(this, THEMES.easy.background, this.level);
+            createBackground(this, THEMES.easy.background, this.levelValue);
         } else {
-            createBackground(this, THEMES.hard.background, this.level);
+            createBackground(this, THEMES.hard.background, this.levelValue);
         }
     }
 
@@ -1097,7 +1097,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Prepare reset data for game scene, preserving level but resetting progress
         const resetData = {
             progressPercentage: 50, // Reset to initial value
-            levelValue: this.level, // Preserve current level
+            levelValue: this.levelValue, // Preserve current level
             wordCount: 0,
             originalWordCount: 0,
             aiWordCount: 0,

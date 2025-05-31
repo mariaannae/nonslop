@@ -2551,26 +2551,26 @@ export default class BaseGameScene extends Phaser.Scene {
                 // Create a particle burst at cursor position
                 this.createWordSuccessParticles();
                 
-                // Add a small camera flash if streak is building
-                if (this.wordStreak >= 2) {
-                    // Intensity increases with streak
-                    const flashIntensity = Math.min(0.1 + (this.wordStreak * 0.02), 0.3);
-                    const flash = this.add.rectangle(
-                        0, 0, 
-                        this.cameras.main.width, 
-                        this.cameras.main.height,
-                        0x00ff00, // Green
-                        flashIntensity
-                    ).setOrigin(0).setDepth(90);
+                // // Add a small camera flash if streak is building
+                // if (this.wordStreak >= 2) {
+                //     // Intensity increases with streak
+                //     const flashIntensity = Math.min(0.1 + (this.wordStreak * 0.02), 0.3);
+                //     const flash = this.add.rectangle(
+                //         0, 0, 
+                //         this.cameras.main.width, 
+                //         this.cameras.main.height,
+                //         0x00ff00, // Green
+                //         flashIntensity
+                //     ).setOrigin(0).setDepth(90);
                     
-                    this.tweens.add({
-                        targets: flash,
-                        alpha: 0,
-                        duration: 300,
-                        ease: 'Cubic.Out',
-                        onComplete: () => flash.destroy()
-                    });
-                }
+                //     this.tweens.add({
+                //         targets: flash,
+                //         alpha: 0,
+                //         duration: 300,
+                //         ease: 'Cubic.Out',
+                //         onComplete: () => flash.destroy()
+                //     });
+                // }
             }
         } else {
             // AI word - negative effects     

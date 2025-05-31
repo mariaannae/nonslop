@@ -19,10 +19,10 @@ export default class UsernameScene extends Phaser.Scene {
         this.mode = data.mode || 'easy';
         this.scoreData = data.scoreData || null;
         this.username = data.username || '';
-        this.level = data.level || 1;
+        this.levelValue = data.levelValue || 1;
         console.log("UsernameScene initialized with mode:", this.mode);
         console.log("UsernameScene score data:", this.scoreData);
-        console.log("UsernameScene level:", this.level);
+        console.log("UsernameScene levelValue:", this.levelValue);
 
         // Set colors based on mode
         if (this.mode === "easy") {
@@ -59,8 +59,8 @@ export default class UsernameScene extends Phaser.Scene {
         const themeConfig = this.mode === 'easy' ? THEMES.easy : THEMES.hard;
         
         // Use the createBackground function from the imported module
-        // This will create the appropriate background based on mode and level
-        createBackground(this, themeConfig.background, this.level);
+        // This will create the appropriate background based on mode and levelValue
+        createBackground(this, themeConfig.background, this.levelValue);
     }
 
     createTitle() {
@@ -473,8 +473,8 @@ export default class UsernameScene extends Phaser.Scene {
                 
                 this.scoreData.username = username;
                 // Make sure level is set in scoreData (in case it wasn't passed correctly)
-                if (!this.scoreData.level && this.level) {
-                    this.scoreData.level = this.level;
+                if (!this.scoreData.level && this.levelValue) {
+                    this.scoreData.level = this.levelValue;
                 }
                 
                 await saveHighScore(this.scoreData);
@@ -490,7 +490,7 @@ export default class UsernameScene extends Phaser.Scene {
                 SceneTransitionManager.transition(this, 'LeaderboardScene', 
                     {
                         mode: this.mode,
-                        level: this.level
+                        levelValue: this.levelValue
                     }, 
                     SceneTransitionManager.CONTEXT.HIGH_SCORE,
                     {
@@ -522,7 +522,7 @@ export default class UsernameScene extends Phaser.Scene {
         SceneTransitionManager.pixelDissolveTransition(this, 'LeaderboardScene', 
             {
                 mode: this.mode,
-                level: this.level
+                levelValue: this.levelValue
             }, 
             700, 
             this.mode === 'hard' ? '#200025' : '#002435',
@@ -612,7 +612,7 @@ export default class UsernameScene extends Phaser.Scene {
                 SceneTransitionManager.glitchTransition(this, 'LeaderboardScene', 
                     {
                         mode: this.mode,
-                        level: this.level,
+                        levelValue: this.levelValue,
                         previousScene: 'DoneScene'
                     }, 
                     600, 
