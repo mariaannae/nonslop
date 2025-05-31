@@ -18,7 +18,24 @@ export default class GameSceneHard extends BaseGameScene {
         this.PROGRESS_BAR = this.design.PROGRESS_BAR;
     }
 
-    // ...existing code...
+    // Helper to reset the timer (stop and start again)
+    resetTimer() {
+        if (this.timerEvent) {
+            this.timerEvent.remove(false);
+        }
+        // Reset timer value and display
+        this.timerValue = 20;
+        if (this.timerText) {
+            this.timerText.setText('0:20');
+        }
+        this.timerEvent = this.time.addEvent({
+            delay: 1000,
+            callback: this.updateTimer,
+            callbackScope: this,
+            loop: true
+        });
+        this.timerStarted = true;
+    }
 
     // Override setupInputHandlers to prevent using AI-suggested words
     setupInputHandlers() {
@@ -105,6 +122,8 @@ export default class GameSceneHard extends BaseGameScene {
                     console.log("Non-AI word used:", lastWord);
                     this.wordCount++;
                     this.updateFailsCounter(true);
+                    // Reset timer after a valid word is entered
+                    this.resetTimer();
                 }
                 
                 this.userInput += " ";
@@ -185,6 +204,8 @@ export default class GameSceneHard extends BaseGameScene {
                     console.log("Non-AI word used:", lastWord);
                     this.wordCount++;
                     this.updateFailsCounter(true);
+                    // Reset timer after a valid word is entered
+                    this.resetTimer();
                 }
                 
                 this.userInput += "\n";
