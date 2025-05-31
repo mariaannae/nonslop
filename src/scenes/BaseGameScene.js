@@ -1430,7 +1430,10 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     }
     
-    resetOnTimerEnd() {
+    async resetOnTimerEnd() {
+        // Show the clock flash and explosion effect, then proceed with reset
+        await this.showClockExplosionEffect();
+
         // 1. Make the screen shake
         this.shakeScreen();
         
@@ -1493,6 +1496,85 @@ export default class BaseGameScene extends Phaser.Scene {
         
         // Explicitly update the background to reset effects
         this.updateBackgroundForLevel();
+    }
+
+    /**
+     * Show the clock in the center, flash it, then explode into red sparks.
+     * Returns a Promise that resolves when the effect is complete.
+     */
+    showClockExplosionEffect() {
+        return new Promise((resolve) => {
+            // Remove any existing clock sprite
+            if (this.clockSprite) {
+                this.clockSprite.destroy();
+                this.clockSprite = null;
+            }
+
+            // Center of the screen
+            const centerX = this.cameras.main.centerX;
+            const centerY = this.cameras.main.centerY;
+
+            // Add the clock sprite (SVG loaded as 'clock')
+            this.clockSprite = this.add.image(centerX, centerY, 'clock')
+                .setOrigin(0.5)
+                .setScale(1.5)
+                .setAlpha(0)
+                .setDepth(999);
+
+            // Flash: fade in and pulse scale
+            this.tweens.add({
+                targets: this.clockSprite,
+                alpha: 1,
+                scale: { from: 1.5, to: 2.1 },
+                duration: 220,
+                yoyo: true,
+                repeat: 1,
+                ease: 'Quad.easeInOut',
+                onComplete: () => {
+                    // After flash, explode into red sparks
+                    this.clockSprite.setAlpha(0);
+                    this.createRedSparkBurst(centerX, centerY, 1.5);
+                    // Remove the clock sprite after a short delay
+                    this.time.delayedCall(500, () => {
+                        if (this.clockSprite) {
+                            this.clockSprite.destroy();
+                            this.clockSprite = null;
+                        }
+                        resolve();
+                    });
+                }
+            });
+        });
+    }
+
+    /**
+     * Create a burst of red sparks at (x, y).
+     * @param {number} [scale=1] - Multiplier for size and distance.
+     */
+    createRedSparkBurst(x, y, scale = 1) {
+        const particleCount = 36;
+        for (let i = 0; i < particleCount; i++) {
+            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const speed = Phaser.Math.Between(180, 340) * scale;
+            const distance = Phaser.Math.Between(120, 260) * scale;
+            const size = Phaser.Math.Between(16, 32) * scale;
+            const endX = x + Math.cos(angle) * distance;
+            const endY = y + Math.sin(angle) * distance;
+
+            // Create a red circle as the spark
+            const spark = this.add.circle(x, y, size, 0xed1c24, 0.88).setDepth(998);
+
+            this.tweens.add({
+                targets: spark,
+                x: endX,
+                y: endY,
+                alpha: 0,
+                scale: { from: 1, to: 0.15 },
+                duration: Phaser.Math.Between(500, 900),
+                ease: 'Cubic.Out',
+                onComplete: () => spark.destroy()
+            });
+        }
     }
 
 

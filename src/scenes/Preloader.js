@@ -82,6 +82,7 @@ export default class Preloader extends Phaser.Scene {
         this.load.image('ball', 'ball.png');
         this.load.image('bg', 'bg.png');
         this.load.image('dball', 'dball.png');
+        this.load.image('clock', 'clock.svg');
         
         // We don't need to explicitly preload fonts as they're included via CSS
         // Reset path for other assets
