@@ -1106,7 +1106,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         };
         
         if (this.levelValue >= 4){
-            this.scene.start('winScene', { ...resetData, mode: this.mode, levelValue: this.levelValue });
+            this.scene.start('gameOver', { ...resetData, mode: this.mode, levelValue: this.levelValue });
         }
 
         else if (this.mode == 'easy')

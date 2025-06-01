@@ -2,9 +2,9 @@ import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 
-export default class WinScene extends Phaser.Scene {
+export default class gameOver extends Phaser.Scene {
     constructor() {
-        super({ key: 'winScene' });
+        super({ key: 'gameOver' });
         this.mode = null;
         this.levelValue = null;
     }
@@ -97,14 +97,21 @@ export default class WinScene extends Phaser.Scene {
 
         // Badge graphic (simple circle with "WINNER" text)
         const badgeY = 370;
-        const badge = this.add.graphics();
         const badgeRadius = 60;
-        badge.fillStyle(0xffd700, 1); // Gold color
-        badge.fillCircle(this.cameras.main.centerX, badgeY, badgeRadius);
-        badge.lineStyle(6, 0xffffff, 1);
-        badge.strokeCircle(this.cameras.main.centerX, badgeY, badgeRadius);
 
-        this.add.text(
+        // Create a container for badge elements
+        const badgeContainer = this.add.container(0, 0);
+
+        // Badge circle
+        const badgeCircle = this.add.graphics();
+        badgeCircle.fillStyle(0xffd700, 1); // Gold color
+        badgeCircle.fillCircle(this.cameras.main.centerX, badgeY, badgeRadius);
+        badgeCircle.lineStyle(6, 0xffffff, 1);
+        badgeCircle.strokeCircle(this.cameras.main.centerX, badgeY, badgeRadius);
+        badgeContainer.add(badgeCircle);
+
+        // Badge text
+        const badgeText = this.add.text(
             this.cameras.main.centerX,
             badgeY,
             "WINNER",
@@ -116,6 +123,43 @@ export default class WinScene extends Phaser.Scene {
                 align: 'center'
             }
         ).setOrigin(0.5);
+        badgeContainer.add(badgeText);
+
+        // Export Badge Button
+        const exportButtonY = badgeY + badgeRadius + 40;
+        const exportButton = ButtonFactory.createButton(
+            this,
+            "EXPORT BADGE",
+            () => {
+                // Render badgeContainer to a RenderTexture
+                const rt = this.add.renderTexture(0, 0, badgeRadius * 2 + 20, badgeRadius * 2 + 20).setVisible(false);
+                // Move badge temporarily to (badgeRadius+10, badgeRadius+10) for clean render
+                const originalX = badgeContainer.x;
+                const originalY = badgeContainer.y;
+                badgeContainer.x = badgeRadius + 10 - this.cameras.main.centerX;
+                badgeContainer.y = badgeRadius + 10 - badgeY;
+                rt.draw(badgeContainer, this.cameras.main.centerX, badgeY);
+                // Restore position
+                badgeContainer.x = originalX;
+                badgeContainer.y = originalY;
+                // Extract as PNG
+                const dataURL = rt.canvas.toDataURL("image/png");
+                rt.destroy();
+                // Trigger download
+                const a = document.createElement("a");
+                a.href = dataURL;
+                a.download = "badge.png";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            },
+            this.cameras.main.centerX,
+            exportButtonY,
+            { depth: 10 }
+        );
+        exportButton.setInteractive()
+            .on('pointerover', () => exportButton.setScale(1.1))
+            .on('pointerout', () => exportButton.setScale(1));
 
         // Social share buttons
         const socialPlatforms = [
