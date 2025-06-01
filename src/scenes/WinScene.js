@@ -206,9 +206,9 @@ export default class WinScene extends Phaser.Scene {
         const spacing = 24;
         const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
         const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
-        // Position social buttons 40px above the PLAY AGAIN button
+        // Position social buttons so their bottom edge is 50px above the PLAY AGAIN button
         const playAgainY = this.cameras.main.height - 120;
-        const socialY = playAgainY - 40;
+        const socialY = playAgainY - 50 - buttonSize / 2;
 
         // Badge image URL for sharing
         const badgeImageUrl = window.location.origin

@@ -1195,6 +1195,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }, 250); // Reduced delay for better responsiveness
 
     // Queue-based keyboard handler for strict ordering and deduplication
+    this._dedupKeyTimes = {};
     this.input.keyboard.on("keydown", (event) => {
         // Skip if we're shutting down
         if (this.isShuttingDown) return;
@@ -1209,15 +1210,24 @@ export default class BaseGameScene extends Phaser.Scene {
             event.preventDefault();
         }
 
+        // Per-key deduplication: ignore if same key within 100ms
+        const now = Date.now();
+        if (!this._dedupKeyTimes) this._dedupKeyTimes = {};
+        if (this._dedupKeyTimes[event.key] && (now - this._dedupKeyTimes[event.key]) < 100) {
+            //console.log(`[DEDUP] Ignored duplicate key: ${event.key} at ${now}`);
+            return;
+        }
+        this._dedupKeyTimes[event.key] = now;
+
         // Record this key press
         this.lastKeyPressed = event.key;
-        this.lastKeyTime = Date.now();
+        this.lastKeyTime = now;
 
         // Push event onto the queue with a timestamp for ordering
         this.keyEventQueue.push({
             key: event.key,
             code: event.code,
-            timestamp: Date.now(),
+            timestamp: now,
             altKey: event.altKey,
             ctrlKey: event.ctrlKey,
             metaKey: event.metaKey,
@@ -1762,8 +1772,9 @@ export default class BaseGameScene extends Phaser.Scene {
         this.settingsPopup.add(levelSlider);
         
         // Position level slider handle based on current level
+        // Map handle center from bar start+5 to bar end-5 so it can reach both ends
         const levelT = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-        const levelHandleX = Phaser.Math.Linear(levelSliderX, levelSliderX + sliderWidth - 10, levelT);
+        const levelHandleX = Phaser.Math.Linear(levelSliderX + 5, levelSliderX + sliderWidth - 5, levelT);
         const levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, 10, 20, COLORS_HEX.ACCENT).setInteractive(); // Use basic accent color for handle
         this.input.setDraggable(levelSliderHandle);
         this.settingsPopup.add(levelSliderHandle);
@@ -1788,8 +1799,9 @@ export default class BaseGameScene extends Phaser.Scene {
         this.settingsPopup.add(topKSlider);
         
         // Position Top K slider handle based on current topK
+        // Map handle center from bar start+5 to bar end-5 so it can reach both ends
         const topKT = (this.topKValue - 1) / 4; // 0 for topK 1, 0.25 for topK 2, etc.
-        const topKHandleX = Phaser.Math.Linear(topKSliderX, topKSliderX + sliderWidth - 10, topKT);
+        const topKHandleX = Phaser.Math.Linear(topKSliderX + 5, topKSliderX + sliderWidth - 5, topKT);
         const topKSliderHandle = this.add.rectangle(topKHandleX, topKSliderY, 10, 20, COLORS_HEX.ACCENT).setInteractive(); // Use basic accent color for handle
         this.input.setDraggable(topKSliderHandle);
         this.settingsPopup.add(topKSliderHandle);
@@ -1884,10 +1896,11 @@ export default class BaseGameScene extends Phaser.Scene {
         this.settingsPopup.add(confirmBtn);
         
         // Slider dragging functionality
-        const levelSliderMinX = levelSliderX;
-        const levelSliderMaxX = levelSliderMinX + sliderWidth - 10;
-        const topKSliderMinX = topKSliderX;
-        const topKSliderMaxX = topKSliderMinX + sliderWidth - 10;
+        // Allow handle center to go from bar start+5 to bar end-5
+        const levelSliderMinX = levelSliderX + 5;
+        const levelSliderMaxX = levelSliderX + sliderWidth - 5;
+        const topKSliderMinX = topKSliderX + 5;
+        const topKSliderMaxX = topKSliderX + sliderWidth - 5;
         
         this.input.on('drag', (pointer, gameObject, dragX) => {
             if (gameObject === levelSliderHandle) {
@@ -2273,7 +2286,17 @@ export default class BaseGameScene extends Phaser.Scene {
     updateCursor() {
         // Performance measurement
         const startTime = performance.now();
-        
+
+        // Log every call to updateCursor with userInput and stack trace
+        try {
+            // Only log for printable characters to avoid log spam from cursor blink
+            if (this.userInput && this.userInput.length > 0) {
+                // Show a short stack trace for debugging
+                const stack = new Error().stack.split('\n').slice(2, 5).join(' | ');
+                console.log(`[CURSOR] updateCursor called. userInput="${this.userInput}" (len=${this.userInput.length}) [${stack}]`);
+            }
+        } catch (e) {}
+
         if (this.isShuttingDown) return;
         if (!this.inputText || this.inputText.destroyed) return;
         
