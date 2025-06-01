@@ -1186,26 +1186,35 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }, 250); // Reduced delay for better responsiveness
 
-    // Simple keyboard handler without overly aggressive filtering
+    // Queue-based keyboard handler for strict ordering and deduplication
     this.input.keyboard.on("keydown", (event) => {
         // Skip if we're shutting down
         if (this.isShuttingDown) return;
-        
+
         // Only filter browser-generated repeats, not manual key presses
         if (event.repeat) {
             return;
         }
-        
+
         // Record this key press
         this.lastKeyPressed = event.key;
         this.lastKeyTime = Date.now();
-        
-        // Process key event immediately
-        try {
-            this.handleSingleKeyEvent(event);
-        } catch (error) {
-            console.error("Error handling key event:", error);
-        }
+
+        // Push event onto the queue with a timestamp for ordering
+        this.keyEventQueue.push({
+            key: event.key,
+            code: event.code,
+            timestamp: Date.now(),
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            shiftKey: event.shiftKey,
+            // Include the original event for reference if needed
+            originalEvent: event
+        });
+
+        // Start processing the queue if not already running
+        this.triggerProcessQueue();
     });
         
         // Set up cursor blinking timer
