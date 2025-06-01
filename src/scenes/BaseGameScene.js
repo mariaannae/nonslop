@@ -1987,7 +1987,7 @@ export default class BaseGameScene extends Phaser.Scene {
                     if (hasModeChange) {
                         // Short delay to ensure popup is fully gone
                         this.time.delayedCall(50, () => {
-                            this.onModeToggle(this.pendingModeChange);
+                            this.onModeToggle(this.pendingModeChange, this.levelValue, this.topKValue);
                         });
                     }
                 }
