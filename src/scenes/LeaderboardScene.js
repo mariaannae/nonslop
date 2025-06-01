@@ -1105,7 +1105,11 @@ export default class LeaderboardScene extends Phaser.Scene {
             requiresReset: true // Flag to indicate this is a reset from LeaderboardScene
         };
         
-        if (this.mode == 'easy')
+        if (this.levelValue >= 4){
+            this.scene.start('winScene', { ...resetData, mode: this.mode, levelValue: this.levelValue });
+        }
+
+        else if (this.mode == 'easy')
             this.scene.start('GameSceneEasy', resetData);
         else
             this.scene.start('GameSceneHard', resetData);

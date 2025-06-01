@@ -184,8 +184,8 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     setupKeyboardInput() {
-        // Setup keyboard input for name entry
-        this.input.keyboard.on('keydown', (event) => {
+        // Store the handler reference so we can remove it later
+        this._usernameKeydownHandler = (event) => {
             // Allow only letters, numbers, and spaces
             if (/^[a-zA-Z0-9 ]$/.test(event.key)) {
                 if (this.username.length < 20) { // Set a reasonable maximum length
@@ -202,7 +202,31 @@ export default class UsernameScene extends Phaser.Scene {
             else if (event.key === 'Enter') {
                 this.submitUsername();
             }
-        });
+        };
+        this.input.keyboard.on('keydown', this._usernameKeydownHandler);
+    }
+
+    shutdown() {
+        // Remove the keydown handler to prevent interference with other scenes
+        if (this._usernameKeydownHandler) {
+            this.input.keyboard.off('keydown', this._usernameKeydownHandler);
+            this._usernameKeydownHandler = null;
+        }
+        // Call parent shutdown if needed
+        if (super.shutdown) {
+            super.shutdown();
+        }
+    }
+
+    destroy() {
+        // Also remove the keydown handler on destroy
+        if (this._usernameKeydownHandler) {
+            this.input.keyboard.off('keydown', this._usernameKeydownHandler);
+            this._usernameKeydownHandler = null;
+        }
+        if (super.destroy) {
+            super.destroy();
+        }
     }
 
     createButtons() {

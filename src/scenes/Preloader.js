@@ -83,6 +83,18 @@ export default class Preloader extends Phaser.Scene {
         this.load.image('bg', 'bg.png');
         this.load.image('dball', 'dball.png');
         this.load.image('clock', 'clock.svg');
+
+        // Load social SVGs for share buttons
+        this.load.setPath('assets/socials');
+        this.load.image('facebook', 'facebook.svg');
+        this.load.image('instagram', 'instagram.svg');
+        this.load.image('threads', 'threads.svg');
+        this.load.image('x', 'x.svg');
+        this.load.image('tiktok', 'tiktok.svg');
+        this.load.image('snapchat', 'snapchat.svg');
+        this.load.image('bluesky', 'bluesky.svg');
+        this.load.image('linkedin', 'linkedin.svg');
+        this.load.image('email', 'email.svg');
         
         // We don't need to explicitly preload fonts as they're included via CSS
         // Reset path for other assets

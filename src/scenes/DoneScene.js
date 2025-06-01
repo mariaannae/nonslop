@@ -347,7 +347,7 @@ export default class DoneScene extends Phaser.Scene {
         let transitionColor = this.mode === "hard" ? '#400045' : '#003450';
         
         if (this.totalScore >= 10) {
-            this.levelValue = Math.min(this.levelValue + 1, 3);
+            this.levelValue = Math.min(this.levelValue + 1, );
             transitionContext = SceneTransitionManager.CONTEXT.LEVEL_UP;
             transitionColor = this.mode === "hard" ? '#600065' : '#004565'; // Brighter colors for success
         } else if (this.totalScore <= 5) {

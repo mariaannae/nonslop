@@ -44,7 +44,8 @@ export default class GameSceneHard extends BaseGameScene {
         
         // Remove existing listeners and add our modified ones
         this.input.keyboard.removeAllListeners('keydown');
-        this.input.keyboard.on("keydown", (event) => {
+        // Store the handler reference so we can remove it later
+        this._hardKeydownHandler = (event) => {
             this.inputActive = true;
 
             // Start the timer on first valid keypress if not already started
@@ -232,7 +233,30 @@ export default class GameSceneHard extends BaseGameScene {
             }
             
             this.updateCursor();
-        });
+        };
+        this.input.keyboard.on("keydown", this._hardKeydownHandler);
+    }
+
+    shutdown() {
+        // Remove the keydown handler to prevent interference with other scenes
+        if (this._hardKeydownHandler) {
+            this.input.keyboard.off('keydown', this._hardKeydownHandler);
+            this._hardKeydownHandler = null;
+        }
+        if (super.shutdown) {
+            super.shutdown();
+        }
+    }
+
+    destroy() {
+        // Also remove the keydown handler on destroy
+        if (this._hardKeydownHandler) {
+            this.input.keyboard.off('keydown', this._hardKeydownHandler);
+            this._hardKeydownHandler = null;
+        }
+        if (super.destroy) {
+            super.destroy();
+        }
     }
 
     // Enhanced method to show feedback when a word is blocked

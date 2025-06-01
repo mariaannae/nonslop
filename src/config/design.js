@@ -84,7 +84,7 @@ const hexToString = (hex) => {
  */
 const UI = {
   BUTTON: {
-    WIDTH: 105,
+    WIDTH: 115,
     HEIGHT: 40,
     SPACING: 40,
     OUTLINE_WIDTH: 3,

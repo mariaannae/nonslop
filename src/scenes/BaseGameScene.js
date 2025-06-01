@@ -940,7 +940,12 @@ export default class BaseGameScene extends Phaser.Scene {
                 // Only generate suggestions once text has been updated
                 this.scheduleAISuggestions();
             } else if (event.key === "Tab") {
-                event.preventDefault();
+                // Safely call preventDefault if available (for queued events, this may not exist)
+                if (typeof event.preventDefault === "function") {
+                    event.preventDefault();
+                } else if (event.originalEvent && typeof event.originalEvent.preventDefault === "function") {
+                    event.originalEvent.preventDefault();
+                }
                 if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
                     const lastSpaceIndex = this.userInput.lastIndexOf(' ');
                     const lastNewlineIndex = this.userInput.lastIndexOf('\n');
@@ -1066,6 +1071,7 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     processNextEventInQueue() {
+        console.log(`[KEY QUEUE] processNextEventInQueue START, queueLen=${this.keyEventQueue.length}`);
         // Exit if we're shutting down to prevent processing during scene transitions
         if (this.isShuttingDown) {
             this.isProcessingQueuedKeys = false;
@@ -1081,42 +1087,43 @@ export default class BaseGameScene extends Phaser.Scene {
             let eventsProcessed = 0;
             let lastEvent = null;
             
-                // Process a small batch of events
-                while (this.keyEventQueue.length > 0 && eventsProcessed < maxEventsPerBatch) {
-                    const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
-                    
-                    // Skip if event is invalid
-                    if (!eventToProcess || !eventToProcess.key) {
-                        continue;
-                    }
-                    
-                    // Skip repeated key events of the same key if they happen in quick succession
-                    if (this.lastProcessedKey === eventToProcess.key && 
-                        (Date.now() - this.lastKeyProcessTime) < 25) { // Reduced threshold further
-                        continue; // Skip this key and continue to next one
-                    }
-                    
-                    // Skip duplicate keys that appear consecutively in the queue
-                    if (lastEvent && lastEvent.key === eventToProcess.key && 
-                        (eventToProcess.timestamp - lastEvent.timestamp) < 30) {
-                        continue; // Skip duplicate key in the batch
-                    }
-                    
-                    // Record this key and time for duplication prevention
-                    this.lastProcessedKey = eventToProcess.key;
-                    this.lastKeyProcessTime = Date.now();
-                    lastEvent = eventToProcess;
-                    
-                    try {
-                        // Handle the single key event - this immediately updates the display
-                        this.handleSingleKeyEvent(eventToProcess);
-                    } catch (error) {
-                        console.error("Error in handleSingleKeyEvent:", error);
-                        // Continue processing other keys even if one fails
-                    }
-                    eventsProcessed++;
+            // Process a small batch of events
+            while (this.keyEventQueue.length > 0 && eventsProcessed < maxEventsPerBatch) {
+                const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
+                
+                // Skip if event is invalid
+                if (!eventToProcess || !eventToProcess.key) {
+                    continue;
                 }
-            
+                
+                // Skip repeated key events of the same key if they happen in quick succession
+                if (this.lastProcessedKey === eventToProcess.key && 
+                    (Date.now() - this.lastKeyProcessTime) < 25) { // Reduced threshold further
+                    continue; // Skip this key and continue to next one
+                }
+                
+                // Skip duplicate keys that appear consecutively in the queue
+                if (lastEvent && lastEvent.key === eventToProcess.key && 
+                    (eventToProcess.timestamp - lastEvent.timestamp) < 30) {
+                    continue; // Skip duplicate key in the batch
+                }
+                
+                // Record this key and time for duplication prevention
+                this.lastProcessedKey = eventToProcess.key;
+                this.lastKeyProcessTime = Date.now();
+                lastEvent = eventToProcess;
+                
+                try {
+                    console.log(`[KEY QUEUE] Processing: key=${eventToProcess.key}, code=${eventToProcess.code}, ts=${eventToProcess.timestamp}, queueLen=${this.keyEventQueue.length}`);
+                    // Handle the single key event - this immediately updates the display
+                    this.handleSingleKeyEvent(eventToProcess);
+                } catch (error) {
+                    console.error("Error in handleSingleKeyEvent:", error);
+                    // Continue processing other keys even if one fails
+                }
+                eventsProcessed++;
+            }
+        
             // Mark as complete right away so UI updates immediately
             this.keyProcessingComplete = true;
             
@@ -1132,6 +1139,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.isProcessingQueuedKeys = false;
             this.keyProcessingComplete = true;
         }
+        console.log(`[KEY QUEUE] processNextEventInQueue END, queueLen=${this.keyEventQueue.length}`);
     }
 
 
@@ -1194,6 +1202,11 @@ export default class BaseGameScene extends Phaser.Scene {
         // Only filter browser-generated repeats, not manual key presses
         if (event.repeat) {
             return;
+        }
+
+        // Prevent default browser behavior for Tab key immediately
+        if (event.key === "Tab" && typeof event.preventDefault === "function") {
+            event.preventDefault();
         }
 
         // Record this key press
@@ -2446,6 +2459,21 @@ export default class BaseGameScene extends Phaser.Scene {
         // Set depth and position
         this.failsCounter.setPosition(scoreX, scoreY).setDepth(50);
         
+        // Add tooltip for the score bar (progress bar)
+        this.failsCounter.setInteractive(
+            new Phaser.Geom.Rectangle(0, 0, scoreWidth, scoreHeight),
+            Phaser.Geom.Rectangle.Contains
+        )
+        .on('pointerover', () => {
+            this.showTooltip(
+                "Progress Bar:\nWrite original words to fill the bar.\nUsing AI words reduces progress.",
+                scoreX + scoreWidth / 2,
+                scoreY - 10
+            );
+        })
+        .on('pointerout', () => {
+            this.hideTooltips();
+        });
 
         // Create celebration emitters if they don't exist
         try {
