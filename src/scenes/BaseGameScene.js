@@ -128,14 +128,14 @@ export default class BaseGameScene extends Phaser.Scene {
         return toggle;
     }
 
-    async onModeToggle(mode) {
+    async onModeToggle(mode, levelValue = 1, topKValue = null) {
         // Reset data when transitioning between modes
         const dataToTransfer = {
             mode: mode,
             // Reset progress and level values rather than transferring current state
             progressPercentage: DESIGN.UI.PROGRESS_BAR.INITIAL,
-            levelValue: 1,
-            topKValue: this.topKValue || 1,
+            levelValue: levelValue,
+            topKValue: topKValue !== null ? topKValue : this.topKValue || 1,
             // Reset word counts with simplified approach - only track AI words now
             aiWordCount: 0
         };
@@ -1880,9 +1880,9 @@ export default class BaseGameScene extends Phaser.Scene {
             this, 
             'APPLY', 
             () => {
-                // Apply mode change if pending
+                // Apply mode change if pending, and pass current level/topK
                 if (this.pendingModeChange && this.pendingModeChange !== this.mode) {
-                    this.onModeToggle(this.pendingModeChange);
+                    this.onModeToggle(this.pendingModeChange, this.levelValue, this.topKValue);
                     // Mode change will trigger scene change, so we don't need to close popup
                     return;
                 }
