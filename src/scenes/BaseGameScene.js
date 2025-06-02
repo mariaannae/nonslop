@@ -1577,12 +1577,12 @@ export default class BaseGameScene extends Phaser.Scene {
      * @param {number} [scale=1] - Multiplier for size and distance.
      */
     createRedSparkBurst(x, y, scale = 1) {
-        const particleCount = 36;
+        const particleCount = 90;
         for (let i = 0; i < particleCount; i++) {
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
             const speed = Phaser.Math.Between(180, 340) * scale;
             const distance = Phaser.Math.Between(120, 260) * scale;
-            const size = Phaser.Math.Between(16, 32) * scale;
+            const size = Phaser.Math.Between(4, 10) * scale;
             const endX = x + Math.cos(angle) * distance;
             const endY = y + Math.sin(angle) * distance;
 
