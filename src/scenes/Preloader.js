@@ -518,15 +518,12 @@ export default class Preloader extends Phaser.Scene {
             // Center the button horizontally
             const buttonCenterX = this.cameras.main.centerX;
             
-            // Calculate the distance between loading text and progress bar (this is the same value used in create())
-            const textToBarDistance = this.cameras.main.width * 0.02;
-            
-            // Position the button below the progress bar by the same distance as loading text is above it
-            const buttonCenterY = this.progressBarY + this.progressBarHeight + textToBarDistance + DESIGN.UI.BUTTON.HEIGHT / 2 +10;
-    
-            
+            // Place the button so its top edge is 30px below the bottom edge of the progress bar (including outline)
+            const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
+            const buttonCenterY = this.progressBarY + this.progressBarHeight + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP + DESIGN.UI.BUTTON.HEIGHT / 2;
+
             // Create the button
-            
+
             this.doneButton = ButtonFactory.createButton(this, "NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, { depth: 102 });
 
             // Add tooltip functionality

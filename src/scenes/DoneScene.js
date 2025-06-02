@@ -44,7 +44,7 @@ export default class DoneScene extends Phaser.Scene {
             this.evaluation || "",
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: "24px",
+                fontSize: "20px",
                 fill: '#ffffff',
                 wordWrap: { width: outputBoxWidth - padding * 2 },
                 align: 'left',
@@ -809,7 +809,8 @@ export default class DoneScene extends Phaser.Scene {
 
         // Button positioning: 30px below output box bottom
         const buttonCenterX = this.cameras.main.centerX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
-        const buttonCenterY = this.outputBoxY + this.outputBoxHeight + 20 + DESIGN.UI.BUTTON.HEIGHT / 2;
+        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
+        const buttonCenterY = this.outputBoxY + this.outputBoxHeight + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP + DESIGN.UI.BUTTON.HEIGHT / 2;
         this.doneButton = this.createButton("NEXT", null, buttonCenterX, buttonCenterY, {
             depth: 102, // ensure button is visible
             name: 'doneButton'
@@ -1262,7 +1263,7 @@ createLowScoreWarning() {
                 fullText,
                 {
                   fontFamily: "IBM Plex Mono",
-                  fontSize: "36px",
+                  fontSize: "40px",
                   color: "#FFFFFF",
                   alpha: 0.4
                 }

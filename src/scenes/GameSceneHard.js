@@ -477,26 +477,26 @@ export default class GameSceneHard extends BaseGameScene {
 
         const inputBoxWidth = this.cameras.main.width * (5 / 6);
         const padding = 20;
-        const buttonCenterX = this.cameras.main.centerX + inputBoxWidth / 2 - this.design.BUTTON.WIDTH - 20;
+        const buttonPadding = 70; // Standard padding used for buttons
+        const boxX = this.cameras.main.centerX - inputBoxWidth / 2;
+        const buttonCenterX = boxX + inputBoxWidth - buttonPadding - this.design.BUTTON.WIDTH / 2;
 
-        // Calculate position using the new layout calculation
-        const statsBoxWidth = 180;
+        // Calculate the actual input box Y and height based on the layout in BaseGameScene
+        // This matches the logic in createInputTextBox()
         const statsBoxHeight = 130;
-        const statsDisplayY = this.menuBarHeight + padding;
+        const menuBarHeight = this.menuBarHeight || 100;
+        const statsDisplayY = menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        
-        // Prompt box is 20px below stats box
         const promptY = statsBottomEdge + 20;
         const promptBoxHeight = 80;
         const promptBottomEdge = promptY + promptBoxHeight;
-        
-        // Input box is 20px below prompt box
         const inputBoxY = promptBottomEdge + 20;
         const inputBoxHeight = 240;
         const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
-        
-        // Position button further below input box bottom edge (increased spacing)
-        const doneButtonY = inputBoxBottomEdge + padding * 2 + this.design.BUTTON.HEIGHT / 2;
+
+        // Position button further below input box bottom edge (configurable gap from design.js)
+        const outlineWidth = this.design.OUTLINE.WIDTH;
+        const doneButtonY = inputBoxBottomEdge + outlineWidth / 2 + this.design.BUTTON.BELOW_TEXTBOX_GAP + this.design.BUTTON.HEIGHT / 2;
 
         // Create buttons with tooltips
         this.doneButton = this.createButton(
@@ -550,7 +550,7 @@ export default class GameSceneHard extends BaseGameScene {
     getPromptTextStyle() {
         return {
             fontFamily: "IBM Plex Mono",
-            fontSize: "20px",
+            fontSize: `${this.design.TEXTBOX_FONT_SIZE}px`,
             fill: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6,
@@ -589,7 +589,7 @@ export default class GameSceneHard extends BaseGameScene {
     getInputTextStyle() {
         return {
             fontFamily: "IBM Plex Mono",
-            fontSize: "20px",
+            fontSize: `${this.design.TEXTBOX_FONT_SIZE}px`,
             fill: "#000",
             align: "left",
             lineSpacing: 6,
@@ -605,7 +605,7 @@ export default class GameSceneHard extends BaseGameScene {
     getAutocompleteTextStyle() {
         return {
             fontFamily: "IBM Plex Mono",
-            fontSize: "20px",
+            fontSize: `${this.design.TEXTBOX_FONT_SIZE}px`,
             fill: "#ff0000",
             align: "left",
             alpha: 0.7, // Make slightly transparent

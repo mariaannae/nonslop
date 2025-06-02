@@ -138,7 +138,7 @@ export default class FeedbackScene extends Phaser.Scene {
             "_",
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: "20px",
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 fill: "#000000",
                 wordWrap: { width: textBoxWidth - padding * 2 },
                 align: "left"
@@ -209,7 +209,7 @@ export default class FeedbackScene extends Phaser.Scene {
             defaultText,
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: "20px",
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 color: this.COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "center"
@@ -338,7 +338,8 @@ export default class FeedbackScene extends Phaser.Scene {
         const inputBoxX = this.cameras.main.centerX;
         const inputBoxY = this.cameras.main.centerY;
         const buttonCenterX = inputBoxX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
-        const buttonCenterY = inputBoxY + 170 + DESIGN.UI.BUTTON.SPACING; // 170 = half height of input box (340/2)
+        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
+        const buttonCenterY = inputBoxY + 170 + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP; // 170 = half height of input box (340/2), configurable gap below
     
         // Now create the button using ButtonFactory
         this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {

@@ -122,7 +122,7 @@ export default class UsernameScene extends Phaser.Scene {
             this.username || '',
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 color: '#000000'
             }
         ).setOrigin(0, 0.5);
@@ -134,7 +134,7 @@ export default class UsernameScene extends Phaser.Scene {
             '|',
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 color: '#000000'
             }
         ).setOrigin(0, 0.5);
@@ -230,12 +230,27 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     createButtons() {
+        // Input box layout
+        const inputBoxY = this.cameras.main.centerY - 50;
+        const inputBoxHeight = 60;
+        const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
+        const buttonGap = DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
+        const buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
+
+        // Submit button: 30px below input box, centered at that Y
+        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
+        const submitButtonY = inputBoxBottomEdge + outlineWidth / 2 + buttonGap + buttonHeight / 2;
+
+        // Skip button: 2/3 * gap (20px) below submit button, centered at that Y
+        const skipButtonGap = (2 / 3) * buttonGap;
+        const skipButtonY = submitButtonY + buttonHeight + skipButtonGap;
+
         // Create submit button
         this.submitButton = this.createButton(
             "SUBMIT",
             () => this.submitUsername(),
             this.cameras.main.centerX,
-            this.cameras.main.centerY + 80
+            submitButtonY
         );
 
         // Create skip button (anonymous)
@@ -243,7 +258,7 @@ export default class UsernameScene extends Phaser.Scene {
             "SKIP",
             () => this.skipUsername(),
             this.cameras.main.centerX,
-            this.cameras.main.centerY + 140
+            skipButtonY
         );
         
         // Add hover effects to buttons

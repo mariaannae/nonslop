@@ -1625,7 +1625,6 @@ export default class BaseGameScene extends Phaser.Scene {
                 "Write a haiku.",
                 "What do you think beauty is?",
                 "What makes something art or not?",
-                "Write a coherent sentence where three consecutive words start with the same letter.",
                 "Write a very short story about a woman and her pet lion."
             ],
         };
@@ -2435,12 +2434,12 @@ export default class BaseGameScene extends Phaser.Scene {
         const inputBoxHeight = 240;
         const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
         
-        const padding = 20;
+
         const buttonPadding = 70; // Standard padding used for buttons
         
         // Set X position with the same padding as buttons have from right side
         const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + buttonPadding;
-        const scoreY = inputBoxBottomEdge + padding * 2;
+        const scoreY = inputBoxBottomEdge + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
     
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);

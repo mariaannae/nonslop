@@ -177,7 +177,7 @@ export default class InstructionScene extends Phaser.Scene {
             defaultText,
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: "20px",
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left]nter"
@@ -198,7 +198,6 @@ export default class InstructionScene extends Phaser.Scene {
         );
     
         // ✅ Add Outline to Match Output Box
-        console.log(COLORS_HEX.BOX_OUTLINE)
         this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
@@ -235,12 +234,14 @@ export default class InstructionScene extends Phaser.Scene {
         const boxHeight = this.promptText.height + 80; // padding (40 top + 40 bottom)
 
         // Padding between button and text box edges
-        const buttonPaddingX = 20;
-        const buttonPaddingY = 20;
+        const buttonPadding = 70; // Standard padding used for buttons
+        const buttonPaddingY = DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
 
         // Position the DONE button at the bottom-right corner
-        const buttonCenterX = boxX + this.uiBoxWidth - buttonPaddingX - DESIGN.UI.BUTTON.WIDTH / 2;
-        const buttonCenterY = boxY + boxHeight + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
+        const buttonCenterX = boxX + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
+
+        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
+        const buttonCenterY = boxY + boxHeight + outlineWidth / 2 + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
 
         // Create the button using ButtonFactory with tooltip
         this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {

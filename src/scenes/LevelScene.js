@@ -175,7 +175,7 @@ export default class LevelScene extends Phaser.Scene {
             defaultText,
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: "20px",
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left]nter"
@@ -229,19 +229,18 @@ export default class LevelScene extends Phaser.Scene {
         // Use the same positioning logic as InstructionsScene
         const boxY = this.promptBoxY;
         const boxHeight = this.promptText.height + 80; // padding (40 top + 40 bottom)
-        const buttonPaddingY = 20;
+        const buttonPaddingY = DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
         
         // Position the buttons below the prompt text box
-        const centerY = boxY + boxHeight + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
+        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
+        const centerY = boxY + boxHeight + outlineWidth / 2 + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
         
-        // Create the two difficulty buttons with tooltips
-        const reducedSpacing = DESIGN.UI.BUTTON.SPACING * 0.5;
 
         const easyButton = ButtonFactory.createButton(
             this, 
             "EASY", 
             () => this.startGame("easy"),
-            centerX - DESIGN.UI.BUTTON.WIDTH - reducedSpacing,
+            centerX - DESIGN.UI.BUTTON.WIDTH * .85,
             centerY
         );
         
@@ -249,7 +248,7 @@ export default class LevelScene extends Phaser.Scene {
             this, 
             "HARD", 
             () => this.startGame("hard"),
-            centerX + DESIGN.UI.BUTTON.WIDTH + reducedSpacing,
+            centerX + DESIGN.UI.BUTTON.WIDTH * .85,
             centerY
         );
 
