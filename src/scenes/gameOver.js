@@ -40,14 +40,18 @@ export default class gameOver extends Phaser.Scene {
         badgeContainer.x = originalX;
         badgeContainer.y = originalY;
         
-        // Convert to base64 image
-        const canvas = renderTexture.canvas;
-        const dataURL = canvas.toDataURL('image/png');
-        
-        // Clean up
-        renderTexture.destroy();
-        
-        callback(dataURL);
+        // Use snapshot to get an image, then convert to dataURL
+        renderTexture.snapshot((image) => {
+            // image is an HTMLImageElement
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = image.width;
+            tempCanvas.height = image.height;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.drawImage(image, 0, 0);
+            const dataURL = tempCanvas.toDataURL('image/png');
+            renderTexture.destroy();
+            callback(dataURL);
+        });
     }
 
     downloadBadge(dataURL, filename) {
