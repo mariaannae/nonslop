@@ -1195,9 +1195,6 @@ export default class BaseGameScene extends Phaser.Scene {
         }, 250); // Reduced delay for better responsiveness
 
     // Queue-based keyboard handler for strict ordering and deduplication
-    this._pressedKeys = {};
-    const modifierKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'];
-
     this.input.keyboard.on("keydown", (event) => {
         // Skip if we're shutting down
         if (this.isShuttingDown) return;
@@ -1210,16 +1207,6 @@ export default class BaseGameScene extends Phaser.Scene {
         // Prevent default browser behavior for Tab key immediately
         if (event.key === "Tab" && typeof event.preventDefault === "function") {
             event.preventDefault();
-        }
-
-        // Only deduplicate non-modifier keys
-        if (!this._pressedKeys) this._pressedKeys = {};
-        if (!modifierKeys.includes(event.key)) {
-            if (this._pressedKeys[event.key]) {
-                //console.log(`[DEDUP] Ignored duplicate keydown: ${event.key}`);
-                return;
-            }
-            this._pressedKeys[event.key] = true;
         }
 
         // Record this key press
@@ -1243,12 +1230,8 @@ export default class BaseGameScene extends Phaser.Scene {
         this.triggerProcessQueue();
     });
 
-    this.input.keyboard.on("keyup", (event) => {
-        if (!this._pressedKeys) this._pressedKeys = {};
-        if (!modifierKeys.includes(event.key)) {
-            this._pressedKeys[event.key] = false;
-        }
-    });
+    // No deduplication needed on keyup
+    this.input.keyboard.on("keyup", (event) => {});
         
         // Set up cursor blinking timer
         if (this.cursorTimer) {
