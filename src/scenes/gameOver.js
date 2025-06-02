@@ -197,9 +197,39 @@ export default class gameOver extends Phaser.Scene {
         ).setOrigin(0.5);
 
         // Calculate badge box size
-        const contentWidth = Math.max(badgeTitle.width, badgeScoreText.width, badgeText.width);
+        // Add QR code and URL
+        const qrCode = this.add.image(0, 0, 'gh-qr-code').setDisplaySize(80, 80).setOrigin(0.5);
+        const urlText = this.add.text(
+            0, 0,
+            "https://mariaannae.github.io/nonslop/",
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '18px',
+                color: '#fff',
+                align: 'center',
+                stroke: '#000',
+                strokeThickness: 2
+            }
+        ).setOrigin(0.5);
+
+        const contentWidth = Math.max(
+            badgeTitle.width,
+            badgeScoreText.width,
+            badgeText.width,
+            qrCode.displayWidth,
+            urlText.width
+        );
         const badgeWidth = contentWidth + badgePaddingX * 2;
-        const contentHeight = badgeTitle.height + textSpacing + badgeScoreText.height + textSpacing + badgeText.height;
+        const contentHeight =
+            badgeTitle.height +
+            textSpacing +
+            badgeScoreText.height +
+            textSpacing +
+            badgeText.height +
+            textSpacing +
+            qrCode.displayHeight +
+            textSpacing +
+            urlText.height;
         const badgeHeight = contentHeight + badgePaddingY * 2;
 
         // Create badge container
@@ -235,9 +265,17 @@ export default class gameOver extends Phaser.Scene {
         badgeText.x = 0;
         badgeText.y = badgeScoreText.y + badgeScoreText.height / 2 + textSpacing + badgeText.height / 2;
 
+        qrCode.x = 0;
+        qrCode.y = badgeText.y + badgeText.height / 2 + textSpacing + qrCode.displayHeight / 2;
+
+        urlText.x = 0;
+        urlText.y = qrCode.y + qrCode.displayHeight / 2 + textSpacing + urlText.height / 2;
+
         badgeContainer.add(badgeTitle);
         badgeContainer.add(badgeScoreText);
         badgeContainer.add(badgeText);
+        badgeContainer.add(qrCode);
+        badgeContainer.add(urlText);
 
         // Social share buttons (create but don't position yet)
         const gameAddress = "https://mariaannae.github.io/nonslop";

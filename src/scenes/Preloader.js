@@ -82,6 +82,7 @@ export default class Preloader extends Phaser.Scene {
         // Load all required textures
         //this.load.image('bg', 'bg.png');
         this.load.image('clock', 'clock.svg');
+        this.load.image('gh-qr-code', 'gh-qr-code.png');
 
         // Load social SVGs for share buttons
         this.load.setPath('assets/socials');
