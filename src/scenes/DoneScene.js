@@ -390,17 +390,26 @@ export default class DoneScene extends Phaser.Scene {
         
         try {
             // Add loading indicator while checking
+            const outlineColorString = '#' + this.COLORS_HEX.BOX_OUTLINE.toString(16).padStart(6, '0');
             const loadingText = this.add.text(
                 this.cameras.main.centerX,
                 this.cameras.main.centerY,
                 'Checking scores...',
                 {
                     fontFamily: 'IBM Plex Mono',
-                    fontSize: '24px',
-                    color: '#ffffff',
+                    fontSize: '32px',
+                    fill: outlineColorString,
                     backgroundColor: '#000000',
                     padding: { x: 20, y: 10 },
-                    borderRadius: 8
+                    borderRadius: 8,
+                    shadow: {
+                        offsetX: 0,
+                        offsetY: 0,
+                        color: outlineColorString,
+                        blur: 6,
+                        stroke: true,
+                        fill: true
+                    }
                 }
             ).setOrigin(0.5).setDepth(1000);
             

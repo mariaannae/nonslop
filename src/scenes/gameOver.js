@@ -24,25 +24,24 @@ export default class gameOver extends Phaser.Scene {
     }
 
     captureBadgeAsImage(badgeContainer, callback) {
-        // Create a render texture to capture the badge
-        const renderTexture = this.add.renderTexture(0, 0, badgeContainer.width + 40, badgeContainer.height + 40);
-        
-        // Temporarily move badge to render texture center
-        const originalX = badgeContainer.x;
-        const originalY = badgeContainer.y;
-        badgeContainer.x = renderTexture.width / 2;
-        badgeContainer.y = renderTexture.height / 2;
-        
-        // Draw the badge to the render texture
-        renderTexture.draw(badgeContainer);
-        
-        // Restore original position
-        badgeContainer.x = originalX;
-        badgeContainer.y = originalY;
-        
+        // Get the true bounds of the badge
+        const bounds = badgeContainer.getBounds();
+        const padding = 20;
+
+        // Create a render texture sized to the badge bounds plus padding
+        const rtWidth = Math.ceil(bounds.width + padding * 2);
+        const rtHeight = Math.ceil(bounds.height + padding * 2);
+        const renderTexture = this.add.renderTexture(0, 0, rtWidth, rtHeight);
+
+        // Draw the badgeContainer at the correct offset so the full badge is visible
+        renderTexture.draw(
+            badgeContainer,
+            padding + (badgeContainer.x - bounds.x),
+            padding + (badgeContainer.y - bounds.y)
+        );
+
         // Use snapshot to get an image, then convert to dataURL
         renderTexture.snapshot((image) => {
-            // image is an HTMLImageElement
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = image.width;
             tempCanvas.height = image.height;
@@ -214,7 +213,7 @@ export default class gameOver extends Phaser.Scene {
             badgeHeight,
             badgeCornerRadius
         );
-        badgeBg.lineStyle(3, this.COLORS_HEX.BOX_OUTLINE, 1);
+        badgeBg.lineStyle(5, this.COLORS_HEX.BOX_OUTLINE, 1);
         badgeBg.strokeRoundedRect(
             0 - badgeWidth / 2,
             0 - badgeHeight / 2,
@@ -349,6 +348,23 @@ export default class gameOver extends Phaser.Scene {
 
         
 
+        // SAVE BADGE button (create but don't position yet)
+        const saveBadgeButton = ButtonFactory.createButton(
+            this,
+            "SAVE BADGE",
+            () => {
+                this.captureBadgeAsImage(badgeContainer, (badgeDataURL) => {
+                    this.downloadBadge(badgeDataURL, `nonslop-badge-${this.score}.png`);
+                });
+            },
+            0, // x will be set later
+            0,
+            { depth: 10 }
+        );
+        saveBadgeButton.setInteractive()
+            .on('pointerover', () => saveBadgeButton.setScale(1.1))
+            .on('pointerout', () => saveBadgeButton.setScale(1));
+
         // Play Again button (create but don't position yet)
         const playAgainButton = ButtonFactory.createButton(
             this,
@@ -356,7 +372,7 @@ export default class gameOver extends Phaser.Scene {
             () => {
                 this.scene.start('Boot');
             },
-            this.cameras.main.centerX,
+            0, // x will be set later
             0,
             { depth: 10 }
         );
@@ -367,7 +383,7 @@ export default class gameOver extends Phaser.Scene {
         // 2. Measure heights of all elements
         // For social row, use buttonSize as height
         // For badge, use badgeHeight
-        // For playAgainButton, use playAgainButton.height
+        // For playAgainButton and saveBadgeButton, use their heights
 
         // 3. Calculate total content height and gap
         const elements = [
@@ -375,7 +391,7 @@ export default class gameOver extends Phaser.Scene {
             { obj: subText, height: subText.height },
             { obj: badgeContainer, height: badgeHeight },
             { obj: null, height: buttonSize }, // social row
-            { obj: playAgainButton, height: playAgainButton.height }
+            { obj: null, height: Math.max(playAgainButton.height, saveBadgeButton.height) }
         ];
 
         const totalContentHeight =
@@ -433,10 +449,15 @@ export default class gameOver extends Phaser.Scene {
             btn.y = currentY;
         });
 
-        // Play Again button
-        currentY += buttonSize / 2 + gap + playAgainButton.height / 2;
+        // Play Again and Save Badge buttons
+        currentY += buttonSize / 2 + gap + Math.max(playAgainButton.height, saveBadgeButton.height) / 2;
+        // Place SAVE BADGE to the left of PLAY AGAIN, with spacing
+        const buttonSpacing = 32;
+        const totalButtonWidth = playAgainButton.width + saveBadgeButton.width + buttonSpacing;
+        playAgainButton.x = this.cameras.main.centerX + (totalButtonWidth / 2 - playAgainButton.width / 2);
+        saveBadgeButton.x = this.cameras.main.centerX - (totalButtonWidth / 2 - saveBadgeButton.width / 2);
         playAgainButton.y = currentY;
-        playAgainButton.x = this.cameras.main.centerX;
+        saveBadgeButton.y = currentY;
 
         // --- END EVEN VERTICAL SPACING REFACTOR ---
     }
