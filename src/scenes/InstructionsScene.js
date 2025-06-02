@@ -198,6 +198,7 @@ export default class InstructionScene extends Phaser.Scene {
         );
     
         // ✅ Add Outline to Match Output Box
+        console.log(COLORS_HEX.BOX_OUTLINE)
         this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 

@@ -659,7 +659,8 @@ export default class BaseGameScene extends Phaser.Scene {
             const filteredOptions = options
                 .map(choice => choice.token.trim())
                 .filter(token => token !== '')
-                .filter(token => !stopwords.includes(token.toLowerCase()));
+                .filter(token => !stopwords.includes(token.toLowerCase()))
+                .filter(token => !/^[\p{P}]/u.test(token)); // Filter out tokens starting with punctuation
     
             const uniqueSuggestedWords = Array.from(new Set(
                 filteredOptions.map(word => word.replace(/`/g, "'"))

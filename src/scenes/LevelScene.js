@@ -167,7 +167,7 @@ export default class LevelScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "Easy: \nYou may use AI-suggested words, but you'll lose points. \n\nHard: \nNo AI-suggested words may be used. You will be penalized for each attempted use.";
+        const defaultText = "Easy: \nYou may use AI-suggested words, but you'll lose points. \n\nHard: \nNo AI-suggested words may be used. You will be penalized for each attempt.";
 
         this.promptText = this.add.text(
             this.cameras.main.centerX, 
@@ -235,11 +235,13 @@ export default class LevelScene extends Phaser.Scene {
         const centerY = boxY + boxHeight + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
         
         // Create the two difficulty buttons with tooltips
+        const reducedSpacing = DESIGN.UI.BUTTON.SPACING * 0.5;
+
         const easyButton = ButtonFactory.createButton(
             this, 
             "EASY", 
             () => this.startGame("easy"),
-            centerX - DESIGN.UI.BUTTON.WIDTH - DESIGN.UI.BUTTON.SPACING,
+            centerX - DESIGN.UI.BUTTON.WIDTH - reducedSpacing,
             centerY
         );
         
@@ -247,7 +249,7 @@ export default class LevelScene extends Phaser.Scene {
             this, 
             "HARD", 
             () => this.startGame("hard"),
-            centerX + DESIGN.UI.BUTTON.WIDTH + DESIGN.UI.BUTTON.SPACING,
+            centerX + DESIGN.UI.BUTTON.WIDTH + reducedSpacing,
             centerY
         );
 

@@ -4,6 +4,10 @@ import registryManager from "../services/RegistryManager.js";
 import getLLMEngine from "../services/llmEngineSingleton.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 
+// Fix: Define missing constants for output box rendering
+
+
+
 export default class Preloader extends Phaser.Scene {
     constructor() {
         super('Preloader');
@@ -227,19 +231,42 @@ export default class Preloader extends Phaser.Scene {
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         const outputBoxWidth = this.uiBoxWidth;
         const lineHeight = 24;
-        const numLines = 17;
         const padding = 30;
-        const outputBoxHeight = numLines * lineHeight + padding * 2;
-        
-        
-        const outputBoxY = this.errorText.y + outputBoxHeight/2 + 70;// - outputBoxHeight - 10;
-    
-        // ✅ Remove existing box if it exists (prevents duplicate rendering)
+
+        // Remove existing text if it exists (prevents duplicates)
+        if (this.outputText) {
+            this.outputText.destroy();
+        }
+
+        // Dynamically measure text height with word wrap
+        const tempText = this.add.text(
+            0, 0, text,
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: `${lineHeight}px`,
+                fill: '#ffffff',
+                wordWrap: { width: outputBoxWidth - padding * 2 },
+                align: 'left',
+                lineSpacing: 5
+            }
+        ).setOrigin(0, 0).setAlpha(0); // Hide temp text
+
+        // Calculate height needed for the text
+        const textHeight = tempText.height;
+        const outputBoxHeight = textHeight + padding * 2;
+
+        // Position box 30px below the bottom edge of the progress bar
+        const outputBoxY = this.progressBarY + this.progressBarHeight + 30 + outputBoxHeight / 2;
+
+        // Remove temp text (will create real one below)
+        tempText.destroy();
+
+        // Remove existing box if it exists (prevents duplicate rendering)
         if (this.outputTextBox) {
             this.outputTextBox.destroy();
         }
-    
-        // ✅ Create new output box with rounded corners
+
+        // Create new output box with rounded corners
         this.outputTextBox = this.add.graphics();
         this.outputTextBox.fillStyle(COLORS_HEX.BACKGROUND, 1);
         this.outputTextBox.fillRoundedRect(
@@ -247,24 +274,21 @@ export default class Preloader extends Phaser.Scene {
             outputBoxY - outputBoxHeight / 2,
             outputBoxWidth,
             outputBoxHeight,
-            CORNER_RADIUS
+            DESIGN.UI.CORNER_RADIUS
         );
-        this.outputTextBox.lineStyle(OUTLINE_WIDTH, COLORS_HEX.BLUE, 1);
+        // Use theme accent color for outline
+        console.log('BOX_OUTLINE value:', COLORS_HEX.BOX_OUTLINE, typeof COLORS_HEX.BOX_OUTLINE);
+        this.outputTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.outputTextBox.strokeRoundedRect(
             this.cameras.main.centerX - outputBoxWidth / 2,
             outputBoxY - outputBoxHeight / 2,
             outputBoxWidth,
             outputBoxHeight,
-            CORNER_RADIUS
+            DESIGN.UI.CORNER_RADIUS
         );
         this.add.existing(this.outputTextBox); // Ensure it is added to the scene
-    
-        // ✅ Remove existing text if it exists (prevents duplicates)
-        if (this.outputText) {
-            this.outputText.destroy();
-        }
-    
-        // ✅ Create output text inside the box
+
+        // Create output text inside the box
         this.outputText = this.add.text(
             this.cameras.main.centerX - outputBoxWidth / 2 + padding,
             outputBoxY - outputBoxHeight / 2 + padding,
@@ -278,15 +302,15 @@ export default class Preloader extends Phaser.Scene {
                 lineSpacing: 5
             }
         ).setOrigin(0, 0);
-    
-        // ✅ Slide-in Animation
+
+        // Slide-in Animation
         this.tweens.add({
             targets: [this.outputTextBox, this.outputText],
             alpha: 1,
             duration: 500,
             ease: 'Sine.InOut'
         });
-        // ✅ Force Phaser to recognize this object
+        // Force Phaser to recognize this object
         this.add.existing(this.outputTextBox);
         this.outputTextBox.setDepth(100);
         this.outputText.setDepth(101);
@@ -413,7 +437,7 @@ export default class Preloader extends Phaser.Scene {
         if (!navigator.gpu) {
             this.errorText = this.add.text(screenWidth / 2, margin + 50 + offset, "WebGPU is required but not enabled/supported.", {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: "50px",
+                fontSize: "30px",
                 fontWeight: "500",
                 fill: "#ff0000"
             });
@@ -424,6 +448,7 @@ export default class Preloader extends Phaser.Scene {
             
             const { os, browser, userAgent } = getUserEnvironmentInfo();
             if (browser === 'Safari') {
+                
                 const text = "Safari does not natively support WebGPU. We recommend using Chrome for the best experience. You may be able to enable WebGPU for Safari via experimental features.";
                 this.createOutputTextBox(text)
             }
