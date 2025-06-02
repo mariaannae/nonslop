@@ -26,7 +26,9 @@ export default class gameOver extends Phaser.Scene {
     captureBadgeAsImage(badgeContainer, callback) {
         // Get the true bounds of the badge
         const bounds = badgeContainer.getBounds();
-        const padding = 20;
+        // Increase padding to ensure outline is included
+        const outlinePadding = 10; // extra for outline thickness
+        const padding = 32 + outlinePadding;
 
         // Create a render texture sized to the badge bounds plus padding
         const rtWidth = Math.ceil(bounds.width + padding * 2);

@@ -1196,6 +1196,8 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Queue-based keyboard handler for strict ordering and deduplication
     this._pressedKeys = {};
+    const modifierKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'];
+
     this.input.keyboard.on("keydown", (event) => {
         // Skip if we're shutting down
         if (this.isShuttingDown) return;
@@ -1210,13 +1212,15 @@ export default class BaseGameScene extends Phaser.Scene {
             event.preventDefault();
         }
 
-        // Ignore if this key is already pressed (wait for keyup)
+        // Only deduplicate non-modifier keys
         if (!this._pressedKeys) this._pressedKeys = {};
-        if (this._pressedKeys[event.key]) {
-            //console.log(`[DEDUP] Ignored duplicate keydown: ${event.key}`);
-            return;
+        if (!modifierKeys.includes(event.key)) {
+            if (this._pressedKeys[event.key]) {
+                //console.log(`[DEDUP] Ignored duplicate keydown: ${event.key}`);
+                return;
+            }
+            this._pressedKeys[event.key] = true;
         }
-        this._pressedKeys[event.key] = true;
 
         // Record this key press
         this.lastKeyPressed = event.key;
@@ -1241,7 +1245,9 @@ export default class BaseGameScene extends Phaser.Scene {
 
     this.input.keyboard.on("keyup", (event) => {
         if (!this._pressedKeys) this._pressedKeys = {};
-        this._pressedKeys[event.key] = false;
+        if (!modifierKeys.includes(event.key)) {
+            this._pressedKeys[event.key] = false;
+        }
     });
         
         // Set up cursor blinking timer
