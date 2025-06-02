@@ -127,14 +127,14 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Add labels for the toggle
         const easyLabel = this.add.text(-50, 0, "EASY", {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '20px',
+            fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
             color: this.mode === 'easy' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(1, 0.5);
         
         const hardLabel = this.add.text(50, 0, "HARD", {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '20px',
+            fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
             color: this.mode === 'hard' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0, 0.5);

@@ -468,11 +468,11 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.cameras.main.centerY,
                 'Error during evaluation. Please try again.',
                 {
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: '20px',
-                    fill: '#ff0000',
-                    backgroundColor: '#000000',
-                    padding: { x: 20, y: 10 }
+                fontFamily: 'IBM Plex Mono',
+                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
+                fill: '#ff0000',
+                backgroundColor: '#000000',
+                padding: { x: 20, y: 10 }
                 }
             ).setOrigin(0.5).setDepth(100);
 

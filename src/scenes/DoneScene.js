@@ -28,7 +28,7 @@ export default class DoneScene extends Phaser.Scene {
     }
 
     createOutputTextBox() {
-        const outputBoxWidth = this.uiBoxWidth;
+        const outputBoxWidth = this.uiBoxWidth - 30;
         const padding = 30;
 
         // Use stored input box position
@@ -44,7 +44,7 @@ export default class DoneScene extends Phaser.Scene {
             this.evaluation || "",
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: "20px",
+                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
                 fill: '#ffffff',
                 wordWrap: { width: outputBoxWidth - padding * 2 },
                 align: 'left',
@@ -62,7 +62,7 @@ export default class DoneScene extends Phaser.Scene {
         // button is placed 30px below output box, then DESIGN.UI.BUTTON.HEIGHT/2 to center, then DESIGN.UI.BUTTON.HEIGHT/2 to bottom
         // So: outputBoxY + outputBoxHeight + 30 + DESIGN.UI.BUTTON.HEIGHT <= canvasHeight - 30
         // => outputBoxHeight <= canvasHeight - 30 - outputBoxY - 30 - DESIGN.UI.BUTTON.HEIGHT
-        const maxOutputBoxHeight = canvasHeight - buttonMargin - outputBoxY - 30 - DESIGN.UI.BUTTON.HEIGHT;
+        const maxOutputBoxHeight = canvasHeight - buttonMargin - outputBoxY - 30 - DESIGN.UI.BUTTON.HEIGHT - (buttonMargin * 2);
         let capped = false;
         if (outputBoxHeight > maxOutputBoxHeight) {
             outputBoxHeight = maxOutputBoxHeight;
@@ -496,7 +496,7 @@ export default class DoneScene extends Phaser.Scene {
             displayText,
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: "20px",
+                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
                 fill: "#000000",
                 wordWrap: { width: textBoxWidth - padding * 2 },
                 align: "left"
@@ -591,7 +591,7 @@ export default class DoneScene extends Phaser.Scene {
             defaultText,
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: "20px",
+                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
                 color: this.COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left",
@@ -645,7 +645,7 @@ export default class DoneScene extends Phaser.Scene {
      getPromptTextStyle() {
         return {
             fontFamily: "IBM Plex Mono",
-            fontSize: "20px",
+            fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
             color: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6,
