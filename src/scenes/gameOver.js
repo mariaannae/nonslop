@@ -198,7 +198,7 @@ export default class gameOver extends Phaser.Scene {
 
         // Calculate badge box size
         // Add QR code and URL
-        const qrCode = this.add.image(0, 0, 'gh-qr-code').setDisplaySize(80, 80).setOrigin(0.5);
+        const qrCode = this.add.image(0, 0, 'gh-qr-code').setDisplaySize(200, 200).setOrigin(0.5);
         const urlText = this.add.text(
             0, 0,
             "https://mariaannae.github.io/nonslop/",
