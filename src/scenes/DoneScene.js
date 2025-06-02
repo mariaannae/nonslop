@@ -22,7 +22,8 @@ export default class DoneScene extends Phaser.Scene {
         this.scene.start('LeaderboardScene', {
             mode: this.mode,
             levelValue: this.levelValue,
-            previousScene: 'DoneScene'
+            previousScene: 'DoneScene',
+            score: this.totalScore
         });
     }
 
@@ -42,7 +43,7 @@ export default class DoneScene extends Phaser.Scene {
             0, 0,
             this.evaluation || "",
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: "24px",
                 fill: '#ffffff',
                 wordWrap: { width: outputBoxWidth - padding * 2 },
@@ -182,7 +183,7 @@ export default class DoneScene extends Phaser.Scene {
             this.outputBoxInfo.y + this.outputBoxInfo.height - 15,
             "▼ Scroll for more ▼",
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '16px',
                 fill: '#ffffff',
                 backgroundColor: '#4b237a',
@@ -317,6 +318,8 @@ export default class DoneScene extends Phaser.Scene {
     }
     
     async onDoneButtonClick() {
+        // (Removed redundant isTransitioning guard; handled by SceneTransitionManager)
+
         // Save the user input before clearing it
         const userInputCopy = this.userInput;
         
@@ -392,7 +395,7 @@ export default class DoneScene extends Phaser.Scene {
                 this.cameras.main.centerY,
                 'Checking scores...',
                 {
-                    fontFamily: 'Nunito',
+                    fontFamily: 'IBM Plex Mono',
                     fontSize: '24px',
                     color: '#ffffff',
                     backgroundColor: '#000000',
@@ -402,17 +405,24 @@ export default class DoneScene extends Phaser.Scene {
             ).setOrigin(0.5).setDepth(1000);
             
             console.log("About to check if high score:", this.totalScore, this.mode);
-            // Call the actual isHighScore function instead of using a hardcoded value
+
+            // LOG: Before isHighScore
+            console.log("[DEBUG] Before isHighScore");
             const isHighScoreResult = await isHighScore(this.totalScore, this.mode);
-            
+            // LOG: After isHighScore
+            console.log("[DEBUG] After isHighScore, result:", isHighScoreResult);
+
             // Remove loading text
             loadingText.destroy();
             console.log("scoredata: ", scoreData);
             console.log("Is high score result:", isHighScoreResult);
             
-            // Prepare transition - take a snapshot of current scene
+            // LOG: Before prepareTransition
+            console.log("[DEBUG] Before prepareTransition");
             await SceneTransitionManager.prepareTransition(this);
-            
+            // LOG: After prepareTransition
+            console.log("[DEBUG] After prepareTransition");
+
             if (isHighScoreResult) {
                 // It's a high score! Go to the username entry scene with a cool radial transition
                 console.log("High score achieved! Going to username entry");
@@ -428,11 +438,14 @@ export default class DoneScene extends Phaser.Scene {
                 // Not a high score, go to the leaderboard with a transition
                 console.log("Not a high score, going to leaderboard");
                 
+                // LOG: Before transition to LeaderboardScene
+                console.log("[DEBUG] Before SceneTransitionManager.transition to LeaderboardScene");
                 // Use a transition based on score context
                 SceneTransitionManager.transition(this, 'LeaderboardScene', 
                     {
                         mode: this.mode,
-                        levelValue: this.levelValue // Pass updated levelValue
+                        levelValue: this.levelValue, // Pass updated levelValue
+                        score: this.totalScore
                     },
                     transitionContext,
                     {
@@ -440,6 +453,8 @@ export default class DoneScene extends Phaser.Scene {
                         color: transitionColor
                     }
                 );
+                // LOG: After transition to LeaderboardScene
+                console.log("[DEBUG] After SceneTransitionManager.transition to LeaderboardScene");
             }
         } catch (error) {
             console.error("Error checking high score:", error);
@@ -471,7 +486,7 @@ export default class DoneScene extends Phaser.Scene {
             0, 0,
             displayText,
             {
-                fontFamily: "Nunito",
+                fontFamily: "IBM Plex Mono",
                 fontSize: "20px",
                 fill: "#000000",
                 wordWrap: { width: textBoxWidth - padding * 2 },
@@ -566,8 +581,8 @@ export default class DoneScene extends Phaser.Scene {
             0, // Y will be adjusted later
             defaultText,
             {
-                fontFamily: "Nunito",
-                fontSize: "22px",
+                fontFamily: "IBM Plex Mono",
+                fontSize: "20px",
                 color: this.COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left",
@@ -620,8 +635,8 @@ export default class DoneScene extends Phaser.Scene {
      // Style methods
      getPromptTextStyle() {
         return {
-            fontFamily: "Nunito",
-            fontSize: "22px",
+            fontFamily: "IBM Plex Mono",
+            fontSize: "20px",
             color: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6,
@@ -647,6 +662,9 @@ export default class DoneScene extends Phaser.Scene {
     }
    
     init(data) {
+        // Always reset transition flag on scene entry
+        this.isTransitioning = false;
+
         if (!data.mode) {
             console.error("Error: No data received in DoneScene.");
         } else {
@@ -783,7 +801,7 @@ export default class DoneScene extends Phaser.Scene {
         // Button positioning: 30px below output box bottom
         const buttonCenterX = this.cameras.main.centerX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
         const buttonCenterY = this.outputBoxY + this.outputBoxHeight + 20 + DESIGN.UI.BUTTON.HEIGHT / 2;
-        this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
+        this.doneButton = this.createButton("NEXT", null, buttonCenterX, buttonCenterY, {
             depth: 102, // ensure button is visible
             name: 'doneButton'
         });
@@ -829,7 +847,7 @@ export default class DoneScene extends Phaser.Scene {
         this.hideTooltips();
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '16px',
             color: '#ffffff',
             align: 'center'
@@ -1234,7 +1252,7 @@ createLowScoreWarning() {
                 originalY + 2,
                 fullText,
                 {
-                  fontFamily: "Nunito",
+                  fontFamily: "IBM Plex Mono",
                   fontSize: "36px",
                   color: "#FFFFFF",
                   alpha: 0.4

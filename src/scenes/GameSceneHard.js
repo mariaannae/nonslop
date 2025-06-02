@@ -51,7 +51,7 @@ export default class GameSceneHard extends BaseGameScene {
             this.cameras.main.centerY - 100,
             `AI WORD DETECTED:\n"${blockedWord}"`,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '25px', // Reduced from 28px
                 fontStyle: 'bold',
                 fill: '#ffffff',
@@ -107,7 +107,7 @@ export default class GameSceneHard extends BaseGameScene {
             this.cameras.main.centerY - 100 + (radius * 0.4), // Position in lower section of octagon
             "SECURITY VIOLATION - CONTENT PURGED",
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '16px', // Reduced from 18px to match overall size reduction
                 fontStyle: 'bold',
                 fill: '#ff5555',
@@ -367,7 +367,7 @@ export default class GameSceneHard extends BaseGameScene {
         
         // Create text with more aggressive styling
         const text = this.add.text(width/2, height/2, modeName, {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '22px',
             fontStyle: 'bold',
             color: '#ffffff'
@@ -549,8 +549,8 @@ export default class GameSceneHard extends BaseGameScene {
     // Style methods
     getPromptTextStyle() {
         return {
-            fontFamily: "Nunito",
-            fontSize: "22px",
+            fontFamily: "IBM Plex Mono",
+            fontSize: "20px",
             fill: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6,
@@ -588,8 +588,8 @@ export default class GameSceneHard extends BaseGameScene {
 
     getInputTextStyle() {
         return {
-            fontFamily: "Nunito",
-            fontSize: "22px",
+            fontFamily: "IBM Plex Mono",
+            fontSize: "20px",
             fill: "#000",
             align: "left",
             lineSpacing: 6,
@@ -604,8 +604,8 @@ export default class GameSceneHard extends BaseGameScene {
     }
     getAutocompleteTextStyle() {
         return {
-            fontFamily: "Nunito",
-            fontSize: "22px",
+            fontFamily: "IBM Plex Mono",
+            fontSize: "20px",
             fill: "#ff0000",
             align: "left",
             alpha: 0.7, // Make slightly transparent

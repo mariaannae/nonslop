@@ -88,7 +88,7 @@ export default class UsernameScene extends Phaser.Scene {
 
         // Add explanation text
         const subtitleStyle = {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '28px',
             color: '#ffffff',
             align: 'center'
@@ -121,7 +121,7 @@ export default class UsernameScene extends Phaser.Scene {
             y + height / 2,
             this.username || '',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '24px',
                 color: '#000000'
             }
@@ -133,7 +133,7 @@ export default class UsernameScene extends Phaser.Scene {
             y + height / 2,
             '|',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '24px',
                 color: '#000000'
             }
@@ -268,7 +268,7 @@ export default class UsernameScene extends Phaser.Scene {
             this.cameras.main.centerY - 150,
             `Score: ${this.scoreData?.score || 0}`,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '28px',
                 color: '#ffffff',
                 fontStyle: 'bold',
@@ -514,7 +514,8 @@ export default class UsernameScene extends Phaser.Scene {
                 SceneTransitionManager.transition(this, 'LeaderboardScene', 
                     {
                         mode: this.mode,
-                        levelValue: this.levelValue
+                        levelValue: this.levelValue,
+                        score: this.scoreData?.score
                     }, 
                     SceneTransitionManager.CONTEXT.HIGH_SCORE,
                     {
@@ -546,7 +547,8 @@ export default class UsernameScene extends Phaser.Scene {
         SceneTransitionManager.pixelDissolveTransition(this, 'LeaderboardScene', 
             {
                 mode: this.mode,
-                levelValue: this.levelValue
+                levelValue: this.levelValue,
+                score: this.scoreData?.score
             }, 
             700, 
             this.mode === 'hard' ? '#200025' : '#002435',
@@ -568,7 +570,7 @@ export default class UsernameScene extends Phaser.Scene {
         bg.fillRoundedRect(-100, -50, 200, 100, 10);
         
         const text = this.add.text(0, 0, 'Saving...', {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '24px',
             color: '#ffffff'
         }).setOrigin(0.5);
@@ -612,14 +614,14 @@ export default class UsernameScene extends Phaser.Scene {
         bg.fillRoundedRect(-200, -100, 400, 200, 10);
         
         const text = this.add.text(0, -30, 'Error saving score', {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '24px',
             color: '#ff0000',
             fontStyle: 'bold'
         }).setOrigin(0.5);
         
         const subtext = this.add.text(0, 10, 'Please try again or continue without saving.', {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '18px',
             color: '#ffffff'
         }).setOrigin(0.5);

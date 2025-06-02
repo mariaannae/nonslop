@@ -2,6 +2,7 @@ import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEX
 import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
 import registryManager from "../services/RegistryManager.js";
 import getLLMEngine from "../services/llmEngineSingleton.js";
+import ButtonFactory from "../utils/ButtonFactory.js";
 
 export default class Preloader extends Phaser.Scene {
     constructor() {
@@ -24,7 +25,7 @@ export default class Preloader extends Phaser.Scene {
         // Create tooltip background
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '16px',
             color: '#ffffff',
             align: 'center'
@@ -79,9 +80,7 @@ export default class Preloader extends Phaser.Scene {
         this.load.setPath('assets');
         
         // Load all required textures
-        this.load.image('ball', 'ball.png');
-        this.load.image('bg', 'bg.png');
-        this.load.image('dball', 'dball.png');
+        //this.load.image('bg', 'bg.png');
         this.load.image('clock', 'clock.svg');
 
         // Load social SVGs for share buttons
@@ -99,6 +98,17 @@ export default class Preloader extends Phaser.Scene {
         // We don't need to explicitly preload fonts as they're included via CSS
         // Reset path for other assets
         this.load.setPath('assets');
+
+        // Generate a simple white ball texture for particles after loading
+        this.load.once('complete', () => {
+            if (!this.textures.exists('ball')) {
+                const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+                graphics.fillStyle(0xffffff, 1);
+                graphics.fillCircle(16, 16, 16);
+                graphics.generateTexture('ball', 32, 32);
+                graphics.destroy();
+            }
+        });
     }
 
     createBackgroundEffect() {
@@ -174,77 +184,6 @@ export default class Preloader extends Phaser.Scene {
      
       }
 
-      createButton(label, callback, centerX, centerY) {
-
-        // ✅ Create button container
-        const buttonContainer = this.add.container(centerX, centerY);
-    
-        // === Button Background ===
-        const buttonBackground = this.add.graphics();
-        buttonBackground.fillStyle(COLORS_HEX.BUTTON.FILL, 1);
-        buttonBackground.fillRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
-        );
-    
-        // === Button Outline ===
-        const buttonOutline = this.add.graphics();
-        buttonOutline.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
-        buttonOutline.strokeRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
-        );
-    
-        // === Gradient Overlay (Lighter Top) ===
-        const gradientOverlay = this.add.graphics();
-        gradientOverlay.fillStyle(COLORS_HEX.BUTTON.OVERLAY, 0.7);
-        gradientOverlay.fillRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT / 2, DESIGN.UI.BUTTON.CORNER_RADIUS
-        );
-    
-        // === Highlight Effect (Shiny Reflection) ===
-        const buttonHighlight = this.add.graphics();
-        buttonHighlight.fillStyle(0xffffff, 0.4);
-        buttonHighlight.fillRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2 + 5, -DESIGN.UI.BUTTON.HEIGHT / 2 + 2, 
-            DESIGN.UI.BUTTON.WIDTH - 10, DESIGN.UI.BUTTON.HEIGHT / 3, DESIGN.UI.BUTTON.CORNER_RADIUS
-        );
-
-        // === Button Text ===
-        const buttonText = this.add.text(0, 0, label, {
-            fontFamily: 'Fredoka',
-            fontSize: '22px',
-            fontWeight: "700",
-            color: COLORS_TEXT.PRIMARY,
-            align: 'center'
-        }).setOrigin(0.5, 0.5);
-    
-        // ✅ Ensure button is interactive
-        buttonContainer.setSize(DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT);
-        buttonContainer.setInteractive();
-        buttonContainer.on("pointerdown", () => {
-            this.tweens.add({
-                targets: buttonContainer,
-                scaleX: 0.95,
-                scaleY: 0.95,
-                duration: 100,
-                yoyo: true,
-                ease: "Quad.Out"
-            });
-    
-            this.time.delayedCall(100, callback);
-        });
-
-        
-    
-        // ✅ Add to scene
-        buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
-        this.add.existing(buttonContainer);
-    
-        return buttonContainer;
-    }
-      
     createButtonClickParticles(x, y) {
         // Number of particles
         const particleCount = 12;
@@ -330,7 +269,7 @@ export default class Preloader extends Phaser.Scene {
             outputBoxY - outputBoxHeight / 2 + padding,
             text,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: `${lineHeight}px`,
                 fill: '#ffffff',
                 wordWrap: { width: outputBoxWidth - padding * 2 },
@@ -442,7 +381,7 @@ export default class Preloader extends Phaser.Scene {
         //const loadingFontSize = Math.max(this.cameras.main.width * 0.02, 20); // 2% of width, min 20px
         const loadingFontSize = 22; // 2% of width, min 20px
         this.loadingText = this.add.text(screenWidth / 2, titleText.y + titleText.height + margin, "Loading LLM...", {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: `${loadingFontSize}px`,
             fontWeight: "500",
             fill: COLORS_TEXT.PRIMARY
@@ -472,7 +411,7 @@ export default class Preloader extends Phaser.Scene {
         // === WebGPU Support Check ===
         if (!navigator.gpu) {
             this.errorText = this.add.text(screenWidth / 2, margin + 50 + offset, "WebGPU is required but not enabled/supported.", {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: "50px",
                 fontWeight: "500",
                 fill: "#ff0000"
@@ -521,7 +460,7 @@ export default class Preloader extends Phaser.Scene {
         } catch (error) {
             console.error("Failed to initialize WebLLM:", error);
             const errorText = this.add.text(screenWidth / 2, margin + 70 + offset, "Failed to initialize WebLLM", {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: "50px",
                 fontWeight: "500",
                 fill: COLORS_TEXT.ERROR,
@@ -562,8 +501,7 @@ export default class Preloader extends Phaser.Scene {
             
             // Create the button
             
-            this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY);
-            this.doneButton.setDepth(102);
+            this.doneButton = ButtonFactory.createButton(this, "NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, { depth: 102 });
 
             // Add tooltip functionality
             this.doneButton.setInteractive()

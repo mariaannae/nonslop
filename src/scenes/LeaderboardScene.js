@@ -16,6 +16,7 @@ export default class LeaderboardScene extends Phaser.Scene {
     init(data) {
         this.mode = data.mode || 'easy';
         this.levelValue = data.levelValue || 1;
+        this.score = data.score || 0;
         //this.previousScene = data.previousScene || 'DoneScene';
 
         // Set colors based on mode
@@ -125,14 +126,14 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Add labels for the toggle
         const easyLabel = this.add.text(-50, 0, "EASY", {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '20px',
             color: this.mode === 'easy' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(1, 0.5);
         
         const hardLabel = this.add.text(50, 0, "HARD", {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '20px',
             color: this.mode === 'hard' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
             fontStyle: 'bold'
@@ -219,7 +220,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.cameras.main.centerY,
             'Loading scores...',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '24px',
                 color: '#ffffff'
             }
@@ -285,8 +286,6 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Create table header
         this.createTableHeader(startY, width);
         
-        // Add cleanup button
-        this.createCleanupButton(startY, width);
         
         if (this.scores.length === 0) {
             this.noScoresText = this.add.text(
@@ -294,7 +293,7 @@ export default class LeaderboardScene extends Phaser.Scene {
                 startY + 100,
                 'No scores yet. Be the first!',
                 {
-                    fontFamily: 'Nunito',
+                    fontFamily: 'IBM Plex Mono',
                     fontSize: '24px',
                     color: '#ffffff'
                 }
@@ -356,7 +355,7 @@ export default class LeaderboardScene extends Phaser.Scene {
 
         // Create column headers
         const headerStyle = {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '18px',
             color: '#ffffff',
             fontStyle: 'bold'
@@ -450,7 +449,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             `${rank}`,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '18px',
                 color: '#ffffff',
                 fontStyle: 'bold'
@@ -482,7 +481,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             score.username || "Anonymous Player",
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '18px',
                 color: '#ffffff'
             }
@@ -497,7 +496,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             `${levelValue}`,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '18px',
                 color: levelColor,
                 fontStyle: 'bold'
@@ -511,7 +510,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             `${score.score}`,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '18px',
                 color: '#ffffff',
                 fontStyle: 'bold'
@@ -525,7 +524,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             formattedDate,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '16px',
                 color: '#cccccc'
             }
@@ -623,7 +622,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             y + 30,
             'Score Details',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '28px',
                 color: '#ffffff',
                 fontStyle: 'bold'
@@ -658,7 +657,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         details.forEach((detail) => {
             // Configure text style with word wrap for value text
             const textStyle = {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '18px',
                 color: detail.customColor || '#ffffff',
                 fontStyle: 'bold',
@@ -685,7 +684,7 @@ export default class LeaderboardScene extends Phaser.Scene {
                 labelY,
                 detail.label,
                 {
-                    fontFamily: 'Nunito',
+                    fontFamily: 'IBM Plex Mono',
                     fontSize: '18px',
                     color: '#cccccc'
                 }
@@ -766,55 +765,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             });
     }
 
-    createCleanupButton(y, width) {
-        // Create a small "cleanup" button that appears in the header row
-        const iconSize = 30;
-        const padding = 10;
-        
-        // Position at the top right of the leaderboard
-        const buttonX = this.cameras.main.centerX + width / 2 - iconSize / 2 - padding;
-        
-        // Create a trash icon for the cleanup button
-        const cleanupIcon = this.add.graphics();
-        cleanupIcon.fillStyle(0xFFFFFF, 0.8);
-        
-        // Draw a simple trash can icon
-        // Trash can body
-        cleanupIcon.fillRect(-8, -10, 16, 20);
-        
-        // Trash can lid
-        cleanupIcon.fillRect(-10, -14, 20, 4);
-        
-        // Trash can handle
-        cleanupIcon.fillRect(-3, -18, 6, 4);
-        
-        // Create a circular background for the icon
-        const iconBg = this.add.circle(0, 0, iconSize/2, this.COLORS_HEX.ACCENT, 0.7);
-        
-        // Group icon and background in a container
-        const cleanupButton = this.add.container(buttonX, y + 20, [iconBg, cleanupIcon]);
-        cleanupButton.setSize(iconSize, iconSize);
-        cleanupButton.setInteractive(new Phaser.Geom.Circle(0, 0, iconSize/2), Phaser.Geom.Circle.Contains);
-        
-        // Add hover and click effects
-        cleanupButton
-            .on('pointerover', () => {
-                iconBg.setFillStyle(this.COLORS_HEX.ACCENT, 1);
-                this.showTooltip("Remove old scores", buttonX, y - 10);
-            })
-            .on('pointerout', () => {
-                iconBg.setFillStyle(this.COLORS_HEX.ACCENT, 0.7);
-                if (this.tooltip) {
-                    this.tooltip.destroy();
-                    this.tooltip = null;
-                }
-            })
-            .on('pointerdown', async () => {
-                await this.performCleanup();
-            });
-            
-        return cleanupButton;
-    }
+
     
     showTooltip(text, x, y) {
         // Remove existing tooltip if any
@@ -828,7 +779,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Create text
         const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '14px',
             color: '#ffffff',
             align: 'center'
@@ -899,7 +850,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             y + 40,
             'Confirm Cleanup',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '24px',
                 color: '#ffffff',
                 fontStyle: 'bold'
@@ -911,7 +862,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             y + 80,
             'This will permanently delete scores that are\nnot in the top 10. Continue?',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '16px',
                 color: '#ffffff',
                 align: 'center'
@@ -1014,7 +965,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.cameras.main.centerY,
             message,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '18px',
                 color: '#ffffff',
                 fontStyle: 'bold'
@@ -1106,7 +1057,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         };
         
         if (this.levelValue >= 4){
-            this.scene.start('gameOver', { ...resetData, mode: this.mode, levelValue: this.levelValue });
+            this.scene.start('gameOver', { ...resetData, mode: this.mode, levelValue: this.levelValue, score: this.score });
         }
 
         else if (this.mode == 'easy')

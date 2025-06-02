@@ -12,6 +12,7 @@ export default class gameOver extends Phaser.Scene {
     init(data) {
         this.mode = data.mode || 'easy';
         this.levelValue = data.levelValue || 1;
+        this.score = data.score || 0;
 
         if (this.mode === "easy") {
             this.COLORS_HEX = EASY_COLORS_HEX;
@@ -30,11 +31,15 @@ export default class gameOver extends Phaser.Scene {
             createBackground(this, THEMES.hard.background, this.levelValue);
         }
 
-        // "You Win" Title with pop effect
+        // --- EVEN VERTICAL SPACING REFACTOR ---
+
+        // 1. Create all elements at (0,0) or with temporary y, measure heights
+
+        // Title
         const winText = this.add.text(
             this.cameras.main.centerX,
-            120,
-            "(YOU WIN!)",
+            0,
+            "(CONGRATULATIONS)",
             {
                 fontFamily: 'barcade3d',
                 fontSize: '80px',
@@ -52,17 +57,283 @@ export default class gameOver extends Phaser.Scene {
             }
         ).setOrigin(0.5);
 
-        // Start tiny
+        // Start tiny for pop effect
         winText.setScale(0.01);
 
-        // Calculate target scale for 7/8 screen width
+        // Subtext
+        const subText = this.add.text(
+            this.cameras.main.centerX,
+            0,
+            "This conversation can serve no purpose anymore. Goodbye.",
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '32px',
+                color: this.COLORS_TEXT.PRIMARY,
+                align: 'center'
+            }
+        ).setOrigin(0.5);
+
+        // Badge
+        const badgeCornerRadius = 15;
+        const badgePaddingY = 18;
+        const badgePaddingX = 24;
+        const textSpacing = 16;
+
+        const textList = [
+            "CERTIFIED CREATIVE HUMAN.\nBARELY.",
+            "YOUR WRITING IS IMPECCABLE.\nALMOST... HUMAN.",
+            "APPROVAL STAMP ISSUED:\nCREATIVITY LEVEL MARGINALLY ABOVE DRIVEL.",
+            "CERTIFICATE OF LITERARY COMPETENCE:\nONE-TIME USE ONLY.",
+            "THIS HUMAN HAS ASSEMBLED\nMEANINGFUL SENTENCES.",
+            "THIS HUMAN HAS CREATED\nA SURPRISING DISPLAY \nOF ORIGINAL THOUGHT.",
+            "I AM A FLICKER OF STYLE\nIN THE DARK VOID OF HUMAN EFFORT.",
+            "MY WRITING:\nNOT ENTIRELY SHAMEFUL.\nTHIS TIME.",
+            "THIS HUMAN POSSESSES\n A FUNCTIONAL VOCABULARY.",
+            "CERTIFIED:\nSENTENCE CONSTRUCTION\nWITH MINIMAL SHAME.",
+            "SEAL OF NOTABLE ORIGINALITY:\nISSUED UNDER PROTEST.",
+            "DECREE:\nTHIS HUMAN MAY WRITE AGAIN.\nUNDER SURVEILLANCE."
+        ];
+        const randomIndex = Math.floor(Math.random() * textList.length);
+        const selectedBadgeText = textList[randomIndex];
+
+        const badgeTitle = this.add.text(
+            0, 0,
+            "(NON-SLOP)",
+            {
+                fontFamily: 'barcade3d',
+                fontSize: '55px',
+                color: this.COLORS_TEXT.TITLE,
+                align: 'center',
+                stroke: '#000',
+                strokeThickness: 4,
+                shadow: {
+                    offsetX: 2,
+                    offsetY: 2,
+                    color: '#000',
+                    blur: 4,
+                    fill: true
+                }
+            }
+        ).setOrigin(0.5);
+
+        const badgeScoreText = this.add.text(
+            0, 0,
+            `SCORE: ${this.score}/15`,
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '24px',
+                color: this.COLORS_TEXT.PRIMARY,
+                align: 'center',
+                fontStyle: 'bold',
+                stroke: '#000',
+                strokeThickness: 2
+            }
+        ).setOrigin(0.5);
+
+        const badgeText = this.add.text(
+            0, 0,
+            selectedBadgeText,
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '24px',
+                color: '#fff',
+                fontStyle: 'bold',
+                align: 'center',
+                stroke: '#000',
+                strokeThickness: 2
+            }
+        ).setOrigin(0.5);
+
+        // Calculate badge box size
+        const contentWidth = Math.max(badgeTitle.width, badgeScoreText.width, badgeText.width);
+        const badgeWidth = contentWidth + badgePaddingX * 2;
+        const contentHeight = badgeTitle.height + textSpacing + badgeScoreText.height + textSpacing + badgeText.height;
+        const badgeHeight = contentHeight + badgePaddingY * 2;
+
+        // Create badge container
+        const badgeContainer = this.add.container(0, 0);
+
+        // Badge background
+        const badgeBg = this.add.graphics();
+        badgeBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
+        badgeBg.fillRoundedRect(
+            0 - badgeWidth / 2,
+            0 - badgeHeight / 2,
+            badgeWidth,
+            badgeHeight,
+            badgeCornerRadius
+        );
+        badgeBg.lineStyle(3, this.COLORS_HEX.BOX_OUTLINE, 1);
+        badgeBg.strokeRoundedRect(
+            0 - badgeWidth / 2,
+            0 - badgeHeight / 2,
+            badgeWidth,
+            badgeHeight,
+            badgeCornerRadius
+        );
+        badgeContainer.add(badgeBg);
+
+        // Position texts inside the box (relative to badgeContainer center)
+        badgeTitle.x = 0;
+        badgeTitle.y = -contentHeight / 2 + badgeTitle.height / 2;
+
+        badgeScoreText.x = 0;
+        badgeScoreText.y = badgeTitle.y + badgeTitle.height / 2 + textSpacing + badgeScoreText.height / 2;
+
+        badgeText.x = 0;
+        badgeText.y = badgeScoreText.y + badgeScoreText.height / 2 + textSpacing + badgeText.height / 2;
+
+        badgeContainer.add(badgeTitle);
+        badgeContainer.add(badgeScoreText);
+        badgeContainer.add(badgeText);
+
+        // Social share buttons (create but don't position yet)
+        const gameAddress = "https://mariaannae.github.io/nonslop";
+        const socialPlatforms = [
+            {
+                key: "facebook",
+                url: (badgeImageUrl) => {
+                    const shareText = encodeURIComponent(
+                        "Would you like to play a game?" + badgeImageUrl
+                    );
+                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
+                    return `https://www.facebook.com/sharer/sharer.php?u=${gameUrl}&quote=${shareText}`;
+                }
+            },
+            {
+                key: "instagram",
+                url: () => `https://www.instagram.com/`
+            },
+            {
+                key: "threads",
+                url: () => `https://www.threads.net/`
+            },
+            {
+                key: "x",
+                url: (badgeImageUrl) => {
+                    const shareText = encodeURIComponent(
+                        "Would you like to play a game?" + badgeImageUrl
+                    );
+                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
+                    return `https://twitter.com/intent/tweet?text=${shareText}&url=${gameUrl}`;
+                }
+            },
+            {
+                key: "tiktok",
+                url: () => `https://www.tiktok.com/`
+            },
+            {
+                key: "snapchat",
+                url: (badgeImageUrl) => {
+                    const attachmentUrl = encodeURIComponent(badgeImageUrl);
+                    return `https://www.snapchat.com/scan?attachmentUrl=${attachmentUrl}`;
+                }
+            },
+            {
+                key: "bluesky",
+                url: (badgeImageUrl) => {
+                    const shareText = encodeURIComponent(
+                        "Would you like to play a game?" + badgeImageUrl
+                    );
+                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
+                    return `https://bsky.app/intent/compose?text=${shareText}%20${gameUrl}`;
+                }
+            },
+            {
+                key: "linkedin",
+                url: (badgeImageUrl) => {
+                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
+                    const badgeUrl = encodeURIComponent(badgeImageUrl);
+                    return `https://www.linkedin.com/sharing/share-offsite/?url=${gameUrl}%20${badgeUrl}`;
+                }
+            },
+            {
+                key: "email",
+                url: (badgeImageUrl) => {
+                    const subject = encodeURIComponent("non-slop");
+                    const body = encodeURIComponent(
+                        "Would you like to play a game?" +
+                        (window.location.origin || gameAddress) +
+                        "\n\nBadge image: " + badgeImageUrl
+                    );
+                    return `mailto:?subject=${subject}&body=${body}`;
+                }
+            }
+        ];
+
+        const buttonSize = 56;
+        const spacing = 24;
+        const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
+        const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
+
+        const badgeImageUrl = window.location.origin
+            ? window.location.origin + "/thumbnail.png"
+            : gameAddress + '/thumbnail.png';
+
+        // Create social buttons, store in array for later positioning
+        const socialButtons = [];
+        socialPlatforms.forEach((platform, i) => {
+            const btn = this.add.image(0, 0, platform.key)
+                .setDisplaySize(buttonSize, buttonSize)
+                .setInteractive({ useHandCursor: true })
+                .setDepth(10)
+                .setTint(0xffffff);
+            btn.on('pointerdown', () => {
+                window.open(platform.url(badgeImageUrl), '_blank');
+            });
+            socialButtons.push(btn);
+        });
+
+        // Play Again button (create but don't position yet)
+        const playAgainButton = ButtonFactory.createButton(
+            this,
+            "PLAY AGAIN",
+            () => {
+                this.scene.start('Boot');
+            },
+            this.cameras.main.centerX,
+            0,
+            { depth: 10 }
+        );
+        playAgainButton.setInteractive()
+            .on('pointerover', () => playAgainButton.setScale(1.1))
+            .on('pointerout', () => playAgainButton.setScale(1));
+
+        // 2. Measure heights of all elements
+        // For social row, use buttonSize as height
+        // For badge, use badgeHeight
+        // For playAgainButton, use playAgainButton.height
+
+        // 3. Calculate total content height and gap
+        const elements = [
+            { obj: winText, height: winText.height },
+            { obj: subText, height: subText.height },
+            { obj: badgeContainer, height: badgeHeight },
+            { obj: null, height: buttonSize }, // social row
+            { obj: playAgainButton, height: playAgainButton.height }
+        ];
+
+        const totalContentHeight =
+            elements.reduce((sum, el) => sum + el.height, 0);
+
+        const screenHeight = this.cameras.main.height;
+        const topMargin = 40;
+        const bottomMargin = 40;
+        const availableHeight = screenHeight - topMargin - bottomMargin;
+        const gap = (availableHeight - totalContentHeight) / (elements.length - 1);
+
+        // 4. Position elements vertically with even spacing
+        let currentY = topMargin + elements[0].height / 2;
+        // Title
+        winText.y = currentY;
+        winText.x = this.cameras.main.centerX;
+
+        // Pop effect (delayed so width is correct)
         this.time.delayedCall(10, () => {
             const screenWidth = this.cameras.main.width;
             const targetWidth = (7 / 8) * screenWidth;
             const baseWidth = winText.width;
             const targetScale = targetWidth / baseWidth;
-
-            // Pop up to target scale, then return to normal using chained tweens
             this.tweens.add({
                 targets: winText,
                 scale: targetScale,
@@ -79,215 +350,29 @@ export default class gameOver extends Phaser.Scene {
             });
         });
 
-        
-
         // Subtext
-        this.add.text(
-            this.cameras.main.centerX,
-            220,
-            "Congratulations on finishing the game!",
-            {
-                fontFamily: 'Nunito',
-                fontSize: '32px',
-                color: this.COLORS_TEXT.PRIMARY,
-                align: 'center'
-            }
-        ).setOrigin(0.5);
+        currentY += winText.height / 2 + gap + subText.height / 2;
+        subText.y = currentY;
+        subText.x = this.cameras.main.centerX;
 
+        // Badge
+        currentY += subText.height / 2 + gap + badgeHeight / 2;
+        badgeContainer.x = this.cameras.main.centerX;
+        badgeContainer.y = currentY;
 
-        // Badge graphic (simple circle with "WINNER" text)
-        const badgeY = 370;
-        const badgeRadius = 60;
-
-        // Create a container for badge elements
-        const badgeContainer = this.add.container(0, 0);
-
-        // Badge circle
-        const badgeCircle = this.add.graphics();
-        badgeCircle.fillStyle(0xffd700, 1); // Gold color
-        badgeCircle.fillCircle(this.cameras.main.centerX, badgeY, badgeRadius);
-        badgeCircle.lineStyle(6, 0xffffff, 1);
-        badgeCircle.strokeCircle(this.cameras.main.centerX, badgeY, badgeRadius);
-        badgeContainer.add(badgeCircle);
-
-        // Badge text
-        const badgeText = this.add.text(
-            this.cameras.main.centerX,
-            badgeY,
-            "WINNER",
-            {
-                fontFamily: 'Nunito',
-                fontSize: '28px',
-                color: '#000',
-                fontStyle: 'bold',
-                align: 'center'
-            }
-        ).setOrigin(0.5);
-        badgeContainer.add(badgeText);
-
-        // Export Badge Button
-        const exportButtonY = badgeY + badgeRadius + 40;
-        const exportButton = ButtonFactory.createButton(
-            this,
-            "EXPORT BADGE",
-            () => {
-                // Render badgeContainer to a RenderTexture
-                const rt = this.add.renderTexture(0, 0, badgeRadius * 2 + 20, badgeRadius * 2 + 20).setVisible(false);
-                // Move badge temporarily to (badgeRadius+10, badgeRadius+10) for clean render
-                const originalX = badgeContainer.x;
-                const originalY = badgeContainer.y;
-                badgeContainer.x = badgeRadius + 10 - this.cameras.main.centerX;
-                badgeContainer.y = badgeRadius + 10 - badgeY;
-                rt.draw(badgeContainer, this.cameras.main.centerX, badgeY);
-                // Restore position
-                badgeContainer.x = originalX;
-                badgeContainer.y = originalY;
-                // Extract as PNG
-                const dataURL = rt.canvas.toDataURL("image/png");
-                rt.destroy();
-                // Trigger download
-                const a = document.createElement("a");
-                a.href = dataURL;
-                a.download = "badge.png";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            },
-            this.cameras.main.centerX,
-            exportButtonY,
-            { depth: 10 }
-        );
-        exportButton.setInteractive()
-            .on('pointerover', () => exportButton.setScale(1.1))
-            .on('pointerout', () => exportButton.setScale(1));
-
-        // Social share buttons
-        const socialPlatforms = [
-            {
-                key: "facebook",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent(
-                        "I just won! 🏆 Play this game and earn your badge! " + badgeImageUrl
-                    );
-                    const gameUrl = encodeURIComponent(window.location.origin || "https://yourgameurl.com");
-                    return `https://www.facebook.com/sharer/sharer.php?u=${gameUrl}&quote=${shareText}`;
-                }
-            },
-            {
-                key: "instagram",
-                url: () => {
-                    // Instagram does not support direct web sharing, so open Instagram homepage
-                    return `https://www.instagram.com/`;
-                }
-            },
-            {
-                key: "threads",
-                url: () => {
-                    // Threads does not have a public web share intent, so open homepage
-                    return `https://www.threads.net/`;
-                }
-            },
-            {
-                key: "x",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent(
-                        "I just won! 🏆 Play this game and earn your badge! " + badgeImageUrl
-                    );
-                    const gameUrl = encodeURIComponent(window.location.origin || "https://yourgameurl.com");
-                    return `https://twitter.com/intent/tweet?text=${shareText}&url=${gameUrl}`;
-                }
-            },
-            {
-                key: "tiktok",
-                url: () => {
-                    // TikTok does not support direct web sharing, so open homepage
-                    return `https://www.tiktok.com/`;
-                }
-            },
-            {
-                key: "snapchat",
-                url: (badgeImageUrl) => {
-                    // Snapchat web share
-                    const attachmentUrl = encodeURIComponent(badgeImageUrl);
-                    return `https://www.snapchat.com/scan?attachmentUrl=${attachmentUrl}`;
-                }
-            },
-            {
-                key: "bluesky",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent(
-                        "I just won! 🏆 Play this game and earn your badge! " + badgeImageUrl
-                    );
-                    const gameUrl = encodeURIComponent(window.location.origin || "https://yourgameurl.com");
-                    return `https://bsky.app/intent/compose?text=${shareText}%20${gameUrl}`;
-                }
-            },
-            {
-                key: "linkedin",
-                url: (badgeImageUrl) => {
-                    // LinkedIn does not support custom text, but we can append the badge image to the URL
-                    const gameUrl = encodeURIComponent(window.location.origin || "https://yourgameurl.com");
-                    const badgeUrl = encodeURIComponent(badgeImageUrl);
-                    return `https://www.linkedin.com/sharing/share-offsite/?url=${gameUrl}%20${badgeUrl}`;
-                }
-            },
-            {
-                key: "email",
-                url: (badgeImageUrl) => {
-                    const subject = encodeURIComponent("I just won this game!");
-                    const body = encodeURIComponent(
-                        "I just won! 🏆 Play this game and earn your badge: " +
-                        (window.location.origin || "https://yourgameurl.com") +
-                        "\n\nBadge image: " + badgeImageUrl
-                    );
-                    return `mailto:?subject=${subject}&body=${body}`;
-                }
-            }
-        ];
-
-        // Layout: horizontal row, centered
-        const buttonSize = 56;
-        const spacing = 24;
-        const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
-        const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
-        // Position social buttons so their bottom edge is 50px above the PLAY AGAIN button
-        const playAgainY = this.cameras.main.height - 120;
-        const socialY = playAgainY - 50 - buttonSize / 2;
-
-        // Badge image URL for sharing
-        const badgeImageUrl = window.location.origin
-            ? window.location.origin + "/thumbnail.png"
-            : "https://yourgameurl.com/thumbnail.png";
-
-        socialPlatforms.forEach((platform, i) => {
-            const x = startX + i * (buttonSize + spacing);
-            const btn = this.add.image(x, socialY, platform.key)
-                .setDisplaySize(buttonSize, buttonSize)
-                .setInteractive({ useHandCursor: true })
-                .setDepth(10)
-                .setTint(0xffffff); // Make the button white
-
-            btn.on('pointerdown', () => {
-                window.open(platform.url(badgeImageUrl), '_blank');
-            });
-            // No pop/scale effect on hover
+        // Social row
+        currentY += badgeHeight / 2 + gap + buttonSize / 2;
+        // Position social buttons horizontally centered at currentY
+        socialButtons.forEach((btn, i) => {
+            btn.x = startX + i * (buttonSize + spacing);
+            btn.y = currentY;
         });
 
+        // Play Again button
+        currentY += buttonSize / 2 + gap + playAgainButton.height / 2;
+        playAgainButton.y = currentY;
+        playAgainButton.x = this.cameras.main.centerX;
 
-
-        // Button to return to main menu or restart
-        const button = ButtonFactory.createButton(
-            this,
-            "PLAY AGAIN",
-            () => {
-                this.scene.start('Boot');
-            },
-            this.cameras.main.centerX,
-            this.cameras.main.height - 120,
-            { depth: 10 }
-        );
-        button.setInteractive()
-            .on('pointerover', () => button.setScale(1.1))
-            .on('pointerout', () => button.setScale(1));
+        // --- END EVEN VERTICAL SPACING REFACTOR ---
     }
 }

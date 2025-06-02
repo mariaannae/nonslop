@@ -346,7 +346,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
     createExplosionEffect(word, x, y) {
         const explosion = this.add.text(x, y, word, {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '22px', 
             fill: '#ff0000', 
             fontStyle: 'bold'
@@ -408,8 +408,8 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cameras.main.centerY,
             'evaluating...',
             {
-                fontFamily: 'Nunito',
-                fontSize: '24px',
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '32px',
                 fill: outlineColorString,
                 backgroundColor: '#000000',
                 padding: { x: 20, y: 10 },
@@ -468,7 +468,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.cameras.main.centerY,
                 'Error during evaluation. Please try again.',
                 {
-                    fontFamily: 'Nunito',
+                    fontFamily: 'IBM Plex Mono',
                     fontSize: '20px',
                     fill: '#ff0000',
                     backgroundColor: '#000000',
@@ -711,7 +711,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const boxStyle = this.getPromptBoxStyle();
         
         // Calculate position below Word Stats panel
-        const statsBoxWidth = 180;
+        const statsBoxWidth = 200;
         const statsBoxHeight = 130;
         const statsDisplayY = this.menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
@@ -1195,7 +1195,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }, 250); // Reduced delay for better responsiveness
 
     // Queue-based keyboard handler for strict ordering and deduplication
-    this._dedupKeyTimes = {};
+    this._pressedKeys = {};
     this.input.keyboard.on("keydown", (event) => {
         // Skip if we're shutting down
         if (this.isShuttingDown) return;
@@ -1210,24 +1210,23 @@ export default class BaseGameScene extends Phaser.Scene {
             event.preventDefault();
         }
 
-        // Per-key deduplication: ignore if same key within 100ms
-        const now = Date.now();
-        if (!this._dedupKeyTimes) this._dedupKeyTimes = {};
-        if (this._dedupKeyTimes[event.key] && (now - this._dedupKeyTimes[event.key]) < 100) {
-            //console.log(`[DEDUP] Ignored duplicate key: ${event.key} at ${now}`);
+        // Ignore if this key is already pressed (wait for keyup)
+        if (!this._pressedKeys) this._pressedKeys = {};
+        if (this._pressedKeys[event.key]) {
+            //console.log(`[DEDUP] Ignored duplicate keydown: ${event.key}`);
             return;
         }
-        this._dedupKeyTimes[event.key] = now;
+        this._pressedKeys[event.key] = true;
 
         // Record this key press
         this.lastKeyPressed = event.key;
-        this.lastKeyTime = now;
+        this.lastKeyTime = Date.now();
 
         // Push event onto the queue with a timestamp for ordering
         this.keyEventQueue.push({
             key: event.key,
             code: event.code,
-            timestamp: now,
+            timestamp: Date.now(),
             altKey: event.altKey,
             ctrlKey: event.ctrlKey,
             metaKey: event.metaKey,
@@ -1238,6 +1237,11 @@ export default class BaseGameScene extends Phaser.Scene {
 
         // Start processing the queue if not already running
         this.triggerProcessQueue();
+    });
+
+    this.input.keyboard.on("keyup", (event) => {
+        if (!this._pressedKeys) this._pressedKeys = {};
+        this._pressedKeys[event.key] = false;
     });
         
         // Set up cursor blinking timer
@@ -1326,7 +1330,7 @@ export default class BaseGameScene extends Phaser.Scene {
             menuBarHeight / 2,
             indicatorText,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '18px',
                 fontStyle: 'bold',
                 fill: '#ffffff',
@@ -1433,7 +1437,7 @@ export default class BaseGameScene extends Phaser.Scene {
     createTimer() {
         // Create timer text in the upper left corner
         this.timerText = this.add.text(20, this.menuBarHeight + 20, '0:20', {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '40px',
             fontStyle: 'bold',
             fill: '#ff0000'
@@ -1745,7 +1749,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cameras.main.centerX, 
             popupY + 30,
             'Settings',
-            { fontFamily: 'Nunito', fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
         ).setOrigin(0.5);
         this.settingsPopup.add(title);
         
@@ -1758,7 +1762,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const levelLabel = this.add.text(
             levelLabelX, levelLabelY, 
             `Level: ${this.levelValue}`,
-            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(levelLabel);
         
@@ -1785,7 +1789,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const topKLabel = this.add.text(
             topKLabelX, topKLabelY, 
             `Max AI Words: ${this.topKValue}`,
-            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(topKLabel);
         
@@ -1812,7 +1816,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const modeToggleLabel = this.add.text(
             modeToggleLabelX, modeToggleLabelY, 
             "Hard Mode:",
-            { fontFamily: 'Nunito', fontSize: '22px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(modeToggleLabel);
         
@@ -1867,7 +1871,7 @@ export default class BaseGameScene extends Phaser.Scene {
             popupX + popupWidth - 25, 
             popupY + 20,
             '✕',
-            { fontFamily: 'Nunito', fontSize: '24px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '24px', fill: '#ffffff' }
         ).setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => closeBtn.setScale(1.2))
@@ -2019,7 +2023,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.wordCountDisplay = this.add.container(0, 0).setDepth(55);
         
         const padding = 20;
-        const boxWidth = 180;
+        const boxWidth = 200;
         const boxHeight = 130; // Increased height to accommodate streak counter
         const cornerRadius = 10;
         
@@ -2040,7 +2044,7 @@ export default class BaseGameScene extends Phaser.Scene {
             15, 
             "WORD STATS", 
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '16px',
                 fontStyle: 'bold',
                 fill: '#ffffff'
@@ -2052,26 +2056,26 @@ export default class BaseGameScene extends Phaser.Scene {
         const originalLabel = this.add.text(
             35, 40, 
             "Original Words:", 
-            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.originalCountText = this.add.text(
             boxWidth - 15, 40, 
             "0", 
-            { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#7cfc00' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '16px', fontStyle: 'bold', fill: '#7cfc00' }
         ).setOrigin(1, 0.5);
         
         const aiIcon = this.add.circle(20, 65, 6, 0xff3366); // Red color to match the AI counter
         const aiLabel = this.add.text(
             35, 65, 
             "AI Words:", 
-            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.aiCountText = this.add.text(
             boxWidth - 15, 65, 
             "0", 
-            { fontFamily: 'Nunito', fontSize: '16px', fontStyle: 'bold', fill: '#ff3366' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '16px', fontStyle: 'bold', fill: '#ff3366' }
         ).setOrigin(1, 0.5);
         
         // Streak counter (third row)
@@ -2080,14 +2084,14 @@ export default class BaseGameScene extends Phaser.Scene {
         const streakLabel = this.add.text(
             35, 90,
             "Current Streak:",
-            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.streakText = this.add.text(
             boxWidth - 15, 90,
             `${this.wordStreak}`,
             { 
-                fontFamily: 'Nunito', 
+                fontFamily: 'IBM Plex Mono', 
                 fontSize: '16px', 
                 fontStyle: 'bold', 
                 fill: '#' + streakColor.toString(16).padStart(6, '0')
@@ -2099,14 +2103,14 @@ export default class BaseGameScene extends Phaser.Scene {
         const maxStreakLabel = this.add.text(
             35, 115,
             "Best Streak:",
-            { fontFamily: 'Nunito', fontSize: '14px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.maxStreakText = this.add.text(
             boxWidth - 15, 115,
             `${this.maxWordStreak}`,
             { 
-                fontFamily: 'Nunito', 
+                fontFamily: 'IBM Plex Mono', 
                 fontSize: '16px', 
                 fontStyle: 'bold', 
                 fill: '#ffd700' 
@@ -2201,7 +2205,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 textObject.y - 15,
                 "+" + (newNum - oldNum),
                 {
-                    fontFamily: 'Nunito',
+                    fontFamily: 'IBM Plex Mono',
                     fontSize: '14px',
                     fontStyle: 'bold',
                     fill: '#ffffff'
@@ -2497,71 +2501,13 @@ export default class BaseGameScene extends Phaser.Scene {
         .on('pointerout', () => {
             this.hideTooltips();
         });
-
-        // Create celebration emitters if they don't exist
-        try {
-            if (!this.celebrationEmitters) {
-                // First check if the 'ball' texture exists
-                if (this.textures.exists('ball')) {
-                    this.celebrationEmitters = {
-                        success: this.add.particles(0, 0, 'ball', {
-                            lifespan: 1000,
-                            speed: { min: 200, max: 400 },
-                            scale: { start: 0.2, end: 0 },
-                            emitting: false,
-                            blendMode: 'ADD',
-                            tint: DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS
-                        }),
-                        needsWork: this.add.particles(0, 0, 'ball', {
-                            lifespan: 1000,
-                            speed: { min: 200, max: 400 },
-                            scale: { start: 0.2, end: 0 },
-                            emitting: false,
-                            blendMode: 'ADD',
-                            tint: DESIGN.UI.PROGRESS_BAR.COLORS.DANGER
-                        })
-                    };
-                    
-                    // Set initial state to inactive
-                    if (this.celebrationEmitters.success) {
-                        this.celebrationEmitters.success.setActive(false).setVisible(false);
-                    }
-                    if (this.celebrationEmitters.needsWork) {
-                        this.celebrationEmitters.needsWork.setActive(false).setVisible(false);
-                    }
-                } else {
-                    console.warn("Cannot create emitters - 'ball' texture not loaded");
-                    this.celebrationEmitters = null;
-                }
-            }
-        } catch (error) {
-            console.error("Error creating particle emitters:", error);
-            this.celebrationEmitters = null;
-        }
-
-        // Set emitter positions if they exist
-        if (this.celebrationEmitters) {
-            try {
-                if (this.celebrationEmitters.success) {
-                    this.celebrationEmitters.success.setPosition(scoreX, scoreY + scoreHeight / 2);
-                    this.celebrationEmitters.success.setActive(true).setVisible(true);
-                }
-                
-                if (this.celebrationEmitters.needsWork) {
-                    this.celebrationEmitters.needsWork.setPosition(scoreX + scoreWidth, scoreY + scoreHeight / 2);
-                    this.celebrationEmitters.needsWork.setActive(true).setVisible(true);
-                }
-            } catch (error) {
-                console.error("Error setting emitter positions:", error);
-            }
-        }
         
         this.failsText = this.add.text(
             scoreX + scoreWidth / 2,
             scoreY + scoreHeight / 2,
             ' ',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '20px',
                 fill: '#ffffff',
                 align: 'center'
@@ -2576,7 +2522,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create tooltip background
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '16px',
             color: '#ffffff',
             align: 'center'
@@ -2798,7 +2744,7 @@ export default class BaseGameScene extends Phaser.Scene {
             inputBoxCenterY,
             word,
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '24px',
                 fontStyle: 'bold',
                 fill: '#00ff00', // Green for success
@@ -3109,7 +3055,7 @@ export default class BaseGameScene extends Phaser.Scene {
                     this.menuBarHeight + 150, // Below the word stats panel
                     text,
                     {
-                        fontFamily: 'Nunito',
+                        fontFamily: 'IBM Plex Mono',
                         fontSize: '28px',
                         fontStyle: 'bold',
                         fill: '#ffffff',
@@ -3230,7 +3176,7 @@ export default class BaseGameScene extends Phaser.Scene {
             scoreY,
             'Great Work!',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '32px',
                 fill: '#7cfc00', // Bright green
                 stroke: '#ffffff',
@@ -3312,7 +3258,7 @@ export default class BaseGameScene extends Phaser.Scene {
             scoreY,
             'Terrible!',
             {
-                fontFamily: 'Nunito',
+                fontFamily: 'IBM Plex Mono',
                 fontSize: '32px',
                 fill: DESIGN.COLORS.AUTOCOMPLETE, // Red color
                 stroke: '#ffffff',
@@ -3554,7 +3500,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         // Create a single temporary text object to measure widths instead of creating many
         const tempText = this.add.text(0, 0, '', {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '16px'
         });
         
@@ -3591,7 +3537,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 suggestionsY + boxHeight / 2, 
                 word,
                 {
-                    fontFamily: 'Nunito',
+                    fontFamily: 'IBM Plex Mono',
                     fontSize: '16px',
                     color: '#ffffff'
                 }

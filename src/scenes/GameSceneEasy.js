@@ -170,8 +170,8 @@ export default class GameSceneEasy extends BaseGameScene {
     // Style methods
     getPromptTextStyle() {
         return {
-            fontFamily: "Nunito",
-            fontSize: "22px",
+            fontFamily: "IBM Plex Mono",
+            fontSize: "20px",
             fill: this.COLORS_TEXT.PRIMARY,
             align: "center",
             lineSpacing: 6
@@ -202,8 +202,8 @@ export default class GameSceneEasy extends BaseGameScene {
 
     getInputTextStyle() {
         return {
-            fontFamily: "Nunito",
-            fontSize: "22px",
+            fontFamily: "IBM Plex Mono",
+            fontSize: "20px",
             fill: "#000",
             align: "left",
             lineSpacing: 6,
@@ -213,8 +213,8 @@ export default class GameSceneEasy extends BaseGameScene {
 
     getAutocompleteTextStyle() {
         return {
-            fontFamily: "Nunito",
-            fontSize: "22px",
+            fontFamily: "IBM Plex Mono",
+            fontSize: "20px",
             fill: "#ff0000",
             align: "left",
             alpha: 0.7, // Make slightly transparent

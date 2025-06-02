@@ -137,7 +137,7 @@ export default class FeedbackScene extends Phaser.Scene {
             this.cameras.main.centerY - textBoxHeight / 2 + padding,
             "_",
             {
-                fontFamily: "Nunito",
+                fontFamily: "IBM Plex Mono",
                 fontSize: "20px",
                 fill: "#000000",
                 wordWrap: { width: textBoxWidth - padding * 2 },
@@ -208,8 +208,8 @@ export default class FeedbackScene extends Phaser.Scene {
             0, // Y will be adjusted later
             defaultText,
             {
-                fontFamily: "Nunito",
-                fontSize: "22px",
+                fontFamily: "IBM Plex Mono",
+                fontSize: "20px",
                 color: this.COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "center"

@@ -34,7 +34,9 @@ export default class Boot extends Phaser.Scene
             google: {
                 families: [
                     'Nunito:400,500,700,900',
-                    'Fredoka'  // Load all weights at once
+                    'Fredoka',  // Load all weights at once,
+                    'VT323',
+                    'IBM Plex Mono'
                 ]
             },
             active: () => {

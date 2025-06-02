@@ -50,11 +50,12 @@ export default class ButtonFactory {
 
         // Button Text
         const buttonText = scene.add.text(0, 0, label, {
-            fontFamily: 'Fredoka',
-            fontSize: '18px',
+            fontFamily: 'VT323',
+            fontSize: '26px',
             fontWeight: "700",
             color: COLORS_TEXT.PRIMARY,
-            align: 'center'
+            align: 'center',
+            lineSpacing: 10 // Add vertical space between lines
         }).setOrigin(0.5, 0.5);
     
         // Make button interactive
@@ -150,7 +151,7 @@ export default class ButtonFactory {
     
         // Button Text
         const buttonText = scene.add.text(0, 0, `${label}`, { 
-            fontFamily: 'Fredoka',
+            fontFamily: 'VT323',
             fontSize: fontSize,
             color: COLORS_TEXT.WHITE
         }).setOrigin(0.5, 0.5);

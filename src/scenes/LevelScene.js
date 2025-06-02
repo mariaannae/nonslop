@@ -18,7 +18,7 @@ export default class LevelScene extends Phaser.Scene {
         // Create tooltip background
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'Nunito',
+            fontFamily: 'IBM Plex Mono',
             fontSize: '16px',
             color: '#ffffff',
             align: 'center'
@@ -174,8 +174,8 @@ export default class LevelScene extends Phaser.Scene {
             0, // Y will be adjusted later
             defaultText,
             {
-                fontFamily: "Nunito",
-                fontSize: "22px",
+                fontFamily: "IBM Plex Mono",
+                fontSize: "20px",
                 color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left]nter"

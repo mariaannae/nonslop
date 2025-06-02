@@ -118,27 +118,10 @@ export default class SceneTransitionManager {
                         // Remove the wipe effect once overlay is visible
                         wipeEffect.destroy();
                         
-                        // Launch the new scene
-                        fromScene.scene.launch(toSceneKey, sceneData);
-                        
-                        // Get reference to new scene
-                        const toScene = fromScene.scene.get(toSceneKey);
-                        
-                        // Set up the fade-in for the new scene
-                        toScene.events.once('create', () => {
-                            console.log("⭐ New scene created, setting up fade-in");
-                            
-                            // Create a camera fade effect in the new scene
-                            toScene.cameras.main.fadeIn(duration / 3, 0, 0, 0);
-                            
-                            // Wait for the camera fade to complete
-                            toScene.time.delayedCall(duration / 2, () => {
-                                // Stop the old scene
-                                fromScene.scene.stop();
-                                fromScene.isTransitioning = false;
-                                console.log("⭐ Transition complete");
-                            });
-                        });
+                        // Start the new scene (replaces old scene and passes data)
+                        fromScene.scene.start(toSceneKey, sceneData);
+                        fromScene.isTransitioning = false;
+                        console.log("⭐ Transition complete");
                     }
                 });
             }
@@ -296,27 +279,10 @@ export default class SceneTransitionManager {
                     duration: duration * 0.4,
                     ease: 'Cubic.easeOut',
                     onComplete: () => {
-                        // Launch the new scene
-                        fromScene.scene.launch(toSceneKey, sceneData);
-                        
-                        // Get reference to new scene
-                        const toScene = fromScene.scene.get(toSceneKey);
-                        
-                        // Set up the fade-in for the new scene
-                        toScene.events.once('create', () => {
-                            console.log("⭐ New scene created, setting up fade-in");
-                            
-                            // Create a camera fade effect in the new scene
-                            toScene.cameras.main.fadeIn(duration * 0.4, 0, 0, 0);
-                            
-                            // Wait for the camera fade to complete
-                            toScene.time.delayedCall(duration * 0.4, () => {
-                                // Stop the old scene
-                                fromScene.scene.stop();
-                                fromScene.isTransitioning = false;
-                                console.log("⭐ Diagonal wipe transition complete");
-                            });
-                        });
+                        // Start the new scene (replaces old scene and passes data)
+                        fromScene.scene.start(toSceneKey, sceneData);
+                        fromScene.isTransitioning = false;
+                        console.log("⭐ Diagonal wipe transition complete");
                     }
                 });
             }
@@ -334,127 +300,132 @@ export default class SceneTransitionManager {
      */
     static radialTransition(fromScene, toSceneKey, sceneData = {}, duration = 800, color = '#000000', expand = true) {
         console.log("⭐ Starting radial transition from", fromScene.scene.key, "to", toSceneKey);
-        
+
         if (fromScene.isTransitioning) {
             console.log("Transition already in progress, aborting");
             return;
         }
-        
+
         fromScene.isTransitioning = true;
-        
-        // Create an overlay for the final state
-        const overlay = fromScene.add.rectangle(
-            0, 0, 
-            fromScene.cameras.main.width,
-            fromScene.cameras.main.height,
-            Phaser.Display.Color.HexStringToColor(color).color
-        ).setOrigin(0).setDepth(9999).setAlpha(expand ? 0 : 1);
-        
-        // Center coordinates
-        const centerX = fromScene.cameras.main.width / 2;
-        const centerY = fromScene.cameras.main.height / 2;
-        
-        // Calculate max radius needed to cover screen
-        const maxRadius = Math.sqrt(
-            Math.pow(Math.max(centerX, fromScene.cameras.main.width - centerX), 2) +
-            Math.pow(Math.max(centerY, fromScene.cameras.main.height - centerY), 2)
-        );
-        
-        // Create radial mask
-        const maskGraphics = fromScene.add.graphics().setDepth(9998);
-        
-        // Initial radius
-        const startRadius = expand ? 0 : maxRadius;
-        const endRadius = expand ? maxRadius : 0;
-        
-        // Create particle emitters for the circle edge
-        const circleParticles = fromScene.add.particles(centerX, centerY, 'ball', {
-            lifespan: 300,
-            speed: { min: 50, max: 100 },
-            scale: { start: 0.1, end: 0 },
-            emitting: false,
-            blendMode: 'ADD',
-            tint: Phaser.Display.Color.HexStringToColor(color).color
-        }).setDepth(9997);
-        
-        // Animate the circle
-        fromScene.tweens.add({
-            targets: { radius: startRadius },
-            radius: endRadius,
-            duration: duration * 0.7,
-            ease: 'Cubic.easeInOut',
-            onUpdate: (tween, target) => {
-                // Clear previous frame
-                maskGraphics.clear();
-                
-                // Draw circle mask
-                if (expand) {
-                    // For expansion, fill outside the circle
-                    maskGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
-                    maskGraphics.fillRect(0, 0, fromScene.cameras.main.width, fromScene.cameras.main.height);
-                    maskGraphics.fillStyle(0x000000, 0);
-                    maskGraphics.setBlendMode(Phaser.BlendModes.ERASE);
-                    maskGraphics.fillCircle(centerX, centerY, target.radius);
-                    maskGraphics.setBlendMode(Phaser.BlendModes.NORMAL);
-                } else {
-                    // For contraction, fill inside the circle
-                    maskGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
-                    maskGraphics.fillCircle(centerX, centerY, target.radius);
-                }
-                
-                // Emit particles along the circle edge
-                if (fromScene.textures.exists('ball')) {
-                    const particleCount = Math.ceil(target.radius / 20);
-                    for (let i = 0; i < particleCount; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const x = centerX + Math.cos(angle) * target.radius;
-                        const y = centerY + Math.sin(angle) * target.radius;
-                        circleParticles.emitParticleAt(x, y, 1);
+
+        // Ensure isTransitioning is reset if the scene is shutdown or destroyed
+        const resetTransitionFlag = () => {
+            fromScene.isTransitioning = false;
+            fromScene.events.off('shutdown', resetTransitionFlag);
+            fromScene.events.off('destroy', resetTransitionFlag);
+        };
+        fromScene.events.on('shutdown', resetTransitionFlag);
+        fromScene.events.on('destroy', resetTransitionFlag);
+
+        try {
+            // Create an overlay for the final state
+            const overlay = fromScene.add.rectangle(
+                0, 0,
+                fromScene.cameras.main.width,
+                fromScene.cameras.main.height,
+                Phaser.Display.Color.HexStringToColor(color).color
+            ).setOrigin(0).setDepth(9999).setAlpha(expand ? 0 : 1);
+
+            // Center coordinates
+            const centerX = fromScene.cameras.main.width / 2;
+            const centerY = fromScene.cameras.main.height / 2;
+
+            // Calculate max radius needed to cover screen
+            const maxRadius = Math.sqrt(
+                Math.pow(Math.max(centerX, fromScene.cameras.main.width - centerX), 2) +
+                Math.pow(Math.max(centerY, fromScene.cameras.main.height - centerY), 2)
+            );
+
+            // Create radial mask
+            const maskGraphics = fromScene.add.graphics().setDepth(9998);
+
+            // Initial radius
+            const startRadius = expand ? 0 : maxRadius;
+            const endRadius = expand ? maxRadius : 0;
+
+            // Create particle emitters for the circle edge
+            const circleParticles = fromScene.add.particles(centerX, centerY, 'ball', {
+                lifespan: 300,
+                speed: { min: 50, max: 100 },
+                scale: { start: 0.1, end: 0 },
+                emitting: false,
+                blendMode: 'ADD',
+                tint: Phaser.Display.Color.HexStringToColor(color).color
+            }).setDepth(9997);
+
+            // Animate the circle
+            fromScene.tweens.add({
+                targets: { radius: startRadius },
+                radius: endRadius,
+                duration: duration * 0.7,
+                ease: 'Cubic.easeInOut',
+                onUpdate: (tween, target) => {
+                    // Clear previous frame
+                    maskGraphics.clear();
+
+                    // Draw circle mask
+                    if (expand) {
+                        // For expansion, fill outside the circle
+                        maskGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
+                        maskGraphics.fillRect(0, 0, fromScene.cameras.main.width, fromScene.cameras.main.height);
+                        maskGraphics.fillStyle(0x000000, 0);
+                        maskGraphics.setBlendMode(Phaser.BlendModes.ERASE);
+                        maskGraphics.fillCircle(centerX, centerY, target.radius);
+                        maskGraphics.setBlendMode(Phaser.BlendModes.NORMAL);
+                    } else {
+                        // For contraction, fill inside the circle
+                        maskGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
+                        maskGraphics.fillCircle(centerX, centerY, target.radius);
+                    }
+
+                    // Emit particles along the circle edge
+                    if (fromScene.textures.exists('ball')) {
+                        const particleCount = Math.ceil(target.radius / 20);
+                        for (let i = 0; i < particleCount; i++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            const x = centerX + Math.cos(angle) * target.radius;
+                            const y = centerY + Math.sin(angle) * target.radius;
+                            circleParticles.emitParticleAt(x, y, 1);
+                        }
+                    }
+                },
+                onComplete: () => {
+                    // Clean up graphics
+                    maskGraphics.destroy();
+                    circleParticles.destroy();
+
+                    if (expand) {
+                        // If expanding, set overlay to full alpha
+                        fromScene.tweens.add({
+                            targets: overlay,
+                            alpha: 1,
+                            duration: duration * 0.3,
+                            onComplete: completeTransition
+                        });
+                    } else {
+                        completeTransition();
+                    }
+
+                    function completeTransition() {
+                        // Start the new scene (replaces old scene and passes data)
+                        fromScene.scene.start(toSceneKey, sceneData);
+                        resetTransitionFlag();
+                        console.log("⭐ Radial transition complete");
                     }
                 }
-            },
-            onComplete: () => {
-                // Clean up graphics
-                maskGraphics.destroy();
-                circleParticles.destroy();
-                
-                if (expand) {
-                    // If expanding, set overlay to full alpha
-                    fromScene.tweens.add({
-                        targets: overlay,
-                        alpha: 1,
-                        duration: duration * 0.3,
-                        onComplete: completeTransition
-                    });
-                } else {
-                    completeTransition();
+            });
+
+            // Fallback: ensure isTransitioning is reset after a timeout (failsafe)
+            fromScene.time.delayedCall(duration * 2, () => {
+                if (fromScene.isTransitioning) {
+                    console.warn("Transition timeout fallback triggered, resetting isTransitioning");
+                    resetTransitionFlag();
                 }
-                
-                function completeTransition() {
-                    // Launch the new scene
-                    fromScene.scene.launch(toSceneKey, sceneData);
-                    
-                    // Get reference to new scene
-                    const toScene = fromScene.scene.get(toSceneKey);
-                    
-                    // Set up the fade-in for the new scene
-                    toScene.events.once('create', () => {
-                        console.log("⭐ New scene created, setting up fade-in");
-                        
-                        // Create a camera fade effect in the new scene
-                        toScene.cameras.main.fadeIn(duration * 0.3, 0, 0, 0);
-                        
-                        // Wait for the camera fade to complete
-                        toScene.time.delayedCall(duration * 0.3, () => {
-                            // Stop the old scene
-                            fromScene.scene.stop();
-                            fromScene.isTransitioning = false;
-                            console.log("⭐ Radial transition complete");
-                        });
-                    });
-                }
-            }
-        });
+            });
+        } catch (err) {
+            console.error("Error during radial transition:", err);
+            resetTransitionFlag();
+        }
     }
     
     /**
@@ -468,122 +439,127 @@ export default class SceneTransitionManager {
      */
     static pixelDissolveTransition(fromScene, toSceneKey, sceneData = {}, duration = 800, color = '#000000', pattern = 'random') {
         console.log("⭐ Starting pixel dissolve transition from", fromScene.scene.key, "to", toSceneKey);
-        
+
         if (fromScene.isTransitioning) {
             console.log("Transition already in progress, aborting");
             return;
         }
-        
+
         fromScene.isTransitioning = true;
-        
-        // Create a base overlay
-        const overlay = fromScene.add.rectangle(
-            0, 0, 
-            fromScene.cameras.main.width,
-            fromScene.cameras.main.height,
-            Phaser.Display.Color.HexStringToColor(color).color
-        ).setOrigin(0).setDepth(9999).setAlpha(0);
-        
-        // Create pixel blocks
-        const blockSize = 20;
-        const cols = Math.ceil(fromScene.cameras.main.width / blockSize);
-        const rows = Math.ceil(fromScene.cameras.main.height / blockSize);
-        const totalBlocks = cols * rows;
-        
-        const blocks = [];
-        const pixelContainer = fromScene.add.container(0, 0).setDepth(9998);
-        
-        // Create all pixel blocks
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const block = fromScene.add.rectangle(
-                    col * blockSize,
-                    row * blockSize,
-                    blockSize,
-                    blockSize,
-                    Phaser.Display.Color.HexStringToColor(color).color
-                ).setOrigin(0);
-                
-                blocks.push({
-                    block,
-                    row,
-                    col,
-                    index: row * cols + col
-                });
-                
-                pixelContainer.add(block);
+
+        // Ensure isTransitioning is reset if the scene is shutdown or destroyed
+        const resetTransitionFlag = () => {
+            fromScene.isTransitioning = false;
+            fromScene.events.off('shutdown', resetTransitionFlag);
+            fromScene.events.off('destroy', resetTransitionFlag);
+        };
+        fromScene.events.on('shutdown', resetTransitionFlag);
+        fromScene.events.on('destroy', resetTransitionFlag);
+
+        try {
+            // Create a base overlay
+            const overlay = fromScene.add.rectangle(
+                0, 0,
+                fromScene.cameras.main.width,
+                fromScene.cameras.main.height,
+                Phaser.Display.Color.HexStringToColor(color).color
+            ).setOrigin(0).setDepth(9999).setAlpha(0);
+
+            // Create pixel blocks
+            const blockSize = 20;
+            const cols = Math.ceil(fromScene.cameras.main.width / blockSize);
+            const rows = Math.ceil(fromScene.cameras.main.height / blockSize);
+            const totalBlocks = cols * rows;
+
+            const blocks = [];
+            const pixelContainer = fromScene.add.container(0, 0).setDepth(9998);
+
+            // Create all pixel blocks
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const block = fromScene.add.rectangle(
+                        col * blockSize,
+                        row * blockSize,
+                        blockSize,
+                        blockSize,
+                        Phaser.Display.Color.HexStringToColor(color).color
+                    ).setOrigin(0);
+
+                    blocks.push({
+                        block,
+                        row,
+                        col,
+                        index: row * cols + col
+                    });
+
+                    pixelContainer.add(block);
+                }
             }
-        }
-        
-        // Generate order of blocks to animate based on pattern
-        let blockOrder;
-        
-        switch (pattern) {
-            case 'spiral':
-                blockOrder = this.getSpiralOrder(blocks, rows, cols);
-                break;
-            case 'grid':
-                blockOrder = blocks.sort((a, b) => 
-                    Math.abs(a.row - rows/2) + Math.abs(a.col - cols/2) - 
-                    (Math.abs(b.row - rows/2) + Math.abs(b.col - cols/2))
-                );
-                break;
-            default: // random
-                blockOrder = Phaser.Utils.Array.Shuffle([...blocks]);
-        }
-        
-        // Timing for block appearances
-        const blockDuration = duration * 0.7 / totalBlocks;
-        
-        // Animate blocks sequentially
-        blockOrder.forEach((blockData, index) => {
-            blockData.block.setAlpha(0);
-            
-            fromScene.tweens.add({
-                targets: blockData.block,
-                alpha: 1,
-                duration: blockDuration * 3,
-                ease: 'Cubic.easeIn',
-                delay: index * (duration * 0.7 / totalBlocks),
-                onComplete: () => {
-                    // When all blocks have appeared, transition to the next scene
-                    if (index === blockOrder.length - 1) {
-                        // Fade to full overlay
-                        fromScene.tweens.add({
-                            targets: overlay,
-                            alpha: 1,
-                            duration: duration * 0.3,
-                            onComplete: () => {
-                                // Clean up all pixel blocks
-                                pixelContainer.destroy();
-                                
-                                // Launch the new scene
-                                fromScene.scene.launch(toSceneKey, sceneData);
-                                
-                                // Get reference to new scene
-                                const toScene = fromScene.scene.get(toSceneKey);
-                                
-                                // Set up the fade-in for the new scene
-                                toScene.events.once('create', () => {
-                                    console.log("⭐ New scene created, setting up fade-in");
-                                    
-                                    // Create a camera fade effect in the new scene
-                                    toScene.cameras.main.fadeIn(duration * 0.3, 0, 0, 0);
-                                    
-                                    // Wait for the camera fade to complete
-                                    toScene.time.delayedCall(duration * 0.3, () => {
-                                        // Stop the old scene
-                                        fromScene.scene.stop();
-                                        fromScene.isTransitioning = false;
-                                        console.log("⭐ Pixel dissolve transition complete");
-                                    });
-                                });
-                            }
-                        });
+
+            // Generate order of blocks to animate based on pattern
+            let blockOrder;
+
+            switch (pattern) {
+                case 'spiral':
+                    blockOrder = this.getSpiralOrder(blocks, rows, cols);
+                    break;
+                case 'grid':
+                    blockOrder = blocks.sort((a, b) =>
+                        Math.abs(a.row - rows/2) + Math.abs(a.col - cols/2) -
+                        (Math.abs(b.row - rows/2) + Math.abs(b.col - cols/2))
+                    );
+                    break;
+                default: // random
+                    blockOrder = Phaser.Utils.Array.Shuffle([...blocks]);
+            }
+
+            // Timing for block appearances
+            const blockDuration = duration * 0.7 / totalBlocks;
+
+            // Animate blocks sequentially
+            blockOrder.forEach((blockData, index) => {
+                blockData.block.setAlpha(0);
+
+                fromScene.tweens.add({
+                    targets: blockData.block,
+                    alpha: 1,
+                    duration: Math.max(blockDuration * 3, 30), // Ensure minimum duration for stability
+                    ease: 'Cubic.easeIn',
+                    delay: index * (duration * 0.7 / totalBlocks),
+                    onComplete: () => {
+                        // When all blocks have appeared, transition to the next scene
+                        if (index === blockOrder.length - 1) {
+                            // Fade to full overlay
+                            fromScene.tweens.add({
+                                targets: overlay,
+                                alpha: 1,
+                                duration: duration * 0.3,
+                                onComplete: () => {
+                                    // Clean up all pixel blocks
+                                    pixelContainer.destroy();
+
+                                    // Start the new scene (replaces old scene and passes data)
+                                    fromScene.scene.start(toSceneKey, sceneData);
+                                    resetTransitionFlag();
+                                    console.log("⭐ Pixel dissolve transition complete");
+                                }
+                            });
+                        }
                     }
+                });
+            });
+
+            // Failsafe: ensure isTransitioning is reset after a timeout
+            fromScene.time.delayedCall(duration * 2, () => {
+                if (fromScene.isTransitioning) {
+                    console.warn("Pixel dissolve transition timeout fallback triggered, resetting isTransitioning");
+                    resetTransitionFlag();
                 }
             });
-        });
+        } catch (err) {
+            console.error("Error during pixel dissolve transition:", err);
+            resetTransitionFlag();
+        }
     }
     
     /**
@@ -720,27 +696,10 @@ export default class SceneTransitionManager {
                         // Clean up glitch container
                         sliceContainer.destroy();
                         
-                        // Launch the new scene
-                        fromScene.scene.launch(toSceneKey, sceneData);
-                        
-                        // Get reference to new scene
-                        const toScene = fromScene.scene.get(toSceneKey);
-                        
-                        // Set up the fade-in for the new scene
-                        toScene.events.once('create', () => {
-                            console.log("⭐ New scene created, setting up fade-in");
-                            
-                            // Create a camera fade effect in the new scene
-                            toScene.cameras.main.fadeIn(duration * 0.3, 0, 0, 0);
-                            
-                            // Wait for the camera fade to complete
-                            toScene.time.delayedCall(duration * 0.3, () => {
-                                // Stop the old scene
-                                fromScene.scene.stop();
-                                fromScene.isTransitioning = false;
-                                console.log("⭐ Glitch transition complete");
-                            });
-                        });
+                        // Start the new scene (replaces old scene and passes data)
+                        fromScene.scene.start(toSceneKey, sceneData);
+                        fromScene.isTransitioning = false;
+                        console.log("⭐ Glitch transition complete");
                     }
                 });
             });
