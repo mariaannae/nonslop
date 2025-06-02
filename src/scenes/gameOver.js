@@ -23,6 +23,53 @@ export default class gameOver extends Phaser.Scene {
         }
     }
 
+    captureBadgeAsImage(badgeContainer, callback) {
+        // Create a render texture to capture the badge
+        const renderTexture = this.add.renderTexture(0, 0, badgeContainer.width + 40, badgeContainer.height + 40);
+        
+        // Temporarily move badge to render texture center
+        const originalX = badgeContainer.x;
+        const originalY = badgeContainer.y;
+        badgeContainer.x = renderTexture.width / 2;
+        badgeContainer.y = renderTexture.height / 2;
+        
+        // Draw the badge to the render texture
+        renderTexture.draw(badgeContainer);
+        
+        // Restore original position
+        badgeContainer.x = originalX;
+        badgeContainer.y = originalY;
+        
+        // Convert to base64 image
+        const canvas = renderTexture.canvas;
+        const dataURL = canvas.toDataURL('image/png');
+        
+        // Clean up
+        renderTexture.destroy();
+        
+        callback(dataURL);
+    }
+
+    downloadBadge(dataURL, filename) {
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    showSharingInstructions(platform) {
+        const instructions = {
+            'instagram': 'Badge downloaded! Upload to Instagram Stories and tag us!',
+            'threads': 'Badge downloaded! Share on Threads with your thoughts!',
+            'tiktok': 'Badge downloaded! Create a TikTok with your badge!'
+        };
+        
+        // You could show a modal or toast notification here
+        alert(instructions[platform] || 'Badge downloaded!');
+    }
+
     create() {
         // Set background based on mode and level
         if (this.mode === "easy") {
@@ -193,9 +240,7 @@ export default class gameOver extends Phaser.Scene {
             {
                 key: "facebook",
                 url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent(
-                        "Would you like to play a game?" + badgeImageUrl
-                    );
+                    const shareText = encodeURIComponent("Would you like to play a game?");
                     const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
                     return `https://www.facebook.com/sharer/sharer.php?u=${gameUrl}&quote=${shareText}`;
                 }
@@ -211,9 +256,7 @@ export default class gameOver extends Phaser.Scene {
             {
                 key: "x",
                 url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent(
-                        "Would you like to play a game?" + badgeImageUrl
-                    );
+                    const shareText = encodeURIComponent("Would you like to play a game?");
                     const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
                     return `https://twitter.com/intent/tweet?text=${shareText}&url=${gameUrl}`;
                 }
@@ -225,16 +268,15 @@ export default class gameOver extends Phaser.Scene {
             {
                 key: "snapchat",
                 url: (badgeImageUrl) => {
-                    const attachmentUrl = encodeURIComponent(badgeImageUrl);
-                    return `https://www.snapchat.com/scan?attachmentUrl=${attachmentUrl}`;
+                    const shareText = encodeURIComponent("Would you like to play a game?");
+                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
+                    return `https://www.snapchat.com/create?text=${shareText}&url=${gameUrl}`;
                 }
             },
             {
                 key: "bluesky",
                 url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent(
-                        "Would you like to play a game?" + badgeImageUrl
-                    );
+                    const shareText = encodeURIComponent("Would you like to play a game?");
                     const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
                     return `https://bsky.app/intent/compose?text=${shareText}%20${gameUrl}`;
                 }
@@ -242,19 +284,18 @@ export default class gameOver extends Phaser.Scene {
             {
                 key: "linkedin",
                 url: (badgeImageUrl) => {
+                    const shareText = encodeURIComponent("Would you like to play a game?");
                     const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
-                    const badgeUrl = encodeURIComponent(badgeImageUrl);
-                    return `https://www.linkedin.com/sharing/share-offsite/?url=${gameUrl}%20${badgeUrl}`;
+                    return `https://www.linkedin.com/sharing/share-offsite/?url=${gameUrl}&summary=${shareText}`;
                 }
             },
             {
                 key: "email",
                 url: (badgeImageUrl) => {
-                    const subject = encodeURIComponent("non-slop");
+                    const subject = encodeURIComponent("Would you like to play a game?");
                     const body = encodeURIComponent(
-                        "Would you like to play a game?" +
-                        (window.location.origin || gameAddress) +
-                        "\n\nBadge image: " + badgeImageUrl
+                        "Would you like to play a game?\n\n" +
+                        "Check out NON-SLOP: " + (window.location.origin || gameAddress)
                     );
                     return `mailto:?subject=${subject}&body=${body}`;
                 }
@@ -278,11 +319,31 @@ export default class gameOver extends Phaser.Scene {
                 .setInteractive({ useHandCursor: true })
                 .setDepth(10)
                 .setTint(0xffffff);
+            
             btn.on('pointerdown', () => {
-                window.open(platform.url(badgeImageUrl), '_blank');
+                // Generate the badge image first
+                this.captureBadgeAsImage(badgeContainer, (badgeDataURL) => {
+                    // For platforms that support image sharing
+                    if (platform.key === 'facebook' || platform.key === 'x' || platform.key === 'linkedin') {
+                        window.open(platform.url(badgeDataURL), '_blank');
+                    } 
+                    // For platforms that don't directly support image URLs
+                    else if (platform.key === 'instagram' || platform.key === 'threads' || platform.key === 'tiktok') {
+                        // Download the badge and show instructions
+                        this.downloadBadge(badgeDataURL, `nonslop-badge-${this.score}.png`);
+                        this.showSharingInstructions(platform.key);
+                    }
+                    // For platforms with direct sharing
+                    else {
+                        window.open(platform.url(badgeDataURL), '_blank');
+                    }
+                });
             });
+            
             socialButtons.push(btn);
         });
+
+        
 
         // Play Again button (create but don't position yet)
         const playAgainButton = ButtonFactory.createButton(
