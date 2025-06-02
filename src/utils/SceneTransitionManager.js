@@ -5,6 +5,19 @@
  */
 export default class SceneTransitionManager {
     /**
+     * Ensure the 'ball' texture exists for particle transitions.
+     * @param {Phaser.Scene} scene
+     */
+    static ensureBallTexture(scene) {
+        if (!scene.textures.exists('ball')) {
+            const graphics = scene.make.graphics({ x: 0, y: 0, add: false });
+            graphics.fillStyle(0xffffff, 1);
+            graphics.fillCircle(16, 16, 16);
+            graphics.generateTexture('ball', 32, 32);
+            graphics.destroy();
+        }
+    }
+    /**
      * Transition context types for appropriate effect selection
      */
     static CONTEXT = {
@@ -172,7 +185,10 @@ export default class SceneTransitionManager {
      */
     static diagonalWipeTransition(fromScene, toSceneKey, sceneData = {}, duration = 800, color = '#000000', angle = 45) {
         console.log("⭐ Starting diagonal wipe transition from", fromScene.scene.key, "to", toSceneKey);
-        
+
+        // Ensure 'ball' texture exists for particles
+        this.ensureBallTexture(fromScene);
+
         if (fromScene.isTransitioning) {
             console.log("Transition already in progress, aborting");
             return;
@@ -300,6 +316,9 @@ export default class SceneTransitionManager {
      */
     static radialTransition(fromScene, toSceneKey, sceneData = {}, duration = 800, color = '#000000', expand = true) {
         console.log("⭐ Starting radial transition from", fromScene.scene.key, "to", toSceneKey);
+
+        // Ensure 'ball' texture exists for particles
+        this.ensureBallTexture(fromScene);
 
         if (fromScene.isTransitioning) {
             console.log("Transition already in progress, aborting");
