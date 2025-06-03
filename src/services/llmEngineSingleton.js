@@ -17,6 +17,18 @@ export default async function getLLMEngine() {
     const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
     const { CreateMLCEngine } = WebLLM;
     const model_id = "Qwen2.5-0.5B-Instruct-q0f32-MLC";
+
+    // Detect WebGPU support
+    let runtime = "webgpu";
+    if (!navigator.gpu) {
+      // Try WebGL fallback if available
+      if (WebLLM.supportedRuntimes && WebLLM.supportedRuntimes.includes("webgl")) {
+        runtime = "webgl";
+      } else {
+        throw new Error("This device/browser does not support WebGPU or WebGL. Please use a modern browser that supports WebGPU or WebGL.");
+      }
+    }
+
     const appConfig = {
       model_list: [
         {
@@ -30,7 +42,7 @@ export default async function getLLMEngine() {
           },
         },
       ],
-      runtime: "webgpu"
+      runtime: runtime
     };
     const llmEngine = await CreateMLCEngine(model_id, {
       appConfig: appConfig,
