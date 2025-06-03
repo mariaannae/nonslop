@@ -607,70 +607,53 @@ export default class BaseGameScene extends Phaser.Scene {
         const trimmedcontext = context.trim();
         
         // Add retry logic with minimal logging
-        let maxRetries = 3;
-        let currentRetry = 0;
-        let success = false;
-        let reply;
-        
-        while (!success && currentRetry < maxRetries) {
-            try {
-                // Use the engine from registry manager
-                reply = await llmEngine.completions.create({
-                    prompt: trimmedcontext,
-                    echo: false,
-                    n: 1,
-                    max_tokens: 1,
-                    logprobs: true,
-                    top_logprobs: 5,
-                });
-                success = true;
-            } catch (error) {
-                currentRetry++;
-                // Minimal error logging
-                if (error.toString().includes("VectorInt") && currentRetry < maxRetries) {
-                    // Short delay before retry
-                    await new Promise(resolve => setTimeout(resolve, 100 * currentRetry));
-                } else if (currentRetry >= maxRetries) {
-                    if (requestId !== this.suggestionRequestId) return;
-                    console.error("Max retries reached. Suggestions unavailable.");
-                    this.aiSuggestedWords = [];
-                    this.showSuggestions([]);
-                    if (this.autocompleteText) {
-                        this.autocompleteText.setText('');
-                    }
-                    return;
-                } else {
-                    throw error; // Re-throw other types of errors
-                }
-            }
-        }
-    
-        // Only process the result if this is the latest request AND input matches current userInput
-        if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) return;
-
         try {
-            if (!reply.choices || reply.choices.length === 0 || !reply.choices[0].logprobs) {
+            console.log("[AISUGGEST] llmEngine:", llmEngine);
+            console.log("[AISUGGEST] trimmedcontext:", trimmedcontext);
+
+            // Use the engine from registry manager (transformers.js pipeline)
+            const output = await llmEngine(trimmedcontext, { max_new_tokens: 1 });
+            console.log("[AISUGGEST] output from llmEngine:", output);
+
+            // Only process the result if this is the latest request AND input matches current userInput
+            if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
+                console.log("[AISUGGEST] Request ID or input mismatch, aborting suggestion update.");
                 return;
             }
-    
-            let options = reply.choices[0].logprobs.content[0].top_logprobs;
-            options.sort((a, b) => b.logprob - a.logprob);
-    
-            const filteredOptions = options
-                .map(choice => choice.token.trim())
-                .filter(token => token !== '')
-                .filter(token => !stopwords.includes(token.toLowerCase()))
-                .filter(token => !/^[\p{P}]/u.test(token)); // Filter out tokens starting with punctuation
-    
-            const uniqueSuggestedWords = Array.from(new Set(
-                filteredOptions.map(word => word.replace(/`/g, "'"))
-            ))
-                .slice(0, this.topKValue);
-    
+
+            if (!output || !Array.isArray(output) || output.length === 0 || !output[0].generated_text) {
+                console.warn("[AISUGGEST] No output or generated_text from llmEngine.");
+                this.aiSuggestedWords = [];
+                this.showSuggestions([]);
+                if (this.autocompleteText) {
+                    this.autocompleteText.setText('');
+                }
+                return;
+            }
+
+            // Get the generated text, split into words, filter stopwords/punctuation, and take topK
+            let suggestion = output[0].generated_text.trim();
+            console.log("[AISUGGEST] Raw suggestion:", suggestion);
+
+            // Remove the prompt context from the start if present
+            if (suggestion.startsWith(trimmedcontext)) {
+                suggestion = suggestion.slice(trimmedcontext.length).trim();
+                console.log("[AISUGGEST] Suggestion after context removal:", suggestion);
+            }
+            // Split into words, filter, and deduplicate
+            let words = suggestion.split(/\s+/)
+                .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "")) // Remove leading/trailing punctuation
+                .filter(word => word && !stopwords.includes(word.toLowerCase()));
+            console.log("[AISUGGEST] Filtered words:", words);
+
+            // Only keep unique, non-empty words
+            const uniqueSuggestedWords = Array.from(new Set(words)).slice(0, this.topKValue);
+            console.log("[AISUGGEST] uniqueSuggestedWords:", uniqueSuggestedWords);
+
             this.aiSuggestedWords = uniqueSuggestedWords;
             this.showSuggestions(uniqueSuggestedWords);
             this.updateCursor(); // Ensure UI refreshes with the latest suggestion
-            
+
             // Only log performance issues
             const endTime = performance.now();
             const duration = endTime - startTime;
@@ -1707,7 +1690,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         // Create popup window
         const popupWidth = 400; // Increased from 320 to 400 to accommodate slider overflow
-        const popupHeight = 280; // Increased height for mode toggle
+        const popupHeight = 200; // Reduced height since top K slider is removed
         const popupX = this.cameras.main.centerX - popupWidth/2;
         const popupY = this.cameras.main.centerY - popupHeight/2;
         
@@ -1772,36 +1755,11 @@ export default class BaseGameScene extends Phaser.Scene {
         this.input.setDraggable(levelSliderHandle);
         this.settingsPopup.add(levelSliderHandle);
         
-        // Add Top K slider
-        const topKLabelX = popupX + 30;
-        const topKLabelY = popupY + 130; // Positioned below level slider
-        const topKLabel = this.add.text(
-            topKLabelX, topKLabelY, 
-            `Max AI Words: ${this.topKValue}`,
-            { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
-        ).setOrigin(0, 0.5);
-        this.settingsPopup.add(topKLabel);
-        
-        const topKSliderX = topKLabelX + topKLabel.displayWidth + gap;
-        const topKSliderY = topKLabelY;
-        const topKSlider = this.add.graphics();
-        topKSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1); // Use basic palette highlight color for slider track
-        topKSlider.fillRect(topKSliderX, topKSliderY - 5, sliderWidth, 10);
-        topKSlider.lineStyle(2, 0xffffff, 0.3); // Add subtle outline
-        topKSlider.strokeRect(topKSliderX, topKSliderY - 5, sliderWidth, 10);
-        this.settingsPopup.add(topKSlider);
-        
-        // Position Top K slider handle based on current topK
-        // Map handle center from bar start+5 to bar end-5 so it can reach both ends
-        const topKT = (this.topKValue - 1) / 4; // 0 for topK 1, 0.25 for topK 2, etc.
-        const topKHandleX = Phaser.Math.Linear(topKSliderX + 5, topKSliderX + sliderWidth - 5, topKT);
-        const topKSliderHandle = this.add.rectangle(topKHandleX, topKSliderY, 10, 20, COLORS_HEX.ACCENT).setInteractive(); // Use basic accent color for handle
-        this.input.setDraggable(topKSliderHandle);
-        this.settingsPopup.add(topKSliderHandle);
+        // (Top K slider removed: only single AI suggestion is supported)
         
         // Add Mode Toggle
         const modeToggleLabelX = popupX + 30;
-        const modeToggleLabelY = popupY + 180; // Below the Top K slider
+        const modeToggleLabelY = popupY + 120; // Moved up since top K slider is gone
         const modeToggleLabel = this.add.text(
             modeToggleLabelX, modeToggleLabelY, 
             "Hard Mode:",
@@ -1884,7 +1842,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.closeSettingsPopup();
             }, 
             this.cameras.main.centerX, 
-            popupY + popupHeight - 40
+            popupY + popupHeight - 40 // This is now closer to the mode toggle
         );
         this.settingsPopup.add(confirmBtn);
         
@@ -1892,8 +1850,6 @@ export default class BaseGameScene extends Phaser.Scene {
         // Allow handle center to go from bar start+5 to bar end-5
         const levelSliderMinX = levelSliderX + 5;
         const levelSliderMaxX = levelSliderX + sliderWidth - 5;
-        const topKSliderMinX = topKSliderX + 5;
-        const topKSliderMaxX = topKSliderX + sliderWidth - 5;
         
         this.input.on('drag', (pointer, gameObject, dragX) => {
             if (gameObject === levelSliderHandle) {
@@ -1930,15 +1886,6 @@ export default class BaseGameScene extends Phaser.Scene {
                     if (this.wordCountDisplay) {
                         this.updateWordCountDisplay();
                     }
-                }
-            }
-            else if (gameObject === topKSliderHandle) {
-                gameObject.x = Phaser.Math.Clamp(dragX, topKSliderMinX, topKSliderMaxX);
-                const newTopK = Math.round(Phaser.Math.Linear(1, 5, (gameObject.x - topKSliderMinX) / (topKSliderMaxX - topKSliderMinX)));
-                
-                if (newTopK !== this.topKValue) {
-                    this.topKValue = newTopK;
-                    topKLabel.setText(`Max AI Words: ${this.topKValue}`);
                 }
             }
         });
