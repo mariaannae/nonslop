@@ -247,7 +247,7 @@ export default class UsernameScene extends Phaser.Scene {
 
         // Skip button: 2/3 * gap (20px) below submit button, centered at that Y
         const skipButtonGap = (2 / 3) * buttonGap;
-        const skipButtonY = submitButtonY + buttonHeight + skipButtonGap;
+        const skipButtonY = submitButtonY + buttonHeight + skipButtonGap + 10;
 
         // Create submit button
         this.submitButton = this.createButton(

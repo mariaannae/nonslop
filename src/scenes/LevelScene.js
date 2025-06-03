@@ -1,6 +1,7 @@
 import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIGN} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import { ScalingManager } from "../config/scaling.js";
 
 //, , DESIGN.UI.BUTTON.WIDTH
 
@@ -145,7 +146,15 @@ export default class LevelScene extends Phaser.Scene {
     }
 
     createButton(label, callback, centerX, centerY, options = {}) {
-        return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
+        // Ensure scalingManager is passed for responsive sizing
+        return ButtonFactory.createButton(
+            this,
+            label,
+            callback,
+            centerX,
+            centerY,
+            { ...options, scalingManager: this.scalingManager }
+        );
     }
     
     createPromptTextBox() {
@@ -234,14 +243,15 @@ export default class LevelScene extends Phaser.Scene {
         // Position the buttons below the prompt text box
         const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
         const centerY = boxY + boxHeight + outlineWidth / 2 + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
-        
 
+        // Ensure scalingManager is passed for responsive sizing
         const easyButton = ButtonFactory.createButton(
             this, 
             "EASY", 
             () => this.startGame("easy"),
             centerX - DESIGN.UI.BUTTON.WIDTH * .85,
-            centerY
+            centerY,
+            { scalingManager: this.scalingManager }
         );
         
         const hardButton = ButtonFactory.createButton(
@@ -249,7 +259,8 @@ export default class LevelScene extends Phaser.Scene {
             "HARD", 
             () => this.startGame("hard"),
             centerX + DESIGN.UI.BUTTON.WIDTH * .85,
-            centerY
+            centerY,
+            { scalingManager: this.scalingManager }
         );
 
         // Add tooltip functionality
@@ -291,11 +302,15 @@ export default class LevelScene extends Phaser.Scene {
 
     async create() {
         this.cameras.main.scrollY = 0; 
+
+        // Initialize scaling manager for responsive UI
+        this.scalingManager = new ScalingManager(this);
+
         this.createBackgroundEffect();
-    
+
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         this.createPromptTextBox();
-    
+
         // Show the play buttons
         this.showPlayButtons();
         this.addButtonClickEffects();

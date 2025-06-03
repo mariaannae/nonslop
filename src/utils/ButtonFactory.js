@@ -18,12 +18,15 @@ export default class ButtonFactory {
         const cameraWidth = scene.cameras.main.width;
 
         // Use scalingManager if available, otherwise fallback to DESIGN
-        const buttonWidth = scalingManager
-            ? scalingManager.buttonWidth(cameraWidth)
-            : DESIGN.UI.BUTTON.WIDTH;
-        const buttonHeight = scalingManager
-            ? scalingManager.buttonHeight(buttonWidth)
-            : DESIGN.UI.BUTTON.HEIGHT;
+        // Always use scalingManager for both width and height if available
+        let buttonWidth, buttonHeight;
+        if (scalingManager) {
+            buttonWidth = scalingManager.buttonWidth(cameraWidth);
+            buttonHeight = scalingManager.buttonHeight(scalingManager.buttonWidth(cameraWidth));
+        } else {
+            buttonWidth = DESIGN.UI.BUTTON.WIDTH;
+            buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
+        }
         const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
 
         // Create button container
@@ -119,12 +122,15 @@ export default class ButtonFactory {
         const cameraWidth = scene.cameras.main.width;
 
         // Use scalingManager if available, otherwise fallback to DESIGN
-        const buttonSize = scalingManager
-            ? scalingManager.buttonWidth(cameraWidth)
-            : DESIGN.UI.BUTTON.WIDTH;
-        const buttonHeight = scalingManager
-            ? scalingManager.buttonHeight(buttonSize)
-            : DESIGN.UI.BUTTON.HEIGHT;
+        // Always use scalingManager for both width and height if available
+        let buttonSize, buttonHeight;
+        if (scalingManager) {
+            buttonSize = scalingManager.buttonWidth(cameraWidth);
+            buttonHeight = scalingManager.buttonHeight(scalingManager.buttonWidth(cameraWidth));
+        } else {
+            buttonSize = DESIGN.UI.BUTTON.WIDTH;
+            buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
+        }
         const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
 
         // Dynamic adjustments

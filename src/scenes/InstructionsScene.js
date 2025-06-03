@@ -1,6 +1,7 @@
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT} from "../config/design.js";
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import { ScalingManager } from "../config/scaling.js";
 
 export default class InstructionScene extends Phaser.Scene {
     constructor() {
@@ -140,7 +141,15 @@ export default class InstructionScene extends Phaser.Scene {
     }
 
     createButton(label, callback, centerX, centerY, options = {}) {
-        return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
+        // Ensure scalingManager is passed for responsive sizing
+        return ButtonFactory.createButton(
+            this,
+            label,
+            callback,
+            centerX,
+            centerY,
+            { ...options, scalingManager: this.scalingManager }
+        );
     }
     
     onDoneButtonClick() {
@@ -223,8 +232,12 @@ export default class InstructionScene extends Phaser.Scene {
 
     async create() {
         this.cameras.main.scrollY = 0; 
+
+        // Initialize scaling manager for responsive UI
+        this.scalingManager = new ScalingManager(this);
+
         this.createBackgroundEffect();
-    
+
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         this.createPromptTextBox();
     

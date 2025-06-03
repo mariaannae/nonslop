@@ -3,6 +3,7 @@ import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
 import registryManager from "../services/RegistryManager.js";
 import getLLMEngine from "../services/llmEngineSingleton.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import { ScalingManager } from "../config/scaling.js";
 
 // Fix: Define missing constants for output box rendering
 
@@ -329,6 +330,9 @@ export default class Preloader extends Phaser.Scene {
         const margin = 100;
         this.createBackgroundEffect();
 
+        // Initialize scaling manager for responsive UI
+        this.scalingManager = new ScalingManager(this);
+
         //window.addEventListener("resize", () => this.resizeUI());
 
         saveInteraction("creating preloader", "preloader");
@@ -499,7 +503,14 @@ export default class Preloader extends Phaser.Scene {
 
             // Create the button
 
-            this.doneButton = ButtonFactory.createButton(this, "NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, { depth: 102 });
+            this.doneButton = ButtonFactory.createButton(
+                this,
+                "NEXT",
+                () => this.onDoneButtonClick(),
+                buttonCenterX,
+                buttonCenterY,
+                { depth: 102, scalingManager: this.scalingManager }
+            );
 
             // Add tooltip functionality
             this.doneButton.setInteractive()

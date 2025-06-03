@@ -3,6 +3,7 @@ import { saveInteraction, isHighScore } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { createBackground } from "../backgrounds/createBackground.js";
+import { ScalingManager } from "../config/scaling.js";
 
 //, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, colors_hex, colors_text, DESIGN.UI.BUTTON.WIDTH
 
@@ -294,7 +295,15 @@ export default class DoneScene extends Phaser.Scene {
     }    
 
     createButton(label, callback, centerX, centerY, options = {}) {
-        return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
+        // Ensure scalingManager is passed for responsive sizing
+        return ButtonFactory.createButton(
+            this,
+            label,
+            callback,
+            centerX,
+            centerY,
+            { ...options, scalingManager: this.scalingManager }
+        );
     }
     
     testUsernameScene() {
@@ -749,7 +758,10 @@ export default class DoneScene extends Phaser.Scene {
 
     async create() {
         this.cameras.main.scrollY = 0;
-        
+
+        // Initialize scaling manager for responsive UI
+        this.scalingManager = new ScalingManager(this);
+
         // Use the same background based on mode and level
         if (this.mode === "easy") {
             createBackground(this, THEMES.easy.background, this.levelValue);
