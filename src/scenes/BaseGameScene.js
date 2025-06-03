@@ -2382,9 +2382,10 @@ export default class BaseGameScene extends Phaser.Scene {
 
         // Responsive scale: 5% of camera width, with different clamp for mobile/desktop
         const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
+        // Use fixed pixel size for mobile/desktop for consistent appearance
         const iconScale = isMobile
-            ? Phaser.Math.Clamp(this.cameras.main.width * 0.05 / 64, 0.12, 0.22)
-            : Phaser.Math.Clamp(this.cameras.main.width * 0.05 / 64, 0.18, 0.32);
+            ? 32 / 64   // 32px on mobile
+            : 40 / 64;  // 40px on desktop
         settingsIcon.setScale(iconScale);
 
         // Make the settings icon white
