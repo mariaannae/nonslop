@@ -2335,10 +2335,11 @@ export default class BaseGameScene extends Phaser.Scene {
     createSettingsButton(x, y) {
         // Create settings button using the SVG
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
-        
-        // Scale the icon appropriately
-        settingsIcon.setScale(0.25);
-        
+
+        // Responsive scale: 5% of camera width, clamped between 0.18 and 0.32
+        const iconScale = Phaser.Math.Clamp(this.cameras.main.width * 0.05 / 64, 0.18, 0.32);
+        settingsIcon.setScale(iconScale);
+
         // Make the settings icon white
         settingsIcon.setTint(0xffffff);
         
