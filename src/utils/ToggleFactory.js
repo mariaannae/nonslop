@@ -14,58 +14,97 @@ export default class ToggleFactory {
     static createToggle(scene, mode, callback, leftX, centerY, options = {}) {
         // Store current mode in a variable that can be updated
         let currentMode = mode;
-        
+
+        // Use scalingManager if provided, otherwise fallback to DESIGN
+        const scalingManager = options.scalingManager || scene.scalingManager;
+        // Minimum touch target size for mobile
+        const minTouchSize = 44;
+
+        // Calculate visual width/height for toggle (proportional scaling)
+        let baseWidth = DESIGN.UI.TOGGLE.WIDTH;
+        let baseHeight = DESIGN.UI.TOGGLE.HEIGHT;
+        let scale = 1;
+        if (scalingManager) {
+            // Use the smaller of X/Y scaling to keep proportions
+            scale = Math.min(scalingManager.scaleX, scalingManager.scaleY);
+        }
+        const toggleWidth = baseWidth * scale;
+        const toggleHeight = baseHeight * scale;
+
         // Create toggle background with color based on mode
         const bgColor = currentMode === 'hard' ? COLORS_HEX.HIGHLIGHT : 0x333333; // Grey for easy mode
-        const toggleBg = scene.add.rectangle(0, 0, DESIGN.UI.TOGGLE.WIDTH, DESIGN.UI.TOGGLE.HEIGHT, bgColor)
-            .setStrokeStyle(2, COLORS_HEX.HIGHLIGHT)
-            .setInteractive({ useHandCursor: true });
-        
-        // Create toggle circle
-        const toggleCircle = scene.add.circle(0, 0, DESIGN.UI.TOGGLE.HEIGHT, COLORS_HEX.ACCENT);
-        
+        const toggleBg = scene.add.rectangle(0, 0, toggleWidth, toggleHeight, bgColor)
+            .setStrokeStyle(2, COLORS_HEX.HIGHLIGHT);
+
+        // Make toggle knob diameter double the slider track height (20px in design)
+        const sliderTrackHeight = 10;
+        const knobRadius = scalingManager
+            ? (sliderTrackHeight * 2 * scale) / 2
+            : (sliderTrackHeight * 2) / 2;
+        const toggleCircle = scene.add.circle(0, 0, knobRadius, COLORS_HEX.ACCENT);
+
         // Without labels, center is simpler
-        const centerX = leftX + DESIGN.UI.TOGGLE.WIDTH / 2;
-        
+        const centerX = leftX + toggleWidth / 2;
+
         // Container for alignment
         const toggleContainer = scene.add.container(centerX, centerY, [toggleBg, toggleCircle]);
-        
+
+        // Add invisible hit area for accessibility (44x44 minimum)
+        const hitArea = scene.add.rectangle(0, 0, Math.max(toggleWidth, minTouchSize), Math.max(toggleHeight, minTouchSize), 0x000000, 0)
+            .setInteractive({ useHandCursor: true });
+        toggleContainer.addAt(hitArea, 0);
+
+        // Forward pointerdown from hitArea to toggleBg for feedback/logic
+        hitArea.on('pointerdown', (pointer) => {
+            toggleBg.emit('pointerdown', pointer);
+        });
+
         // Position the toggle circle based on mode
         const updateTogglePosition = (mode) => {
             if (mode === 'hard') {
-                toggleCircle.x = DESIGN.UI.TOGGLE.WIDTH/2 - DESIGN.UI.TOGGLE.HEIGHT/2; // HARD mode position
+                toggleCircle.x = toggleWidth / 2 - toggleHeight / 2; // HARD mode position
                 toggleBg.fillColor = COLORS_HEX.HIGHLIGHT;
             }
             else if (mode === 'easy') {
-                toggleCircle.x = -DESIGN.UI.TOGGLE.WIDTH/2 + DESIGN.UI.TOGGLE.HEIGHT/2; // EASY mode position
+                toggleCircle.x = -toggleWidth / 2 + toggleHeight / 2; // EASY mode position
                 toggleBg.fillColor = 0x333333; // Grey for easy mode
             }
             else {
                 console.error('Invalid mode. Defaulting to EASY.');
-                toggleCircle.x = -DESIGN.UI.TOGGLE.WIDTH/2 + DESIGN.UI.TOGGLE.HEIGHT/2; // Default to EASY
+                toggleCircle.x = -toggleWidth / 2 + toggleHeight / 2; // Default to EASY
                 toggleBg.fillColor = 0x333333;
             }
         };
-        
+
         // Initial position setup
         updateTogglePosition(currentMode);
-        
-        // Toggle mode interaction
+
+        // Toggle mode interaction with scale feedback
         toggleBg.on('pointerdown', () => {
+            // Scale animation for touch feedback
+            scene.tweens.add({
+                targets: toggleBg,
+                scaleX: 0.92,
+                scaleY: 0.92,
+                duration: 80,
+                yoyo: true,
+                ease: 'Quad.Out'
+            });
+
             const newMode = currentMode === 'hard' ? 'easy' : 'hard';
-            
+
             // Animate the toggle switch
             scene.tweens.add({
                 targets: toggleCircle,
-                x: newMode === 'hard' 
-                    ? DESIGN.UI.TOGGLE.WIDTH/2 - DESIGN.UI.TOGGLE.HEIGHT/2 
-                    : -DESIGN.UI.TOGGLE.WIDTH/2 + DESIGN.UI.TOGGLE.HEIGHT/2,
+                x: newMode === 'hard'
+                    ? toggleWidth / 2 - toggleHeight / 2
+                    : -toggleWidth / 2 + toggleHeight / 2,
                 duration: 100,
                 ease: 'Power2',
                 onUpdate: () => {
                     // Update color during animation
-                    toggleBg.fillColor = newMode === 'hard' 
-                        ? COLORS_HEX.HIGHLIGHT 
+                    toggleBg.fillColor = newMode === 'hard'
+                        ? COLORS_HEX.HIGHLIGHT
                         : 0x333333;
                 },
                 onComplete: () => {
@@ -75,7 +114,7 @@ export default class ToggleFactory {
                 }
             });
         });
-        
+
         // Add method to update toggle state externally
         toggleContainer.updateState = (newMode) => {
             // Only update if the mode actually changed
@@ -84,7 +123,9 @@ export default class ToggleFactory {
                 updateTogglePosition(currentMode);
             }
         };
-        
+
+        // (No need to set toggleBg.input.hitArea; hitArea handles all interaction)
+
         return toggleContainer;
     }
 }

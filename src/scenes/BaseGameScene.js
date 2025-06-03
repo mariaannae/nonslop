@@ -1702,11 +1702,19 @@ export default class BaseGameScene extends Phaser.Scene {
             });
         this.settingsPopup.add(overlay);
         
-        // Create popup window
-        const popupWidth = 400; // Increased from 320 to 400 to accommodate slider overflow
-        const popupHeight = 200; // Reduced height since top K slider is removed
-        const popupX = this.cameras.main.centerX - popupWidth/2;
-        const popupY = this.cameras.main.centerY - popupHeight/2;
+        // Create popup window (responsive for mobile)
+        const scalingManager = this.scalingManager;
+        const screenWidth = this.cameras.main.width;
+        const screenHeight = this.cameras.main.height;
+        // Use 65% of width, 40% of height, clamped to min/max
+        const popupWidth = scalingManager
+            ? Phaser.Math.Clamp(scalingManager.widthPercent(65), 220, 400)
+            : Phaser.Math.Clamp(screenWidth * 0.65, 220, 400);
+        const popupHeight = scalingManager
+            ? Phaser.Math.Clamp(scalingManager.heightPercent(40), 180, 350)
+            : Phaser.Math.Clamp(screenHeight * 0.4, 180, 350);
+        const popupX = this.cameras.main.centerX - popupWidth / 2;
+        const popupY = this.cameras.main.centerY - popupHeight / 2;
         
         // Create an interactive rectangle for the popup window
         const popupArea = this.add.rectangle(
@@ -1827,14 +1835,33 @@ export default class BaseGameScene extends Phaser.Scene {
         this.currentToggleRef.toggle = initialToggle;
         this.settingsPopup.add(initialToggle);
         
-        // Close button
+        // Close button (mobile-friendly)
+        const minTouchSize = 44;
+        const closeBtnFontSize = scalingManager
+            ? Math.max(scalingManager.scaleText(28), 28)
+            : 28;
+
         const closeBtn = this.add.text(
-            popupX + popupWidth - 25, 
+            popupX + popupWidth - 25,
             popupY + 20,
             '✕',
-            { fontFamily: 'IBM Plex Mono', fontSize: '24px', fill: '#ffffff' }
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: `${closeBtnFontSize}px`,
+                fill: '#ffffff',
+                fontStyle: 'bold'
+            }
         ).setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
+        .setInteractive({
+            useHandCursor: true,
+            hitArea: new Phaser.Geom.Rectangle(
+                -minTouchSize / 2,
+                -minTouchSize / 2,
+                minTouchSize,
+                minTouchSize
+            ),
+            hitAreaCallback: Phaser.Geom.Rectangle.Contains
+        })
         .on('pointerover', () => closeBtn.setScale(1.2))
         .on('pointerout', () => closeBtn.setScale(1))
         .on('pointerdown', () => this.closeSettingsPopup());
