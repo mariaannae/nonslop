@@ -1292,16 +1292,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const settingsButtonX = this.cameras.main.width - padding - 40;
         const settingsButtonY = menuBarHeight / 2;
 
-        // Load the settings.svg if not already available
-        if (!this.textures.exists('settings')) {
-            this.load.svg('settings', 'assets/settings.svg');
-            this.load.once('complete', () => {
-                this.createSettingsButton(settingsButtonX, settingsButtonY);
-            });
-            this.load.start();
-        } else {
-            this.createSettingsButton(settingsButtonX, settingsButtonY);
-        }
+        this.createSettingsButton(settingsButtonX, settingsButtonY);
 
         // Create mode and level indicator in center of menu bar
         const modeText = this.mode === 'hard' ? 'HARD' : 'EASY';
