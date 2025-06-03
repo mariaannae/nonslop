@@ -1728,8 +1728,8 @@ export default class BaseGameScene extends Phaser.Scene {
             ? Phaser.Math.Clamp(scalingManager.widthPercent(65), 220, 400)
             : Phaser.Math.Clamp(screenWidth * 0.65, 220, 400);
         const popupHeight = scalingManager
-            ? Phaser.Math.Clamp(scalingManager.heightPercent(40), 180, 350)
-            : Phaser.Math.Clamp(screenHeight * 0.4, 180, 350);
+            ? Phaser.Math.Clamp(scalingManager.heightPercent(30), 135, 260)
+            : Phaser.Math.Clamp(screenHeight * 0.3, 135, 260);
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
         
@@ -2380,8 +2380,11 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create settings button using the SVG
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
-        // Responsive scale: 5% of camera width, clamped between 0.18 and 0.32
-        const iconScale = Phaser.Math.Clamp(this.cameras.main.width * 0.05 / 64, 0.18, 0.32);
+        // Responsive scale: 5% of camera width, with different clamp for mobile/desktop
+        const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
+        const iconScale = isMobile
+            ? Phaser.Math.Clamp(this.cameras.main.width * 0.05 / 64, 0.12, 0.22)
+            : Phaser.Math.Clamp(this.cameras.main.width * 0.05 / 64, 0.18, 0.32);
         settingsIcon.setScale(iconScale);
 
         // Make the settings icon white
