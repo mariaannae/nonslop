@@ -5,12 +5,14 @@ import ToggleFactory from "../utils/ToggleFactory.js";
 import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
 import registryManager from "../services/RegistryManager.js";
+import { ScalingManager } from "../config/scaling.js";
 
 
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {
         super(config);
         this.resetGameState();
+        this.scaling = new ScalingManager(this);
     }
 
     /**
@@ -689,55 +691,65 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Template methods with customization hooks
     createPromptTextBox() {
-        const padding = 20;
+        const s = this.scaling;
+        const padding = s.scaleValue(20);
         const textBoxWidth = this.cameras.main.width * (5 / 6);
-        
+
         if (this.promptTextBox) {
             this.promptTextBox.clear();
         } else {
             this.promptTextBox = this.add.graphics();
         }
-        
+
         if (this.promptText) {
             this.promptText.destroy();
         }
-        
+
         const defaultText = "Your prompt will appear here...";
         const style = {
             ...this.getPromptTextStyle(),
+            fontSize: s.scaleText(
+                this.getPromptTextStyle().fontSize
+                    ? parseInt(this.getPromptTextStyle().fontSize)
+                    : 22
+            ) + "px",
             wordWrap: { width: textBoxWidth - padding * 2 }
         };
-        
-        const boxHeight = 80; // Fixed height for prompt box
+
+        const boxHeight = s.scaleValue(80);
         const boxStyle = this.getPromptBoxStyle();
-        
+
         // Calculate position below Word Stats panel
-        const statsBoxWidth = 200;
-        const statsBoxHeight = 130;
+        const statsBoxWidth = s.scaleValue(200);
+        const statsBoxHeight = s.scaleValue(130);
         const statsDisplayY = this.menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        
+
         // Set the prompt box 20px below the Word Stats panel
-        const promptY = statsBottomEdge + 20;
-        
+        const promptY = statsBottomEdge + s.scaleValue(20);
+
         this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-        
+
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - textBoxWidth / 2,
             promptY,
             textBoxWidth,
             boxHeight,
-            boxStyle.cornerRadius
+            s.scaleValue(boxStyle.cornerRadius)
         );
-        
+
         if (boxStyle.hasOutline) {
-            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.promptTextBox.lineStyle(
+                s.scaleValue(boxStyle.outlineWidth),
+                boxStyle.outlineColor,
+                1
+            );
             this.promptTextBox.strokeRoundedRect(
                 this.cameras.main.centerX - textBoxWidth / 2,
                 promptY,
                 textBoxWidth,
                 boxHeight,
-                boxStyle.cornerRadius
+                s.scaleValue(boxStyle.cornerRadius)
             );
         }
 
@@ -749,46 +761,47 @@ export default class BaseGameScene extends Phaser.Scene {
         ).setOrigin(0.5, 0.5);
         this.promptTextBox.setDepth(12);
         this.promptText.setDepth(13);
-        
+
         this.updatePromptBasedOnLevel();
     }
 
     createInputTextBox() {
-        const padding = 30;
+        const s = this.scaling;
+        const padding = s.scaleValue(30);
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-        const textBoxHeight = 240;
-        
+        const textBoxHeight = s.scaleValue(240);
+
         // Calculate position below Word Stats panel and prompt box
-        const statsBoxWidth = 180;
-        const statsBoxHeight = 130;
+        const statsBoxWidth = s.scaleValue(180);
+        const statsBoxHeight = s.scaleValue(130);
         const statsDisplayY = this.menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        
+
         // Prompt box is 20px below stats box
-        const promptY = statsBottomEdge + 20;
-        const promptBoxHeight = 80;
+        const promptY = statsBottomEdge + s.scaleValue(20);
+        const promptBoxHeight = s.scaleValue(80);
         const promptBottomEdge = promptY + promptBoxHeight;
-        
+
         // Input box is 20px below prompt box
-        const textBoxY = promptBottomEdge + 20;
-        
+        const textBoxY = promptBottomEdge + s.scaleValue(20);
+
         // Clear any existing elements first
         if (this.inputTextBorder) {
             this.inputTextBorder.destroy();
             this.inputTextBorder = null;
         }
-        
+
         if (this.inputText) {
             this.inputText.destroy();
             this.inputText = null;
         }
-        
+
         // We'll still clean up the autocompleteText if it exists, but we won't create a new one
         if (this.autocompleteText) {
             this.autocompleteText.destroy();
             this.autocompleteText = null;
         }
-        
+
         // Create a fresh border
         const boxStyle = this.getInputBoxStyle();
         this.inputTextBorder = this.add.graphics();
@@ -798,26 +811,35 @@ export default class BaseGameScene extends Phaser.Scene {
             textBoxY,
             this.uiBoxWidth,
             textBoxHeight,
-            boxStyle.cornerRadius
+            s.scaleValue(boxStyle.cornerRadius)
         ).setDepth(19);
-        
+
         if (boxStyle.hasOutline) {
-            this.inputTextBorder.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.inputTextBorder.lineStyle(
+                s.scaleValue(boxStyle.outlineWidth),
+                boxStyle.outlineColor,
+                1
+            );
             this.inputTextBorder.strokeRoundedRect(
                 this.cameras.main.centerX - this.uiBoxWidth / 2,
                 textBoxY,
                 this.uiBoxWidth,
                 textBoxHeight,
-                boxStyle.cornerRadius
+                s.scaleValue(boxStyle.cornerRadius)
             ).setDepth(20);
         }
-        
+
         // Create a single text object with enhanced styling capabilities
         const textStyle = {
             ...this.getInputTextStyle(),
+            fontSize: s.scaleText(
+                this.getInputTextStyle().fontSize
+                    ? parseInt(this.getInputTextStyle().fontSize)
+                    : 22
+            ) + "px",
             wordWrap: { width: this.uiBoxWidth - padding * 2 }
         };
-        
+
         // Create with simple initial content to ensure proper initialization
         this.inputText = this.add.rexBBCodeText(
             this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
@@ -825,21 +847,20 @@ export default class BaseGameScene extends Phaser.Scene {
             "_",
             textStyle
         ).setOrigin(0, 0);
-        
+
         // Ensure visibility and proper depth
         this.inputText.setVisible(true).setDepth(25);
-        
+
         // Reset user input
-        this.userInput = '';
-        
+        this.userInput = "";
+
         // Force an immediate cursor update to ensure text is visible
         this.cursorVisible = true;
-      
 
         this.updateCursor();
 
         // Trigger suggestions for empty input immediately
-        this.generateAISuggestions('');
+        this.generateAISuggestions("");
 
         // Set up input handlers after text objects are created
         this.setupInputHandlers();
@@ -2007,128 +2028,131 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.wordCountDisplay) {
             this.wordCountDisplay.destroy();
         }
-        
-        // Create container for word count display
-        this.wordCountDisplay = this.add.container(0, 0).setDepth(55);
-        
-        const padding = 20;
-        const boxWidth = 200;
-        const boxHeight = 130; // Increased height to accommodate streak counter
-        const cornerRadius = 10;
-        
+
+        // Use scaling manager for responsive sizing
+        const s = this.scaling;
+        // Responsive values
+        const padding = s.scaleValue(20);
+        const boxWidth = s.scaleValue(200);
+        const boxHeight = s.scaleValue(130);
+        const cornerRadius = s.scaleValue(10);
+
         // Position in the upper right corner, mirroring the mode badge position
         const displayX = this.cameras.main.width - boxWidth - padding;
         const displayY = this.menuBarHeight + padding;
-        
+
+        // Create container for word count display
+        this.wordCountDisplay = this.add.container(0, 0).setDepth(55);
+
         // Create background
         const background = this.add.graphics();
         background.fillStyle(0x000000, 0.7);
         background.fillRoundedRect(0, 0, boxWidth, boxHeight, cornerRadius);
         background.lineStyle(2, 0xffffff, 0.5);
         background.strokeRoundedRect(0, 0, boxWidth, boxHeight, cornerRadius);
-        
+
         // Word count title
         const titleText = this.add.text(
-            boxWidth / 2, 
-            15, 
-            "WORD STATS", 
+            boxWidth / 2,
+            s.scaleValue(15),
+            "WORD STATS",
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '16px',
+                fontSize: s.scaleText(16) + 'px',
                 fontStyle: 'bold',
                 fill: '#ffffff'
             }
         ).setOrigin(0.5);
-        
+
         // Create icons for different word types
-        const originalIcon = this.add.circle(20, 40, 6, this.design.PROGRESS_BAR.COLORS.SUCCESS);
+        const originalIcon = this.add.circle(s.scaleValue(20), s.scaleValue(40), s.scaleValue(6), this.design.PROGRESS_BAR.COLORS.SUCCESS);
         const originalLabel = this.add.text(
-            35, 40, 
-            "Original Words:", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            s.scaleValue(35), s.scaleValue(40),
+            "Original Words:",
+            { fontFamily: 'IBM Plex Mono', fontSize: s.scaleText(14) + 'px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
-        
+
         this.originalCountText = this.add.text(
-            boxWidth - 15, 40, 
-            "0", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '16px', fontStyle: 'bold', fill: '#7cfc00' }
+            boxWidth - s.scaleValue(15), s.scaleValue(40),
+            "0",
+            { fontFamily: 'IBM Plex Mono', fontSize: s.scaleText(16) + 'px', fontStyle: 'bold', fill: '#7cfc00' }
         ).setOrigin(1, 0.5);
-        
-        const aiIcon = this.add.circle(20, 65, 6, 0xff3366); // Red color to match the AI counter
+
+        const aiIcon = this.add.circle(s.scaleValue(20), s.scaleValue(65), s.scaleValue(6), 0xff3366);
         const aiLabel = this.add.text(
-            35, 65, 
-            "AI Words:", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            s.scaleValue(35), s.scaleValue(65),
+            "AI Words:",
+            { fontFamily: 'IBM Plex Mono', fontSize: s.scaleText(14) + 'px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
-        
+
         this.aiCountText = this.add.text(
-            boxWidth - 15, 65, 
-            "0", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '16px', fontStyle: 'bold', fill: '#ff3366' }
+            boxWidth - s.scaleValue(15), s.scaleValue(65),
+            "0",
+            { fontFamily: 'IBM Plex Mono', fontSize: s.scaleText(16) + 'px', fontStyle: 'bold', fill: '#ff3366' }
         ).setOrigin(1, 0.5);
-        
+
         // Streak counter (third row)
         const streakColor = this.getStreakColor(this.wordStreak);
-        const streakIcon = this.add.circle(20, 90, 6, streakColor);
+        const streakIcon = this.add.circle(s.scaleValue(20), s.scaleValue(90), s.scaleValue(6), streakColor);
         const streakLabel = this.add.text(
-            35, 90,
+            s.scaleValue(35), s.scaleValue(90),
             "Current Streak:",
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: s.scaleText(14) + 'px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
-        
+
         this.streakText = this.add.text(
-            boxWidth - 15, 90,
+            boxWidth - s.scaleValue(15), s.scaleValue(90),
             `${this.wordStreak}`,
-            { 
-                fontFamily: 'IBM Plex Mono', 
-                fontSize: '16px', 
-                fontStyle: 'bold', 
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: s.scaleText(16) + 'px',
+                fontStyle: 'bold',
                 fill: '#' + streakColor.toString(16).padStart(6, '0')
             }
         ).setOrigin(1, 0.5);
-        
+
         // Max streak (fourth row)
-        const maxStreakIcon = this.add.circle(20, 115, 6, 0xffd700); // Gold color for max streak
+        const maxStreakIcon = this.add.circle(s.scaleValue(20), s.scaleValue(115), s.scaleValue(6), 0xffd700);
         const maxStreakLabel = this.add.text(
-            35, 115,
+            s.scaleValue(35), s.scaleValue(115),
             "Best Streak:",
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            { fontFamily: 'IBM Plex Mono', fontSize: s.scaleText(14) + 'px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
-        
+
         this.maxStreakText = this.add.text(
-            boxWidth - 15, 115,
+            boxWidth - s.scaleValue(15), s.scaleValue(115),
             `${this.maxWordStreak}`,
-            { 
-                fontFamily: 'IBM Plex Mono', 
-                fontSize: '16px', 
-                fontStyle: 'bold', 
-                fill: '#ffd700' 
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: s.scaleText(16) + 'px',
+                fontStyle: 'bold',
+                fill: '#ffd700'
             }
         ).setOrigin(1, 0.5);
-        
+
         // Add all elements to the container
         this.wordCountDisplay.add([
-            background, 
-            titleText, 
+            background,
+            titleText,
             originalIcon, originalLabel, this.originalCountText,
             aiIcon, aiLabel, this.aiCountText,
             streakIcon, streakLabel, this.streakText,
             maxStreakIcon, maxStreakLabel, this.maxStreakText
         ]);
-        
+
         // Position the container
         this.wordCountDisplay.setPosition(displayX, displayY);
-        
+
         // Add subtle animation
         this.tweens.add({
             targets: this.wordCountDisplay,
-            y: displayY - 3,
+            y: displayY - s.scaleValue(3),
             duration: 2000,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.InOut'
         });
-        
+
         // Store a reference to the streak icon to update its color
         this.streakIcon = streakIcon;
     }
