@@ -89,32 +89,23 @@ export default class SceneTransitionManager {
      */
     static fadeTransition(fromScene, toSceneKey, sceneData = {}, duration = 800, color = '#000000') {
         console.log("⭐ Starting scene transition from", fromScene.scene.key, "to", toSceneKey);
-
+        
         // Don't allow transition if one is already in progress
         if (fromScene.isTransitioning) {
             console.log("Transition already in progress, aborting");
             return;
         }
-
+        
         fromScene.isTransitioning = true;
-
-        // Ensure isTransitioning is reset if the scene is shutdown or destroyed
-        const resetTransitionFlag = () => {
-            fromScene.isTransitioning = false;
-            fromScene.events.off('shutdown', resetTransitionFlag);
-            fromScene.events.off('destroy', resetTransitionFlag);
-        };
-        fromScene.events.on('shutdown', resetTransitionFlag);
-        fromScene.events.on('destroy', resetTransitionFlag);
-
+        
         // Create an overlay for the transition that covers everything
         const overlay = fromScene.add.rectangle(
-            0, 0,
+            0, 0, 
             fromScene.cameras.main.width,
             fromScene.cameras.main.height,
             Phaser.Display.Color.HexStringToColor(color).color
         ).setOrigin(0).setDepth(9999).setAlpha(0);
-
+        
         // Add dramatic wipe effect - starts at full width but zero height
         const wipeEffect = fromScene.add.rectangle(
             0, 0,
@@ -122,7 +113,7 @@ export default class SceneTransitionManager {
             0,
             0xffffff
         ).setOrigin(0).setDepth(9998).setAlpha(0.2);
-
+        
         // First animate the wipe effect downward
         fromScene.tweens.add({
             targets: wipeEffect,
@@ -139,24 +130,13 @@ export default class SceneTransitionManager {
                     onComplete: () => {
                         // Remove the wipe effect once overlay is visible
                         wipeEffect.destroy();
-
+                        
                         // Start the new scene (replaces old scene and passes data)
                         fromScene.scene.start(toSceneKey, sceneData);
-                        resetTransitionFlag();
+                        fromScene.isTransitioning = false;
                         console.log("⭐ Transition complete");
                     }
                 });
-            }
-        });
-
-        // Failsafe: ensure isTransitioning is reset after a timeout
-        fromScene.time.delayedCall(duration * 2, () => {
-            if (fromScene.isTransitioning) {
-                console.warn("Fade transition timeout fallback triggered, resetting isTransitioning");
-                resetTransitionFlag();
-                if (typeof this.showRecoveryOverlay === "function") {
-                    this.showRecoveryOverlay(fromScene, toSceneKey, sceneData);
-                }
             }
         });
     }
@@ -176,75 +156,6 @@ export default class SceneTransitionManager {
                 scene.textures.addImage('snapshot', snapshot);
                 resolve();
             });
-        });
-    }
-
-    /**
-     * Show a recovery overlay with a reload button if a transition fails.
-     * @param {Phaser.Scene} scene - The scene to show the overlay on
-     * @param {string} toSceneKey - Key of the scene to transition to (optional)
-     * @param {object} sceneData - Data to pass to the next scene (optional)
-     */
-    static showRecoveryOverlay(scene, toSceneKey, sceneData) {
-        // Prevent multiple overlays
-        if (scene.recoveryOverlayShown) return;
-        scene.recoveryOverlayShown = true;
-
-        // Create a semi-transparent overlay
-        const overlay = scene.add.rectangle(
-            0, 0,
-            scene.cameras.main.width,
-            scene.cameras.main.height,
-            0x000000,
-            0.7
-        ).setOrigin(0).setDepth(10000);
-
-        // Add recovery text
-        const text = scene.add.text(
-            scene.cameras.main.width / 2,
-            scene.cameras.main.height / 2 - 40,
-            "It looks like the game is stuck.\nClick below to reload.",
-            {
-                font: "24px Nunito, Arial, sans-serif",
-                fill: "#fff",
-                align: "center",
-                backgroundColor: "rgba(0,0,0,0.0)",
-                padding: { x: 16, y: 12 }
-            }
-        ).setOrigin(0.5).setDepth(10001);
-
-        // Add reload button
-        const button = scene.add.rectangle(
-            scene.cameras.main.width / 2,
-            scene.cameras.main.height / 2 + 30,
-            200, 50,
-            0xffffff, 1
-        ).setOrigin(0.5).setDepth(10001).setInteractive({ useHandCursor: true });
-
-        const buttonText = scene.add.text(
-            scene.cameras.main.width / 2,
-            scene.cameras.main.height / 2 + 30,
-            "Reload Scene",
-            {
-                font: "22px Nunito, Arial, sans-serif",
-                fill: "#000",
-                align: "center"
-            }
-        ).setOrigin(0.5).setDepth(10002);
-
-        button.on("pointerdown", () => {
-            // Remove overlay and reload scene
-            overlay.destroy();
-            text.destroy();
-            button.destroy();
-            buttonText.destroy();
-            scene.recoveryOverlayShown = false;
-            // Try to restart the scene or reload the page
-            if (toSceneKey) {
-                scene.scene.start(toSceneKey, sceneData || {});
-            } else {
-                window.location.reload();
-            }
         });
     }
     
@@ -331,16 +242,16 @@ export default class SceneTransitionManager {
                 // Clear previous frame
                 wipeGraphics.clear();
                 neonTrail.clear();
-
+                
                 // Update progress
                 progress += diagonalLength / (duration * 0.6 / 20);
-
+                
                 // Calculate endpoints of the diagonal line
                 const x1 = progress * cos < 0 ? 0 : Math.min(progress * cos, width);
                 const y1 = progress * sin < 0 ? 0 : Math.min(progress * sin, height);
                 const x2 = x1 - height * sin;
                 const y2 = y1 + height * cos;
-
+                
                 // Draw main wipe
                 wipeGraphics.fillStyle(trailColor, 0.9);
                 wipeGraphics.beginPath();
@@ -350,21 +261,21 @@ export default class SceneTransitionManager {
                 wipeGraphics.lineTo(0, height);
                 wipeGraphics.closePath();
                 wipeGraphics.fill();
-
+                
                 // Draw neon trail
                 neonTrail.lineStyle(6, trailColor, 0.8);
                 neonTrail.beginPath();
                 neonTrail.moveTo(x1, y1);
                 neonTrail.lineTo(x2, y2);
                 neonTrail.strokePath();
-
+                
                 // Add glow
                 neonTrail.lineStyle(12, trailColor, 0.3);
                 neonTrail.beginPath();
                 neonTrail.moveTo(x1, y1);
                 neonTrail.lineTo(x2, y2);
                 neonTrail.strokePath();
-
+                
                 // Position particle emitter along the line
                 const emitX = x1 + (x2 - x1) * 0.5;
                 const emitY = y1 + (y2 - y1) * 0.5;
@@ -376,7 +287,7 @@ export default class SceneTransitionManager {
                 wipeGraphics.destroy();
                 neonTrail.destroy();
                 particles.destroy();
-
+                
                 // Fade in full overlay
                 fromScene.tweens.add({
                     targets: overlay,
@@ -390,17 +301,6 @@ export default class SceneTransitionManager {
                         console.log("⭐ Diagonal wipe transition complete");
                     }
                 });
-            }
-        });
-
-        // Failsafe: ensure isTransitioning is reset after a timeout
-        fromScene.time.delayedCall(duration * 2, () => {
-            if (fromScene.isTransitioning) {
-                console.warn("Diagonal wipe transition timeout fallback triggered, resetting isTransitioning");
-                fromScene.isTransitioning = false;
-                if (typeof this.showRecoveryOverlay === "function") {
-                    this.showRecoveryOverlay(fromScene, toSceneKey, sceneData);
-                }
             }
         });
     }
@@ -539,9 +439,6 @@ export default class SceneTransitionManager {
                 if (fromScene.isTransitioning) {
                     console.warn("Transition timeout fallback triggered, resetting isTransitioning");
                     resetTransitionFlag();
-                    if (typeof this.showRecoveryOverlay === "function") {
-                        this.showRecoveryOverlay(fromScene, toSceneKey, sceneData);
-                    }
                 }
             });
         } catch (err) {
@@ -676,9 +573,6 @@ export default class SceneTransitionManager {
                 if (fromScene.isTransitioning) {
                     console.warn("Pixel dissolve transition timeout fallback triggered, resetting isTransitioning");
                     resetTransitionFlag();
-                    if (typeof this.showRecoveryOverlay === "function") {
-                        this.showRecoveryOverlay(fromScene, toSceneKey, sceneData);
-                    }
                 }
             });
         } catch (err) {
