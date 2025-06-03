@@ -5,12 +5,15 @@ import ToggleFactory from "../utils/ToggleFactory.js";
 import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
 import registryManager from "../services/RegistryManager.js";
+import { ScalingManager } from "../config/scaling.js";
 
 
 export default class BaseGameScene extends Phaser.Scene {
     constructor(config) {
         super(config);
         this.resetGameState();
+        // Initialize scaling manager for responsive UI
+        this.scalingManager = null;
     }
 
     /**
@@ -328,15 +331,26 @@ export default class BaseGameScene extends Phaser.Scene {
             console.warn("Input text border not found! Skipping button creation.");
             return;
         }
-        const button = ButtonFactory.createButton(this, label, callback, centerX, centerY);
-        
+        // Ensure scalingManager is initialized
+        if (!this.scalingManager) {
+            this.scalingManager = new ScalingManager(this);
+        }
+        const button = ButtonFactory.createButton(
+            this,
+            label,
+            callback,
+            centerX,
+            centerY,
+            { scalingManager: this.scalingManager }
+        );
+
         if (tooltipText) {
             // Add hover listeners for tooltip
             button.setInteractive()
                 .on('pointerover', () => this.showTooltip(tooltipText, button.x, button.y - button.height))
                 .on('pointerout', () => this.hideTooltips());
         }
-        
+
         return button;
     }
 

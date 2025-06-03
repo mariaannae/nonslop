@@ -3,6 +3,7 @@ import { getTopScores, cleanupOldScores } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
+import { ScalingManager } from "../config/scaling.js";
 
 export default class LeaderboardScene extends Phaser.Scene {
     constructor() {
@@ -31,6 +32,9 @@ export default class LeaderboardScene extends Phaser.Scene {
 
     async create() {
         try {
+            // Initialize scaling manager for responsive UI
+            this.scalingManager = new ScalingManager(this);
+
             console.log("[LeaderboardScene] Step 1: Creating background");
             if (this.mode === "easy") {
                 createBackground(this, THEMES.easy.background, this.levelValue);
@@ -174,7 +178,15 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
 
     createButton(label, callback, centerX, centerY, options = {}) {
-        return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
+        // Ensure scalingManager is passed for responsive sizing
+        return ButtonFactory.createButton(
+            this,
+            label,
+            callback,
+            centerX,
+            centerY,
+            { ...options, scalingManager: this.scalingManager }
+        );
     }
 
     async changeMode(mode) {

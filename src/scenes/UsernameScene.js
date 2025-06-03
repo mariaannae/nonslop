@@ -3,6 +3,7 @@ import { saveHighScore } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { createBackground } from "../backgrounds/createBackground.js";
+import { ScalingManager } from "../config/scaling.js";
 
 export default class UsernameScene extends Phaser.Scene {
     constructor() {
@@ -37,6 +38,9 @@ export default class UsernameScene extends Phaser.Scene {
     create() {
         // Create background
         this.createBackgroundEffect();
+
+        // Initialize scaling manager for responsive UI
+        this.scalingManager = new ScalingManager(this);
 
         // Create title and explanation
         this.createTitle();
@@ -270,7 +274,15 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     createButton(label, callback, centerX, centerY, options = {}) {
-        return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
+        // Ensure scalingManager is passed for responsive sizing
+        return ButtonFactory.createButton(
+            this,
+            label,
+            callback,
+            centerX,
+            centerY,
+            { ...options, scalingManager: this.scalingManager }
+        );
     }
 
     showCongratulations() {

@@ -13,53 +13,69 @@ export default class ButtonFactory {
      * @returns {Phaser.GameObjects.Container} The button container
      */
     static createButton(scene, label, callback, centerX, centerY, options = {}) {
+        // Accept optional scalingManager for responsive sizing
+        const scalingManager = options.scalingManager || null;
+        const cameraWidth = scene.cameras.main.width;
+
+        // Use scalingManager if available, otherwise fallback to DESIGN
+        const buttonWidth = scalingManager
+            ? scalingManager.buttonWidth(cameraWidth)
+            : DESIGN.UI.BUTTON.WIDTH;
+        const buttonHeight = scalingManager
+            ? scalingManager.buttonHeight(buttonWidth)
+            : DESIGN.UI.BUTTON.HEIGHT;
+        const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
+
         // Create button container
         const buttonContainer = scene.add.container(centerX, centerY);
-    
+
         // Button Background
         const buttonBackground = scene.add.graphics();
         buttonBackground.fillStyle(COLORS_HEX.BUTTON.FILL, 1);
         buttonBackground.fillRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
+            -buttonWidth / 2, -buttonHeight / 2,
+            buttonWidth, buttonHeight, buttonCornerRadius
         );
-    
+
         // Button Outline
         const buttonOutline = scene.add.graphics();
         buttonOutline.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         buttonOutline.strokeRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
+            -buttonWidth / 2, -buttonHeight / 2,
+            buttonWidth, buttonHeight, buttonCornerRadius
         );
-    
+
         // Gradient Overlay (Lighter Top)
         const gradientOverlay = scene.add.graphics();
         gradientOverlay.fillStyle(COLORS_HEX.BUTTON.OVERLAY, 0.7);
         gradientOverlay.fillRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT / 2, DESIGN.UI.BUTTON.CORNER_RADIUS
+            -buttonWidth / 2, -buttonHeight / 2,
+            buttonWidth, buttonHeight / 2, buttonCornerRadius
         );
-    
+
         // Highlight Effect (Shiny Reflection)
         const buttonHighlight = scene.add.graphics();
         buttonHighlight.fillStyle(0xffffff, 0.4);
         buttonHighlight.fillRoundedRect(
-            -DESIGN.UI.BUTTON.WIDTH / 2 + 5, -DESIGN.UI.BUTTON.HEIGHT / 2 + 2, 
-            DESIGN.UI.BUTTON.WIDTH - 10, DESIGN.UI.BUTTON.HEIGHT / 3, DESIGN.UI.BUTTON.CORNER_RADIUS
+            -buttonWidth / 2 + 5, -buttonHeight / 2 + 2,
+            buttonWidth - 10, buttonHeight / 3, buttonCornerRadius
         );
 
         // Button Text
+        const fontSize = scalingManager
+            ? `${scalingManager.scaleText(26)}px`
+            : '26px';
         const buttonText = scene.add.text(0, 0, label, {
             fontFamily: 'VT323',
-            fontSize: '26px',
+            fontSize: fontSize,
             fontWeight: "700",
             color: COLORS_TEXT.PRIMARY,
             align: 'center',
             lineSpacing: 10 // Add vertical space between lines
         }).setOrigin(0.5, 0.5);
-    
+
         // Make button interactive
-        buttonContainer.setSize(DESIGN.UI.BUTTON.WIDTH, DESIGN.UI.BUTTON.HEIGHT);
+        buttonContainer.setSize(buttonWidth, buttonHeight);
         buttonContainer.setInteractive();
         buttonContainer.on("pointerdown", () => {
             scene.tweens.add({
@@ -70,10 +86,10 @@ export default class ButtonFactory {
                 yoyo: true,
                 ease: "Quad.Out"
             });
-    
+
             scene.time.delayedCall(100, callback);
         });
-    
+
         // Add to scene
         buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
         scene.add.existing(buttonContainer);
@@ -82,7 +98,7 @@ export default class ButtonFactory {
         if (options.depth !== undefined) {
             buttonContainer.setDepth(options.depth);
         }
-    
+
         return buttonContainer;
     }
 
@@ -98,68 +114,78 @@ export default class ButtonFactory {
      * @returns {Phaser.GameObjects.Container} The button container
      */
     static createFancyButton(scene, label, callback, centerX, offsetX, centerY, options = {}) {
-        // Use provided values or defaults
-        const buttonSize = DESIGN.UI.BUTTON.WIDTH || 
-            Phaser.Math.Clamp(scene.cameras.main.width * 0.1, scene.cameras.main.width * 0.07, 220);
-        const buttonHeight = DESIGN.UI.BUTTON.HEIGHT || buttonSize * 0.35;
-        
+        // Accept optional scalingManager for responsive sizing
+        const scalingManager = options.scalingManager || null;
+        const cameraWidth = scene.cameras.main.width;
+
+        // Use scalingManager if available, otherwise fallback to DESIGN
+        const buttonSize = scalingManager
+            ? scalingManager.buttonWidth(cameraWidth)
+            : DESIGN.UI.BUTTON.WIDTH;
+        const buttonHeight = scalingManager
+            ? scalingManager.buttonHeight(buttonSize)
+            : DESIGN.UI.BUTTON.HEIGHT;
+        const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
+
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
-        const fontSize = `${Math.max(buttonSize * 0.13, 16)}px`;
-        
+        const fontSize = scalingManager
+            ? `${scalingManager.scaleText(26)}px`
+            : `${Math.max(buttonSize * 0.13, 16)}px`;
+
         // Position calculation
         const x = centerX + offsetX;
         const y = centerY;
-    
+
         // White Outline (Bolder)
         const buttonOutline = scene.add.graphics();
         buttonOutline.lineStyle(outlineThickness, 0xffffff, 1);
         buttonOutline.strokeRoundedRect(
-            -buttonSize / 2 - outlineThickness / 2, 
-            -DESIGN.UI.BUTTON.HEIGHT / 2 - outlineThickness / 2, 
-            buttonSize + outlineThickness, 
-            DESIGN.UI.BUTTON.HEIGHT + outlineThickness, 
-            DESIGN.UI.BUTTON.CORNER_RADIUS + 2
+            -buttonSize / 2 - outlineThickness / 2,
+            -buttonHeight / 2 - outlineThickness / 2,
+            buttonSize + outlineThickness,
+            buttonHeight + outlineThickness,
+            buttonCornerRadius + 2
         );
-    
+
         // Button Background (Base Color - Darker)
         const buttonBackground = scene.add.graphics();
         buttonBackground.fillStyle(COLORS_HEX.BUTTON.FILL, 1);
         buttonBackground.fillRoundedRect(
-            -buttonSize / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            buttonSize, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.CORNER_RADIUS
+            -buttonSize / 2, -buttonHeight / 2,
+            buttonSize, buttonHeight, buttonCornerRadius
         );
-    
+
         // Simulated Gradient Overlay (Lighter Top)
         const gradientOverlay = scene.add.graphics();
         gradientOverlay.fillStyle(COLORS_HEX.BUTTON.OVERLAY, 0.6);
         gradientOverlay.fillRoundedRect(
-            -buttonSize / 2, -DESIGN.UI.BUTTON.HEIGHT / 2, 
-            buttonSize, DESIGN.UI.BUTTON.HEIGHT / 2, DESIGN.UI.BUTTON.CORNER_RADIUS
+            -buttonSize / 2, -buttonHeight / 2,
+            buttonSize, buttonHeight / 2, buttonCornerRadius
         );
-    
+
         // Highlight Effect
         const buttonHighlight = scene.add.graphics();
         buttonHighlight.fillStyle(0xffffff, 0.3);
         buttonHighlight.fillRoundedRect(
-            -buttonSize / 2 + 5, 
-            -DESIGN.UI.BUTTON.HEIGHT / 2 + 2, 
-            buttonSize - 10, 
-            DESIGN.UI.BUTTON.HEIGHT / 3, 
-            DESIGN.UI.BUTTON.CORNER_RADIUS
+            -buttonSize / 2 + 5,
+            -buttonHeight / 2 + 2,
+            buttonSize - 10,
+            buttonHeight / 3,
+            buttonCornerRadius
         );
-    
+
         // Button Text
-        const buttonText = scene.add.text(0, 0, `${label}`, { 
+        const buttonText = scene.add.text(0, 0, `${label}`, {
             fontFamily: 'VT323',
             fontSize: fontSize,
             color: COLORS_TEXT.WHITE
         }).setOrigin(0.5, 0.5);
-    
+
         // Group Button Elements
         const buttonContainer = scene.add.container(x, y, [buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
-        buttonContainer.setSize(buttonSize, DESIGN.UI.BUTTON.HEIGHT);
-        
+        buttonContainer.setSize(buttonSize, buttonHeight);
+
         // Start invisible for fade-in if specified
         if (options.fadeIn) {
             buttonContainer.setAlpha(0);
@@ -170,10 +196,10 @@ export default class ButtonFactory {
                 ease: 'Sine.InOut'
             });
         }
-    
+
         // Make Button Interactive
         buttonContainer.setInteractive({ useHandCursor: true });
-    
+
         // Hover Effect (Subtle Scale Up)
         buttonContainer.on('pointerover', () => {
             scene.tweens.add({
@@ -184,7 +210,7 @@ export default class ButtonFactory {
                 ease: 'Quad.Out'
             });
         });
-    
+
         buttonContainer.on('pointerout', () => {
             scene.tweens.add({
                 targets: buttonContainer,
@@ -194,14 +220,14 @@ export default class ButtonFactory {
                 ease: 'Quad.Out'
             });
         });
-    
+
         // Click Animation
         buttonContainer.on('pointerdown', () => {
             buttonContainer.y += 3;
             buttonText.y += 2;
             buttonContainer.x += 3;
             buttonText.x += 2;
-    
+
             scene.time.delayedCall(150, () => {
                 buttonContainer.y -= 3;
                 buttonText.y -= 2;
@@ -210,7 +236,7 @@ export default class ButtonFactory {
                 callback();
             });
         });
-    
+
         return buttonContainer;
     }
 

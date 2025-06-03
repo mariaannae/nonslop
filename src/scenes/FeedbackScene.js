@@ -2,6 +2,7 @@ import { BASIC_COLORS_HEX, EASY_COLORS_HEX, HARD_COLORS_HEX, BASIC_COLORS_TEXT, 
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
+import { ScalingManager } from "../config/scaling.js";
 
 // DESIGN.UI.OUTLINE.WIDTH, DESIGN.UI.OUTLINE.CORNER_RADIUS, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, DESIGN.UI.BUTTON.WIDTH
 
@@ -55,7 +56,15 @@ export default class FeedbackScene extends Phaser.Scene {
 
 
     createButton(label, callback, centerX, centerY, options = {}) {
-        return ButtonFactory.createButton(this, label, callback, centerX, centerY, options);
+        // Ensure scalingManager is passed for responsive sizing
+        return ButtonFactory.createButton(
+            this,
+            label,
+            callback,
+            centerX,
+            centerY,
+            { ...options, scalingManager: this.scalingManager }
+        );
     }
     
     onDoneButtonClick() {
@@ -311,7 +320,10 @@ export default class FeedbackScene extends Phaser.Scene {
 
     async create() {
         this.cameras.main.scrollY = 0;
-        
+
+        // Initialize scaling manager for responsive UI
+        this.scalingManager = new ScalingManager(this);
+
         // Create the appropriate background based on mode
         let backgroundConfig;
         if (this.mode === "easy") {
@@ -321,34 +333,34 @@ export default class FeedbackScene extends Phaser.Scene {
         } else {
             backgroundConfig = THEMES.basic.background;
         }
-        
+
         // Create background with the appropriate theme and level
         createBackground(this, backgroundConfig, this.levelValue);
-    
+
         // Input Box Creation
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         this.createInputTextBox();
         this.createPromptTextBox();
-    
+
         // Ensure visibility and layering explicitly
         this.inputTextBorder.setDepth(100).setAlpha(1).setVisible(true);
         this.inputText.setDepth(101).setAlpha(1).setVisible(true);
-    
+
         // Button positioning correctly relative to input box
         const inputBoxX = this.cameras.main.centerX;
         const inputBoxY = this.cameras.main.centerY;
         const buttonCenterX = inputBoxX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
         const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
         const buttonCenterY = inputBoxY + 170 + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP; // 170 = half height of input box (340/2), configurable gap below
-    
+
         // Now create the button using ButtonFactory
         this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
             depth: 102 // ensure button is visible
         });
-        
+
         this.addButtonClickEffects();
         this.inputActive = false;
-    
+
         // Update cursor explicitly at end
         this.updateCursor();
     }
