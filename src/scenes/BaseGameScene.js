@@ -16,6 +16,23 @@ export default class BaseGameScene extends Phaser.Scene {
         this.scalingManager = null;
     }
 
+    create() {
+        // ...existing create logic...
+
+        // Handle orientation/resize events
+        this.scale.on('resize', (gameSize) => {
+            // If settings popup is open, close and reopen it to reposition/resize
+            if (this.settingsPopup) {
+                this.closeSettingsPopup();
+                // Short delay to allow resize to complete before reopening
+                this.time.delayedCall(50, () => {
+                    this.toggleSettingsPopup();
+                });
+            }
+            // Optionally, update other UI elements here if needed
+        });
+    }
+
     /**
      * Reset all relevant game state for a fresh scene start or mode transition.
      * This should be called at the start of every scene's create().
