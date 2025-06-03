@@ -152,11 +152,9 @@ export default class SceneTransitionManager {
         // Failsafe: ensure isTransitioning is reset after a timeout
         fromScene.time.delayedCall(duration * 2, () => {
             if (fromScene.isTransitioning) {
-                console.warn("Fade transition timeout fallback triggered, resetting isTransitioning");
+                console.warn("Fade transition timeout fallback triggered, forcing immediate scene start");
                 resetTransitionFlag();
-                if (typeof this.showRecoveryOverlay === "function") {
-                    this.showRecoveryOverlay(fromScene, toSceneKey, sceneData);
-                }
+                fromScene.scene.start(toSceneKey, sceneData);
             }
         });
     }
@@ -396,11 +394,9 @@ export default class SceneTransitionManager {
         // Failsafe: ensure isTransitioning is reset after a timeout
         fromScene.time.delayedCall(duration * 2, () => {
             if (fromScene.isTransitioning) {
-                console.warn("Diagonal wipe transition timeout fallback triggered, resetting isTransitioning");
+                console.warn("Diagonal wipe transition timeout fallback triggered, forcing immediate scene start");
                 fromScene.isTransitioning = false;
-                if (typeof this.showRecoveryOverlay === "function") {
-                    this.showRecoveryOverlay(fromScene, toSceneKey, sceneData);
-                }
+                fromScene.scene.start(toSceneKey, sceneData);
             }
         });
     }

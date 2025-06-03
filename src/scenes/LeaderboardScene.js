@@ -30,31 +30,37 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
 
     async create() {
-        // Create background based on mode and level
-        if (this.mode === "easy") {
-            createBackground(this, THEMES.easy.background, this.levelValue);
-        } else {
-            createBackground(this, THEMES.hard.background, this.levelValue);
+        try {
+            console.log("[LeaderboardScene] Step 1: Creating background");
+            if (this.mode === "easy") {
+                createBackground(this, THEMES.easy.background, this.levelValue);
+            } else {
+                createBackground(this, THEMES.hard.background, this.levelValue);
+            }
+
+            console.log("[LeaderboardScene] Step 2: Creating title");
+            this.createTitle();
+
+            console.log("[LeaderboardScene] Step 3: Creating mode toggle");
+            this.createModeToggle();
+
+            console.log("[LeaderboardScene] Step 4: Showing loading indicator");
+            this.showLoadingIndicator();
+
+            console.log("[LeaderboardScene] Step 5: Loading scores");
+            await this.loadScores();
+
+            console.log("[LeaderboardScene] Step 6: Hiding loading indicator and displaying scores");
+            this.hideLoadingIndicator();
+            this.displayScores();
+
+            console.log("[LeaderboardScene] Step 7: Creating back button");
+            this.createBackButton();
+        } catch (error) {
+            console.error("[LeaderboardScene] ERROR during create:", error);
+            this.hideLoadingIndicator();
+            this.showErrorMessage("Error loading leaderboard. Please check your connection and try again.");
         }
-
-        // Create title
-        this.createTitle();
-
-        // Create mode toggle
-        this.createModeToggle();
-
-        // Show loading indicator
-        this.showLoadingIndicator();
-
-        // Load scores
-        await this.loadScores();
-
-        // Hide loading indicator and show scores
-        this.hideLoadingIndicator();
-        this.displayScores();
-
-        // Create back button
-        this.createBackButton();
     }
 
     createBackgroundEffect() {
@@ -245,12 +251,13 @@ export default class LeaderboardScene extends Phaser.Scene {
 
     async loadScores() {
         try {
-            // Get scores for the current mode
+            console.log("[LeaderboardScene] [loadScores] Fetching top scores for mode:", this.mode);
             this.scores = await getTopScores(this.mode, 10);
-            console.log("Loaded scores:", this.scores);
+            console.log("[LeaderboardScene] [loadScores] Loaded scores:", this.scores);
         } catch (error) {
-            console.error("Error loading scores:", error);
+            console.error("[LeaderboardScene] [loadScores] ERROR:", error);
             this.scores = [];
+            this.showErrorMessage("Failed to load scores. Please try again.");
         }
     }
 

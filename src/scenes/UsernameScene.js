@@ -500,75 +500,76 @@ export default class UsernameScene extends Phaser.Scene {
     async submitUsername() {
         // Show loading indicator
         this.showLoadingIndicator();
-        
+
         // Make sure there's a valid username (or use "Anonymous Player")
         const username = this.username.trim() || "Anonymous Player";
-        
+
         // Save the high score with the username
         if (this.scoreData) {
             try {
-                // Add console log to debug score data
-                console.log("About to save score data:", JSON.stringify(this.scoreData));
-                
+                console.log("[submitUsername] Step 1: Preparing score data", JSON.stringify(this.scoreData));
                 this.scoreData.username = username;
-                // Make sure level is set in scoreData (in case it wasn't passed correctly)
                 if (!this.scoreData.level && this.levelValue) {
                     this.scoreData.level = this.levelValue;
                 }
-                
+
+                console.log("[submitUsername] Step 2: Calling saveHighScore");
                 await saveHighScore(this.scoreData);
-                
-                // Navigate to leaderboard with smooth transition
+                console.log("[submitUsername] Step 3: saveHighScore complete");
+
                 this.hideLoadingIndicator();
-                
-                // Take a snapshot of current scene before transition
+
+                console.log("[submitUsername] Step 4: Preparing transition snapshot");
                 await SceneTransitionManager.prepareTransition(this);
-                
-                // Use enhanced transition manager with HIGH_SCORE context for a more dramatic effect
-                // This will use a diagonal wipe transition by default for high scores
-                SceneTransitionManager.transition(this, 'LeaderboardScene', 
+                console.log("[submitUsername] Step 5: Snapshot ready, starting transition");
+
+                SceneTransitionManager.transition(this, 'LeaderboardScene',
                     {
                         mode: this.mode,
                         levelValue: this.levelValue,
                         score: this.scoreData?.score
-                    }, 
+                    },
                     SceneTransitionManager.CONTEXT.HIGH_SCORE,
                     {
                         duration: 800,
-                        color: this.mode === 'hard' ? '#400045' : '#004565' // Mode-specific color
+                        color: this.mode === 'hard' ? '#400045' : '#004565'
                     }
                 );
+                console.log("[submitUsername] Step 6: Transition triggered");
             } catch (error) {
-                console.error("Error saving high score:", error);
+                console.error("[submitUsername] ERROR:", error);
                 this.hideLoadingIndicator();
-                this.showErrorMessage();
+                this.showErrorMessage("Error saving score or transitioning. Please check your connection and try again.");
             }
         } else {
-            console.error("No score data found");
+            console.error("[submitUsername] ERROR: No score data found");
             this.hideLoadingIndicator();
-            this.showErrorMessage();
+            this.showErrorMessage("No score data found. Please try again.");
         }
     }
     
     async skipUsername() {
-        // When user chooses to skip, don't save the score at all
-        // and navigate directly to the leaderboard with a different transition effect
-        this.hideLoadingIndicator();
-        
-        // Take a snapshot of current scene before transition
-        await SceneTransitionManager.prepareTransition(this);
-        
-        // Use pixel dissolve transition for skipping (different from submit for contrast)
-        SceneTransitionManager.pixelDissolveTransition(this, 'LeaderboardScene', 
-            {
-                mode: this.mode,
-                levelValue: this.levelValue,
-                score: this.scoreData?.score
-            }, 
-            700, 
-            this.mode === 'hard' ? '#200025' : '#002435',
-            'grid'  // Use grid pattern for pixel dissolve
-        );
+        try {
+            this.hideLoadingIndicator();
+            console.log("[skipUsername] Step 1: Preparing transition snapshot");
+            await SceneTransitionManager.prepareTransition(this);
+            console.log("[skipUsername] Step 2: Snapshot ready, starting pixel dissolve transition");
+
+            SceneTransitionManager.pixelDissolveTransition(this, 'LeaderboardScene',
+                {
+                    mode: this.mode,
+                    levelValue: this.levelValue,
+                    score: this.scoreData?.score
+                },
+                700,
+                this.mode === 'hard' ? '#200025' : '#002435',
+                'grid'
+            );
+            console.log("[skipUsername] Step 3: Transition triggered");
+        } catch (error) {
+            console.error("[skipUsername] ERROR:", error);
+            this.showErrorMessage("Error skipping to leaderboard. Please try again.");
+        }
     }
     
     showLoadingIndicator() {
@@ -620,50 +621,51 @@ export default class UsernameScene extends Phaser.Scene {
         }
     }
     
-    showErrorMessage() {
+    showErrorMessage(message = "Error saving score") {
         const errorContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
-        
+
         // Create a graphics object for the rounded rectangle background
         const bg = this.add.graphics();
         bg.fillStyle(0x000000, 0.8);
         bg.fillRoundedRect(-200, -100, 400, 200, 10);
-        
-        const text = this.add.text(0, -30, 'Error saving score', {
+
+        const text = this.add.text(0, -30, message, {
             fontFamily: 'IBM Plex Mono',
             fontSize: '24px',
             color: '#ff0000',
             fontStyle: 'bold'
         }).setOrigin(0.5);
-        
+
         const subtext = this.add.text(0, 10, 'Please try again or continue without saving.', {
             fontFamily: 'IBM Plex Mono',
             fontSize: '18px',
             color: '#ffffff'
         }).setOrigin(0.5);
-        
+
         const okButton = this.createButton(
             "OK",
             async () => {
                 errorContainer.destroy();
-                
-                // Take a snapshot of current scene before transition
-                await SceneTransitionManager.prepareTransition(this);
-                
-                // Use glitch transition for error scenarios to communicate issues visually
-                SceneTransitionManager.glitchTransition(this, 'LeaderboardScene', 
-                    {
-                        mode: this.mode,
-                        levelValue: this.levelValue,
-                        previousScene: 'DoneScene'
-                    }, 
-                    600, 
-                    '#ff0000',  // Red color for error context
-                    7           // Higher intensity for error glitch effect
-                );
+
+                try {
+                    await SceneTransitionManager.prepareTransition(this);
+                    SceneTransitionManager.glitchTransition(this, 'LeaderboardScene',
+                        {
+                            mode: this.mode,
+                            levelValue: this.levelValue,
+                            previousScene: 'DoneScene'
+                        },
+                        600,
+                        '#ff0000',
+                        7
+                    );
+                } catch (error) {
+                    console.error("[showErrorMessage] ERROR during glitch transition:", error);
+                }
             },
             0, 60
         );
-        
+
         errorContainer.add([bg, text, subtext, okButton]);
         errorContainer.setDepth(100);
     }
