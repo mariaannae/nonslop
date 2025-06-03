@@ -433,32 +433,7 @@ export default class Preloader extends Phaser.Scene {
 
 
         const offset = 150;
-        // === WebGPU Support Check ===
-        if (!navigator.gpu) {
-            this.errorText = this.add.text(screenWidth / 2, margin + 50 + offset, "WebGPU is required but not enabled/supported.", {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: "30px",
-                fontWeight: "500",
-                fill: "#ff0000"
-            });
-            this.errorText.setOrigin(0.5, 0);
-            console.error("WebGPU is required but not enabled/supported.");
-            //return;
-
-            
-            const { os, browser, userAgent } = getUserEnvironmentInfo();
-            if (browser === 'Safari') {
-                
-                const text = "Safari does not natively support WebGPU. We recommend using Chrome for the best experience. You may be able to enable WebGPU for Safari via experimental features.";
-                this.createOutputTextBox(text)
-            }
-            else {
-                const text = "Your browser does not support WebGPU, or WebGPU is not enabled. Please enable WebGPU if possible, or try another browser. We recommend using Chrome for the best experience.";
-                this.createOutputTextBox(text);
-            }
-            saveInteraction("WebGPU load failure", "preloader");
-            return;
-        }
+        // (WebGPU support check removed: no longer required for transformers.js)
 
     
 
