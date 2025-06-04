@@ -17,10 +17,23 @@ import gameOver from "./scenes/gameOver.js";
 
 
 
+function isMobileDevice() {
+    const ua = navigator.userAgent.toLowerCase();
+    const width = window.screen.width;
+    const height = window.screen.height;
+    // Basic check: user agent or small screen
+    return (
+        /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/.test(ua) ||
+        Math.min(width, height) < 800
+    );
+}
+
+const isMobile = isMobileDevice();
+
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: isMobile ? 640 : 1200,
+    height: isMobile ? 1136 : 900,
     scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene, gameOver],
     physics: { default: 'arcade', arcade: { debug: false } },
     plugins: {
@@ -30,20 +43,17 @@ const config = {
             start: true
         }]
     },
-    // Increase rendering resolution
     scale: {
-        mode: Phaser.Scale.FIT, // Scales to fit the screen
-        autoCenter: Phaser.Scale.CENTER_BOTH, // Centers the game in the window
-        width: 1200, // Increase base width
-        height: 900  // Increase base height
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: isMobile ? 640 : 1200,
+        height: isMobile ? 1136 : 900
     },
-
     render: {
-        pixelArt: false,  // Set to true if you want a pixelated effect
-        antialias: true,  // Smooths edges of text and graphics
+        pixelArt: false,
+        antialias: true,
     }
 };
-
 
 const game = new Phaser.Game(config);
 
