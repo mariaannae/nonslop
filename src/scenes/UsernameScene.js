@@ -601,23 +601,21 @@ export default class UsernameScene extends Phaser.Scene {
 
                 this.hideLoadingIndicator();
 
-                console.log("[submitUsername] Step 4: Preparing transition snapshot");
-                await SceneTransitionManager.prepareTransition(this);
-                console.log("[submitUsername] Step 5: Snapshot ready, starting transition");
+            console.log("[submitUsername] Step 4: Preparing transition snapshot");
+            await SceneTransitionManager.prepareTransition(this);
+            console.log("[submitUsername] Step 5: Snapshot ready, starting pixel dissolve transition");
 
-                SceneTransitionManager.transition(this, 'LeaderboardScene',
-                    {
-                        mode: this.mode,
-                        levelValue: this.levelValue,
-                        score: this.scoreData?.score
-                    },
-                    SceneTransitionManager.CONTEXT.HIGH_SCORE,
-                    {
-                        duration: 800,
-                        color: this.mode === 'hard' ? '#400045' : '#004565'
-                    }
-                );
-                console.log("[submitUsername] Step 6: Transition triggered");
+            SceneTransitionManager.pixelDissolveTransition(this, 'LeaderboardScene',
+                {
+                    mode: this.mode,
+                    levelValue: this.levelValue,
+                    score: this.scoreData?.score
+                },
+                700,
+                this.mode === 'hard' ? '#200025' : '#002435',
+                'grid'
+            );
+            console.log("[submitUsername] Step 6: Transition triggered");
             } catch (error) {
                 console.error("[submitUsername] ERROR:", error);
                 this.hideLoadingIndicator();
