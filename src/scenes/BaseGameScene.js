@@ -1398,7 +1398,6 @@ export default class BaseGameScene extends Phaser.Scene {
         // Save level value for settings popup
         this.levelValue = this.levelValue || 1;
 
-        
         // Add Settings button to menu bar using SVG
         const settingsButtonX = this.cameras.main.width - padding - 40;
         const settingsButtonY = menuBarHeight / 2;
@@ -1408,7 +1407,20 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create mode and level indicator in center of menu bar
         const modeText = this.mode === 'hard' ? 'HARD' : 'EASY';
         const indicatorText = `LEVEL ${this.levelValue} | ${modeText}`;
-        
+
+        // Calculate levelModeIndicatorY locally (match logic from createMenuBar)
+        let levelModeIndicatorY;
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        if (isMobile) {
+            const titleY = menuBarHeight / 3;
+            const titleHeight = titleText.height;
+            const bannerHeight = 34;
+            const mobilePadding = 20;
+            levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
+        } else {
+            levelModeIndicatorY = menuBarHeight / 2;
+        }
+
         // Fixed positioning for the center of the menu bar
         const bannerWidth = 180; 
         const bannerHeight = 34;
