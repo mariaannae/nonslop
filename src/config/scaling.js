@@ -9,8 +9,8 @@ export class ScalingManager {
         this.baseWidth = 1000;
         this.baseHeight = 800;
       } else if (this.deviceType === "phone") {
-        this.baseWidth = 720;
-        this.baseHeight = 1180; // Reduced by 100px for mobile
+        this.baseWidth = 640;
+        this.baseHeight = 1080; // Reduced by 100px for mobile
       } else {
         // desktop
         this.baseWidth = 1200;
