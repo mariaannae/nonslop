@@ -158,7 +158,9 @@ export default class UsernameScene extends Phaser.Scene {
             new Phaser.Geom.Rectangle(x, y, width, height),
             Phaser.Geom.Rectangle.Contains
         ).on('pointerdown', () => {
-            // This doesn't actually focus a real input field, but it's a visual cue
+            // Show native HTML input for mobile typing
+            this.showNativeInput(x, y, width, height);
+            // Visual cue for focus
             this.inputBg.clear();
             this.inputBg.fillStyle(0xffffff, 1);
             this.inputBg.fillRoundedRect(x, y, width, height, 10);
@@ -170,6 +172,11 @@ export default class UsernameScene extends Phaser.Scene {
     updateInputText() {
         this.inputText.setText(this.username);
         this.cursor.setPosition(this.inputText.x + this.inputText.width + 2, this.cursor.y);
+
+        // Sync native input if present
+        if (this.nativeInput) {
+            this.nativeInput.value = this.username;
+        }
         
         // Reset cursor blink
         this.cursorVisible = true;
@@ -208,6 +215,63 @@ export default class UsernameScene extends Phaser.Scene {
             }
         };
         this.input.keyboard.on('keydown', this._usernameKeydownHandler);
+    }
+
+    // Native HTML input overlay for mobile typing
+    showNativeInput(x, y, width, height) {
+        // Prevent multiple inputs
+        if (this.nativeInput) return;
+
+        // Create input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = this.username;
+        input.maxLength = 20;
+        input.autocapitalize = 'words';
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.style.position = 'absolute';
+        input.style.left = `${this.scale.gameSize.left + x * this.scale.displayScale.x + this.game.canvas.offsetLeft}px`;
+        input.style.top = `${this.scale.gameSize.top + y * this.scale.displayScale.y + this.game.canvas.offsetTop}px`;
+        input.style.width = `${width * this.scale.displayScale.x}px`;
+        input.style.height = `${height * this.scale.displayScale.y}px`;
+        input.style.fontSize = `${Math.floor(height * 0.6)}px`;
+        input.style.fontFamily = 'IBM Plex Mono, monospace';
+        input.style.background = '#fff';
+        input.style.color = '#000';
+        input.style.border = '2px solid #00ff00';
+        input.style.borderRadius = '10px';
+        input.style.padding = '0 10px';
+        input.style.zIndex = 1000;
+        input.style.outline = 'none';
+        input.style.boxSizing = 'border-box';
+
+        document.body.appendChild(input);
+        input.focus();
+
+        // Sync input to Phaser text
+        input.addEventListener('input', () => {
+            this.username = input.value;
+            this.updateInputText();
+        });
+
+        // Remove input on blur or enter
+        const cleanup = () => {
+            if (this.nativeInput) {
+                document.body.removeChild(this.nativeInput);
+                this.nativeInput = null;
+                this.updateInputText();
+            }
+        };
+        input.addEventListener('blur', cleanup);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                cleanup();
+                this.submitUsername();
+            }
+        });
+
+        this.nativeInput = input;
     }
 
     shutdown() {
@@ -265,11 +329,19 @@ export default class UsernameScene extends Phaser.Scene {
             skipButtonY
         );
         
-        // Add hover effects to buttons
+        // Add hover and touch effects to buttons
         [this.submitButton, this.skipButton].forEach(button => {
-            button.setInteractive()
-                .on('pointerover', () => button.setScale(1.1))
-                .on('pointerout', () => button.setScale(1));
+            button.setInteractive();
+
+            // Desktop: hover effects
+            button.on('pointerover', () => button.setScale(1.1));
+            button.on('pointerout', () => button.setScale(1));
+
+            // Mobile: touch feedback
+            button.on('pointerdown', () => button.setScale(1.15));
+            button.on('pointerup', () => button.setScale(1.1));
+            button.on('pointerout', () => button.setScale(1));
+            button.on('pointercancel', () => button.setScale(1));
         });
     }
 
@@ -318,14 +390,14 @@ export default class UsernameScene extends Phaser.Scene {
     createCelebrationEffect() {
         // Create a star texture dynamically for particles
         this.createStarTexture();
-        
+
         // Create particle emitters for celebration
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        
+
         // Define color palettes for different modes
         let particleTints;
-        
+
         if (this.mode === 'easy') {
             // Purple/pink colors for easy mode
             particleTints = [
@@ -345,54 +417,54 @@ export default class UsernameScene extends Phaser.Scene {
                 0xffcc00   // Deep gold
             ];
         }
-        
+
+        // Mobile effect reduction
+        const deviceType = this.scalingManager?.deviceType || "desktop";
+        const isMobile = deviceType === "phone" || deviceType === "tablet";
+        const mainQuantity = isMobile ? 15 : 30;
+        const mainLifespan = isMobile ? { min: 1800, max: 3000 } : { min: 3000, max: 5000 };
+        const secondaryQuantity = isMobile ? 10 : 20;
+        const secondaryLifespan = isMobile ? { min: 1500, max: 2500 } : { min: 3000, max: 4500 };
+        const thirdQuantity = isMobile ? 7 : 15;
+        const thirdLifespan = isMobile ? { min: 1200, max: 2000 } : { min: 3000, max: 4000 };
+
         // Create a single central point for confetti throwing
-        const centerX = width/2;
-        const centerY = height/2 - 30;
-        
+        const centerX = width / 2;
+        const centerY = height / 2 - 30;
+
         // Create the main thrown confetti effect
         const mainEmitter = this.add.particles(centerX, centerY, 'star', {
-            // Upward initial velocity for thrown effect
             speed: { min: 300, max: 500 },
-            // Angle is mostly upward with some spread
             angle: { min: 230, max: 310 },
-            // Longer lifespan for full arc motion
-            lifespan: { min: 3000, max: 5000 },
-            // Strong gravity to create arcing path
+            lifespan: mainLifespan,
             gravityY: 300,
-            // Initial burst
-            quantity: 30,
+            quantity: mainQuantity,
             frequency: -1,
-            // Good size range for visibility
             scale: { min: 0.3, max: 0.6 },
             alpha: { min: 0.7, max: 1.0 },
-            // Fast rotation for tumbling confetti effect
             rotate: { start: 0, end: 600, ease: 'Sine.easeInOut' },
             tint: particleTints,
             blendMode: 'SCREEN',
-            // Add drag to slow particles naturally
             drag: { x: 20, y: 10 },
-            // Add some turbulence
             accelerationX: { min: -50, max: 50 },
-            // Wide emit cone for hand-thrown appearance
             emitZone: {
                 type: 'random',
                 source: new Phaser.Geom.Circle(0, 0, 15),
-                quantity: 30
+                quantity: mainQuantity
             }
         });
-        
+
         // Explode all at once for thrown appearance
-        mainEmitter.explode(40, 0, 0);
-        
+        mainEmitter.explode(isMobile ? 20 : 40, 0, 0);
+
         // Create a secondary delayed throw
         this.time.delayedCall(200, () => {
             const secondaryEmitter = this.add.particles(centerX + 20, centerY + 10, 'star', {
                 speed: { min: 300, max: 450 },
                 angle: { min: 220, max: 320 },
-                lifespan: { min: 3000, max: 4500 },
+                lifespan: secondaryLifespan,
                 gravityY: 300,
-                quantity: 20,
+                quantity: secondaryQuantity,
                 frequency: -1,
                 scale: { min: 0.25, max: 0.5 },
                 alpha: { min: 0.7, max: 1.0 },
@@ -402,18 +474,18 @@ export default class UsernameScene extends Phaser.Scene {
                 drag: { x: 20, y: 10 },
                 accelerationX: { min: -30, max: 30 }
             });
-            
-            secondaryEmitter.explode(25, 0, 0);
+
+            secondaryEmitter.explode(isMobile ? 12 : 25, 0, 0);
         });
-        
+
         // Add a third burst for more volume
         this.time.delayedCall(400, () => {
             const thirdEmitter = this.add.particles(centerX - 15, centerY - 5, 'star', {
                 speed: { min: 250, max: 400 },
-                angle: { min: 210, max: 330 }, // Wider angle for more spread
-                lifespan: { min: 3000, max: 4000 },
+                angle: { min: 210, max: 330 },
+                lifespan: thirdLifespan,
                 gravityY: 300,
-                quantity: 15,
+                quantity: thirdQuantity,
                 frequency: -1,
                 scale: { min: 0.2, max: 0.5 },
                 alpha: { min: 0.7, max: 1.0 },
@@ -423,33 +495,33 @@ export default class UsernameScene extends Phaser.Scene {
                 drag: { x: 20, y: 10 },
                 accelerationX: { min: -40, max: 40 }
             });
-            
-            thirdEmitter.explode(20, 0, 0);
+
+            thirdEmitter.explode(isMobile ? 8 : 20, 0, 0);
         });
-        
+
         // Add continuous emitters around the edges for sustained effect
         const positions = [
-            { x: width/4, y: height/4 },
-            { x: width*3/4, y: height/4 },
-            { x: width/4, y: height*3/4 - 100 },
-            { x: width*3/4, y: height*3/4 - 100 }
+            { x: width / 4, y: height / 4 },
+            { x: width * 3 / 4, y: height / 4 },
+            { x: width / 4, y: height * 3 / 4 - 100 },
+            { x: width * 3 / 4, y: height * 3 / 4 - 100 }
         ];
-        
+
         positions.forEach(pos => {
             const emitter = this.add.particles(pos.x, pos.y, 'star', {
                 angle: { min: 0, max: 360 },
                 speed: { min: 50, max: 100 },
-                lifespan: { min: 2000, max: 3000 },
+                lifespan: isMobile ? { min: 1000, max: 1800 } : { min: 2000, max: 3000 },
                 gravityY: 40,
                 quantity: 1,
-                frequency: 500,
+                frequency: isMobile ? 900 : 500,
                 scale: { min: 0.3, max: 0.5 },
                 alpha: { min: 0.7, max: 0.9 },
                 rotate: { min: 0, max: 360 },
                 tint: particleTints,
                 blendMode: 'SCREEN'
             });
-            
+
             emitter.particleBringToTop = false;
         });
     }

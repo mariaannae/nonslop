@@ -63,11 +63,20 @@ export class ScalingManager {
     }
 
     buttonWidth(cameraWidth) {
-        return Phaser.Math.Clamp(cameraWidth * 0.1, cameraWidth * 0.07, 220); // 10% of screen width
+        // Fixed size for desktop/tablet, larger for mobile
+        if (this.deviceType === "desktop" || this.deviceType === "tablet") {
+            return 115;
+        } else {
+            return 115;
+        }
     }
 
     buttonHeight(buttonWidth) {
-        return Phaser.Math.Clamp(buttonWidth * 0.4, 40, 80); // 40% of button width
+        if (this.deviceType === "desktop" || this.deviceType === "tablet") {
+            return 40;
+        } else {
+            return 40;
+        }
     }
 
     buttonSpacing(buttonHeight) {

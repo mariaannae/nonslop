@@ -159,8 +159,14 @@ export default class InstructionScene extends Phaser.Scene {
     
     createPromptTextBox() {
         this.promptBoxY = 50;
-    
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+
+        // Match LevelScene: desktop 2/3 width, else original
+        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+        if (isDesktop) {
+            this.uiBoxWidth = this.cameras.main.width * (5 / 6) * (2 / 3);
+        } else {
+            this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        }
         const padding = 40;
     
         // Clear existing prompt box graphics if it exists
@@ -189,7 +195,7 @@ export default class InstructionScene extends Phaser.Scene {
                 fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "left]nter"
+                align: "left"
             }
         ).setOrigin(0.5, 0);
     
@@ -197,7 +203,7 @@ export default class InstructionScene extends Phaser.Scene {
         const textHeight = this.promptText.height + padding * 2;
     
         // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_darkest, 1);
+        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,

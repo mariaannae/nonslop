@@ -195,8 +195,14 @@ export default class LevelScene extends Phaser.Scene {
     
     createPromptTextBox() {
         this.promptBoxY = 80;
-    
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+
+        // Desktop: 2/3 width, else original
+        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+        if (isDesktop) {
+            this.uiBoxWidth = this.cameras.main.width * (5 / 6) * (2 / 3);
+        } else {
+            this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        }
         const padding = 40;
     
         // Clear existing prompt box graphics if it exists
@@ -280,12 +286,18 @@ export default class LevelScene extends Phaser.Scene {
         const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
         const centerY = boxY + boxHeight + outlineWidth / 2 + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
 
-        // Ensure scalingManager is passed for responsive sizing
+        // Use 1.2 * button width spacing for desktop, else original
+        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+        const buttonWidth = this.scalingManager
+            ? this.scalingManager.buttonWidth(this.cameras.main.width)
+            : DESIGN.UI.BUTTON.WIDTH;
+        const buttonOffset = isDesktop ? 1.2 * buttonWidth : DESIGN.UI.BUTTON.WIDTH * 0.85;
+
         const easyButton = ButtonFactory.createButton(
             this, 
             "EASY", 
             () => this.startGame("easy"),
-            centerX - DESIGN.UI.BUTTON.WIDTH * .85,
+            centerX - buttonOffset,
             centerY,
             { scalingManager: this.scalingManager }
         );
@@ -294,7 +306,7 @@ export default class LevelScene extends Phaser.Scene {
             this, 
             "HARD", 
             () => this.startGame("hard"),
-            centerX + DESIGN.UI.BUTTON.WIDTH * .85,
+            centerX + buttonOffset,
             centerY,
             { scalingManager: this.scalingManager }
         );

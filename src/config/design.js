@@ -82,10 +82,21 @@ const hexToString = (hex) => {
 /**
  * Common UI element dimensions and properties
  */
+const isMobileDevice = () => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent.toLowerCase();
+  const width = typeof window !== "undefined" ? window.screen.width : 0;
+  const height = typeof window !== "undefined" ? window.screen.height : 0;
+  return (
+    /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/.test(ua) ||
+    Math.min(width, height) < 800
+  );
+};
+
 const UI = {
   BUTTON: {
-    WIDTH: 115,
-    HEIGHT: 40,
+    WIDTH: isMobileDevice() ? 115 : 77,
+    HEIGHT: isMobileDevice() ? 40 : 27,
     SPACING: 40,
     OUTLINE_WIDTH: 3,
     CORNER_RADIUS: 10,

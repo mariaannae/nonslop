@@ -1322,8 +1322,88 @@ export default class BaseGameScene extends Phaser.Scene {
                     240
                 ),
                 Phaser.Geom.Rectangle.Contains
-            ).setDepth(20);
+            ).setDepth(20)
+            .on('pointerdown', () => {
+                // Show native HTML input for mobile typing
+                this.showNativeInput();
+                // Visual feedback
+                this.createInputBoxClickEffect(
+                    this.cameras.main.centerX,
+                    this.cameras.main.centerY
+                );
+            });
         }
+    }
+
+    // Native HTML input overlay for mobile typing
+    showNativeInput() {
+        // Prevent multiple inputs
+        if (this.nativeInput) return;
+
+        // Calculate input box position and size
+        const padding = 30;
+        const statsBoxWidth = 180;
+        const statsBoxHeight = 130;
+        const statsDisplayY = this.menuBarHeight + padding;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        const promptY = statsBottomEdge + 20;
+        const promptBoxHeight = 80;
+        const promptBottomEdge = promptY + promptBoxHeight;
+        const textBoxY = promptBottomEdge + 20;
+        const textBoxHeight = 240;
+        const textBoxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
+        const textBoxWidth = this.uiBoxWidth;
+
+        // Create input
+        const input = document.createElement('textarea');
+        input.value = this.userInput;
+        input.maxLength = 500;
+        input.autocapitalize = 'sentences';
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.style.position = 'absolute';
+        input.style.left = `${this.scale.gameSize.left + textBoxX * this.scale.displayScale.x + this.game.canvas.offsetLeft}px`;
+        input.style.top = `${this.scale.gameSize.top + textBoxY * this.scale.displayScale.y + this.game.canvas.offsetTop}px`;
+        input.style.width = `${textBoxWidth * this.scale.displayScale.x}px`;
+        input.style.height = `${textBoxHeight * this.scale.displayScale.y}px`;
+        input.style.fontSize = `${Math.floor(textBoxHeight * 0.12)}px`;
+        input.style.fontFamily = 'IBM Plex Mono, monospace';
+        input.style.background = '#fff';
+        input.style.color = '#000';
+        input.style.border = '2px solid #00ff00';
+        input.style.borderRadius = '10px';
+        input.style.padding = '10px';
+        input.style.zIndex = 1000;
+        input.style.outline = 'none';
+        input.style.boxSizing = 'border-box';
+        input.style.resize = 'none';
+
+        document.body.appendChild(input);
+        input.focus();
+
+        // Sync input to Phaser text
+        input.addEventListener('input', () => {
+            this.userInput = input.value;
+            this.updateCursor();
+        });
+
+        // Remove input on blur or Enter
+        const cleanup = () => {
+            if (this.nativeInput) {
+                document.body.removeChild(this.nativeInput);
+                this.nativeInput = null;
+                this.updateCursor();
+            }
+        };
+        input.addEventListener('blur', cleanup);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                cleanup();
+            }
+        });
+
+        this.nativeInput = input;
     }
 
     setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, { menuBar, menuBarBorder, titleText }) {
@@ -1416,18 +1496,38 @@ export default class BaseGameScene extends Phaser.Scene {
         menuBarBorder.fillStyle(style.borderColor, 1);
         menuBarBorder.fillRect(0, menuBarHeight - style.borderWidth, this.cameras.main.width, style.borderWidth);
         
-        const titleText = this.add.text(
-            padding, menuBarHeight / 2,
-            "(NON-SLOP)",
-            style.titleStyle
-        ).setOrigin(0, 0.5);
-        
+        // Mobile: center title and place level|mode below, else original
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        let titleText, levelModeIndicatorY;
+        if (isMobile) {
+            titleText = this.add.text(
+                this.cameras.main.centerX, menuBarHeight / 2 - 18,
+                "(NON-SLOP)",
+                style.titleStyle
+            ).setOrigin(0.5, 0.5);
+            levelModeIndicatorY = menuBarHeight / 2 + 18;
+        } else {
+            titleText = this.add.text(
+                padding, menuBarHeight / 2,
+                "(NON-SLOP)",
+                style.titleStyle
+            ).setOrigin(0, 0.5);
+            levelModeIndicatorY = menuBarHeight / 2;
+        }
+
         const uiElements = {
             menuBar: this.menuBar,
             menuBarBorder: menuBarBorder,
             titleText: titleText
         };
         this.setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, uiElements);
+
+        // Move levelModeIndicator below title on mobile
+        if (this.levelModeIndicator) {
+            this.levelModeIndicator.setX(this.cameras.main.centerX);
+            this.levelModeIndicator.setY(levelModeIndicatorY);
+            this.levelModeIndicator.setOrigin(0.5, 0.5);
+        }
         
         this.menuBarHeight = menuBarHeight;
         this.add.existing(this.menuBar);
