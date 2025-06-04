@@ -1482,7 +1482,7 @@ this.scale.on('resize', (gameSize) => {
         const bannerHeight = 34;
         const bannerX = this.cameras.main.centerX - bannerWidth / 2;
         // Use the same Y as the text, so the rectangle always matches the text position
-        const bannerY = levelModeIndicatorY - bannerHeight / 2;
+        let bannerY = levelModeIndicatorY - bannerHeight / 2;
 if (isMobile) {
     const titleY = menuBarHeight / 3;
     const titleHeight = titleText.height;
@@ -2270,6 +2270,7 @@ const closeBtnFontSize = this.scalingManager
         
         // Create icons for different word types
         const originalIcon = this.add.circle(20, 40, 6, this.design.PROGRESS_BAR.COLORS.SUCCESS);
+        originalIcon.setFillStyle(this.design.PROGRESS_BAR.COLORS.SUCCESS); // Ensure proper fill style
         const originalLabel = this.add.text(
             35, 40, 
             "Original Words:", 
@@ -2283,6 +2284,7 @@ const closeBtnFontSize = this.scalingManager
         ).setOrigin(1, 0.5);
         
         const aiIcon = this.add.circle(20, 65, 6, 0xff3366); // Red color to match the AI counter
+        aiIcon.setFillStyle(0xff3366); // Ensure proper fill style
         const aiLabel = this.add.text(
             35, 65, 
             "AI Words:", 
@@ -2298,6 +2300,7 @@ const closeBtnFontSize = this.scalingManager
         // Streak counter (third row)
         const streakColor = this.getStreakColor(this.wordStreak);
         const streakIcon = this.add.circle(20, 90, 6, streakColor);
+        streakIcon.setFillStyle(streakColor); // Ensure proper fill style
         const streakLabel = this.add.text(
             35, 90,
             "Current Streak:",
@@ -2317,6 +2320,7 @@ const closeBtnFontSize = this.scalingManager
         
         // Max streak (fourth row)
         const maxStreakIcon = this.add.circle(20, 115, 6, 0xffd700); // Gold color for max streak
+        maxStreakIcon.setFillStyle(0xffd700); // Ensure proper fill style
         const maxStreakLabel = this.add.text(
             35, 115,
             "Best Streak:",
@@ -2403,7 +2407,8 @@ const closeBtnFontSize = this.scalingManager
         
         // Update streak icon color
         if (this.streakIcon) {
-            this.streakIcon.fillColor = this.getStreakColor(this.wordStreak);
+            // Use setFillStyle instead of directly assigning to fillColor which is read-only
+            this.streakIcon.setFillStyle(this.getStreakColor(this.wordStreak));
         }
     }
     

@@ -344,6 +344,7 @@ export default class LevelScene extends Phaser.Scene {
         if (isMobile) {
             // On mobile, bypass the LLM engine check and scene transition manager
             // Use direct scene transition to avoid freezing
+
             console.log(`Mobile detected: Starting GameScene in ${difficulty} mode with direct transition...`);
             if (difficulty === "hard") {
                 this.scene.start('GameSceneHard', { });
