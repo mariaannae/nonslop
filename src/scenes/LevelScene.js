@@ -338,7 +338,23 @@ export default class LevelScene extends Phaser.Scene {
 
     // === Start Game Function (Handles Difficulty) ===
     startGame(difficulty) {
-        // First check if LLM engine exists
+        // Detect if on mobile device - skip transitions for mobile
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        
+        if (isMobile) {
+            // On mobile, bypass the LLM engine check and scene transition manager
+            // Use direct scene transition to avoid freezing
+            console.log(`Mobile detected: Starting GameScene in ${difficulty} mode with direct transition...`);
+            if (difficulty === "hard") {
+                this.scene.start('GameSceneHard', { });
+            }
+            else if (difficulty === "easy") {
+                this.scene.start('GameSceneEasy', { });
+            }
+            return;
+        }
+        
+        // For desktop, continue with normal flow including engine check
         const llmEngine = registryManager.get('llmEngine');
         
         if (!llmEngine) {

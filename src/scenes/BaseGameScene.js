@@ -225,14 +225,28 @@ this.scale.on('resize', (gameSize) => {
         this.mode = mode; // Set the mode temporarily for the indicator update
         this.updateLevelModeIndicator();
         
+        // Detect mobile device - skip fancy transitions for mobile
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        
+        // Determine target scene
+        const targetScene = mode === 'hard' ? 'GameSceneHard' : 'GameSceneEasy';
+        
+        // For mobile devices, use direct scene transition without effects
+        if (isMobile) {
+            console.log(`Mobile detected: Switching to ${mode} mode with direct transition`);
+            // Prepare for scene transition by cleaning up resources
+            this.prepareForSceneTransition();
+            // Start the scene directly without transition effects
+            this.scene.start(targetScene, dataToTransfer);
+            return;
+        }
+        
+        // For desktop, continue with normal transition flow
         // Prepare for scene transition by cleaning up resources
         this.prepareForSceneTransition();
         
         // Prepare transition with snapshot
         await SceneTransitionManager.prepareTransition(this);
-        
-        // Determine target scene
-        const targetScene = mode === 'hard' ? 'GameSceneHard' : 'GameSceneEasy';
         
         // Use appropriate transition based on mode
         if (mode === 'hard') {
@@ -550,9 +564,18 @@ this.scale.on('resize', (gameSize) => {
                 score: this.progressPercentage,
             };
             
-            // Use the transition manager for a smooth transition
-            await SceneTransitionManager.prepareTransition(this);
-            SceneTransitionManager.fadeTransition(this, 'DoneScene', sceneData, 500, '#000000');
+            // Detect if on mobile device - skip transitions for mobile
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+            
+            if (isMobile) {
+                // For mobile: direct scene transition without effects to avoid freezing
+                console.log("Mobile detected: Starting DoneScene with direct transition");
+                this.scene.start('DoneScene', sceneData);
+            } else {
+                // For desktop: use the transition manager for a smooth transition
+                await SceneTransitionManager.prepareTransition(this);
+                SceneTransitionManager.fadeTransition(this, 'DoneScene', sceneData, 500, '#000000');
+            }
             
         } catch (error) {
             // Clean up the evaluating text even if there's an error
