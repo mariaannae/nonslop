@@ -406,10 +406,17 @@ export default class BaseGameScene extends Phaser.Scene {
         );
 
         if (tooltipText) {
-            // Add hover listeners for tooltip
-            button.setInteractive()
-                .on('pointerover', () => this.showTooltip(tooltipText, button.x, button.y - button.height))
-                .on('pointerout', () => this.hideTooltips());
+            // Add hover/click listeners for tooltip (desktop: hover, mobile: tap)
+            button.setInteractive();
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+            if (isMobile) {
+                button.on('pointerdown', () => this.showTooltip(tooltipText, button.x, button.y - button.height));
+                button.on('pointerup', () => this.hideTooltips());
+                button.on('pointerout', () => this.hideTooltips());
+            } else {
+                button.on('pointerover', () => this.showTooltip(tooltipText, button.x, button.y - button.height))
+                    .on('pointerout', () => this.hideTooltips());
+            }
         }
 
         return button;
@@ -1865,13 +1872,30 @@ export default class BaseGameScene extends Phaser.Scene {
             this.cameras.main.height,
             0x000000, 0.7
         ).setOrigin(0, 0);
+
+        // Track the pointerup event that opened the popup
+        let lastPopupOpenPointerId = null;
+        let lastPopupOpenTime = null;
+
+        // When opening the popup, record the pointer id and time
+        if (this.input && this.input.activePointer) {
+            lastPopupOpenPointerId = this.input.activePointer.id;
+            lastPopupOpenTime = this.time.now;
+        }
+
         overlay.setInteractive()
-            .on('pointerdown', (pointer) => {
+            .on('pointerup', (pointer) => {
+                // Ignore the pointerup event that opened the popup
+                if (
+                    pointer.id === lastPopupOpenPointerId &&
+                    this.time.now - lastPopupOpenTime < 300
+                ) {
+                    return;
+                }
                 // Only close if clicked outside the popup window
                 const popupBounds = new Phaser.Geom.Rectangle(
                     popupX, popupY, popupWidth, popupHeight
                 );
-                
                 if (!Phaser.Geom.Rectangle.Contains(popupBounds, pointer.x, pointer.y)) {
                     this.closeSettingsPopup();
                 }

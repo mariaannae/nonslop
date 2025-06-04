@@ -29,38 +29,8 @@ export default class ButtonFactory {
         }
         const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
 
-        // Clamp button position to keep it fully visible in the window
-        const cameraHeight = scene.cameras.main.height;
-        let clampedX = centerX;
-        let clampedY = centerY;
-        const left = centerX - buttonWidth / 2;
-        const right = centerX + buttonWidth / 2;
-        const top = centerY - buttonHeight / 2;
-        const bottom = centerY + buttonHeight / 2;
-        let clamped = false;
-        if (left < 0) {
-            clampedX = buttonWidth / 2;
-            clamped = true;
-        } else if (right > cameraWidth) {
-            clampedX = cameraWidth - buttonWidth / 2;
-            clamped = true;
-        }
-        if (top < 0) {
-            clampedY = buttonHeight / 2;
-            clamped = true;
-        } else if (bottom > cameraHeight) {
-            clampedY = cameraHeight - buttonHeight / 2;
-            clamped = true;
-        }
-        if (clamped) {
-            // eslint-disable-next-line no-console
-            console.warn(
-                `[ButtonFactory] Button "${label}" at (${centerX},${centerY}) with size ${buttonWidth}x${buttonHeight} was outside the visible window and was clamped to (${clampedX},${clampedY}).`
-            );
-        }
-
         // Create button container
-        const buttonContainer = scene.add.container(clampedX, clampedY);
+        const buttonContainer = scene.add.container(centerX, centerY);
 
         // Button Background
         const buttonBackground = scene.add.graphics();
@@ -69,11 +39,6 @@ export default class ButtonFactory {
             -buttonWidth / 2, -buttonHeight / 2,
             buttonWidth, buttonHeight, buttonCornerRadius
         );
-
-        // Add invisible interactive hit area rectangle
-        const hitArea = scene.add.rectangle(0, 0, buttonWidth, buttonHeight, 0x000000, 0);
-        hitArea.setOrigin(0.5, 0.5);
-        hitArea.setInteractive({ useHandCursor: true });
 
         // Button Outline
         const buttonOutline = scene.add.graphics();
@@ -101,8 +66,8 @@ export default class ButtonFactory {
 
         // Button Text
         const fontSize = scalingManager
-            ? `${scalingManager.scaleText(28)}px`
-            : '28px';
+            ? `${scalingManager.scaleText(26)}px`
+            : '26px';
         const buttonText = scene.add.text(0, 0, label, {
             fontFamily: 'VT323',
             fontSize: fontSize,
@@ -112,10 +77,10 @@ export default class ButtonFactory {
             lineSpacing: 10 // Add vertical space between lines
         }).setOrigin(0.5, 0.5);
 
-        // Make button interactive: use invisible hit area for all pointer events
+        // Make button interactive
         buttonContainer.setSize(buttonWidth, buttonHeight);
-
-        hitArea.on("pointerdown", () => {
+        buttonContainer.setInteractive();
+        buttonContainer.on("pointerdown", () => {
             scene.tweens.add({
                 targets: buttonContainer,
                 scaleX: 0.95,
@@ -127,15 +92,9 @@ export default class ButtonFactory {
 
             scene.time.delayedCall(100, callback);
         });
-        hitArea.on("pointerover", () => {
-            scene.input.setDefaultCursor("pointer");
-        });
-        hitArea.on("pointerout", () => {
-            scene.input.setDefaultCursor("default");
-        });
 
-        // Add to scene (put hitArea at the bottom so it doesn't cover visuals)
-        buttonContainer.add([hitArea, buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
+        // Add to scene
+        buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
         scene.add.existing(buttonContainer);
 
         // Set any optional depth
@@ -177,8 +136,8 @@ export default class ButtonFactory {
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
         const fontSize = scalingManager
-            ? `${scalingManager.scaleText(28)}px`
-            : `${Math.max(buttonSize * 0.14, 18)}px`;
+            ? `${scalingManager.scaleText(26)}px`
+            : `${Math.max(buttonSize * 0.13, 16)}px`;
 
         // Position calculation
         const x = centerX + offsetX;
@@ -202,11 +161,6 @@ export default class ButtonFactory {
             -buttonSize / 2, -buttonHeight / 2,
             buttonSize, buttonHeight, buttonCornerRadius
         );
-
-        // Add invisible interactive hit area rectangle
-        const hitArea = scene.add.rectangle(0, 0, buttonSize, buttonHeight, 0x000000, 0);
-        hitArea.setOrigin(0.5, 0.5);
-        hitArea.setInteractive({ useHandCursor: true });
 
         // Simulated Gradient Overlay (Lighter Top)
         const gradientOverlay = scene.add.graphics();
@@ -249,8 +203,11 @@ export default class ButtonFactory {
             });
         }
 
-        // Make Button Interactive: use invisible hit area for all pointer events
-        hitArea.on('pointerover', () => {
+        // Make Button Interactive
+        buttonContainer.setInteractive({ useHandCursor: true });
+
+        // Hover Effect (Subtle Scale Up)
+        buttonContainer.on('pointerover', () => {
             scene.tweens.add({
                 targets: buttonContainer,
                 scaleX: 1.1,
@@ -258,10 +215,9 @@ export default class ButtonFactory {
                 duration: 150,
                 ease: 'Quad.Out'
             });
-            scene.input.setDefaultCursor("pointer");
         });
 
-        hitArea.on('pointerout', () => {
+        buttonContainer.on('pointerout', () => {
             scene.tweens.add({
                 targets: buttonContainer,
                 scaleX: 1,
@@ -269,10 +225,10 @@ export default class ButtonFactory {
                 duration: 150,
                 ease: 'Quad.Out'
             });
-            scene.input.setDefaultCursor("default");
         });
 
-        hitArea.on('pointerdown', () => {
+        // Click Animation
+        buttonContainer.on('pointerdown', () => {
             buttonContainer.y += 3;
             buttonText.y += 2;
             buttonContainer.x += 3;
@@ -286,9 +242,6 @@ export default class ButtonFactory {
                 callback();
             });
         });
-
-        // Add to scene (put hitArea at the bottom so it doesn't cover visuals)
-        buttonContainer.addAt(hitArea, 0);
 
         return buttonContainer;
     }

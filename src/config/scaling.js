@@ -1,4 +1,3 @@
-
 // config/scaling.js
 export class ScalingManager {
     constructor(scene) {
@@ -9,8 +8,8 @@ export class ScalingManager {
         this.baseWidth = 1000;
         this.baseHeight = 800;
       } else if (this.deviceType === "phone") {
-        this.baseWidth = 640;
-        this.baseHeight = 1080; // Reduced by 100px for mobile
+        this.baseWidth = 720;
+        this.baseHeight = 1280;
       } else {
         // desktop
         this.baseWidth = 1200;
@@ -65,17 +64,17 @@ export class ScalingManager {
     buttonWidth(cameraWidth) {
         // Fixed size for desktop/tablet, larger for mobile
         if (this.deviceType === "desktop" || this.deviceType === "tablet") {
-            return 127;
+            return 115;
         } else {
-            return 127;
+            return 115;
         }
     }
 
     buttonHeight(buttonWidth) {
         if (this.deviceType === "desktop" || this.deviceType === "tablet") {
-            return 44;
+            return 40;
         } else {
-            return 44;
+            return 40;
         }
     }
 
