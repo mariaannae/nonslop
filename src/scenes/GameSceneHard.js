@@ -317,7 +317,7 @@ export default class GameSceneHard extends BaseGameScene {
     
     // Add a visual mode indicator with a more intense style for hard mode
     addModeIndicator(modeName, color) {
-        const padding = 20;
+const padding = 30;
         const modeIndicator = this.add.container(padding, this.menuBarHeight + padding);
         modeIndicator.setDepth(50);
         
@@ -518,13 +518,13 @@ export default class GameSceneHard extends BaseGameScene {
         // );
         
  
-        this.feedbackButton = this.createButton(
-            "FEEDBACK", 
-            () => this.onFeedbackClick(), 
-            this.design.BUTTON.WIDTH / 2 + padding, 
-            this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding,
-            'Share your feedback'
-        );
+this.feedbackButton = this.createButton(
+    "FEEDBACK", 
+    () => this.onFeedbackClick(), 
+    30 + (this.design.BUTTON.WIDTH / 2), 
+    this.cameras.main.height - 30 - (this.design.BUTTON.HEIGHT / 2),
+    'Share your feedback'
+);
 
         // Mode toggle moved to settings popup
         

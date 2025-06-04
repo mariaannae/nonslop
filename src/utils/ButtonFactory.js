@@ -29,8 +29,38 @@ export default class ButtonFactory {
         }
         const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
 
+        // Clamp button position to keep it fully visible in the window
+        const cameraHeight = scene.cameras.main.height;
+        let clampedX = centerX;
+        let clampedY = centerY;
+        const left = centerX - buttonWidth / 2;
+        const right = centerX + buttonWidth / 2;
+        const top = centerY - buttonHeight / 2;
+        const bottom = centerY + buttonHeight / 2;
+        let clamped = false;
+        if (left < 0) {
+            clampedX = buttonWidth / 2;
+            clamped = true;
+        } else if (right > cameraWidth) {
+            clampedX = cameraWidth - buttonWidth / 2;
+            clamped = true;
+        }
+        if (top < 0) {
+            clampedY = buttonHeight / 2;
+            clamped = true;
+        } else if (bottom > cameraHeight) {
+            clampedY = cameraHeight - buttonHeight / 2;
+            clamped = true;
+        }
+        if (clamped) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[ButtonFactory] Button "${label}" at (${centerX},${centerY}) with size ${buttonWidth}x${buttonHeight} was outside the visible window and was clamped to (${clampedX},${clampedY}).`
+            );
+        }
+
         // Create button container
-        const buttonContainer = scene.add.container(centerX, centerY);
+        const buttonContainer = scene.add.container(clampedX, clampedY);
 
         // Button Background
         const buttonBackground = scene.add.graphics();
@@ -77,9 +107,13 @@ export default class ButtonFactory {
             lineSpacing: 10 // Add vertical space between lines
         }).setOrigin(0.5, 0.5);
 
-        // Make button interactive
+        // Make button interactive (fix: set explicit hit area to cover full button)
         buttonContainer.setSize(buttonWidth, buttonHeight);
-        buttonContainer.setInteractive();
+        buttonContainer.setInteractive(
+            new Phaser.Geom.Rectangle(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight),
+            Phaser.Geom.Rectangle.Contains,
+            { useHandCursor: true }
+        );
         buttonContainer.on("pointerdown", () => {
             scene.tweens.add({
                 targets: buttonContainer,
@@ -203,8 +237,12 @@ export default class ButtonFactory {
             });
         }
 
-        // Make Button Interactive
-        buttonContainer.setInteractive({ useHandCursor: true });
+        // Make Button Interactive (fix: set explicit hit area to cover full button)
+        buttonContainer.setInteractive(
+            new Phaser.Geom.Rectangle(-buttonSize / 2, -buttonHeight / 2, buttonSize, buttonHeight),
+            Phaser.Geom.Rectangle.Contains,
+            { useHandCursor: true }
+        );
 
         // Hover Effect (Subtle Scale Up)
         buttonContainer.on('pointerover', () => {

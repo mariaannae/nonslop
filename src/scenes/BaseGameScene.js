@@ -2555,7 +2555,7 @@ export default class BaseGameScene extends Phaser.Scene {
         settingsIcon.setInteractive({ useHandCursor: true })
             .on('pointerover', () => {
                 settingsIcon.setScale(0.3);
-                this.showTooltip('Settings: \nLevel\nMax AI Words \nMode', settingsIcon.x, settingsIcon.y + 50);
+                this.showTooltip('Settings: \nLevel\nMode', settingsIcon.x, settingsIcon.y + 50);
             })
             .on('pointerout', () => {
                 settingsIcon.setScale(0.25);

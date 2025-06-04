@@ -116,13 +116,13 @@ export default class GameSceneEasy extends BaseGameScene {
             doneButtonY,
             'Submit your text for evaluation'
         );
-        this.feedbackButton = this.createButton(
-            "FEEDBACK", 
-            () => this.onFeedbackClick(), 
-            this.design.BUTTON.WIDTH / 2 + padding, 
-            this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding,
-            'Share your feedback'
-        );
+this.feedbackButton = this.createButton(
+    "FEEDBACK", 
+    () => this.onFeedbackClick(), 
+    30 + (this.design.BUTTON.WIDTH / 2), 
+    this.cameras.main.height - 30 - (this.design.BUTTON.HEIGHT / 2),
+    'Share your feedback'
+);
 
         // Reapply effects and layering
         this.addButtonClickEffects && this.addButtonClickEffects();

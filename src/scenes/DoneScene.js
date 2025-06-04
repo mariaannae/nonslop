@@ -835,14 +835,14 @@ export default class DoneScene extends Phaser.Scene {
             .on('pointerover', () => this.showTooltip("try another prompt", this.doneButton.x, this.doneButton.y - DESIGN.UI.BUTTON.HEIGHT))
             .on('pointerout', () => this.hideTooltips());
 
-        const padding = 20;
-        this.feedbackButton = this.createButton(
-            "FEEDBACK", 
-            () => this.onFeedbackClick(), 
-            DESIGN.UI.BUTTON.WIDTH / 2 + padding, 
-            this.cameras.main.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
-            'Share your feedback'     
-        );
+const padding = 30;
+this.feedbackButton = this.createButton(
+    "FEEDBACK", 
+    () => this.onFeedbackClick(), 
+    30 + (DESIGN.UI.BUTTON.WIDTH / 2), 
+    this.cameras.main.height - 30 - (DESIGN.UI.BUTTON.HEIGHT / 2),
+    'Share your feedback'     
+);
         
         // Test button removed as requested
 
