@@ -340,7 +340,7 @@ export default class Preloader extends Phaser.Scene {
 
 
         //const titleSize = Math.max(this.cameras.main.width * 0.1, 80); // Dynamic font size (10% of screen width, min 80px)
-        const titleSize = 120;
+        const titleSize = 100;
 
         const titleText = this.add.text(screenWidth / 2, screenHeight*.15, "(NON-SLOP)", { 
             fontFamily: 'barcade3d',

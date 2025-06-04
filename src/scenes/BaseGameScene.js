@@ -1413,7 +1413,8 @@ export default class BaseGameScene extends Phaser.Scene {
         const bannerWidth = 180; 
         const bannerHeight = 34;
         const bannerX = this.cameras.main.centerX - bannerWidth / 2;
-        const bannerY = menuBarHeight / 2 - bannerHeight / 2;
+        // Use the same Y as the text, so the rectangle always matches the text position
+        const bannerY = levelModeIndicatorY - bannerHeight / 2;
         
         // Create the banner background as a single graphics object
         this.levelModeBanner = this.add.graphics();
@@ -1433,7 +1434,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create the text with no container - just directly positioned
         this.levelModeIndicator = this.add.text(
             this.cameras.main.centerX,
-            menuBarHeight / 2,
+            levelModeIndicatorY,
             indicatorText,
             {
                 fontFamily: 'IBM Plex Mono',
@@ -2513,7 +2514,12 @@ export default class BaseGameScene extends Phaser.Scene {
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
         // Set icon size relative to menu bar height (e.g., 60%)
-        const iconSize = Math.round(menuBarHeight * 0.6);
+        let iconSize = Math.round(menuBarHeight * 0.6);
+        // Reduce by half on mobile devices
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
+        if (isMobile) {
+            iconSize = Math.round(iconSize / 2);
+        }
         settingsIcon.setDisplaySize(iconSize, iconSize);
 
         // Make the settings icon white
