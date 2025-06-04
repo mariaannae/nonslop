@@ -157,9 +157,18 @@ this.scale.on('resize', (gameSize) => {
     }
 
     update() {
+        // Prevent any engine recovery attempts while shutting down
+        if (this.isShuttingDown) return;
+        
         if (!registryManager.get('llmEngine')) {
             console.warn("LLM Engine missing entirely. Attempting to recover...");
-            registryManager.attemptEngineRecovery();
+            registryManager.attemptEngineRecovery((recoveredEngine) => {
+                if (recoveredEngine) {
+                    console.log("Engine successfully recovered in update cycle");
+                } else {
+                    console.error("Engine recovery failed in update cycle");
+                }
+            });
         }
     }
 
@@ -685,8 +694,19 @@ this.scale.on('resize', (gameSize) => {
         // Minimal logging - only if there's an issue
         if (!llmEngine) {
             if (requestId !== this.suggestionRequestId) return;
-            console.warn("LLM Engine missing. Attempting recovery...");
-            registryManager.attemptEngineRecovery();
+            console.warn("LLM Engine missing in generateAISuggestions. Attempting recovery...");
+            
+            // Mark processing as complete even when engine is missing
+            this.keyProcessingComplete = true;
+            
+            // Try to recover the engine
+            registryManager.attemptEngineRecovery((recoveredEngine) => {
+                if (recoveredEngine && this.userInput === inputAtRequest) {
+                    // If we recovered the engine and the input hasn't changed, retry
+                    console.log("Engine recovered, retrying suggestion generation");
+                    this.generateAISuggestions(inputAtRequest);
+                }
+            });
             return;
         }
     
@@ -2561,7 +2581,7 @@ const closeBtnFontSize = this.scalingManager
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
         // Set icon size relative to menu bar height (e.g., 60%)
-        let iconSize = Math.round(menuBarHeight * 0.7);
+        let iconSize = Math.round(menuBarHeight * 0.5);
         // Reduce by half on mobile devices
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
         if (isMobile) {

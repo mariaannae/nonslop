@@ -2,6 +2,7 @@ import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIG
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { ScalingManager } from "../config/scaling.js";
+import registryManager from "../services/RegistryManager.js";
 
 //, , DESIGN.UI.BUTTON.WIDTH
 
@@ -337,15 +338,84 @@ export default class LevelScene extends Phaser.Scene {
 
     // === Start Game Function (Handles Difficulty) ===
     startGame(difficulty) {
-        console.log("LLM Engine retrieved from registry:", this.registry.get('llmEngine'));
-
-        console.log(`Starting GameScenein ${difficulty} mode...`);
+        // First check if LLM engine exists
+        const llmEngine = registryManager.get('llmEngine');
+        
+        if (!llmEngine) {
+            console.warn("LLM Engine not found in registry. Attempting recovery...");
+            
+            // Show loading indicator to user
+            this.showLoadingMessage();
+            
+            // Try to recover or initialize the engine
+            registryManager.attemptEngineRecovery((recoveredEngine) => {
+                if (recoveredEngine) {
+                    console.log("Engine recovery successful");
+                    this.hideLoadingMessage();
+                    this.proceedToGameScene(difficulty);
+                } else {
+                    console.error("Engine recovery failed");
+                    this.showEngineErrorMessage();
+                }
+            });
+        } else {
+            console.log("LLM Engine retrieved from registry:", llmEngine);
+            // Engine exists, proceed normally
+            this.proceedToGameScene(difficulty);
+        }
+    }
+    
+    // Helper method to transition to game scene
+    proceedToGameScene(difficulty) {
+        console.log(`Starting GameScene in ${difficulty} mode...`);
         if (difficulty === "hard") {
             this.scene.start('GameSceneHard', { });
         }
         else if (difficulty === "easy") {
             this.scene.start('GameSceneEasy', { });
         }
+    }
+
+    // Helper methods for user feedback
+    showLoadingMessage() {
+        // Create a loading message for the user
+        this.loadingText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY,
+            'Loading game engine...',
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '24px',
+                fill: '#ffffff',
+                backgroundColor: '#000000',
+                padding: { x: 20, y: 10 }
+            }
+        ).setOrigin(0.5).setDepth(1000);
+    }
+
+    hideLoadingMessage() {
+        if (this.loadingText) {
+            this.loadingText.destroy();
+        }
+    }
+
+    showEngineErrorMessage() {
+        this.hideLoadingMessage();
+        
+        // Show error message
+        const errorText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY,
+            'Could not initialize game engine.\nPlease reload the page.',
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '24px',
+                fill: '#ff0000',
+                backgroundColor: '#000000',
+                padding: { x: 20, y: 10 },
+                align: 'center'
+            }
+        ).setOrigin(0.5).setDepth(1000);
     }
 
     async create() {
