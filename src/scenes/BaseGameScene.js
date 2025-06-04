@@ -89,6 +89,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.lastKeyPressed = '';
         this.lastProcessedKey = null;
         this.lastKeyProcessTime = 0;
+        this.recentKeys = []; // Buffer for deduplication: {key, code, timestamp}
         this.activeTimeout = null;
         this.cursorTimer = null;
         this.promptTextBox = null;
@@ -1142,54 +1143,45 @@ export default class BaseGameScene extends Phaser.Scene {
             this.keyEventQueue = []; // Clear any remaining events
             return;
         }
-        
-        // Process events in small batches to improve responsiveness
-        // but still maintain order to prevent duplication
+
         if (this.keyEventQueue.length > 0) {
-            const maxEventsPerBatch = 3; // Process up to 3 events in one batch
-            let eventsProcessed = 0;
-            let lastEvent = null;
-            
-            // Process a small batch of events
-            while (this.keyEventQueue.length > 0 && eventsProcessed < maxEventsPerBatch) {
-                const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
-                
-                // Skip if event is invalid
-                if (!eventToProcess || !eventToProcess.key) {
-                    continue;
-                }
-                
-                // Skip repeated key events of the same key if they happen in quick succession
-                if (this.lastProcessedKey === eventToProcess.key && 
-                    (Date.now() - this.lastKeyProcessTime) < 25) { // Reduced threshold further
-                    continue; // Skip this key and continue to next one
-                }
-                
-                // Skip duplicate keys that appear consecutively in the queue
-                if (lastEvent && lastEvent.key === eventToProcess.key && 
-                    (eventToProcess.timestamp - lastEvent.timestamp) < 30) {
-                    continue; // Skip duplicate key in the batch
-                }
-                
-                // Record this key and time for duplication prevention
-                this.lastProcessedKey = eventToProcess.key;
-                this.lastKeyProcessTime = Date.now();
-                lastEvent = eventToProcess;
-                
+            const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
+
+            // Skip if event is invalid
+            if (!eventToProcess || !eventToProcess.key) {
+                this.isProcessingQueuedKeys = false;
+                this.keyProcessingComplete = true;
+                return;
+            }
+
+            // Deduplication: skip if this key+code was processed in the last 100ms
+            const now = Date.now();
+            const recentWindow = 100; // ms
+            const isDuplicate = this.recentKeys.some(
+                k =>
+                    k.key === eventToProcess.key &&
+                    k.code === eventToProcess.code &&
+                    (now - k.timestamp) < recentWindow
+            );
+            if (isDuplicate) {
+                console.log(`[KEY QUEUE] Skipped duplicate: key=${eventToProcess.key}, code=${eventToProcess.code}, ts=${eventToProcess.timestamp}`);
+            } else {
+                // Add to recentKeys buffer (keep only last 5)
+                this.recentKeys.push({ key: eventToProcess.key, code: eventToProcess.code, timestamp: now });
+                if (this.recentKeys.length > 5) this.recentKeys.shift();
+
                 try {
                     console.log(`[KEY QUEUE] Processing: key=${eventToProcess.key}, code=${eventToProcess.code}, ts=${eventToProcess.timestamp}, queueLen=${this.keyEventQueue.length}`);
                     // Handle the single key event - this immediately updates the display
                     this.handleSingleKeyEvent(eventToProcess);
                 } catch (error) {
                     console.error("Error in handleSingleKeyEvent:", error);
-                    // Continue processing other keys even if one fails
                 }
-                eventsProcessed++;
             }
-        
+
             // Mark as complete right away so UI updates immediately
             this.keyProcessingComplete = true;
-            
+
             // If there are more events to process, schedule another processing frame
             if (this.keyEventQueue.length > 0) {
                 this.time.delayedCall(0, this.processNextEventInQueue, [], this);
@@ -1222,6 +1214,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.lastKeyPressed = '';
         this.lastProcessedKey = null;
         this.lastKeyProcessTime = 0;
+        this.recentKeys = [];
         this.keyEventQueue = [];
         this.isProcessingQueuedKeys = false;
 
