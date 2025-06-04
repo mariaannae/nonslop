@@ -1098,15 +1098,18 @@ export default class BaseGameScene extends Phaser.Scene {
     scheduleAISuggestions() {
         // Use a snapshot of the current input for suggestion generation
         const currentInput = this.userInput;
-        // Only call the debounced function if we have a valid input
-        if (this.debouncedGenerateAISuggestions) {
-            // Don't block UI updates - let suggestions generate in background
-            this.debouncedGenerateAISuggestions(currentInput);
-            
-            // No need to wait for suggestions to finish before processing next key
-            // Let the UI update immediately without waiting
-            this.keyProcessingComplete = true;
+        // Only generate suggestions if the last character is a space or linebreak
+        if (
+            currentInput &&
+            (currentInput.endsWith(' ') || currentInput.endsWith('\n') || currentInput.endsWith('\r'))
+        ) {
+            if (this.debouncedGenerateAISuggestions) {
+                // Don't block UI updates - let suggestions generate in background
+                this.debouncedGenerateAISuggestions(currentInput);
+            }
         }
+        // Let the UI update immediately without waiting
+        this.keyProcessingComplete = true;
     }
 
 

@@ -71,7 +71,7 @@ export default class UsernameScene extends Phaser.Scene {
         // Create a title for entering username
         const titleStyle = {
             fontFamily: 'barcade3d',
-            fontSize: '60px',
+            fontSize: `${this.scalingManager.scaleText(60)}px`,
             color: this.COLORS_TEXT.TITLE,
             align: 'center',
             shadow: {
@@ -93,7 +93,7 @@ export default class UsernameScene extends Phaser.Scene {
         // Add explanation text
         const subtitleStyle = {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '28px',
+            fontSize: `${this.scalingManager.scaleText(28)}px`,
             color: '#ffffff',
             align: 'center'
         };
@@ -126,7 +126,7 @@ export default class UsernameScene extends Phaser.Scene {
             this.username || '',
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
+                fontSize: `${this.scalingManager.scaleText(DESIGN.UI.TEXTBOX_FONT_SIZE)}px`,
                 color: '#000000'
             }
         ).setOrigin(0, 0.5);
@@ -366,7 +366,7 @@ export default class UsernameScene extends Phaser.Scene {
             `Score: ${this.scoreData?.score || 0}`,
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '28px',
+                fontSize: `${this.scalingManager.scaleText(28)}px`,
                 color: '#ffffff',
                 fontStyle: 'bold',
                 stroke: '#000000',
@@ -669,7 +669,7 @@ export default class UsernameScene extends Phaser.Scene {
         
         const text = this.add.text(0, 0, 'Saving...', {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '24px',
+                fontSize: `${this.scalingManager.scaleText(24)}px`,
             color: '#ffffff'
         }).setOrigin(0.5);
         
@@ -713,14 +713,14 @@ export default class UsernameScene extends Phaser.Scene {
 
         const text = this.add.text(0, -30, message, {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '24px',
+            fontSize: `${this.scalingManager.scaleText(24)}px`,
             color: '#ff0000',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
         const subtext = this.add.text(0, 10, 'Please try again or continue without saving.', {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '18px',
+            fontSize: `${this.scalingManager.scaleText(18)}px`,
             color: '#ffffff'
         }).setOrigin(0.5);
 
