@@ -133,14 +133,27 @@ export default class FeedbackScene extends Phaser.Scene {
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
         this.inputTextBorder.setDepth(100).setVisible(true);
-    
+
+        // Make input area interactive for mobile typing
+        this.inputTextBorder.setInteractive(
+            new Phaser.Geom.Rectangle(
+                this.cameras.main.centerX - textBoxWidth / 2,
+                this.cameras.main.centerY - textBoxHeight / 2,
+                textBoxWidth,
+                textBoxHeight
+            ),
+            Phaser.Geom.Rectangle.Contains
+        ).on('pointerdown', () => {
+            this.focusHiddenInput();
+        });
+
         // Input Text
         if (this.inputText) {
             this.inputText.destroy();
         }
         this.userInput = "";
         this.cursorVisible = true;
-    
+
         this.inputText = this.add.text(
             this.cameras.main.centerX - textBoxWidth / 2 + padding,
             this.cameras.main.centerY - textBoxHeight / 2 + padding,
@@ -157,26 +170,12 @@ export default class FeedbackScene extends Phaser.Scene {
         .setAlpha(1)
         .setVisible(true)
         .setDepth(101);  // highest depth clearly above input border
-    
+
         this.inputText.updateText(); // Force redraw explicitly
-    
-        // Keyboard event handler (your existing logic...)
-        this.input.keyboard.removeAllListeners('keyup');
-        this.input.keyboard.on("keyup", (event) => {
-            this.inputActive = true;
-            if (this.activeTimeout) clearTimeout(this.activeTimeout);
-            this.activeTimeout = setTimeout(() => { this.inputActive = false; }, 3000);
-    
-            if (event.key === "Backspace") {
-                this.userInput = this.userInput.slice(0, -1);
-            } else if (event.key === "Enter") {
-                this.userInput += "\n";
-            } else {
-                this.userInput += event.key;
-            }
-            this.updateCursor();
-        });
-    
+
+        // Set up hidden input for mobile typing
+        this.setupHiddenInput();
+
         // Cursor blinking timer
         if (this.cursorTimer) this.cursorTimer.remove();
         this.cursorTimer = this.time.addEvent({
@@ -187,9 +186,54 @@ export default class FeedbackScene extends Phaser.Scene {
                 this.updateCursor();
             }
         });
-    
+
         // Final cursor update
         this.updateCursor();
+    }
+
+    setupHiddenInput() {
+        // Remove any previous input
+        if (this._hiddenInput) {
+            document.body.removeChild(this._hiddenInput);
+            this._hiddenInput = null;
+        }
+        // Create hidden input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.autocapitalize = 'sentences';
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.maxLength = 500;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        input.style.pointerEvents = 'none';
+        input.style.left = '-1000px';
+        input.style.top = '0';
+        input.style.width = '1px';
+        input.style.height = '1px';
+        input.value = this.userInput;
+
+        // Sync input to Phaser text
+        input.addEventListener('input', () => {
+            this.userInput = input.value;
+            this.updateCursor();
+        });
+
+        // On blur, keep value but do nothing else
+        input.addEventListener('blur', () => {
+            this.updateCursor();
+        });
+
+        document.body.appendChild(input);
+        this._hiddenInput = input;
+    }
+
+    focusHiddenInput() {
+        if (!this._hiddenInput) this.setupHiddenInput();
+        this._hiddenInput.value = this.userInput;
+        this._hiddenInput.focus();
+        // Move cursor to end
+        this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
     }
     
     createPromptTextBox() {

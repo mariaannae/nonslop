@@ -1324,86 +1324,61 @@ export default class BaseGameScene extends Phaser.Scene {
                 Phaser.Geom.Rectangle.Contains
             ).setDepth(20)
             .on('pointerdown', () => {
-                // Show native HTML input for mobile typing
-                this.showNativeInput();
-                // Visual feedback
+                this.focusHiddenInput();
                 this.createInputBoxClickEffect(
                     this.cameras.main.centerX,
                     this.cameras.main.centerY
                 );
             });
         }
+        // Set up hidden input for mobile typing
+        this.setupHiddenInput();
     }
 
-    // Native HTML input overlay for mobile typing
-    showNativeInput() {
-        // Prevent multiple inputs
-        if (this.nativeInput) return;
-
-        // Calculate input box position and size
-        const padding = 30;
-        const statsBoxWidth = 180;
-        const statsBoxHeight = 130;
-        const statsDisplayY = this.menuBarHeight + padding;
-        const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        const promptY = statsBottomEdge + 20;
-        const promptBoxHeight = 80;
-        const promptBottomEdge = promptY + promptBoxHeight;
-        const textBoxY = promptBottomEdge + 20;
-        const textBoxHeight = 240;
-        const textBoxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
-        const textBoxWidth = this.uiBoxWidth;
-
-        // Create input
+    // Hidden HTML input for mobile typing (keyboard only, no visible overlay)
+    setupHiddenInput() {
+        // Remove any previous input
+        if (this._hiddenInput) {
+            document.body.removeChild(this._hiddenInput);
+            this._hiddenInput = null;
+        }
+        // Create hidden input
         const input = document.createElement('textarea');
-        input.value = this.userInput;
-        input.maxLength = 500;
         input.autocapitalize = 'sentences';
         input.autocomplete = 'off';
         input.spellcheck = false;
-        input.style.position = 'absolute';
-        input.style.left = `${this.scale.gameSize.left + textBoxX * this.scale.displayScale.x + this.game.canvas.offsetLeft}px`;
-        input.style.top = `${this.scale.gameSize.top + textBoxY * this.scale.displayScale.y + this.game.canvas.offsetTop}px`;
-        input.style.width = `${textBoxWidth * this.scale.displayScale.x}px`;
-        input.style.height = `${textBoxHeight * this.scale.displayScale.y}px`;
-        input.style.fontSize = `${Math.floor(textBoxHeight * 0.12)}px`;
-        input.style.fontFamily = 'IBM Plex Mono, monospace';
-        input.style.background = '#fff';
-        input.style.color = '#000';
-        input.style.border = '2px solid #00ff00';
-        input.style.borderRadius = '10px';
-        input.style.padding = '10px';
-        input.style.zIndex = 1000;
-        input.style.outline = 'none';
-        input.style.boxSizing = 'border-box';
-        input.style.resize = 'none';
+        input.maxLength = 500;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        input.style.pointerEvents = 'none';
+        input.style.left = '-1000px';
+        input.style.top = '0';
+        input.style.width = '1px';
+        input.style.height = '1px';
+        input.value = this.userInput;
 
-        document.body.appendChild(input);
-        input.focus();
-
-        // Sync input to Phaser text
+        // Sync input to Phaser text and autocomplete
         input.addEventListener('input', () => {
             this.userInput = input.value;
             this.updateCursor();
+            this.scheduleAISuggestions();
         });
 
-        // Remove input on blur or Enter
-        const cleanup = () => {
-            if (this.nativeInput) {
-                document.body.removeChild(this.nativeInput);
-                this.nativeInput = null;
-                this.updateCursor();
-            }
-        };
-        input.addEventListener('blur', cleanup);
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                cleanup();
-            }
+        // On blur, keep value but do nothing else
+        input.addEventListener('blur', () => {
+            this.updateCursor();
         });
 
-        this.nativeInput = input;
+        document.body.appendChild(input);
+        this._hiddenInput = input;
+    }
+
+    focusHiddenInput() {
+        if (!this._hiddenInput) this.setupHiddenInput();
+        this._hiddenInput.value = this.userInput;
+        this._hiddenInput.focus();
+        // Move cursor to end
+        this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
     }
 
     setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, { menuBar, menuBarBorder, titleText }) {

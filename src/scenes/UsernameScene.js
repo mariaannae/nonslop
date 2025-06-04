@@ -158,8 +158,7 @@ export default class UsernameScene extends Phaser.Scene {
             new Phaser.Geom.Rectangle(x, y, width, height),
             Phaser.Geom.Rectangle.Contains
         ).on('pointerdown', () => {
-            // Show native HTML input for mobile typing
-            this.showNativeInput(x, y, width, height);
+            this.focusHiddenInput();
             // Visual cue for focus
             this.inputBg.clear();
             this.inputBg.fillStyle(0xffffff, 1);
@@ -167,6 +166,9 @@ export default class UsernameScene extends Phaser.Scene {
             this.inputBg.lineStyle(3, 0x00ff00, 1);
             this.inputBg.strokeRoundedRect(x, y, width, height, 10);
         });
+
+        // Set up hidden input for mobile typing
+        this.setupHiddenInput();
     }
 
     updateInputText() {
@@ -217,37 +219,28 @@ export default class UsernameScene extends Phaser.Scene {
         this.input.keyboard.on('keydown', this._usernameKeydownHandler);
     }
 
-    // Native HTML input overlay for mobile typing
-    showNativeInput(x, y, width, height) {
-        // Prevent multiple inputs
-        if (this.nativeInput) return;
-
-        // Create input
+    // Hidden HTML input for mobile typing (keyboard only, no visible overlay)
+    setupHiddenInput() {
+        // Remove any previous input
+        if (this._hiddenInput) {
+            document.body.removeChild(this._hiddenInput);
+            this._hiddenInput = null;
+        }
+        // Create hidden input
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = this.username;
-        input.maxLength = 20;
         input.autocapitalize = 'words';
         input.autocomplete = 'off';
         input.spellcheck = false;
-        input.style.position = 'absolute';
-        input.style.left = `${this.scale.gameSize.left + x * this.scale.displayScale.x + this.game.canvas.offsetLeft}px`;
-        input.style.top = `${this.scale.gameSize.top + y * this.scale.displayScale.y + this.game.canvas.offsetTop}px`;
-        input.style.width = `${width * this.scale.displayScale.x}px`;
-        input.style.height = `${height * this.scale.displayScale.y}px`;
-        input.style.fontSize = `${Math.floor(height * 0.6)}px`;
-        input.style.fontFamily = 'IBM Plex Mono, monospace';
-        input.style.background = '#fff';
-        input.style.color = '#000';
-        input.style.border = '2px solid #00ff00';
-        input.style.borderRadius = '10px';
-        input.style.padding = '0 10px';
-        input.style.zIndex = 1000;
-        input.style.outline = 'none';
-        input.style.boxSizing = 'border-box';
-
-        document.body.appendChild(input);
-        input.focus();
+        input.maxLength = 20;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        input.style.pointerEvents = 'none';
+        input.style.left = '-1000px';
+        input.style.top = '0';
+        input.style.width = '1px';
+        input.style.height = '1px';
+        input.value = this.username;
 
         // Sync input to Phaser text
         input.addEventListener('input', () => {
@@ -255,23 +248,28 @@ export default class UsernameScene extends Phaser.Scene {
             this.updateInputText();
         });
 
-        // Remove input on blur or enter
-        const cleanup = () => {
-            if (this.nativeInput) {
-                document.body.removeChild(this.nativeInput);
-                this.nativeInput = null;
-                this.updateInputText();
-            }
-        };
-        input.addEventListener('blur', cleanup);
+        // On blur, keep value but do nothing else
+        input.addEventListener('blur', () => {
+            this.updateInputText();
+        });
+
+        // On Enter, submit username
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                cleanup();
                 this.submitUsername();
             }
         });
 
-        this.nativeInput = input;
+        document.body.appendChild(input);
+        this._hiddenInput = input;
+    }
+
+    focusHiddenInput() {
+        if (!this._hiddenInput) this.setupHiddenInput();
+        this._hiddenInput.value = this.username;
+        this._hiddenInput.focus();
+        // Move cursor to end
+        this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
     }
 
     shutdown() {
