@@ -1292,7 +1292,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const settingsButtonX = this.cameras.main.width - padding - 40;
         const settingsButtonY = menuBarHeight / 2;
 
-        this.createSettingsButton(settingsButtonX, settingsButtonY);
+        this.createSettingsButton(settingsButtonX, settingsButtonY, menuBarHeight);
 
         // Create mode and level indicator in center of menu bar
         const modeText = this.mode === 'hard' ? 'HARD' : 'EASY';
@@ -2367,17 +2367,13 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     }
 
-    createSettingsButton(x, y) {
-        // Create settings button using the SVG
+    createSettingsButton(x, y, menuBarHeight) {
+        // Create settings button using the PNG
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
-        // Responsive scale: 5% of camera width, with different clamp for mobile/desktop
-        const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
-        // Use fixed pixel size for mobile/desktop for consistent appearance
-        const iconScale = isMobile
-            ? 32 / 64   // 32px on mobile
-            : 40 / 64;  // 40px on desktop
-        settingsIcon.setScale(iconScale);
+        // Set icon size relative to menu bar height (e.g., 60%)
+        const iconSize = Math.round(menuBarHeight * 0.6);
+        settingsIcon.setDisplaySize(iconSize, iconSize);
 
         // Make the settings icon white
         settingsIcon.setTint(0xffffff);
