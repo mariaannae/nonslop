@@ -399,7 +399,11 @@ export default class gameOver extends Phaser.Scene {
             },
             0, // x will be set later
             0,
-            { depth: 10 }
+            { 
+              depth: 10,
+              width: DESIGN.UI.BUTTON.WIDTH,
+              height: DESIGN.UI.BUTTON.HEIGHT
+            }
         );
         saveBadgeButton.setInteractive()
             .on('pointerover', () => saveBadgeButton.setScale(1.1))
@@ -414,7 +418,11 @@ export default class gameOver extends Phaser.Scene {
             },
             0, // x will be set later
             0,
-            { depth: 10 }
+            { 
+              depth: 10,
+              width: DESIGN.UI.BUTTON.WIDTH,
+              height: DESIGN.UI.BUTTON.HEIGHT
+            }
         );
         playAgainButton.setInteractive()
             .on('pointerover', () => playAgainButton.setScale(1.1))

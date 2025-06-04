@@ -2561,7 +2561,7 @@ const closeBtnFontSize = this.scalingManager
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
         // Set icon size relative to menu bar height (e.g., 60%)
-        let iconSize = Math.round(menuBarHeight * 0.6);
+        let iconSize = Math.round(menuBarHeight * 0.7);
         // Reduce by half on mobile devices
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
         if (isMobile) {
