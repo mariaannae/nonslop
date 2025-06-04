@@ -20,17 +20,17 @@ export default class BaseGameScene extends Phaser.Scene {
         // ...existing create logic...
 
         // Handle orientation/resize events
-this.popupJustOpened = false;
-
-this.scale.on('resize', (gameSize) => {
-    if (this.settingsPopup && !this.popupJustOpened) {
-        this.closeSettingsPopup();
-        this.time.delayedCall(50, () => {
-            this.toggleSettingsPopup();
+        this.scale.on('resize', (gameSize) => {
+            // If settings popup is open, close and reopen it to reposition/resize
+            if (this.settingsPopup) {
+                this.closeSettingsPopup();
+                // Short delay to allow resize to complete before reopening
+                this.time.delayedCall(50, () => {
+                    this.toggleSettingsPopup();
+                });
+            }
+            // Optionally, update other UI elements here if needed
         });
-    }
-    this.popupJustOpened = false;
-});
 
         // Listen for custom-resize event from main.js for aspect ratio changes
         if (this.game && this.game.events) {
@@ -89,7 +89,6 @@ this.scale.on('resize', (gameSize) => {
         this.lastKeyPressed = '';
         this.lastProcessedKey = null;
         this.lastKeyProcessTime = 0;
-        this.recentKeys = []; // Buffer for deduplication: {key, code, timestamp}
         this.activeTimeout = null;
         this.cursorTimer = null;
         this.promptTextBox = null;
@@ -406,28 +405,16 @@ this.scale.on('resize', (gameSize) => {
         );
 
         if (tooltipText) {
-            // Add hover/click listeners for tooltip (desktop: hover, mobile: tap)
-            button.setInteractive();
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-            if (isMobile) {
-                button.on('pointerdown', () => this.showTooltip(tooltipText, button.x, button.y - button.height));
-                button.on('pointerup', () => this.hideTooltips());
-                button.on('pointerout', () => this.hideTooltips());
-            } else {
-                button.on('pointerover', () => this.showTooltip(tooltipText, button.x, button.y - button.height))
-                    .on('pointerout', () => this.hideTooltips());
-            }
+            // Add hover listeners for tooltip
+            button.setInteractive()
+                .on('pointerover', () => this.showTooltip(tooltipText, button.x, button.y - button.height))
+                .on('pointerout', () => this.hideTooltips());
         }
 
         return button;
     }
 
     shakeScreen() {
-        // Haptic feedback for mobile only
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        if (isMobile && "vibrate" in navigator) {
-            navigator.vibrate(100); // Vibrate for 100ms
-        }
         this.cameras.main.shake(250, 0.02); // Shakes for 250ms with intensity 0.02
     }    
 
@@ -1105,18 +1092,15 @@ this.scale.on('resize', (gameSize) => {
     scheduleAISuggestions() {
         // Use a snapshot of the current input for suggestion generation
         const currentInput = this.userInput;
-        // Only generate suggestions if the last character is a space or linebreak
-        if (
-            currentInput &&
-            (currentInput.endsWith(' ') || currentInput.endsWith('\n') || currentInput.endsWith('\r'))
-        ) {
-            if (this.debouncedGenerateAISuggestions) {
-                // Don't block UI updates - let suggestions generate in background
-                this.debouncedGenerateAISuggestions(currentInput);
-            }
+        // Only call the debounced function if we have a valid input
+        if (this.debouncedGenerateAISuggestions) {
+            // Don't block UI updates - let suggestions generate in background
+            this.debouncedGenerateAISuggestions(currentInput);
+            
+            // No need to wait for suggestions to finish before processing next key
+            // Let the UI update immediately without waiting
+            this.keyProcessingComplete = true;
         }
-        // Let the UI update immediately without waiting
-        this.keyProcessingComplete = true;
     }
 
 
@@ -1153,45 +1137,54 @@ this.scale.on('resize', (gameSize) => {
             this.keyEventQueue = []; // Clear any remaining events
             return;
         }
-
+        
+        // Process events in small batches to improve responsiveness
+        // but still maintain order to prevent duplication
         if (this.keyEventQueue.length > 0) {
-            const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
-
-            // Skip if event is invalid
-            if (!eventToProcess || !eventToProcess.key) {
-                this.isProcessingQueuedKeys = false;
-                this.keyProcessingComplete = true;
-                return;
-            }
-
-            // Deduplication: skip if this key+code was processed in the last 100ms
-            const now = Date.now();
-            const recentWindow = 100; // ms
-            const isDuplicate = this.recentKeys.some(
-                k =>
-                    k.key === eventToProcess.key &&
-                    k.code === eventToProcess.code &&
-                    (now - k.timestamp) < recentWindow
-            );
-            if (isDuplicate) {
-                console.log(`[KEY QUEUE] Skipped duplicate: key=${eventToProcess.key}, code=${eventToProcess.code}, ts=${eventToProcess.timestamp}`);
-            } else {
-                // Add to recentKeys buffer (keep only last 5)
-                this.recentKeys.push({ key: eventToProcess.key, code: eventToProcess.code, timestamp: now });
-                if (this.recentKeys.length > 5) this.recentKeys.shift();
-
+            const maxEventsPerBatch = 3; // Process up to 3 events in one batch
+            let eventsProcessed = 0;
+            let lastEvent = null;
+            
+            // Process a small batch of events
+            while (this.keyEventQueue.length > 0 && eventsProcessed < maxEventsPerBatch) {
+                const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
+                
+                // Skip if event is invalid
+                if (!eventToProcess || !eventToProcess.key) {
+                    continue;
+                }
+                
+                // Skip repeated key events of the same key if they happen in quick succession
+                if (this.lastProcessedKey === eventToProcess.key && 
+                    (Date.now() - this.lastKeyProcessTime) < 25) { // Reduced threshold further
+                    continue; // Skip this key and continue to next one
+                }
+                
+                // Skip duplicate keys that appear consecutively in the queue
+                if (lastEvent && lastEvent.key === eventToProcess.key && 
+                    (eventToProcess.timestamp - lastEvent.timestamp) < 30) {
+                    continue; // Skip duplicate key in the batch
+                }
+                
+                // Record this key and time for duplication prevention
+                this.lastProcessedKey = eventToProcess.key;
+                this.lastKeyProcessTime = Date.now();
+                lastEvent = eventToProcess;
+                
                 try {
                     console.log(`[KEY QUEUE] Processing: key=${eventToProcess.key}, code=${eventToProcess.code}, ts=${eventToProcess.timestamp}, queueLen=${this.keyEventQueue.length}`);
                     // Handle the single key event - this immediately updates the display
                     this.handleSingleKeyEvent(eventToProcess);
                 } catch (error) {
                     console.error("Error in handleSingleKeyEvent:", error);
+                    // Continue processing other keys even if one fails
                 }
+                eventsProcessed++;
             }
-
+        
             // Mark as complete right away so UI updates immediately
             this.keyProcessingComplete = true;
-
+            
             // If there are more events to process, schedule another processing frame
             if (this.keyEventQueue.length > 0) {
                 this.time.delayedCall(0, this.processNextEventInQueue, [], this);
@@ -1224,7 +1217,6 @@ this.scale.on('resize', (gameSize) => {
         this.lastKeyPressed = '';
         this.lastProcessedKey = null;
         this.lastKeyProcessTime = 0;
-        this.recentKeys = [];
         this.keyEventQueue = [];
         this.isProcessingQueuedKeys = false;
 
@@ -1332,76 +1324,93 @@ this.scale.on('resize', (gameSize) => {
                 Phaser.Geom.Rectangle.Contains
             ).setDepth(20)
             .on('pointerdown', () => {
-                this.focusHiddenInput();
+                // Show native HTML input for mobile typing
+                this.showNativeInput();
+                // Visual feedback
                 this.createInputBoxClickEffect(
                     this.cameras.main.centerX,
                     this.cameras.main.centerY
                 );
             });
         }
-        // Set up hidden input for mobile typing
-        this.setupHiddenInput();
     }
 
-    // Hidden HTML input for mobile typing (keyboard only, no visible overlay)
-    setupHiddenInput() {
-        // Only create hidden input for mobile devices
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        // Remove any previous input
-        if (this._hiddenInput) {
-            document.body.removeChild(this._hiddenInput);
-            this._hiddenInput = null;
-        }
-        if (!isMobile) {
-            // On desktop, do not create or use hidden input
-            return;
-        }
-        // Create hidden input
+    // Native HTML input overlay for mobile typing
+    showNativeInput() {
+        // Prevent multiple inputs
+        if (this.nativeInput) return;
+
+        // Calculate input box position and size
+        const padding = 30;
+        const statsBoxWidth = 180;
+        const statsBoxHeight = 130;
+        const statsDisplayY = this.menuBarHeight + padding;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        const promptY = statsBottomEdge + 20;
+        const promptBoxHeight = 80;
+        const promptBottomEdge = promptY + promptBoxHeight;
+        const textBoxY = promptBottomEdge + 20;
+        const textBoxHeight = 240;
+        const textBoxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
+        const textBoxWidth = this.uiBoxWidth;
+
+        // Create input
         const input = document.createElement('textarea');
+        input.value = this.userInput;
+        input.maxLength = 500;
         input.autocapitalize = 'sentences';
         input.autocomplete = 'off';
         input.spellcheck = false;
-        input.maxLength = 500;
-        input.style.position = 'fixed';
-        input.style.opacity = '0';
-        input.style.pointerEvents = 'none';
-        input.style.left = '-1000px';
-        input.style.top = '0';
-        input.style.width = '1px';
-        input.style.height = '1px';
-        input.value = this.userInput;
+        input.style.position = 'absolute';
+        input.style.left = `${this.scale.gameSize.left + textBoxX * this.scale.displayScale.x + this.game.canvas.offsetLeft}px`;
+        input.style.top = `${this.scale.gameSize.top + textBoxY * this.scale.displayScale.y + this.game.canvas.offsetTop}px`;
+        input.style.width = `${textBoxWidth * this.scale.displayScale.x}px`;
+        input.style.height = `${textBoxHeight * this.scale.displayScale.y}px`;
+        input.style.fontSize = `${Math.floor(textBoxHeight * 0.12)}px`;
+        input.style.fontFamily = 'IBM Plex Mono, monospace';
+        input.style.background = '#fff';
+        input.style.color = '#000';
+        input.style.border = '2px solid #00ff00';
+        input.style.borderRadius = '10px';
+        input.style.padding = '10px';
+        input.style.zIndex = 1000;
+        input.style.outline = 'none';
+        input.style.boxSizing = 'border-box';
+        input.style.resize = 'none';
 
-        // Sync input to Phaser text and autocomplete
+        document.body.appendChild(input);
+        input.focus();
+
+        // Sync input to Phaser text
         input.addEventListener('input', () => {
             this.userInput = input.value;
             this.updateCursor();
-            this.scheduleAISuggestions();
-            // Ensure updateCursor runs again after suggestions update
-            setTimeout(() => this.updateCursor(), 20);
         });
 
-        // On blur, keep value but do nothing else
-        input.addEventListener('blur', () => {
-            this.updateCursor();
+        // Remove input on blur or Enter
+        const cleanup = () => {
+            if (this.nativeInput) {
+                document.body.removeChild(this.nativeInput);
+                this.nativeInput = null;
+                this.updateCursor();
+            }
+        };
+        input.addEventListener('blur', cleanup);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                cleanup();
+            }
         });
 
-        document.body.appendChild(input);
-        this._hiddenInput = input;
-    }
-
-    focusHiddenInput() {
-        if (!this._hiddenInput) this.setupHiddenInput();
-        if (!this._hiddenInput) return; // Guard: do nothing if still undefined (e.g., desktop)
-        this._hiddenInput.value = this.userInput;
-        this._hiddenInput.focus();
-        // Move cursor to end
-        this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
+        this.nativeInput = input;
     }
 
     setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, { menuBar, menuBarBorder, titleText }) {
         // Save level value for settings popup
         this.levelValue = this.levelValue || 1;
 
+        
         // Add Settings button to menu bar using SVG
         const settingsButtonX = this.cameras.main.width - padding - 40;
         const settingsButtonY = menuBarHeight / 2;
@@ -1411,26 +1420,12 @@ this.scale.on('resize', (gameSize) => {
         // Create mode and level indicator in center of menu bar
         const modeText = this.mode === 'hard' ? 'HARD' : 'EASY';
         const indicatorText = `LEVEL ${this.levelValue} | ${modeText}`;
-
-        // Calculate levelModeIndicatorY locally (match logic from createMenuBar)
-        let levelModeIndicatorY;
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        if (isMobile) {
-            const titleY = menuBarHeight / 3;
-            const titleHeight = titleText.height;
-            const bannerHeight = 34;
-            const mobilePadding = 20;
-            levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
-        } else {
-            levelModeIndicatorY = menuBarHeight / 2;
-        }
-
+        
         // Fixed positioning for the center of the menu bar
         const bannerWidth = 180; 
         const bannerHeight = 34;
         const bannerX = this.cameras.main.centerX - bannerWidth / 2;
-        // Use the same Y as the text, so the rectangle always matches the text position
-        const bannerY = levelModeIndicatorY - bannerHeight / 2;
+        const bannerY = menuBarHeight / 2 - bannerHeight / 2;
         
         // Create the banner background as a single graphics object
         this.levelModeBanner = this.add.graphics();
@@ -1450,7 +1445,7 @@ this.scale.on('resize', (gameSize) => {
         // Create the text with no container - just directly positioned
         this.levelModeIndicator = this.add.text(
             this.cameras.main.centerX,
-            levelModeIndicatorY,
+            menuBarHeight / 2,
             indicatorText,
             {
                 fontFamily: 'IBM Plex Mono',
@@ -1477,7 +1472,7 @@ this.scale.on('resize', (gameSize) => {
         this.topKValue = this.topKValue || 1;
         
         this.tweens.add({
-            targets: [menuBar, menuBarBorder, this.levelModeIndicator],
+            targets: [menuBar, menuBarBorder, titleText, this.levelModeIndicator],
             alpha: 1,
             duration: 800,
             ease: 'Quad.Out'
@@ -1485,8 +1480,7 @@ this.scale.on('resize', (gameSize) => {
     }
 
     createMenuBar() {
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        const menuBarHeight = isMobile ? 200 : 100;
+        const menuBarHeight = 100;
         const padding = 50;
         const rightMargin = 40;
         const gap = 20;
@@ -1503,24 +1497,15 @@ this.scale.on('resize', (gameSize) => {
         menuBarBorder.fillRect(0, menuBarHeight - style.borderWidth, this.cameras.main.width, style.borderWidth);
         
         // Mobile: center title and place level|mode below, else original
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         let titleText, levelModeIndicatorY;
         if (isMobile) {
-            // Position title higher in the menu bar
-            const titleY = menuBarHeight / 3;
             titleText = this.add.text(
-                this.cameras.main.centerX, titleY,
+                this.cameras.main.centerX, menuBarHeight / 2 - 18,
                 "(NON-SLOP)",
                 style.titleStyle
             ).setOrigin(0.5, 0.5);
-
-            // Calculate padding between title and box
-            const mobilePadding = 20;
-            // Estimate title height (Phaser text object has height property)
-            const titleHeight = titleText.height;
-            // Banner height is 34 (from below)
-            const bannerHeight = 34;
-            // Place the box and text below the title with padding
-            levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
+            levelModeIndicatorY = menuBarHeight / 2 + 18;
         } else {
             titleText = this.add.text(
                 padding, menuBarHeight / 2,
@@ -1703,27 +1688,10 @@ this.scale.on('resize', (gameSize) => {
             const centerX = this.cameras.main.centerX;
             const centerY = this.cameras.main.centerY;
 
-            // Detect mobile device
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-
-            // Set scale values based on device type
-            let initialScale, maxScale, burstScale;
-            if (isMobile) {
-                // Smaller clock for mobile
-                initialScale = 0.7;
-                maxScale = 1.2;
-                burstScale = 0.7;
-            } else {
-                // Original values for desktop
-                initialScale = 1.5;
-                maxScale = 2.1;
-                burstScale = 1.5;
-            }
-
             // Add the clock sprite (SVG loaded as 'clock')
             this.clockSprite = this.add.image(centerX, centerY, 'clock')
                 .setOrigin(0.5)
-                .setScale(initialScale)
+                .setScale(1.5)
                 .setAlpha(0)
                 .setDepth(999);
 
@@ -1731,7 +1699,7 @@ this.scale.on('resize', (gameSize) => {
             this.tweens.add({
                 targets: this.clockSprite,
                 alpha: 1,
-                scale: { from: initialScale, to: maxScale },
+                scale: { from: 1.5, to: 2.1 },
                 duration: 220,
                 yoyo: true,
                 repeat: 1,
@@ -1739,7 +1707,7 @@ this.scale.on('resize', (gameSize) => {
                 onComplete: () => {
                     // After flash, explode into red sparks
                     this.clockSprite.setAlpha(0);
-                    this.createRedSparkBurst(centerX, centerY, burstScale);
+                    this.createRedSparkBurst(centerX, centerY, 1.5);
                     // Remove the clock sprite after a short delay
                     this.time.delayedCall(500, () => {
                         if (this.clockSprite) {
@@ -1856,19 +1824,12 @@ this.scale.on('resize', (gameSize) => {
     // Common utility methods
     // Create and show settings popup with Level, Top K sliders and Mode Toggle
     toggleSettingsPopup() {
-    this.popupJustOpened = true;
         if (this.settingsPopup) {
             // If popup exists, close it
             this.closeSettingsPopup();
             return;
         }
         
-        // Create popup window (fixed size, no scalingManager/mobile logic)
-        const popupWidth = 400; // Fixed width
-        const popupHeight = 200; // Fixed height
-        const popupX = this.cameras.main.centerX - popupWidth / 2;
-        const popupY = this.cameras.main.centerY - popupHeight / 2;
-
         // Create popup container
         this.settingsPopup = this.add.container(0, 0).setDepth(100);
         
@@ -1879,23 +1840,32 @@ this.scale.on('resize', (gameSize) => {
             this.cameras.main.height,
             0x000000, 0.7
         ).setOrigin(0, 0);
-        overlay.setInteractive({ useHandCursor: true })
-            .on('pointerdown', (pointer, localX, localY, event) => {
+        overlay.setInteractive()
+            .on('pointerdown', (pointer) => {
                 // Only close if clicked outside the popup window
                 const popupBounds = new Phaser.Geom.Rectangle(
                     popupX, popupY, popupWidth, popupHeight
                 );
-                // On mobile, pointer.x/y are relative to the canvas, but localX/localY are relative to the overlay
-                // Use pointer.x/y for desktop, but fallback to localX/localY for mobile if pointer.x/y are 0
-                const px = pointer.x || (localX + 0);
-                const py = pointer.y || (localY + 0);
-                if (!Phaser.Geom.Rectangle.Contains(popupBounds, px, py)) {
+                
+                if (!Phaser.Geom.Rectangle.Contains(popupBounds, pointer.x, pointer.y)) {
                     this.closeSettingsPopup();
                 }
-                // Always stop propagation to prevent bubbling to other handlers
-                if (event && event.stopPropagation) event.stopPropagation();
             });
         this.settingsPopup.add(overlay);
+        
+        // Create popup window (responsive for mobile)
+        const scalingManager = this.scalingManager;
+        const screenWidth = this.cameras.main.width;
+        const screenHeight = this.cameras.main.height;
+        // Use 65% of width, 40% of height, clamped to min/max
+        const popupWidth = scalingManager
+            ? Phaser.Math.Clamp(scalingManager.widthPercent(65), 220, 400)
+            : Phaser.Math.Clamp(screenWidth * 0.65, 220, 400);
+        const popupHeight = scalingManager
+            ? Phaser.Math.Clamp(scalingManager.heightPercent(30), 135, 260)
+            : Phaser.Math.Clamp(screenHeight * 0.3, 135, 260);
+        const popupX = this.cameras.main.centerX - popupWidth / 2;
+        const popupY = this.cameras.main.centerY - popupHeight / 2;
         
         // Create an interactive rectangle for the popup window
         const popupArea = this.add.rectangle(
@@ -2018,9 +1988,9 @@ this.scale.on('resize', (gameSize) => {
         
         // Close button (mobile-friendly)
         const minTouchSize = 44;
-const closeBtnFontSize = this.scalingManager
-    ? Math.max(this.scalingManager.scaleText(28), 28)
-    : 28;
+        const closeBtnFontSize = scalingManager
+            ? Math.max(scalingManager.scaleText(28), 28)
+            : 28;
 
         const closeBtn = this.add.text(
             popupX + popupWidth - 25,
@@ -2545,12 +2515,7 @@ const closeBtnFontSize = this.scalingManager
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
         // Set icon size relative to menu bar height (e.g., 60%)
-        let iconSize = Math.round(menuBarHeight * 0.6);
-        // Reduce by half on mobile devices
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
-        if (isMobile) {
-            iconSize = Math.round(iconSize / 2);
-        }
+        const iconSize = Math.round(menuBarHeight * 0.6);
         settingsIcon.setDisplaySize(iconSize, iconSize);
 
         // Make the settings icon white
@@ -2560,7 +2525,7 @@ const closeBtnFontSize = this.scalingManager
         settingsIcon.setInteractive({ useHandCursor: true })
             .on('pointerover', () => {
                 settingsIcon.setScale(0.3);
-                this.showTooltip('Settings: \nLevel\nMode', settingsIcon.x, settingsIcon.y + 50);
+                this.showTooltip('Settings: \nLevel\nMax AI Words \nMode', settingsIcon.x, settingsIcon.y + 50);
             })
             .on('pointerout', () => {
                 settingsIcon.setScale(0.25);
