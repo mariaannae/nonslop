@@ -415,6 +415,11 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     shakeScreen() {
+        // Haptic feedback for mobile only
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        if (isMobile && "vibrate" in navigator) {
+            navigator.vibrate(100); // Vibrate for 100ms
+        }
         this.cameras.main.shake(250, 0.02); // Shakes for 250ms with intensity 0.02
     }    
 
@@ -1337,10 +1342,16 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Hidden HTML input for mobile typing (keyboard only, no visible overlay)
     setupHiddenInput() {
+        // Only create hidden input for mobile devices
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         // Remove any previous input
         if (this._hiddenInput) {
             document.body.removeChild(this._hiddenInput);
             this._hiddenInput = null;
+        }
+        if (!isMobile) {
+            // On desktop, do not create or use hidden input
+            return;
         }
         // Create hidden input
         const input = document.createElement('textarea');
@@ -1362,6 +1373,8 @@ export default class BaseGameScene extends Phaser.Scene {
             this.userInput = input.value;
             this.updateCursor();
             this.scheduleAISuggestions();
+            // Ensure updateCursor runs again after suggestions update
+            setTimeout(() => this.updateCursor(), 20);
         });
 
         // On blur, keep value but do nothing else

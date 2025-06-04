@@ -95,8 +95,8 @@ const isMobileDevice = () => {
 
 const UI = {
   BUTTON: {
-    WIDTH: isMobileDevice() ? 115 : 77,
-    HEIGHT: isMobileDevice() ? 40 : 27,
+    WIDTH: isMobileDevice() ? 127 : 85,
+    HEIGHT: isMobileDevice() ? 44 : 30,
     SPACING: 40,
     OUTLINE_WIDTH: 3,
     CORNER_RADIUS: 10,

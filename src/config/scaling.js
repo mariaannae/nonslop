@@ -65,17 +65,17 @@ export class ScalingManager {
     buttonWidth(cameraWidth) {
         // Fixed size for desktop/tablet, larger for mobile
         if (this.deviceType === "desktop" || this.deviceType === "tablet") {
-            return 115;
+            return 127;
         } else {
-            return 115;
+            return 127;
         }
     }
 
     buttonHeight(buttonWidth) {
         if (this.deviceType === "desktop" || this.deviceType === "tablet") {
-            return 40;
+            return 44;
         } else {
-            return 40;
+            return 44;
         }
     }
 

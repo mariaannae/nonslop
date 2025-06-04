@@ -66,8 +66,8 @@ export default class ButtonFactory {
 
         // Button Text
         const fontSize = scalingManager
-            ? `${scalingManager.scaleText(26)}px`
-            : '26px';
+            ? `${scalingManager.scaleText(28)}px`
+            : '28px';
         const buttonText = scene.add.text(0, 0, label, {
             fontFamily: 'VT323',
             fontSize: fontSize,
@@ -136,8 +136,8 @@ export default class ButtonFactory {
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
         const fontSize = scalingManager
-            ? `${scalingManager.scaleText(26)}px`
-            : `${Math.max(buttonSize * 0.13, 16)}px`;
+            ? `${scalingManager.scaleText(28)}px`
+            : `${Math.max(buttonSize * 0.14, 18)}px`;
 
         // Position calculation
         const x = centerX + offsetX;
