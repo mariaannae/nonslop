@@ -31,6 +31,22 @@ export default class BaseGameScene extends Phaser.Scene {
             }
             // Optionally, update other UI elements here if needed
         });
+
+        // Listen for custom-resize event from main.js for aspect ratio changes
+        if (this.game && this.game.events) {
+            this.game.events.on('custom-resize', ({ width, height, isPortrait }) => {
+                // Resize the camera
+                this.cameras.main.setSize(width, height);
+                // Update scaling manager if present
+                if (this.scalingManager) {
+                    this.scalingManager.updateScaleRatios();
+                }
+                // Call a stub for child scenes to reposition/rescale objects
+                if (typeof this.onGameResize === "function") {
+                    this.onGameResize(width, height, isPortrait);
+                }
+            });
+        }
     }
 
     /**
@@ -110,6 +126,33 @@ export default class BaseGameScene extends Phaser.Scene {
         if (typeof console !== "undefined") {
             console.log("[BaseGameScene] resetGameState called");
         }
+    }
+
+    /**
+     * Stub for child scenes to override for custom layout on resize/orientation change.
+     * @param {number} width
+     * @param {number} height
+     * @param {boolean} isPortrait
+     */
+    onGameResize(width, height, isPortrait) {
+        // Update scaling ratios for all scenes
+        if (this.scalingManager) {
+            this.scalingManager.updateScaleRatios();
+        }
+        // Call relayoutScene for child-specific layout logic
+        if (typeof this.relayoutScene === "function") {
+            this.relayoutScene(width, height, isPortrait);
+        }
+    }
+
+    /**
+     * Stub for child scenes to override for custom layout after scaling update.
+     * @param {number} width
+     * @param {number} height
+     * @param {boolean} isPortrait
+     */
+    relayoutScene(width, height, isPortrait) {
+        // Child scenes should override this to reposition/rescale objects as needed.
     }
 
     update() {

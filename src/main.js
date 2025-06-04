@@ -47,4 +47,7 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// };
+/* 
+// --- Responsive resizing for orientation/aspect ratio ---
+// This logic is now removed to let Phaser's Scale Manager handle scaling automatically.
+*/

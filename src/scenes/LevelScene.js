@@ -12,6 +12,42 @@ export default class LevelScene extends Phaser.Scene {
         this.tooltips = []; // Array to store active tooltips
     }
 
+    // Respond to orientation/resize changes for proper scaling and layout
+    onGameResize(width, height, isPortrait) {
+        // Update scaling manager ratios
+        if (this.scalingManager) {
+            this.scalingManager.updateScaleRatios();
+        }
+
+        // Remove and recreate background
+        if (this.background) {
+            this.background.destroy();
+            this.background = null;
+        }
+        this.createBackgroundEffect();
+
+        // Remove and recreate prompt box/text
+        if (this.promptTextBox) {
+            this.promptTextBox.destroy();
+            this.promptTextBox = null;
+        }
+        if (this.promptText) {
+            this.promptText.destroy();
+            this.promptText = null;
+        }
+        this.createPromptTextBox();
+
+        // Remove and recreate play buttons
+        if (this.playButtons) {
+            this.playButtons.forEach(btn => btn.destroy());
+            this.playButtons = null;
+        }
+        this.showPlayButtons();
+
+        // Reapply button click effects
+        this.addButtonClickEffects();
+    }
+
     showTooltip(text, x, y) {
         // Hide any existing tooltips
         this.hideTooltips();

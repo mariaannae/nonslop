@@ -24,6 +24,113 @@ export default class GameSceneEasy extends BaseGameScene {
         this.CORNER_RADIUS = this.design.OUTLINE.CORNER_RADIUS;
     }
 
+    // Responsive relayout for orientation/resize changes
+    relayoutScene(width, height, isPortrait) {
+        // Destroy and recreate background
+        if (this.background) {
+            this.background.destroy();
+            this.background = null;
+        }
+        createBackground(this, THEMES.easy.background, this.levelValue, this.wordStreak);
+
+        // Destroy and recreate menu bar
+        if (this.menuBar) {
+            this.menuBar.destroy();
+            this.menuBar = null;
+        }
+        this.createMenuBar && this.createMenuBar();
+
+        // Destroy and recreate prompt box/text
+        if (this.promptTextBox) {
+            this.promptTextBox.destroy();
+            this.promptTextBox = null;
+        }
+        if (this.promptText) {
+            this.promptText.destroy();
+            this.promptText = null;
+        }
+        this.createPromptTextBox && this.createPromptTextBox();
+
+        // Destroy and recreate input box/text
+        if (this.inputTextBorder) {
+            this.inputTextBorder.destroy();
+            this.inputTextBorder = null;
+        }
+        if (this.inputText) {
+            this.inputText.destroy();
+            this.inputText = null;
+        }
+        this.createInputTextBox && this.createInputTextBox();
+
+        // Destroy and recreate fails counter/progress bar
+        if (this.failsCounter) {
+            this.failsCounter.destroy();
+            this.failsCounter = null;
+        }
+        if (this.failsText) {
+            this.failsText.destroy();
+            this.failsText = null;
+        }
+        this.createFailsCounter && this.createFailsCounter();
+        this.updateProgressFill && this.updateProgressFill();
+
+        // Destroy and recreate word count display
+        if (this.wordCountDisplay) {
+            this.wordCountDisplay.destroy();
+            this.wordCountDisplay = null;
+        }
+        this.createWordCountDisplay && this.createWordCountDisplay();
+
+        // Destroy and recreate buttons
+        if (this.doneButton) {
+            this.doneButton.destroy();
+            this.doneButton = null;
+        }
+        if (this.feedbackButton) {
+            this.feedbackButton.destroy();
+            this.feedbackButton = null;
+        }
+        // Recreate buttons
+        const inputBoxWidth = this.cameras.main.width * (5 / 6);
+        const padding = 20;
+        const buttonPadding = 70;
+        const boxX = this.cameras.main.centerX - inputBoxWidth / 2;
+        const buttonCenterX = boxX + inputBoxWidth - buttonPadding - this.design.BUTTON.WIDTH / 2;
+        const statsBoxHeight = 130;
+        const menuBarHeight = this.menuBarHeight || 100;
+        const statsDisplayY = menuBarHeight + padding;
+        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        const promptY = statsBottomEdge + 20;
+        const promptBoxHeight = 80;
+        const promptBottomEdge = promptY + promptBoxHeight;
+        const inputBoxY = promptBottomEdge + 20;
+        const inputBoxHeight = 240;
+        const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
+        const outlineWidth = this.design.OUTLINE.WIDTH;
+        const doneButtonY = inputBoxBottomEdge + outlineWidth / 2 + this.design.BUTTON.BELOW_TEXTBOX_GAP + this.design.BUTTON.HEIGHT / 2;
+
+        this.doneButton = this.createButton(
+            "DONE", 
+            () => this.onDoneButtonClick(), 
+            buttonCenterX, 
+            doneButtonY,
+            'Submit your text for evaluation'
+        );
+        this.feedbackButton = this.createButton(
+            "FEEDBACK", 
+            () => this.onFeedbackClick(), 
+            this.design.BUTTON.WIDTH / 2 + padding, 
+            this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding,
+            'Share your feedback'
+        );
+
+        // Reapply effects and layering
+        this.addButtonClickEffects && this.addButtonClickEffects();
+        this.ensureProperLayering && this.ensureProperLayering();
+        this.ensureTextVisibility && this.ensureTextVisibility();
+        this.updateCursor && this.updateCursor();
+    }
+
     // Mode-specific word processing
     processSuggestedWord(word) {
         // In easy mode, we still allow the word but don't add it again
