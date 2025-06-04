@@ -1480,7 +1480,8 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     createMenuBar() {
-        const menuBarHeight = 100;
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        const menuBarHeight = isMobile ? 200 : 100;
         const padding = 50;
         const rightMargin = 40;
         const gap = 20;
@@ -1497,15 +1498,24 @@ export default class BaseGameScene extends Phaser.Scene {
         menuBarBorder.fillRect(0, menuBarHeight - style.borderWidth, this.cameras.main.width, style.borderWidth);
         
         // Mobile: center title and place level|mode below, else original
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         let titleText, levelModeIndicatorY;
         if (isMobile) {
+            // Position title higher in the menu bar
+            const titleY = menuBarHeight / 3;
             titleText = this.add.text(
-                this.cameras.main.centerX, menuBarHeight / 2 - 18,
+                this.cameras.main.centerX, titleY,
                 "(NON-SLOP)",
                 style.titleStyle
             ).setOrigin(0.5, 0.5);
-            levelModeIndicatorY = menuBarHeight / 2 + 18;
+
+            // Calculate padding between title and box
+            const mobilePadding = 20;
+            // Estimate title height (Phaser text object has height property)
+            const titleHeight = titleText.height;
+            // Banner height is 34 (from below)
+            const bannerHeight = 34;
+            // Place the box and text below the title with padding
+            levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
         } else {
             titleText = this.add.text(
                 padding, menuBarHeight / 2,
