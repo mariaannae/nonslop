@@ -1373,10 +1373,19 @@ this.scale.on('resize', (gameSize) => {
 
         // Sync input to Phaser text and autocomplete
         input.addEventListener('input', () => {
+            const previousInput = this.userInput;
             this.userInput = input.value;
             this.updateCursor();
             this.scheduleAISuggestions();
-            // Ensure updateCursor runs again after suggestions update
+
+            const lastChar = this.userInput.slice(-1);
+            if (lastChar === ' ' || lastChar === '\n') {
+                const words = this.userInput.trim().split(/\s+/);
+                const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, '').toLowerCase();
+                const isAIWord = this.aiSuggestedWords.some(word => word.toLowerCase() === lastWord);
+                this.updateFailsCounter(!isAIWord);
+            }
+
             setTimeout(() => this.updateCursor(), 20);
         });
 
@@ -1431,6 +1440,13 @@ this.scale.on('resize', (gameSize) => {
         const bannerX = this.cameras.main.centerX - bannerWidth / 2;
         // Use the same Y as the text, so the rectangle always matches the text position
         const bannerY = levelModeIndicatorY - bannerHeight / 2;
+if (isMobile) {
+    const titleY = menuBarHeight / 3;
+    const titleHeight = titleText.height;
+    const mobilePadding = 20;
+    levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
+    bannerY = levelModeIndicatorY - bannerHeight / 2;
+}
         
         // Create the banner background as a single graphics object
         this.levelModeBanner = this.add.graphics();
