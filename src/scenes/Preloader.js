@@ -356,17 +356,20 @@ export default class Preloader extends Phaser.Scene {
         let slideSpeed = 25;//Math.max(this.cameras.main.width * 0.02, 15); // Adjust speed dynamically
         
         // ✅ Smooth Slide-in Effect
-        this.time.addEvent({
+        const slideInEvent = this.time.addEvent({
             delay: 16,
             callback: () => {
                 if (titleText.x < targetX) {
                     titleText.x += slideSpeed;
                 } else {
                     titleText.x = targetX;
-                    
+
+                    // Stop the slide-in event loop so the bounce/shine only happens once
+                    slideInEvent.remove();
+
                     // Add shine effect to the text - it animates automatically
                     titleText.postFX.addShine(1, .2, 5);
-                    
+
                     // To create a repeating shine effect, we'll periodically add and remove the effect
                     this.time.addEvent({
                         delay: 3000, // Every 3 seconds
@@ -378,7 +381,7 @@ export default class Preloader extends Phaser.Scene {
                         },
                         loop: true
                     });
-                    
+
                     this.tweens.add({
                         targets: titleText,
                         x: { from: targetX, to: targetX - 20 },

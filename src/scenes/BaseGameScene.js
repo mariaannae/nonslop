@@ -1388,6 +1388,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
     focusHiddenInput() {
         if (!this._hiddenInput) this.setupHiddenInput();
+        if (!this._hiddenInput) return; // Guard: do nothing if still undefined (e.g., desktop)
         this._hiddenInput.value = this.userInput;
         this._hiddenInput.focus();
         // Move cursor to end
@@ -1473,7 +1474,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.topKValue = this.topKValue || 1;
         
         this.tweens.add({
-            targets: [menuBar, menuBarBorder, titleText, this.levelModeIndicator],
+            targets: [menuBar, menuBarBorder, this.levelModeIndicator],
             alpha: 1,
             duration: 800,
             ease: 'Quad.Out'
@@ -1699,10 +1700,27 @@ export default class BaseGameScene extends Phaser.Scene {
             const centerX = this.cameras.main.centerX;
             const centerY = this.cameras.main.centerY;
 
+            // Detect mobile device
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+
+            // Set scale values based on device type
+            let initialScale, maxScale, burstScale;
+            if (isMobile) {
+                // Smaller clock for mobile
+                initialScale = 0.7;
+                maxScale = 1.2;
+                burstScale = 0.7;
+            } else {
+                // Original values for desktop
+                initialScale = 1.5;
+                maxScale = 2.1;
+                burstScale = 1.5;
+            }
+
             // Add the clock sprite (SVG loaded as 'clock')
             this.clockSprite = this.add.image(centerX, centerY, 'clock')
                 .setOrigin(0.5)
-                .setScale(1.5)
+                .setScale(initialScale)
                 .setAlpha(0)
                 .setDepth(999);
 
@@ -1710,7 +1728,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.tweens.add({
                 targets: this.clockSprite,
                 alpha: 1,
-                scale: { from: 1.5, to: 2.1 },
+                scale: { from: initialScale, to: maxScale },
                 duration: 220,
                 yoyo: true,
                 repeat: 1,
@@ -1718,7 +1736,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 onComplete: () => {
                     // After flash, explode into red sparks
                     this.clockSprite.setAlpha(0);
-                    this.createRedSparkBurst(centerX, centerY, 1.5);
+                    this.createRedSparkBurst(centerX, centerY, burstScale);
                     // Remove the clock sprite after a short delay
                     this.time.delayedCall(500, () => {
                         if (this.clockSprite) {
