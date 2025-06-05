@@ -19,19 +19,6 @@ export default class BaseGameScene extends Phaser.Scene {
     create() {
         // ...existing create logic...
 
-        // Handle orientation/resize events
-// this.popupJustOpened = false;
-
-// this.scale.on('resize', (gameSize) => {
-//     if (this.settingsPopup && !this.popupJustOpened) {
-//         this.closeSettingsPopup();
-//         this.time.delayedCall(50, () => {
-//             this.toggleSettingsPopup();
-//         });
-//     }
-//     this.popupJustOpened = false;
-// });
-
         // Listen for custom-resize event from main.js for aspect ratio changes
         if (this.game && this.game.events) {
             this.game.events.on('custom-resize', ({ width, height, isPortrait }) => {
@@ -1483,13 +1470,15 @@ export default class BaseGameScene extends Phaser.Scene {
         const bannerX = this.cameras.main.centerX - bannerWidth / 2;
         // Use the same Y as the text, so the rectangle always matches the text position
         let bannerY = levelModeIndicatorY - bannerHeight / 2;
-if (isMobile) {
-    const titleY = menuBarHeight / 3;
-    const titleHeight = titleText.height;
-    const mobilePadding = 20;
-    levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
-    bannerY = levelModeIndicatorY - bannerHeight / 2;
-}
+        
+        // For mobile, ensure the levelModeIndicator and levelModeBanner have the same y-center position
+        if (isMobile) {
+            const titleY = menuBarHeight / 3;
+            const titleHeight = titleText.height;
+            const mobilePadding = 20;
+            levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
+            bannerY = levelModeIndicatorY - bannerHeight / 2;
+        }
         
         // Create the banner background as a single graphics object
         this.levelModeBanner = this.add.graphics();
@@ -1924,7 +1913,7 @@ if (isMobile) {
         
         // Create popup window (fixed size, no scalingManager/mobile logic)
         const popupWidth = 400; // Fixed width
-        const popupHeight = 200; // Fixed height
+        const popupHeight = 230; // Fixed height (increased by 10)
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
@@ -2608,7 +2597,7 @@ const closeBtnFontSize = this.scalingManager
         // Create settings button using the PNG
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
-        // Set icon size relative to menu bar height (e.g., 60%)
+        // Set icon size relative to menu bar height
         let iconSize = Math.round(menuBarHeight * 0.5);
         // Reduce by half on mobile devices
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
@@ -2620,21 +2609,18 @@ const closeBtnFontSize = this.scalingManager
         // Make the settings icon white
         settingsIcon.setTint(0xffffff);
         
-        // Make it interactive
+        // Make it interactive without scale effects
         settingsIcon.setInteractive({ useHandCursor: true })
             .on('pointerover', () => {
-                settingsIcon.setScale(0.3);
                 this.showTooltip('Settings: \nLevel\nMode', settingsIcon.x, settingsIcon.y + 50);
             })
             .on('pointerout', () => {
-                settingsIcon.setScale(0.25);
                 this.hideTooltips();
             })
             .on('pointerdown', () => {
-                settingsIcon.setScale(0.22);
+                // No scale effect
             })
             .on('pointerup', () => {
-                settingsIcon.setScale(0.3);
                 this.toggleSettingsPopup();
             });
         
