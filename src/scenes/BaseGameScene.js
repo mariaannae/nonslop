@@ -1401,23 +1401,43 @@ export default class BaseGameScene extends Phaser.Scene {
         input.style.height = '1px';
         input.value = this.userInput;
 
-        // Sync input to Phaser text and autocomplete
-        input.addEventListener('input', () => {
-            const previousInput = this.userInput;
-            this.userInput = input.value;
-            this.updateCursor();
-            this.scheduleAISuggestions();
+    // Sync input to Phaser text and autocomplete
+    input.addEventListener('input', () => {
+        const previousInput = this.userInput;
+        this.userInput = input.value;
+        this.updateCursor();
+        this.scheduleAISuggestions();
 
-            const lastChar = this.userInput.slice(-1);
-            if (lastChar === ' ' || lastChar === '\n') {
-                const words = this.userInput.trim().split(/\s+/);
-                const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, '').toLowerCase();
-                const isAIWord = this.aiSuggestedWords.some(word => word.toLowerCase() === lastWord);
-                this.updateFailsCounter(!isAIWord);
+        // For mobile, we'll handle word checking in the input handler
+        // but NOT trigger the visual effects to prevent duplication
+        const lastChar = this.userInput.slice(-1);
+        if (lastChar === ' ' || lastChar === '\n') {
+            const words = this.userInput.trim().split(/\s+/);
+            const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, '').toLowerCase();
+            const isAIWord = this.aiSuggestedWords.some(word => word.toLowerCase() === lastWord);
+            
+            // Update counters and progress without visual effects
+            if (isAIWord) {
+                // AI word used - just increment counter
+                this.aiWordCount++;
             }
+            
+            // Update progress percentage
+            const oldPercentage = this.progressPercentage;
+            let newPercentage = isAIWord 
+                ? this.progressPercentage - this.progressIncrement 
+                : this.progressPercentage + this.progressIncrement;
+            
+            this.progressPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
+            
+            // Update UI elements without animations
+            this.updateWordCountDisplay();
+            this.updateStreakCounter(!isAIWord);
+            this.updateProgressFill();
+        }
 
-            setTimeout(() => this.updateCursor(), 20);
-        });
+        setTimeout(() => this.updateCursor(), 20);
+    });
 
         // On blur, keep value but do nothing else
         input.addEventListener('blur', () => {
@@ -1468,17 +1488,10 @@ export default class BaseGameScene extends Phaser.Scene {
         const bannerWidth = 180; 
         const bannerHeight = 34;
         const bannerX = this.cameras.main.centerX - bannerWidth / 2;
-        // Use the same Y as the text, so the rectangle always matches the text position
-        let bannerY = levelModeIndicatorY - bannerHeight / 2;
         
-        // For mobile, ensure the levelModeIndicator and levelModeBanner have the same y-center position
-        if (isMobile) {
-            const titleY = menuBarHeight / 3;
-            const titleHeight = titleText.height;
-            const mobilePadding = 20;
-            levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
-            bannerY = levelModeIndicatorY - bannerHeight / 2;
-        }
+        // Calculate banner Y position based on the indicator position
+        // This ensures they share the same center point
+        const bannerY = levelModeIndicatorY - bannerHeight / 2;
         
         // Create the banner background as a single graphics object
         this.levelModeBanner = this.add.graphics();
@@ -1758,9 +1771,9 @@ export default class BaseGameScene extends Phaser.Scene {
             let initialScale, maxScale, burstScale;
             if (isMobile) {
                 // Smaller clock for mobile
-                initialScale = 0.7;
-                maxScale = 1.2;
-                burstScale = 0.7;
+                initialScale = 0.2;
+                maxScale = .6;
+                burstScale = 0.4;
             } else {
                 // Original values for desktop
                 initialScale = 1.5;
@@ -1885,10 +1898,21 @@ export default class BaseGameScene extends Phaser.Scene {
             const bannerWidth = 180;
             const bannerHeight = 34;
             const bannerX = this.cameras.main.centerX - bannerWidth / 2;
-            const bannerY = this.menuBarHeight / 2 - bannerHeight / 2;
             
-            const bannerColor = COLORS_HEX.ACCENT// this.mode === //'hard' ? 0xff0066 : 0x8800ff;
-            const glowColor = COLORS_HEX.ACCENT//this.mode === COLORS_HEX.ACCENT//'hard' ? 0xff3366 : 0x9933ff;
+            // Check if on mobile for proper Y positioning
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+            let bannerY;
+            
+            if (isMobile) {
+                // For mobile, use the same Y position as the levelModeIndicator
+                bannerY = this.levelModeIndicator.y - bannerHeight / 2;
+            } else {
+                // For desktop, use the standard menubar center position
+                bannerY = this.menuBarHeight / 2 - bannerHeight / 2;
+            }
+            
+            const bannerColor = COLORS_HEX.ACCENT;
+            const glowColor = COLORS_HEX.ACCENT;
             
             this.levelModeBanner.clear();
             this.levelModeBanner.fillStyle(glowColor, 0.3);
