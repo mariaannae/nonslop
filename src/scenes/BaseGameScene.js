@@ -20,17 +20,17 @@ export default class BaseGameScene extends Phaser.Scene {
         // ...existing create logic...
 
         // Handle orientation/resize events
-this.popupJustOpened = false;
+// this.popupJustOpened = false;
 
-this.scale.on('resize', (gameSize) => {
-    if (this.settingsPopup && !this.popupJustOpened) {
-        this.closeSettingsPopup();
-        this.time.delayedCall(50, () => {
-            this.toggleSettingsPopup();
-        });
-    }
-    this.popupJustOpened = false;
-});
+// this.scale.on('resize', (gameSize) => {
+//     if (this.settingsPopup && !this.popupJustOpened) {
+//         this.closeSettingsPopup();
+//         this.time.delayedCall(50, () => {
+//             this.toggleSettingsPopup();
+//         });
+//     }
+//     this.popupJustOpened = false;
+// });
 
         // Listen for custom-resize event from main.js for aspect ratio changes
         if (this.game && this.game.events) {
@@ -1948,9 +1948,9 @@ if (isMobile) {
                 // Use pointer.x/y for desktop, but fallback to localX/localY for mobile if pointer.x/y are 0
                 const px = pointer.x || (localX + 0);
                 const py = pointer.y || (localY + 0);
-                if (!Phaser.Geom.Rectangle.Contains(popupBounds, px, py)) {
-                    this.closeSettingsPopup();
-                }
+                // if (!Phaser.Geom.Rectangle.Contains(popupBounds, px, py)) {
+                //     this.closeSettingsPopup();
+                // }
                 // Always stop propagation to prevent bubbling to other handlers
                 if (event && event.stopPropagation) event.stopPropagation();
             });
