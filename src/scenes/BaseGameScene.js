@@ -435,8 +435,13 @@ export default class BaseGameScene extends Phaser.Scene {
     shakeScreen() {
         // Haptic feedback for mobile only
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        if (isMobile && "vibrate" in navigator) {
-            navigator.vibrate(100); // Vibrate for 100ms
+        if (isMobile && navigator && typeof navigator.vibrate === 'function') {
+            try {
+                navigator.vibrate(100); // Vibrate for 100ms
+            } catch (e) {
+                console.warn("Vibration API failed:", e);
+                // Continue with camera shake even if vibration fails
+            }
         }
         this.cameras.main.shake(250, 0.02); // Shakes for 250ms with intensity 0.02
     }    
