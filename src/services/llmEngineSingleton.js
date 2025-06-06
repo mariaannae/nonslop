@@ -1,5 +1,5 @@
 /**
- * Global singleton for transformers.js engine (using distilgpt2 for mobile compatibility).
+ * Global singleton for transformers.js engine (using Qwen1.5-0.5B).
  * Ensures only one context is ever created, even across scene reloads.
  * Usage: import getLLMEngine from './llmEngineSingleton.js'; then await getLLMEngine();
  */
@@ -48,8 +48,8 @@ export default async function getLLMEngine() {
     if (!pipeline) {
       throw new Error('Failed to load transformers.js pipeline');
     }
-    // Load the GPT-2 model for text generation
-    const generator = await pipeline('text-generation', 'Xenova/gpt2');
+    // Load the Qwen model for text generation
+    const generator = await pipeline('text-generation', 'Xenova/Qwen1.5-0.5B');
     window.llmEngine = generator;
     return generator;
   })();

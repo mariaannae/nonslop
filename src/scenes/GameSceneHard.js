@@ -45,6 +45,9 @@ export default class GameSceneHard extends BaseGameScene {
 
     // Enhanced method to show feedback when a word is blocked
     showBlockFeedback(blockedWord) {
+        // Delete the AI word from the user's input
+        this.deleteAIWord(blockedWord);
+        
         // Create warning text with dramatic styling - 10% smaller with newline
         const blockedText = this.add.text(
             this.cameras.main.centerX,
@@ -403,6 +406,32 @@ const padding = 30;
         return modeIndicator;
     }
 
+    // Delete AI word from user input
+    deleteAIWord(blockedWord) {
+        if (!this.userInput || !blockedWord) return;
+        
+        // Find the last word in the user input
+        const words = this.userInput.trim().split(/\s+/);
+        const lastWordIndex = words.length - 1;
+        
+        if (lastWordIndex >= 0) {
+            const lastWord = words[lastWordIndex];
+            // Check if the last word matches the blocked word (case insensitive)
+            if (lastWord.toLowerCase() === blockedWord.toLowerCase()) {
+                // Remove the last word from the input
+                words.pop();
+                // Reconstruct the user input without the blocked word
+                this.userInput = words.join(' ');
+                // Add a space at the end if there was content
+                if (this.userInput.length > 0) {
+                    this.userInput += ' ';
+                }
+                // Update the display
+                this.updateCursor();
+            }
+        }
+    }
+    
     // Mode-specific word processing
     processSuggestedWord(word) {
         // In hard mode, we don't need to do anything special

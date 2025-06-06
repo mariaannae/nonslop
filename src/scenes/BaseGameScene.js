@@ -490,6 +490,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 if (isAIWord) {
                     console.log("AI word used:", lastWord);
                     this.updateFailsCounter(false);
+                    // Call shakeScreen for mobile when an AI word is detected
+                    this.shakeScreen();
                 } else {
                     console.log("Non-AI word used:", lastWord);
                     this.updateFailsCounter(true);
@@ -721,7 +723,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
-        const trimmedcontext = context.trim();
+        const trimmedcontext = "[ENGLISH ONLY] " + context.trim();
         
         // Add retry logic with minimal logging
         try {
@@ -1017,6 +1019,13 @@ export default class BaseGameScene extends Phaser.Scene {
                                         if (isAIWord) {
                                             console.log("AI word used:", lastWord);
                                             this.updateFailsCounter(false);
+                                            // Call shakeScreen for mobile when an AI word is detected
+                                            this.shakeScreen();
+                                            
+                                            // Call showBlockFeedback in hard mode
+                                            if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
+                                                this.showBlockFeedback(lastWord);
+                                            }
                                         } else {
                                             console.log("Non-AI word used:", lastWord);
                                             this.updateFailsCounter(true);
@@ -1067,6 +1076,14 @@ export default class BaseGameScene extends Phaser.Scene {
                         this.userInput = previousContent + suggestionToUse + ' ';
                         console.log("AI word used (Tab):", suggestionToUse);
                         this.updateFailsCounter(false);
+                        // Call shakeScreen for mobile when Tab is used to select an AI word
+                        this.shakeScreen();
+                        
+                        // Call showBlockFeedback in hard mode
+                        if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
+                            this.showBlockFeedback(suggestionToUse);
+                        }
+                        
                         this.updateCursor();
                         // Only generate suggestions once text has been updated
                         this.scheduleAISuggestions();
@@ -1106,6 +1123,13 @@ export default class BaseGameScene extends Phaser.Scene {
                             if (isAIWord) {
                                 console.log("AI word used:", lastWord);
                                 this.updateFailsCounter(false);
+                                // Call shakeScreen for mobile when an AI word is detected
+                                this.shakeScreen();
+                                
+                                // Call showBlockFeedback in hard mode
+                                if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
+                                    this.showBlockFeedback(lastWord);
+                                }
                             } else {
                                 console.log("Non-AI word used:", lastWord);
                                 this.updateFailsCounter(true);
