@@ -729,7 +729,7 @@ export default class BaseGameScene extends Phaser.Scene {
     
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = "[ENGLISH ONLY] " + this.currentPrompt + ":\n"+ context.trim();
-        
+        console.log("current prompt: ", this.currentPrompt);
         // Add retry logic with minimal logging
         try {
             console.log("[AISUGGEST] llmEngine:", llmEngine);
@@ -1791,7 +1791,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
             // Center of the screen
             const centerX = this.cameras.main.centerX;
-            const centerY = this.cameras.main.centerY;
+            let centerY = this.cameras.main.centerY;
 
             // Detect mobile device
             const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
@@ -1803,6 +1803,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 initialScale = 0.2;
                 maxScale = .6;
                 burstScale = 0.4;
+                // Move the clock to the top half of the screen for mobile
+                centerY = this.cameras.main.height * 0.25;
             } else {
                 // Original values for desktop
                 initialScale = 1.5;
