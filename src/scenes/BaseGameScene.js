@@ -723,7 +723,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
-        const trimmedcontext = "[ENGLISH ONLY] " + context.trim();
+        const trimmedcontext = "[ENGLISH ONLY] " + this.currentPrompt + ":\n"+ context.trim();
         
         // Add retry logic with minimal logging
         try {
