@@ -409,11 +409,14 @@ const padding = 30;
     // Delete AI word from user input
     deleteAIWord(blockedWord) {
         if (!this.userInput || !blockedWord) return;
-        
+
+        // Check if the original input ended with a space
+        const endsWithSpace = /\s$/.test(this.userInput);
+
         // Find the last word in the user input
         const words = this.userInput.trim().split(/\s+/);
         const lastWordIndex = words.length - 1;
-        
+
         if (lastWordIndex >= 0) {
             const lastWord = words[lastWordIndex];
             // Check if the last word matches the blocked word (case insensitive)
@@ -422,8 +425,8 @@ const padding = 30;
                 words.pop();
                 // Reconstruct the user input without the blocked word
                 this.userInput = words.join(' ');
-                // Add a space at the end if there was content
-                if (this.userInput.length > 0) {
+                // Only add a space if the original input ended with a space and there is still content
+                if (this.userInput.length > 0 && endsWithSpace) {
                     this.userInput += ' ';
                 }
                 // Update the display

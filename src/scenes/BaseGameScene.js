@@ -45,6 +45,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.userInput = '';
         this.inputText = null; 
         this.keyEventQueue = [];
+        // this.keyEventSet = new Set(); // Removed deduplication set, allow repeated keys
         this.isProcessingQueuedKeys = false;
         this.keyProcessingComplete = true;
         this.levelValue = 1;
@@ -675,6 +676,8 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     async generateAISuggestions(userInput) {
+    this.isProcessingQueuedKeys = true; // Lock queue processing at start
+    this.isGeneratingAISuggestions = true; // Explicitly track AI suggestion generation
         // Performance measurement - start
         const startTime = performance.now();
         
@@ -786,6 +789,9 @@ export default class BaseGameScene extends Phaser.Scene {
             if (this.autocompleteText) {
                 this.autocompleteText.setText('');
             }
+        } finally {
+            this.isProcessingQueuedKeys = false; // Unlock queue processing at end
+            this.isGeneratingAISuggestions = false; // Explicitly reset AI suggestion generation flag
         }
     }
 
@@ -947,11 +953,12 @@ export default class BaseGameScene extends Phaser.Scene {
         this.setupInputHandlers();
     }
 
-    handleSingleKeyEvent(event) {
+    // Updated: handleSingleKeyEvent now supports async queueing
+    handleSingleKeyEvent(event, done) {
         // This is the main logic extracted from original keydown handler's try block
         try {
             // Skip if we're shutting down to prevent stray key processing
-            if (this.isShuttingDown) return;
+            if (this.isShuttingDown) { if (done) done(); return; }
             
             this.isActivelyTyping = true;
             if (!this.cursorVisible) this.cursorVisible = true;
@@ -986,11 +993,15 @@ export default class BaseGameScene extends Phaser.Scene {
             ];
 
             if (ignoreKeys.includes(event.key)) {
-                return; // Simply return, the queue processing will continue
+                if (done) done();
+                return;
             }
 
             // --- Main Key Processing Logic ---
+            const finish = () => { if (done) done(); };
+
             if (event.key === " ") {
+                console.log("[KEY QUEUE] Processing SPACE key, blocking queue until suggestions complete");
                 try {
                     // Safely handle word checking with maximum safeguards
                     if (this.userInput && typeof this.userInput === 'string') {
@@ -1047,9 +1058,10 @@ export default class BaseGameScene extends Phaser.Scene {
                 
                 this.userInput += " ";
                 this.updateCursor();
-                // Only generate suggestions once text has been updated
-                this.scheduleAISuggestions();
+                // Block queue until async suggestion generation is fully complete
+                this.generateAISuggestionsWithQueue(done);
             } else if (event.key === "Tab") {
+                console.log("[KEY QUEUE] Processing TAB key, blocking queue until suggestions complete");
                 // Safely call preventDefault if available (for queued events, this may not exist)
                 if (typeof event.preventDefault === "function") {
                     event.preventDefault();
@@ -1085,13 +1097,15 @@ export default class BaseGameScene extends Phaser.Scene {
                         }
                         
                         this.updateCursor();
-                        // Only generate suggestions once text has been updated
-                        this.scheduleAISuggestions();
+                        // Block queue until async suggestion generation is fully complete
+                        this.generateAISuggestionsWithQueue(done);
+                        return;
                     }
                 }
+                finish();
             } else if (event.key.length === 1) { // Printable characters
                 this.userInput += event.key;
-                
+
                 // Reset timer when a period is typed
                 if (event.key === '.') {
                     this.timerValue = 20;
@@ -1099,16 +1113,17 @@ export default class BaseGameScene extends Phaser.Scene {
                         this.timerText.setText('0:20');
                     }
                 }
-                
+
                 this.updateCursor();
-                // Only generate suggestions once text has been updated
-                this.scheduleAISuggestions();
+                // Block queue until async suggestion generation is fully complete
+                this.generateAISuggestionsWithQueue(done);
             } else if (event.key === "Backspace") {
                 this.userInput = this.userInput.slice(0, -1);
                 this.updateCursor();
-                // Only generate suggestions once text has been updated
-                this.scheduleAISuggestions();
+                // Block queue until async suggestion generation is fully complete
+                this.generateAISuggestionsWithQueue(done);
             } else if (event.key === "Enter") {
+                console.log("[KEY QUEUE] Processing ENTER key, blocking queue until suggestions complete");
                 // Safely handle word checking with the same safety pattern
                 if (this.userInput && this.userInput.trim()) {
                     const words = this.userInput.trim().split(" ");
@@ -1146,47 +1161,48 @@ export default class BaseGameScene extends Phaser.Scene {
                 
                 this.userInput += "\n";
                 this.updateCursor();
-                // Only generate suggestions once text has been updated
-                this.scheduleAISuggestions();
+                // Block queue until async suggestion generation is fully complete
+                this.generateAISuggestionsWithQueue(done);
+            } else {
+                finish();
             }
         } catch (error) {
             console.error("Error processing single key event:", error, event);
-            // Even if an error occurs, the queue processing loop in processNextEventInQueue will continue
+            if (done) done();
         }
     }
     
-    // Helper to prevent multiple calls to generate suggestions
-    scheduleAISuggestions() {
-        // Use a snapshot of the current input for suggestion generation
-        const currentInput = this.userInput;
+    // Helper for queue-aware async suggestion generation
+    generateAISuggestionsWithQueue(done) {
         // Only generate suggestions if the last character is a space or linebreak
+        const currentInput = this.userInput;
         if (
             currentInput &&
             (currentInput.endsWith(' ') || currentInput.endsWith('\n') || currentInput.endsWith('\r'))
         ) {
-            if (this.debouncedGenerateAISuggestions) {
-                // Don't block UI updates - let suggestions generate in background
-                this.debouncedGenerateAISuggestions(currentInput);
-            }
+            // Call the async suggestion generator and call done when finished
+            this.generateAISuggestions(currentInput).then(() => {
+                if (done) done();
+            }).catch(() => {
+                if (done) done();
+            });
+        } else {
+            // No suggestions needed, just call done
+            if (done) done();
         }
-        // Let the UI update immediately without waiting
-        //this.keyProcessingComplete = true;
     }
 
 
     triggerProcessQueue() {
-        // Don't process if shutting down or already processing
-        if (this.isShuttingDown || this.isProcessingQueuedKeys) {
+        console.log("TRIGGERPROCESSQUEUE");
+        // Don't process if shutting down, already processing, or AI suggestions are being generated
+        if (this.isShuttingDown || this.isProcessingQueuedKeys || !this.keyProcessingComplete) {
+            console.log("KEY PROCESSING NOT COMPLETE, FIRST CLAUSE");
             return; 
         }
         
         // Don't process if queue is empty
         if (this.keyEventQueue.length === 0) {
-            return;
-        }
-        
-        // Don't process if a previous key is still being processed
-        if (!this.keyProcessingComplete) {
             return;
         }
 
@@ -1199,66 +1215,45 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     processNextEventInQueue() {
-        console.log(`[KEY QUEUE] processNextEventInQueue START, queueLen=${this.keyEventQueue.length}`);
         // Exit if we're shutting down to prevent processing during scene transitions
         if (this.isShuttingDown) {
             this.isProcessingQueuedKeys = false;
             this.keyProcessingComplete = true;
-            this.keyEventQueue = []; // Clear any remaining events
+            this.keyEventQueue = [];
             return;
         }
 
         if (this.keyEventQueue.length > 0) {
-            const eventToProcess = this.keyEventQueue.shift(); // Get the next event (FIFO)
+            const eventToProcess = this.keyEventQueue.shift();
 
-            // Skip if event is invalid
             if (!eventToProcess || !eventToProcess.key) {
                 this.isProcessingQueuedKeys = false;
                 this.keyProcessingComplete = true;
                 return;
             }
 
-            // Deduplication: skip if this key+code was processed in the last 100ms
-            const now = Date.now();
-            const recentWindow = 100; // ms
-            const isDuplicate = this.recentKeys.some(
-                k =>
-                    k.key === eventToProcess.key &&
-                    k.code === eventToProcess.code &&
-                    (now - k.timestamp) < recentWindow
-            );
-            if (isDuplicate) {
-                console.log(`[KEY QUEUE] Skipped duplicate: key=${eventToProcess.key}, code=${eventToProcess.code}, ts=${eventToProcess.timestamp}`);
-            } else {
-                // Add to recentKeys buffer (keep only last 5)
-                this.recentKeys.push({ key: eventToProcess.key, code: eventToProcess.code, timestamp: now });
-                if (this.recentKeys.length > 5) this.recentKeys.shift();
-
-                try {
-                    console.log(`[KEY QUEUE] Processing: key=${eventToProcess.key}, code=${eventToProcess.code}, ts=${eventToProcess.timestamp}, queueLen=${this.keyEventQueue.length}`);
-                    // Handle the single key event - this immediately updates the display
-                    this.handleSingleKeyEvent(eventToProcess);
-                } catch (error) {
-                    console.error("Error in handleSingleKeyEvent:", error);
+            try {
+                this.handleSingleKeyEvent(eventToProcess, () => {
+                    this.keyProcessingComplete = true;
+                    if (this.keyEventQueue.length > 0) {
+                        this.time.delayedCall(0, this.processNextEventInQueue, [], this);
+                    } else {
+                        this.isProcessingQueuedKeys = false;
+                    }
+                });
+            } catch (error) {
+                console.error("Error in handleSingleKeyEvent:", error);
+                this.keyProcessingComplete = true;
+                if (this.keyEventQueue.length > 0) {
+                    this.time.delayedCall(0, this.processNextEventInQueue, [], this);
+                } else {
+                    this.isProcessingQueuedKeys = false;
                 }
             }
-
-            // Mark as complete right away so UI updates immediately
-            this.keyProcessingComplete = true;
-
-            // If there are more events to process, schedule another processing frame
-            if (this.keyEventQueue.length > 0) {
-                this.time.delayedCall(0, this.processNextEventInQueue, [], this);
-            } else {
-                // Reset processing flag when queue is empty
-                this.isProcessingQueuedKeys = false;
-            }
         } else {
-            // Reset processing flags when queue is empty
             this.isProcessingQueuedKeys = false;
             this.keyProcessingComplete = true;
         }
-        console.log(`[KEY QUEUE] processNextEventInQueue END, queueLen=${this.keyEventQueue.length}`);
     }
 
 
@@ -1278,7 +1273,6 @@ export default class BaseGameScene extends Phaser.Scene {
         this.lastKeyPressed = '';
         this.lastProcessedKey = null;
         this.lastKeyProcessTime = 0;
-        this.recentKeys = [];
         this.keyEventQueue = [];
         this.isProcessingQueuedKeys = false;
 
@@ -1314,8 +1308,18 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }, 250); // Reduced delay for better responsiveness
 
-    // Queue-based keyboard handler for strict ordering and deduplication
+    // Set-based deduplication: only enqueue keydown if not already pressed
+    this.pressedKeys = new Set();
+    this.lastKeydownTimestamps = {};
     this.input.keyboard.on("keydown", (event) => {
+        const now = Date.now();
+        const last = this.lastKeydownTimestamps[event.code] || 0;
+        if (now - last < 50) {
+            console.log("DROPPED: debounce for", event.code, "last:", last, "now:", now);
+            return;
+        }
+        this.lastKeydownTimestamps[event.code] = now;
+        console.log("KEY PRESSED: ", event.key, "event:", event, "pressedKeys:", Array.from(this.pressedKeys));
         // Skip if we're shutting down
         if (this.isShuttingDown) return;
 
@@ -1329,12 +1333,19 @@ export default class BaseGameScene extends Phaser.Scene {
             event.preventDefault();
         }
 
+        // Only enqueue if key is not already pressed
+        if (this.pressedKeys.has(event.code)) {
+            console.log("DROPPED: already in pressedKeys", event.code, Array.from(this.pressedKeys));
+            return;
+        }
+        this.pressedKeys.add(event.code);
+
         // Record this key press
         this.lastKeyPressed = event.key;
         this.lastKeyTime = Date.now();
 
         // Push event onto the queue with a timestamp for ordering
-        this.keyEventQueue.push({
+        const enqueuedEvent = {
             key: event.key,
             code: event.code,
             timestamp: Date.now(),
@@ -1344,14 +1355,19 @@ export default class BaseGameScene extends Phaser.Scene {
             shiftKey: event.shiftKey,
             // Include the original event for reference if needed
             originalEvent: event
-        });
+        };
+        console.log("KEY PUSHED TO QUEUE: ", enqueuedEvent, "pressedKeys after add:", Array.from(this.pressedKeys));
+        this.keyEventQueue.push(enqueuedEvent);
+        //console.log("QUEUE: ", this.keyEventQueue)
 
         // Start processing the queue if not already running
         this.triggerProcessQueue();
     });
 
-    // No deduplication needed on keyup
-    this.input.keyboard.on("keyup", (event) => {});
+    // On keyup, remove from pressedKeys set
+    this.input.keyboard.on("keyup", (event) => {
+        this.pressedKeys.delete(event.code);
+    });
         
         // Set up cursor blinking timer
         if (this.cursorTimer) {
@@ -1430,11 +1446,15 @@ export default class BaseGameScene extends Phaser.Scene {
         const previousInput = this.userInput;
         this.userInput = input.value;
         this.updateCursor();
-        this.scheduleAISuggestions();
+
+        // Only generate suggestions if the last character is a space or newline
+        const lastChar = this.userInput.slice(-1);
+        if (lastChar === ' ' || lastChar === '\n' || lastChar === '\r') {
+            this.generateAISuggestionsWithQueue(() => {});
+        }
 
         // For mobile, we'll handle word checking in the input handler
         // but NOT trigger the visual effects to prevent duplication
-        const lastChar = this.userInput.slice(-1);
         if (lastChar === ' ' || lastChar === '\n') {
             const words = this.userInput.trim().split(/\s+/);
             const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, '').toLowerCase();
@@ -2556,7 +2576,7 @@ const closeBtnFontSize = this.scalingManager
             if (this.userInput && this.userInput.length > 0) {
                 // Show a short stack trace for debugging
                 const stack = new Error().stack.split('\n').slice(2, 5).join(' | ');
-                console.log(`[CURSOR] updateCursor called. userInput="${this.userInput}" (len=${this.userInput.length}) [${stack}]`);
+                //console.log(`[CURSOR] updateCursor called. userInput="${this.userInput}" (len=${this.userInput.length}) [${stack}]`);
             }
         } catch (e) {}
 
@@ -2780,7 +2800,7 @@ const closeBtnFontSize = this.scalingManager
     showTooltip(text, x, y) {
         // Hide any existing tooltips
         this.hideTooltips();
-        
+
         // Create tooltip background
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
@@ -2789,23 +2809,32 @@ const closeBtnFontSize = this.scalingManager
             color: '#ffffff',
             align: 'center'
         });
-        
+
         const width = tooltipText.width + padding * 2;
         const height = tooltipText.height + padding * 2;
-        
+
         const background = this.add.graphics();
         background.fillStyle(0x000000, 0.8);
         background.fillRoundedRect(0, 0, width, height, 8);
         background.lineStyle(1, 0xffffff, 0.3);
         background.strokeRoundedRect(0, 0, width, height, 8);
-        
+
+        // Calculate initial position
+        let tooltipX = x - width / 2;
+        let tooltipY = y - height - 5;
+
+        // Clamp X so tooltip stays within screen horizontally
+        tooltipX = Math.max(0, Math.min(tooltipX, this.cameras.main.width - width));
+        // Clamp Y so tooltip stays within screen vertically
+        tooltipY = Math.max(0, Math.min(tooltipY, this.cameras.main.height - height));
+
         // Create container for tooltip
-        const container = this.add.container(x - width/2, y - height - 5, [background, tooltipText]);
+        const container = this.add.container(tooltipX, tooltipY, [background, tooltipText]);
         tooltipText.setPosition(padding, padding);
-        
+
         // Add to active tooltips
         this.tooltips.push(container);
-        
+
         // Fade in effect
         container.setAlpha(0);
         this.tweens.add({
@@ -2814,7 +2843,7 @@ const closeBtnFontSize = this.scalingManager
             duration: 200,
             ease: 'Quad.easeOut'
         });
-        
+
         container.setDepth(1000);
     }
     
