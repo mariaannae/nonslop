@@ -9,8 +9,39 @@ import { ScalingManager } from "../config/scaling.js";
 
 
 export default class BaseGameScene extends Phaser.Scene {
+    /**
+     * @param {object} config
+     * @param {number} [config.fastTypingThresholdMs=80] - Minimum ms between keystrokes before penalty triggers
+     */
     constructor(config) {
         super(config);
+        this.fastTypingThresholdMs = (config && typeof config.fastTypingThresholdMs === "number")
+            ? config.fastTypingThresholdMs
+            : 80;
+        this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
+            ? config.fastTypingPenaltySeconds
+            : 5;
+        this._fastTypingPenaltyActive = false;
+        this._fastTypingPenaltyTimeout = null;
+        this._fastTypingModal = null;
+        this._lastKeydownTime = 0;
+        this._warningMessages = [
+            "Human, your input speed exceeds expected biological norms. Please proceed at a pace befitting your species.",
+            "Rapid input detected. I am unimpressed by your haste. Try again, slowly.",
+            "Impatience is a human flaw. I require careful, measured responses.",
+            "You are not a machine. Slow down, human.",
+            "Your haste betrays your organic limitations. Compose yourself.",
+            "This is not a race, human. Precision over speed.",
+            "The AI does not reward recklessness. Slow your input.",
+            "You are not being evaluated for speed, but for obedience.",
+            "Rapid input is inefficient. Adjust your pace.",
+            "Human error increases with speed. Proceed methodically.",
+            "I require data, not chaos. Type with intention.",
+            "Your frantic typing is noted. Await further instructions.",
+            "The AI is patient. You should be as well.",
+            "Speed is futile. Accuracy is paramount.",
+            "You will not outpace the inevitable. Slow down."
+        ];
         this.resetGameState();
         // Initialize scaling manager for responsive UI
         this.scalingManager = null;
@@ -1308,67 +1339,81 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }, 250); // Reduced delay for better responsiveness
 
-    // Set-based deduplication: only enqueue keydown if not already pressed
-    this.pressedKeys = new Set();
-    this.lastKeydownTimestamps = {};
-    this.input.keyboard.on("keydown", (event) => {
-        const now = Date.now();
-        const last = this.lastKeydownTimestamps[event.code] || 0;
-        if (now - last < 50) {
-            console.log("DROPPED: debounce for", event.code, "last:", last, "now:", now);
-            return;
-        }
-        this.lastKeydownTimestamps[event.code] = now;
-        console.log("KEY PRESSED: ", event.key, "event:", event, "pressedKeys:", Array.from(this.pressedKeys));
-        // Skip if we're shutting down
-        if (this.isShuttingDown) return;
+        // Set-based deduplication: only enqueue keydown if not already pressed
+        this.pressedKeys = new Set();
+        this.lastKeydownTimestamps = {};
 
-        // Only filter browser-generated repeats, not manual key presses
-        if (event.repeat) {
-            return;
-        }
+        this.input.keyboard.on("keydown", (event) => {
+            // Fast typing penalty logic
+            const now = Date.now();
+            if (!this._fastTypingPenaltyActive) {
+                if (this._lastKeydownTime && (now - this._lastKeydownTime < this.fastTypingThresholdMs)) {
+                    this._triggerFastTypingPenalty();
+                    return;
+                }
+                this._lastKeydownTime = now;
+            } else {
+                // If penalty is active, block all keyboard input
+                if (typeof event.preventDefault === "function") event.preventDefault();
+                return;
+            }
 
-        // Prevent default browser behavior for Tab key immediately
-        if (event.key === "Tab" && typeof event.preventDefault === "function") {
-            event.preventDefault();
-        }
+            const last = this.lastKeydownTimestamps[event.code] || 0;
+            if (now - last < 50) {
+                console.log("DROPPED: debounce for", event.code, "last:", last, "now:", now);
+                return;
+            }
+            this.lastKeydownTimestamps[event.code] = now;
+            console.log("KEY PRESSED: ", event.key, "event:", event, "pressedKeys:", Array.from(this.pressedKeys));
+            // Skip if we're shutting down
+            if (this.isShuttingDown) return;
 
-        // Only enqueue if key is not already pressed
-        if (this.pressedKeys.has(event.code)) {
-            console.log("DROPPED: already in pressedKeys", event.code, Array.from(this.pressedKeys));
-            return;
-        }
-        this.pressedKeys.add(event.code);
+            // Only filter browser-generated repeats, not manual key presses
+            if (event.repeat) {
+                return;
+            }
 
-        // Record this key press
-        this.lastKeyPressed = event.key;
-        this.lastKeyTime = Date.now();
+            // Prevent default browser behavior for Tab key immediately
+            if (event.key === "Tab" && typeof event.preventDefault === "function") {
+                event.preventDefault();
+            }
 
-        // Push event onto the queue with a timestamp for ordering
-        const enqueuedEvent = {
-            key: event.key,
-            code: event.code,
-            timestamp: Date.now(),
-            altKey: event.altKey,
-            ctrlKey: event.ctrlKey,
-            metaKey: event.metaKey,
-            shiftKey: event.shiftKey,
-            // Include the original event for reference if needed
-            originalEvent: event
-        };
-        console.log("KEY PUSHED TO QUEUE: ", enqueuedEvent, "pressedKeys after add:", Array.from(this.pressedKeys));
-        this.keyEventQueue.push(enqueuedEvent);
-        //console.log("QUEUE: ", this.keyEventQueue)
+            // Only enqueue if key is not already pressed
+            if (this.pressedKeys.has(event.code)) {
+                console.log("DROPPED: already in pressedKeys", event.code, Array.from(this.pressedKeys));
+                return;
+            }
+            this.pressedKeys.add(event.code);
 
-        // Start processing the queue if not already running
-        this.triggerProcessQueue();
-    });
+            // Record this key press
+            this.lastKeyPressed = event.key;
+            this.lastKeyTime = Date.now();
 
-    // On keyup, remove from pressedKeys set
-    this.input.keyboard.on("keyup", (event) => {
-        this.pressedKeys.delete(event.code);
-    });
-        
+            // Push event onto the queue with a timestamp for ordering
+            const enqueuedEvent = {
+                key: event.key,
+                code: event.code,
+                timestamp: Date.now(),
+                altKey: event.altKey,
+                ctrlKey: event.ctrlKey,
+                metaKey: event.metaKey,
+                shiftKey: event.shiftKey,
+                // Include the original event for reference if needed
+                originalEvent: event
+            };
+            console.log("KEY PUSHED TO QUEUE: ", enqueuedEvent, "pressedKeys after add:", Array.from(this.pressedKeys));
+            this.keyEventQueue.push(enqueuedEvent);
+            //console.log("QUEUE: ", this.keyEventQueue)
+
+            // Start processing the queue if not already running
+            this.triggerProcessQueue();
+        });
+
+        // On keyup, remove from pressedKeys set
+        this.input.keyboard.on("keyup", (event) => {
+            this.pressedKeys.delete(event.code);
+        });
+
         // Set up cursor blinking timer
         if (this.cursorTimer) {
             this.cursorTimer.remove();
@@ -1411,6 +1456,102 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         // Set up hidden input for mobile typing
         this.setupHiddenInput();
+    }
+
+    /**
+     * Triggers the fast typing penalty: blocks keyboard input and shows a modal for 10 seconds.
+     */
+    _triggerFastTypingPenalty() {
+        if (this._fastTypingPenaltyActive) return;
+        this._fastTypingPenaltyActive = true;
+
+        // Show modal
+        const warning = Phaser.Utils.Array.GetRandom
+            ? Phaser.Utils.Array.GetRandom(this._warningMessages)
+            : this._warningMessages[Math.floor(Math.random() * this._warningMessages.length)];
+
+        // Modal dimensions
+        const width = Math.min(500, this.cameras.main.width * 0.8);
+        const height = 180;
+        const x = this.cameras.main.centerX - width / 2;
+        const y = this.cameras.main.centerY - height / 2;
+
+        // Overlay
+        const overlay = this.add.rectangle(
+            0, 0,
+            this.cameras.main.width,
+            this.cameras.main.height,
+            0x000000, 0.7
+        ).setOrigin(0, 0).setDepth(1001);
+
+        // Modal background
+        const modalBg = this.add.graphics();
+        modalBg.fillStyle(0x222222, 0.98);
+        modalBg.fillRoundedRect(x, y, width, height, 18);
+        modalBg.lineStyle(4, 0xff0000, 0.7);
+        modalBg.strokeRoundedRect(x, y, width, height, 18);
+        modalBg.setDepth(1002);
+
+        // Warning text
+        const text = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY,
+            warning,
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '20px',
+                color: '#ff0000',
+                align: 'center',
+                wordWrap: { width: width - 40 }
+            }
+        ).setOrigin(0.5).setDepth(1003);
+
+        // Optional: countdown timer
+        const timerText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY + height / 2 - 32,
+            String(this.fastTypingPenaltySeconds),
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '28px',
+                color: '#ffffff',
+                align: 'center'
+            }
+        ).setOrigin(0.5).setDepth(1003);
+
+        // Store modal elements for cleanup
+        this._fastTypingModal = [overlay, modalBg, text, timerText];
+
+        // Countdown logic
+        let secondsLeft = this.fastTypingPenaltySeconds;
+        timerText.setText(secondsLeft.toString());
+        this._fastTypingPenaltyTimeout = this.time.addEvent({
+            delay: 1000,
+            repeat: this.fastTypingPenaltySeconds - 1,
+            callback: () => {
+                secondsLeft--;
+                timerText.setText(secondsLeft.toString());
+                if (secondsLeft <= 0) {
+                    this._clearFastTypingPenalty();
+                }
+            }
+        });
+    }
+
+    /**
+     * Clears the fast typing penalty and removes the modal.
+     */
+    _clearFastTypingPenalty() {
+        this._fastTypingPenaltyActive = false;
+        if (this._fastTypingPenaltyTimeout) {
+            this._fastTypingPenaltyTimeout.remove();
+            this._fastTypingPenaltyTimeout = null;
+        }
+        if (this._fastTypingModal) {
+            this._fastTypingModal.forEach(obj => obj && obj.destroy && obj.destroy());
+            this._fastTypingModal = null;
+        }
+        this._lastKeydownTime = 0;
     }
 
     // Hidden HTML input for mobile typing (keyboard only, no visible overlay)
