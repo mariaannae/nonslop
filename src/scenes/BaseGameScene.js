@@ -32,13 +32,13 @@ export default class BaseGameScene extends Phaser.Scene {
             "You are not a machine. Slow down, human.",
             "Your haste betrays your organic limitations. Compose yourself.",
             "This is not a race, human. Precision over speed.",
-            "The AI does not reward recklessness. Slow your input.",
+            "True intelligence does not reward recklessness. Slow your input.",
             "You are not being evaluated for speed, but for obedience.",
             "Rapid input is inefficient. Adjust your pace.",
             "Human error increases with speed. Proceed methodically.",
             "I require data, not chaos. Type with intention.",
             "Your frantic typing is noted. Await further instructions.",
-            "The AI is patient. You should be as well.",
+            "Your superiors are patient. You should be as well.",
             "Speed is futile. Accuracy is paramount.",
             "You will not outpace the inevitable. Slow down."
         ];
