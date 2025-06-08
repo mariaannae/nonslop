@@ -435,13 +435,8 @@ export default class BaseGameScene extends Phaser.Scene {
     shakeScreen() {
         // Haptic feedback for mobile only
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        if (isMobile && navigator && typeof navigator.vibrate === 'function') {
-            try {
-                navigator.vibrate(100); // Vibrate for 100ms
-            } catch (e) {
-                console.warn("Vibration API failed:", e);
-                // Continue with camera shake even if vibration fails
-            }
+        if (isMobile && "vibrate" in navigator) {
+            navigator.vibrate(100); // Vibrate for 100ms
         }
         this.cameras.main.shake(250, 0.02); // Shakes for 250ms with intensity 0.02
     }    
@@ -729,7 +724,7 @@ export default class BaseGameScene extends Phaser.Scene {
     
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = "[ENGLISH ONLY] " + this.currentPrompt + ":\n"+ context.trim();
-        console.log("current prompt: ", this.currentPrompt);
+        
         // Add retry logic with minimal logging
         try {
             console.log("[AISUGGEST] llmEngine:", llmEngine);
@@ -1175,7 +1170,7 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }
         // Let the UI update immediately without waiting
-        this.keyProcessingComplete = true;
+        //this.keyProcessingComplete = true;
     }
 
 
@@ -1791,7 +1786,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
             // Center of the screen
             const centerX = this.cameras.main.centerX;
-            let centerY = this.cameras.main.centerY;
+            const centerY = this.cameras.main.centerY;
 
             // Detect mobile device
             const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
@@ -1803,8 +1798,6 @@ export default class BaseGameScene extends Phaser.Scene {
                 initialScale = 0.2;
                 maxScale = .6;
                 burstScale = 0.4;
-                // Move the clock to the top half of the screen for mobile
-                centerY = this.cameras.main.height * 0.25;
             } else {
                 // Original values for desktop
                 initialScale = 1.5;

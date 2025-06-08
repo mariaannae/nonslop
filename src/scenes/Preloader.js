@@ -90,6 +90,16 @@ export default class Preloader extends Phaser.Scene {
         this.load.image('gh-qr-code', 'gh-qr-code.png');
         this.load.image('settings', 'settings.png');
 
+        // Load badge images with scores
+        this.load.setPath('assets/badges');
+        for (let i = 1; i <= 12; i++) {
+            for (let score = 10; score <= 15; score++) {
+                this.load.image(`badge_${i}_easy_${score}`, `badge_${i}_easy_${score}.png`);
+                this.load.image(`badge_${i}_hard_${score}`, `badge_${i}_hard_${score}.png`);
+            }
+        }
+        this.load.setPath('assets');
+
         // Load social SVGs for share buttons
         this.load.setPath('assets/socials');
         this.load.image('facebook', 'facebook.svg');
@@ -158,11 +168,7 @@ export default class Preloader extends Phaser.Scene {
         });
     }
     
-    addButtonClickEffects() {
-        // Apply to all buttons
-        const button = this.doneButton;
-        
- 
+    addButtonClickEffects(button, onClick) {
         if (!button) return;
         
         // Add click listener for particle effect
@@ -171,25 +177,21 @@ export default class Preloader extends Phaser.Scene {
         // Replace any existing click handlers with a new one that includes particles
         button.off('pointerdown');
         button.on('pointerdown', (pointer) => {
-        // Create the particle effect
-        this.createButtonClickParticles(button.x, button.y);
-        
-        // Simulate button press animation
-        this.tweens.add({
-            targets: button,
-            scaleX: 0.95,
-            scaleY: 0.95,
-            duration: 100,
-            yoyo: true,
-            ease: "Quad.Out",
-            onComplete: () => {
-            // Call the appropriate button function based on button type
-            this.scene.start('InstructionScene', {llmEngine: this.llmEngine });
-            }
+            // Create the particle effect
+            this.createButtonClickParticles(button.x, button.y);
+            
+            // Simulate button press animation
+            this.tweens.add({
+                targets: button,
+                scaleX: 0.95,
+                scaleY: 0.95,
+                duration: 100,
+                yoyo: true,
+                ease: "Quad.Out",
+                onComplete: onClick
+            });
         });
-        });
-     
-      }
+    }
 
     createButtonClickParticles(x, y) {
         // Number of particles
@@ -321,9 +323,29 @@ export default class Preloader extends Phaser.Scene {
     onDoneButtonClick() {
 
       
-        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
-
+            this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
     }
+
+    createBadgeGeneratorButton() {
+         const button = ButtonFactory.createButton(
+             this,
+             "GENERATE BADGES",
+             () => this.scene.start('BadgeGenerator'),
+             this.cameras.main.width - 150,
+             50,
+             { depth: 102 }
+         );
+
+         button.setInteractive()
+             .on('pointerover', () => {
+                 this.showTooltip('Generate all badge variations', button.x, button.y + button.height/2);
+                 button.setScale(1.1);
+             })
+             .on('pointerout', () => {
+                 this.hideTooltips();
+                 button.setScale(1);
+             });
+     }
 
     async create() {
         const screenWidth = this.cameras.main.width;
@@ -507,14 +529,39 @@ export default class Preloader extends Phaser.Scene {
 
             // Create the button
 
+            // Create buttons container
+            const buttonSpacing = 20;
+            
+            //Create badge generator button
+            // const generateButton = ButtonFactory.createButton(
+            //     this,
+            //     "GENERATE BADGES",
+            //     () => this.scene.start('BadgeGenerator'),
+            //     buttonCenterX,
+            //     buttonCenterY - buttonSpacing,
+            //     { depth: 102, scalingManager: this.scalingManager }
+            // );
+
+            // Create next button
             this.doneButton = ButtonFactory.createButton(
                 this,
                 "NEXT",
                 () => this.onDoneButtonClick(),
                 buttonCenterX,
-                buttonCenterY,
+                buttonCenterY + buttonSpacing,
                 { depth: 102, scalingManager: this.scalingManager }
             );
+
+            // Add hover effects to generate button
+            // generateButton.setInteractive()
+            //     .on('pointerover', () => {
+            //         this.showTooltip('Generate all badge variations', generateButton.x, generateButton.y - generateButton.height/2);
+            //         generateButton.setScale(1.1);
+            //     })
+            //     .on('pointerout', () => {
+            //         this.hideTooltips();
+            //         generateButton.setScale(1);
+            //     });
 
             // Add tooltip functionality
             this.doneButton.setInteractive()
@@ -527,7 +574,9 @@ export default class Preloader extends Phaser.Scene {
                     this.doneButton.setScale(1);
                 });
 
-            this.addButtonClickEffects();
+            // Add click effects to both buttons
+            //this.addButtonClickEffects(generateButton, () => this.scene.start('BadgeGenerator'));
+            this.addButtonClickEffects(this.doneButton, () => this.scene.start('InstructionScene', { llmEngine: this.llmEngine }));
         }
     }
 

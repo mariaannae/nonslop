@@ -201,7 +201,7 @@ export default class UsernameScene extends Phaser.Scene {
         this._usernameKeydownHandler = (event) => {
             // Allow only letters, numbers, and spaces
             if (/^[a-zA-Z0-9 ]$/.test(event.key)) {
-                if (this.username.length < 20) { // Set a reasonable maximum length
+                if (this.username.length < 8) { // Limit username to 8 characters
                     this.username += event.key;
                     this.updateInputText();
                 }
@@ -232,7 +232,7 @@ export default class UsernameScene extends Phaser.Scene {
         input.autocapitalize = 'words';
         input.autocomplete = 'off';
         input.spellcheck = false;
-        input.maxLength = 20;
+        input.maxLength = 8;
         input.style.position = 'fixed';
         input.style.opacity = '0';
         input.style.pointerEvents = 'none';

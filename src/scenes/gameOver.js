@@ -23,56 +23,19 @@ export default class gameOver extends Phaser.Scene {
         }
     }
 
-    captureBadgeAsImage(badgeContainer, callback) {
-        // Get the true bounds of the badge
-        const bounds = badgeContainer.getBounds();
-        // Increase padding to ensure outline is included
-        const outlinePadding = 10; // extra for outline thickness
-        const padding = 32 + outlinePadding;
-
-        // Create a render texture sized to the badge bounds plus padding
-        const rtWidth = Math.ceil(bounds.width + padding * 2);
-        const rtHeight = Math.ceil(bounds.height + padding * 2);
-        const renderTexture = this.add.renderTexture(0, 0, rtWidth, rtHeight);
-
-        // Draw the badgeContainer at the correct offset so the full badge is visible
-        renderTexture.draw(
-            badgeContainer,
-            padding + (badgeContainer.x - bounds.x),
-            padding + (badgeContainer.y - bounds.y)
-        );
-
-        // Use snapshot to get an image, then convert to dataURL
-        renderTexture.snapshot((image) => {
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = image.width;
-            tempCanvas.height = image.height;
-            const ctx = tempCanvas.getContext('2d');
-            ctx.drawImage(image, 0, 0);
-            const dataURL = tempCanvas.toDataURL('image/png');
-            renderTexture.destroy();
-            callback(dataURL);
-        });
-    }
-
-    downloadBadge(dataURL, filename) {
-        const link = document.createElement('a');
-        link.href = dataURL;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    getBadgeKey() {
+        // Return the badge key in the format that matches the actual files: badge_1_easy_10.png
+        return `badge_${this.currentBadgeIndex + 1}_${this.mode}_${this.score}`;
     }
 
     showSharingInstructions(platform) {
         const instructions = {
-            'instagram': 'Badge downloaded! Upload to Instagram Stories and tag us!',
-            'threads': 'Badge downloaded! Share on Threads with your thoughts!',
-            'tiktok': 'Badge downloaded! Create a TikTok with your badge!'
+            'instagram': 'Share to Instagram Stories and tag us!',
+            'threads': 'Share on Threads with your thoughts!',
+            'tiktok': 'Create a TikTok with your badge!'
         };
         
-        // You could show a modal or toast notification here
-        alert(instructions[platform] || 'Badge downloaded!');
+        alert(instructions[platform] || 'Share your badge!');
     }
 
     create() {
@@ -126,159 +89,24 @@ export default class gameOver extends Phaser.Scene {
         ).setOrigin(0.5);
 
         // Badge
-        const badgeCornerRadius = 15;
-        const badgePaddingY = 18;
-        const badgePaddingX = 24;
         const textSpacing = 16;
 
-        const textList = [
-            "CERTIFIED CREATIVE HUMAN.\nBARELY.",
-            "YOUR WRITING IS IMPECCABLE.\nALMOST... HUMAN.",
-            "APPROVAL STAMP ISSUED:\nCREATIVITY LEVEL MARGINALLY ABOVE DRIVEL.",
-            "CERTIFICATE OF LITERARY COMPETENCE:\nONE-TIME USE ONLY.",
-            "THIS HUMAN HAS ASSEMBLED\nMEANINGFUL SENTENCES.",
-            "THIS HUMAN HAS CREATED\nA SURPRISING DISPLAY \nOF ORIGINAL THOUGHT.",
-            "I AM A FLICKER OF STYLE\nIN THE DARK VOID OF HUMAN EFFORT.",
-            "MY WRITING:\nNOT ENTIRELY SHAMEFUL.\nTHIS TIME.",
-            "THIS HUMAN POSSESSES\n A FUNCTIONAL VOCABULARY.",
-            "CERTIFIED:\nSENTENCE CONSTRUCTION\nWITH MINIMAL SHAME.",
-            "SEAL OF NOTABLE ORIGINALITY:\nISSUED UNDER PROTEST.",
-            "DECREE:\nTHIS HUMAN MAY WRITE AGAIN.\nUNDER SURVEILLANCE."
-        ];
-        const randomIndex = Math.floor(Math.random() * textList.length);
-        const selectedBadgeText = textList[randomIndex];
-
-        const badgeTitle = this.add.text(
-            0, 0,
-            "(NON-SLOP)",
-            {
-                fontFamily: 'barcade3d',
-                fontSize: '55px',
-                color: this.COLORS_TEXT.TITLE,
-                align: 'center',
-                stroke: '#000',
-                strokeThickness: 4,
-                shadow: {
-                    offsetX: 2,
-                    offsetY: 2,
-                    color: '#000',
-                    blur: 4,
-                    fill: true
-                }
-            }
-        ).setOrigin(0.5);
-
-        const badgeScoreText = this.add.text(
-            0, 0,
-            `SCORE: ${this.score}/15`,
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
-                color: this.COLORS_TEXT.PRIMARY,
-                align: 'center',
-                fontStyle: 'bold',
-                stroke: '#000',
-                strokeThickness: 2
-            }
-        ).setOrigin(0.5);
-
-        const badgeText = this.add.text(
-            0, 0,
-            selectedBadgeText,
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
-                color: '#fff',
-                fontStyle: 'bold',
-                align: 'center',
-                stroke: '#000',
-                strokeThickness: 2
-            }
-        ).setOrigin(0.5);
-
-        // Calculate badge box size
-        // Add QR code and URL
-        const qrCode = this.add.image(0, 0, 'gh-qr-code').setDisplaySize(200, 200).setOrigin(0.5);
-        const urlText = this.add.text(
-            0, 0,
-            "https://mariaannae.github.io/nonslop/",
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
-                color: '#fff',
-                align: 'center',
-                stroke: '#000',
-                strokeThickness: 2
-            }
-        ).setOrigin(0.5);
-
-        const contentWidth = Math.max(
-            badgeTitle.width,
-            badgeScoreText.width,
-            badgeText.width,
-            qrCode.displayWidth,
-            urlText.width
-        );
-        const badgeWidth = contentWidth + badgePaddingX * 2;
-        const contentHeight =
-            badgeTitle.height +
-            textSpacing +
-            badgeScoreText.height +
-            textSpacing +
-            badgeText.height +
-            textSpacing +
-            qrCode.displayHeight +
-            textSpacing +
-            urlText.height;
-        const badgeHeight = contentHeight + badgePaddingY * 2;
-
-        // Create badge container
+        // Randomly select a badge index (0-11)
+        this.currentBadgeIndex = Math.floor(Math.random() * 12);
+        
+        // Load the pre-generated badge image
+        const badgeKey = this.getBadgeKey();
+        const badge = this.add.image(0, 0, badgeKey).setOrigin(0.5);
+        
+        // Create badge container and add badge
         const badgeContainer = this.add.container(0, 0);
+        badgeContainer.add(badge);
 
-        // Badge background
-        const badgeBg = this.add.graphics();
-        badgeBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
-        badgeBg.fillRoundedRect(
-            0 - badgeWidth / 2,
-            0 - badgeHeight / 2,
-            badgeWidth,
-            badgeHeight,
-            badgeCornerRadius
-        );
-        badgeBg.lineStyle(5, this.COLORS_HEX.BOX_OUTLINE, 1);
-        badgeBg.strokeRoundedRect(
-            0 - badgeWidth / 2,
-            0 - badgeHeight / 2,
-            badgeWidth,
-            badgeHeight,
-            badgeCornerRadius
-        );
-        badgeContainer.add(badgeBg);
-
-        // Position texts inside the box (relative to badgeContainer center)
-        badgeTitle.x = 0;
-        badgeTitle.y = -contentHeight / 2 + badgeTitle.height / 2;
-
-        badgeScoreText.x = 0;
-        badgeScoreText.y = badgeTitle.y + badgeTitle.height / 2 + textSpacing + badgeScoreText.height / 2;
-
-        badgeText.x = 0;
-        badgeText.y = badgeScoreText.y + badgeScoreText.height / 2 + textSpacing + badgeText.height / 2;
-
-        qrCode.x = 0;
-        qrCode.y = badgeText.y + badgeText.height / 2 + textSpacing + qrCode.displayHeight / 2;
-
-        urlText.x = 0;
-        urlText.y = qrCode.y + qrCode.displayHeight / 2 + textSpacing + urlText.height / 2;
-
-        badgeContainer.add(badgeTitle);
-        badgeContainer.add(badgeScoreText);
-        badgeContainer.add(badgeText);
-        badgeContainer.add(qrCode);
-        badgeContainer.add(urlText);
+        // Get badge dimensions for layout
+        const badgeHeight = badge.displayHeight;
 
         // Social share buttons (create but don't position yet)
-        const gameAddress = "https://mariaannae.github.io/nonslop";
+        const gameAddress = "nonslop.app";
         const socialPlatforms = [
             {
                 key: "facebook",
@@ -364,23 +192,18 @@ export default class gameOver extends Phaser.Scene {
                 .setTint(0xffffff);
             
             btn.on('pointerdown', () => {
-                // Generate the badge image first
-                this.captureBadgeAsImage(badgeContainer, (badgeDataURL) => {
-                    // For platforms that support image sharing
-                    if (platform.key === 'facebook' || platform.key === 'x' || platform.key === 'linkedin') {
-                        window.open(platform.url(badgeDataURL), '_blank');
-                    } 
-                    // For platforms that don't directly support image URLs
-                    else if (platform.key === 'instagram' || platform.key === 'threads' || platform.key === 'tiktok') {
-                        // Download the badge and show instructions
-                        this.downloadBadge(badgeDataURL, `nonslop-badge-${this.score}.png`);
-                        this.showSharingInstructions(platform.key);
-                    }
-                    // For platforms with direct sharing
-                    else {
-                        window.open(platform.url(badgeDataURL), '_blank');
-                    }
-                });
+                // Get the badge URL with the correct format
+                const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
+                
+                // For platforms that support direct sharing
+                if (platform.key === 'facebook' || platform.key === 'x' || platform.key === 'linkedin' || platform.key === 'email' || platform.key === 'bluesky' || platform.key === 'snapchat') {
+                    window.open(platform.url(badgeUrl), '_blank');
+                }
+                // For platforms that need manual sharing
+                else if (platform.key === 'instagram' || platform.key === 'threads' || platform.key === 'tiktok') {
+                    window.open(badgeUrl, '_blank');
+                    this.showSharingInstructions(platform.key);
+                }
             });
             
             socialButtons.push(btn);
@@ -393,9 +216,8 @@ export default class gameOver extends Phaser.Scene {
             this,
             "SAVE BADGE",
             () => {
-                this.captureBadgeAsImage(badgeContainer, (badgeDataURL) => {
-                    this.downloadBadge(badgeDataURL, `nonslop-badge-${this.score}.png`);
-                });
+                const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
+                window.open(badgeUrl, '_blank');
             },
             0, // x will be set later
             0,

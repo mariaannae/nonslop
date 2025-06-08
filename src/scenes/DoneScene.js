@@ -333,7 +333,7 @@ export default class DoneScene extends Phaser.Scene {
         const userInputCopy = this.userInput;
         
         const interaction = userInputCopy;
-        saveInteraction(interaction, 'feedback');
+        saveInteraction(interaction, 'userSubmissions');
         
         // Log user input before clearing
         console.log("User input before clearing:", userInputCopy);

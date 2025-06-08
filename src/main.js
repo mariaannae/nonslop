@@ -11,6 +11,7 @@ import DoneScene from "./scenes/DoneScene.js";
 import LeaderboardScene from "./scenes/LeaderboardScene.js";
 import UsernameScene from "./scenes/UsernameScene.js";
 import gameOver from "./scenes/gameOver.js";
+import BadgeGenerator from "./scenes/BadgeGenerator.js";
 
 
 
@@ -32,9 +33,9 @@ const isMobile = isMobileDevice();
 
 const config = {
     type: Phaser.AUTO,
-    width: isMobile ? 600 : 1920,
-    height: isMobile ? 1000 : 900,
-    scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene, gameOver],
+    width: isMobile ? 580 : 1920,
+    height: isMobile ? 800 : 900,
+    scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene, gameOver, BadgeGenerator],
     physics: { default: 'arcade', arcade: { debug: false } },
     plugins: {
         global: [{
