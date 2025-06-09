@@ -177,10 +177,10 @@ const socialPlatforms = [
         // Tooltip text for accessibility and UX
         const platformTooltips = {
             facebook: "Share on Facebook",
-            instagram: "Share on Instagram (manual)",
-            threads: "Share on Threads (manual)",
+            instagram: "Share on Instagram",
+            threads: "Share on Threads",
             x: "Share on X (Twitter)",
-            tiktok: "Share on TikTok (manual)",
+            tiktok: "Share on TikTok",
             snapchat: "Share on Snapchat",
             bluesky: "Share on Bluesky",
             linkedin: "Share on LinkedIn",
