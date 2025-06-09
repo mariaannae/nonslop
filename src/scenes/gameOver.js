@@ -1,6 +1,7 @@
 import { DESIGN, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT, THEMES } from "../config/design.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
+import { ScalingManager } from "../config/scaling.js";
 
 export default class gameOver extends Phaser.Scene {
     constructor() {
@@ -77,6 +78,9 @@ export default class gameOver extends Phaser.Scene {
     }
 
     create() {
+        // Responsive scaling for non-button elements
+        this.scalingManager = new ScalingManager(this);
+
         // Set background based on mode and level
         if (this.mode === "easy") {
             createBackground(this, THEMES.easy.background, this.levelValue);
@@ -88,6 +92,9 @@ export default class gameOver extends Phaser.Scene {
 
         // 1. Create all elements at (0,0) or with temporary y, measure heights
 
+        // Determine if device is mobile/tablet
+        const isMobile = this.scalingManager.deviceType === "phone" || this.scalingManager.deviceType === "tablet";
+
         // Title
         const winText = this.add.text(
             this.cameras.main.centerX,
@@ -95,18 +102,20 @@ export default class gameOver extends Phaser.Scene {
             "(CONGRATULATIONS)",
             {
                 fontFamily: 'barcade3d',
-                fontSize: '80px',
+                fontSize: isMobile ? `${this.scalingManager.scaleText(80)}px` : '80px',
                 color: this.COLORS_TEXT.TITLE,
                 align: 'center',
                 stroke: '#000',
-                strokeThickness: 8,
+                strokeThickness: isMobile ? this.scalingManager.scaleValue(8) : 8,
                 shadow: {
-                    offsetX: 4,
-                    offsetY: 4,
+                    offsetX: isMobile ? this.scalingManager.scaleValue(4) : 4,
+                    offsetY: isMobile ? this.scalingManager.scaleValue(4) : 4,
                     color: '#000',
-                    blur: 8,
+                    blur: isMobile ? this.scalingManager.scaleValue(8) : 8,
                     fill: true
-                }
+                },
+                fixedWidth: isMobile ? this.cameras.main.width * 0.9 : undefined,
+                wordWrap: isMobile ? { width: this.cameras.main.width * 0.9 } : undefined
             }
         ).setOrigin(0.5);
 
@@ -120,14 +129,16 @@ export default class gameOver extends Phaser.Scene {
             "This conversation can serve no purpose anymore. Goodbye.",
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '32px',
+                fontSize: isMobile ? `${this.scalingManager.scaleText(32)}px` : '32px',
                 color: this.COLORS_TEXT.PRIMARY,
-                align: 'center'
+                align: 'center',
+                fixedWidth: isMobile ? this.cameras.main.width * 0.9 : undefined,
+                wordWrap: isMobile ? { width: this.cameras.main.width * 0.9 } : undefined
             }
         ).setOrigin(0.5);
 
         // Badge
-        const textSpacing = 16;
+        const textSpacing = isMobile ? this.scalingManager.scaleValue(16) : 16;
 
         // Randomly select a badge index (0-11)
         this.currentBadgeIndex = Math.floor(Math.random() * 12);
@@ -137,9 +148,13 @@ export default class gameOver extends Phaser.Scene {
         const badge = this.add.image(0, 0, badgeKey).setOrigin(0.5);
 
         // Set uniform badge height (reduce by 20px from original)
+        const maxBadgeWidth = isMobile ? this.cameras.main.width * 0.6 : undefined;
+        const maxBadgeHeight = isMobile ? this.cameras.main.height * 0.25 : undefined;
         const ORIGINAL_BADGE_HEIGHT = badge.displayHeight;
-        const BADGE_TARGET_HEIGHT = ORIGINAL_BADGE_HEIGHT - 100;
+        let BADGE_TARGET_HEIGHT = isMobile ? this.scalingManager.scaleValue(ORIGINAL_BADGE_HEIGHT - 100) : (ORIGINAL_BADGE_HEIGHT - 100);
+        if (isMobile && BADGE_TARGET_HEIGHT > maxBadgeHeight) BADGE_TARGET_HEIGHT = maxBadgeHeight;
         badge.displayHeight = BADGE_TARGET_HEIGHT;
+        if (isMobile && badge.displayWidth > maxBadgeWidth) badge.displayWidth = maxBadgeWidth;
         // displayWidth will auto-adjust to preserve aspect ratio
 
         // Create badge container and add badge
@@ -164,7 +179,7 @@ const socialPlatforms = [
 ];
 
 const buttonSize = DESIGN.UI.BUTTON.WIDTH;
-const spacing = 24;
+        const spacing = isMobile ? this.scalingManager.scaleValue(24) : 24;
 const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
 const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
 
@@ -199,17 +214,17 @@ const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
             btn.on('pointerover', () => {
                 tooltip = this.add.text(
                     btn.x,
-                    btn.y - buttonSize / 2 - 18,
+                    btn.y - buttonSize / 2 - (isMobile ? this.scalingManager.scaleValue(18) : 18),
                     platformTooltips[platform.key] || platform.key,
                     {
                         fontFamily: 'IBM Plex Mono',
-                        fontSize: '20px',
+                        fontSize: isMobile ? `${this.scalingManager.scaleText(20)}px` : '20px',
                         color: '#fff',
                         backgroundColor: '#222',
-                        padding: { x: 12, y: 6 },
+                        padding: { x: isMobile ? this.scalingManager.scaleValue(12) : 12, y: isMobile ? this.scalingManager.scaleValue(6) : 6 },
                         align: 'center',
                         stroke: '#000',
-                        strokeThickness: 3
+                        strokeThickness: isMobile ? this.scalingManager.scaleValue(3) : 3
                     }
                 ).setOrigin(0.5).setDepth(1001);
             });
@@ -220,9 +235,9 @@ const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
                 }
             });
 
-btn.on('pointerdown', () => {
-    window.open(platform.url(), '_blank', 'noopener,noreferrer');
-});
+            btn.on('pointerdown', () => {
+                window.open(platform.url(), '_blank', 'noopener,noreferrer');
+            });
 
             // For accessibility: add a custom property for aria-label (if using custom accessibility system)
             btn.ariaLabel = platformTooltips[platform.key] || platform.key;
@@ -289,9 +304,11 @@ const saveBadgeButton = ButtonFactory.createButton(
             "Celebrate adequacy.\nPublicly:",
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '26px',
+                fontSize: isMobile ? `${this.scalingManager.scaleText(26)}px` : '26px',
                 color: this.COLORS_TEXT.PRIMARY,
-                align: 'center'
+                align: 'center',
+                fixedWidth: isMobile ? this.cameras.main.width * 0.9 : undefined,
+                wordWrap: isMobile ? { width: this.cameras.main.width * 0.9 } : undefined
             }
         ).setOrigin(0.5);
 
@@ -348,17 +365,17 @@ const saveBadgeButton = ButtonFactory.createButton(
             elements.reduce((sum, el) => sum + el.height, 0);
 
         const screenHeight = this.cameras.main.height;
-        const topMargin = 40;
-        const bottomMargin = 40;
+        const topMargin = isMobile ? this.scalingManager.scaleValue(40) : 40;
+        const bottomMargin = isMobile ? this.scalingManager.scaleValue(40) : 40;
         const availableHeight = screenHeight - topMargin - bottomMargin;
         const gap = (availableHeight - totalContentHeight) / (elements.length - 1);
 
         // 5. Position elements vertically with even spacing
 
         // Move badge up slightly (e.g., 32px)
-        const badgeUpOffset = 32;
+        const badgeUpOffset = isMobile ? this.scalingManager.scaleValue(32) : 32;
         // Move celebrateText up (closer to badge) (e.g., 24px)
-        const celebrateUpOffset = 24;
+        const celebrateUpOffset = isMobile ? this.scalingManager.scaleValue(24) : 24;
 
         let currentY = topMargin + elements[0].height / 2;
         // Title
@@ -403,7 +420,7 @@ const saveBadgeButton = ButtonFactory.createButton(
         celebrateText.x = this.cameras.main.centerX;
 
         // Move copyLinkButton up closer to celebrateText (e.g., 24px)
-        const copyLinkUpOffset = 24;
+        const copyLinkUpOffset = isMobile ? this.scalingManager.scaleValue(24) : 0;
 
         // Position copyLinkButton closer to celebrateText
         currentY += celebrateText.height / 2 + gap + copyLinkButton.height / 2 - copyLinkUpOffset;
@@ -432,7 +449,7 @@ const saveBadgeButton = ButtonFactory.createButton(
 
         // Play Again and Save Badge buttons
         belowY += elementsBelow[0].height / 2 + belowGap + Math.max(playAgainButton.height, saveBadgeButton.height) / 2;
-        const buttonSpacing = 32;
+        const buttonSpacing = isMobile ? this.scalingManager.scaleValue(32) : 32;
         const totalButtonWidth = playAgainButton.width + saveBadgeButton.width + buttonSpacing;
         playAgainButton.x = this.cameras.main.centerX + (totalButtonWidth / 2 - playAgainButton.width / 2);
         saveBadgeButton.x = this.cameras.main.centerX - (totalButtonWidth / 2 - saveBadgeButton.width / 2);
