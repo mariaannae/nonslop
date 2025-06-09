@@ -26,42 +26,84 @@ function isMobileDevice() {
     );
 }
 
-// Calculate optimal game dimensions
+// Calculate optimal game dimensions based on device and screen
 function getOptimalDimensions() {
     const isMobile = isMobileDevice();
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
     const aspectRatio = screenWidth / screenHeight;
     
-    // Define base resolutions for different orientations and devices
     if (isMobile) {
-        // Portrait mode (most common for mobile)
+        // Mobile configurations
         if (aspectRatio < 1) {
+            // Portrait mode
             return {
                 width: 720,
                 height: 1280,
-                mode: Phaser.Scale.FIT
+                mode: Phaser.Scale.FIT,
+                maxWidth: 540,
+                maxHeight: 960
             };
-        }
-        // Landscape mode
-        else {
+        } else {
+            // Landscape mode
             return {
                 width: 1280,
                 height: 720,
-                mode: Phaser.Scale.FIT
+                mode: Phaser.Scale.FIT,
+                maxWidth: 960,
+                maxHeight: 540
             };
         }
     } else {
-        // Desktop - use a 16:9 aspect ratio as base
-        return {
-            width: 1920,
-            height: 1080,
-            mode: Phaser.Scale.FIT
-        };
+        // Desktop configurations - more sophisticated approach
+        const maxGameWidth = Math.min(screenWidth * 0.9, 1920);
+        const maxGameHeight = Math.min(screenHeight * 0.9, 1080);
+        
+        // For ultra-wide monitors, constrain to 16:9
+        if (aspectRatio > 2) {
+            return {
+                width: 1920,
+                height: 1080,
+                mode: Phaser.Scale.FIT,
+                maxWidth: maxGameHeight * (16/9),
+                maxHeight: maxGameHeight
+            };
+        }
+        
+        // For standard desktop displays
+        if (screenWidth >= 1920 && screenHeight >= 1080) {
+            // Full HD or higher - use optimal gaming resolution
+            return {
+                width: 1920,
+                height: 1080,
+                mode: Phaser.Scale.FIT,
+                maxWidth: maxGameWidth,
+                maxHeight: maxGameHeight
+            };
+        } else if (screenWidth >= 1366) {
+            // HD displays
+            return {
+                width: 1366,
+                height: 768,
+                mode: Phaser.Scale.FIT,
+                maxWidth: screenWidth * 0.9,
+                maxHeight: screenHeight * 0.9
+            };
+        } else {
+            // Smaller desktop displays
+            return {
+                width: 1280,
+                height: 720,
+                mode: Phaser.Scale.FIT,
+                maxWidth: screenWidth * 0.9,
+                maxHeight: screenHeight * 0.9
+            };
+        }
     }
 }
 
 const dimensions = getOptimalDimensions();
+const isMobile = isMobileDevice();
 
 const config = {
     type: Phaser.AUTO,
@@ -82,7 +124,11 @@ const config = {
     physics: { 
         default: 'arcade', 
         arcade: { 
-            debug: false 
+            debug: false,
+            // Adjust physics for desktop (higher precision)
+            fps: isMobile ? 60 : 120,
+            timeScale: 1,
+            gravity: { y: 0 }
         } 
     },
     plugins: {
@@ -97,60 +143,159 @@ const config = {
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: dimensions.width,
         height: dimensions.height,
-        // Additional scale options for better mobile support
-        parent: 'game-container', // Make sure you have a div with this ID
+        min: {
+            width: isMobile ? 320 : 800,
+            height: isMobile ? 480 : 600
+        },
+        max: {
+            width: dimensions.maxWidth || dimensions.width,
+            height: dimensions.maxHeight || dimensions.height
+        },
+        parent: 'game-container',
         expandParent: false,
-        // Handle device pixel ratio for sharp rendering
         resolution: window.devicePixelRatio || 1,
-        // Prevent sub-pixel rendering issues
         autoRound: true
     },
     render: {
         pixelArt: false,
         antialias: true,
-        // Additional render options for better performance
-        powerPreference: 'high-performance',
-        transparent: false
+        powerPreference: isMobile ? 'default' : 'high-performance',
+        transparent: false,
+        // Better rendering for desktop
+        mipmapFilter: 'LINEAR',
+        roundPixels: false,
+        // Enable if you have text-heavy scenes
+        batchSize: isMobile ? 2048 : 4096
     },
-    // Input configuration for better mobile support
     input: {
-        activePointers: 3, // Support multi-touch
-        smoothFactor: 0.5 // Smooth input on mobile
+        activePointers: isMobile ? 3 : 1,
+        smoothFactor: isMobile ? 0.5 : 0,
+        // Enable keyboard for desktop
+        keyboard: {
+            target: window
+        },
+        // Mouse settings for desktop
+        mouse: {
+            preventDefaultWheel: true,
+            preventDefaultDown: false,
+            preventDefaultUp: false,
+            preventDefaultMove: false
+        }
     },
-    // DOM configuration
+    fps: {
+        // Higher FPS target for desktop
+        target: isMobile ? 60 : 120,
+        min: 30,
+        forceSetTimeOut: false
+    },
     dom: {
         createContainer: true
-    }
+    },
+    // Audio settings optimized per platform
+    audio: {
+        disableWebAudio: false,
+        noAudio: false
+    },
+    // Disable context menu on right-click for desktop
+    disableContextMenu: !isMobile
 };
 
 const game = new Phaser.Game(config);
 
-// Handle orientation changes and resize events
+// Store device type globally for scenes to access
+game.registry.set('isMobile', isMobile);
+game.registry.set('baseWidth', dimensions.width);
+game.registry.set('baseHeight', dimensions.height);
+
+// Handle window resize events
+let resizeTimeout;
 window.addEventListener('resize', () => {
-    // Let Phaser's scale manager handle the resize
-    if (game.scale) {
-        game.scale.refresh();
-    }
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        if (game.scale) {
+            game.scale.refresh();
+            
+            // Emit custom resize event for scenes
+            game.events.emit('resize', game.scale.width, game.scale.height);
+        }
+    }, 100);
 });
 
-// Handle orientation change specifically for mobile
-if (isMobileDevice()) {
-    window.addEventListener('orientationchange', () => {
-        // Small delay to ensure new dimensions are available
-        setTimeout(() => {
-            if (game.scale) {
-                game.scale.refresh();
+// Desktop-specific: fullscreen handling
+if (!isMobile) {
+    // F11 or custom fullscreen toggle
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'F11') {
+            e.preventDefault();
+            if (game.scale.isFullscreen) {
+                game.scale.stopFullscreen();
+            } else {
+                game.scale.startFullscreen();
             }
-        }, 100);
+        }
+    });
+    
+    // ESC key handling for menus/pause
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            game.events.emit('toggle-pause');
+        }
     });
 }
 
-// Prevent default touch behaviors on mobile (like pull-to-refresh)
-document.addEventListener('touchmove', (e) => {
-    if (e.target.closest('#game-container')) {
-        e.preventDefault();
-    }
-}, { passive: false });
+// Mobile-specific: orientation and touch handling
+if (isMobile) {
+    window.addEventListener('orientationchange', () => {
+        setTimeout(() => {
+            if (game.scale) {
+                // Recalculate dimensions on orientation change
+                const newDimensions = getOptimalDimensions();
+                game.scale.resize(newDimensions.width, newDimensions.height);
+                game.events.emit('orientation-change', window.orientation);
+            }
+        }, 100);
+    });
+    
+    // Prevent unwanted mobile behaviors
+    document.addEventListener('touchmove', (e) => {
+        if (e.target.closest('#game-container')) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    // Prevent double-tap zoom
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+            e.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, false);
+}
 
-// Export game instance if needed by other modules
+// Performance monitoring for optimization
+if (!isMobile && process.env.NODE_ENV === 'development') {
+    // Add FPS display for development
+    game.events.on('postrender', () => {
+        // Your FPS monitoring code here
+    });
+}
+
+// Visibility change handling (pause when tab is hidden)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        game.events.emit('game-blur');
+        if (game.sound) {
+            game.sound.pauseAll();
+        }
+    } else {
+        game.events.emit('game-focus');
+        if (game.sound) {
+            game.sound.resumeAll();
+        }
+    }
+});
+
+// Export game instance
 export default game;
