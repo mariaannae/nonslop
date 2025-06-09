@@ -6015,7 +6015,7 @@ var index_default = {
 				});
 			}
 			const chatCompletion = await openai.chat.completions.create({
-				model: "gpt-4o-mini",
+				model: "gpt-2",
 				messages: [{role: "user", content: "test"}],
 				max_tokens: 500
 			});
