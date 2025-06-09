@@ -2282,6 +2282,11 @@ export default class BaseGameScene extends Phaser.Scene {
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
+        // Pause the timer when settings popup is opened
+        if (this.timerEvent && !this.timerEvent.paused) {
+            this.timerEvent.paused = true;
+        }
+
         // Create popup container
         this.settingsPopup = this.add.container(0, 0).setDepth(100);
         
@@ -2645,6 +2650,11 @@ const closeBtnFontSize = this.scalingManager
             this.updateLevelModeIndicator();
         }
         
+        // Resume the timer when settings popup is closed
+        if (this.timerEvent && this.timerEvent.paused) {
+            this.timerEvent.paused = false;
+        }
+
         // First destroy the popup with animation
         this.tweens.add({
             targets: this.settingsPopup,
