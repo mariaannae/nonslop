@@ -8,3 +8,4 @@ src/config/tokenizer.json
 src/config/temp.py
 ../.DS_Store
 src_backup
+.vscode
