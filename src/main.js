@@ -30,11 +30,15 @@ function isMobileDevice() {
 function getOptimalDimensions() {
     const isMobile = isMobileDevice();
     const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
+    // On mobile, use the most accurate viewport height available (not screen.height)
+    const screenHeight = isMobile
+        ? (window.innerHeight || document.documentElement.clientHeight || screen.height)
+        : window.innerHeight;
     const aspectRatio = screenWidth / screenHeight;
-    
+
     if (isMobile) {
         // Mobile configurations
+        // Use screenHeight determined by the browser's viewport, not device screen size
         if (aspectRatio < 1) {
             // Portrait mode
             return {
@@ -58,7 +62,7 @@ function getOptimalDimensions() {
         // Desktop configurations - more sophisticated approach
         const maxGameWidth = Math.min(screenWidth * 0.9, 1920);
         const maxGameHeight = Math.min(screenHeight * 0.9, 1080);
-        
+
         // For ultra-wide monitors, constrain to 16:9
         if (aspectRatio > 2) {
             return {
@@ -69,7 +73,7 @@ function getOptimalDimensions() {
                 maxHeight: maxGameHeight
             };
         }
-        
+
         // For standard desktop displays
         if (screenWidth >= 1920 && screenHeight >= 1080) {
             // Full HD or higher - use optimal gaming resolution
