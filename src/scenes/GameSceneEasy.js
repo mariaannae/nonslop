@@ -271,29 +271,31 @@ this.feedbackButton = this.createButton(
         // );
         
 
-const isMobile2 = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-const mobileGameHeight2 = this.sys.game.config.height;
-const feedbackButtonY2 = isMobile2
-    ? mobileGameHeight2 - this.design.BUTTON.HEIGHT / 2 - padding
-    : this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding;
-
-this.feedbackButton = this.createButton(
-    "FEEDBACK", 
-    () => this.onFeedbackClick(), 
-    this.design.BUTTON.WIDTH / 2 + padding, 
-    feedbackButtonY2,
-    'Share your feedback'
-);
-        
         // Mode toggle moved to settings popup
 
         // Initialize the progress bar with the percentage passed from the other mode
         this.createFailsCounter();
         console.log("EasyMode: Created fails counter with progress:", this.progressPercentage);
         this.updateProgressFill();
-        
 
-        
+        // Now create the feedback button after progress bar is created
+        let feedbackButtonY;
+        if (isMobile) {
+            // Get progress bar bottom edge and add 60px
+            const scoreHeight = this.design.BUTTON.HEIGHT;
+            feedbackButtonY = this.failsCounter.y + scoreHeight + 60;
+        } else {
+            feedbackButtonY = this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding;
+        }
+
+        this.feedbackButton = this.createButton(
+            "FEEDBACK", 
+            () => this.onFeedbackClick(), 
+            this.design.BUTTON.WIDTH / 2 + padding, 
+            feedbackButtonY,
+            'Share your feedback'
+        );
+
         // Create word count display
         this.createWordCountDisplay();
         

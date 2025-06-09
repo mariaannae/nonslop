@@ -572,9 +572,26 @@ const padding = 30;
 
 const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
 const mobileGameHeight = this.sys.game.config.height;
-const feedbackButtonY = isMobile
-    ? mobileGameHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2)
-    : this.scale.height - bottomPadding - (this.design.BUTTON.HEIGHT / 2);
+
+// Mode toggle moved to settings popup
+
+// Initialize the progress bar with the percentage passed from the other mode
+this.createFailsCounter();
+console.log("HardMode: Created fails counter with progress:", this.progressPercentage);
+this.updateProgressFill();
+
+// Create word count display
+this.createWordCountDisplay();
+
+// Now create the feedback button after progress bar is created
+let feedbackButtonY;
+if (isMobile) {
+    // Get progress bar bottom edge and add 60px
+    const scoreHeight = this.design.BUTTON.HEIGHT;
+    feedbackButtonY = this.failsCounter.y + scoreHeight + 60;
+} else {
+    feedbackButtonY = this.scale.height - bottomPadding - (this.design.BUTTON.HEIGHT / 2);
+}
 
 this.feedbackButton = this.createButton(
     "FEEDBACK", 
@@ -583,17 +600,6 @@ this.feedbackButton = this.createButton(
     feedbackButtonY,
     'Share your feedback'
 );
-
-        // Mode toggle moved to settings popup
-        
-        // Initialize the progress bar with the percentage passed from the other mode
-        this.createFailsCounter();
-        console.log("HardMode: Created fails counter with progress:", this.progressPercentage);
-        this.updateProgressFill();
-        
-        
-        // Create word count display
-        this.createWordCountDisplay();
         
         this.inputActive = false;
         this.addButtonClickEffects();
