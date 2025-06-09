@@ -296,7 +296,17 @@ export default class Preloader extends Phaser.Scene {
     }
 
     onDoneButtonClick() {
-        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        const resetData = {
+            progressPercentage: 50, // Reset to initial value
+            levelValue: this.levelValue, // Preserve current level
+            wordCount: 0,
+            originalWordCount: 0,
+            aiWordCount: 0,
+            totalWordCount: 0,
+            requiresReset: true // Flag to indicate this is a reset from LeaderboardScene
+        };
+        //this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        this.scene.start('GameoverScene', { ...resetData, mode: "easy", levelValue: 3, score: 15 } );
     }
 
     createBadgeGeneratorButton() {
