@@ -15,9 +15,7 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     constructor(config) {
         super(config);
-        this.fastTypingThresholdMs = (config && typeof config.fastTypingThresholdMs === "number")
-            ? config.fastTypingThresholdMs
-            : 10;
+        this.fastTypingPenaltyMS = 600;
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
             : 3;
@@ -1333,7 +1331,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this._aiGenerationTimeout = setTimeout(() => {
                     this.isGeneratingAISuggestions = false;
                     this._aiGenerationTimeout = null;
-                }, 1000); // 1 second window
+                }, this.fastTypingPenaltyMS); // 1 second window
             }).catch(() => {
                 // Don't clear the flag here either
                 if (done) done();
@@ -3275,9 +3273,9 @@ const closeBtnFontSize = this.scalingManager
 
     addButtonClickEffects() {
         const buttons = [
-            { button: this.doneButton, tooltip: 'Show it to the boss' },
-            { button: this.resetButton, tooltip: 'Clear text and start over' },
-            { button: this.feedbackButton, tooltip: 'Share your feedback' },
+            { button: this.doneButton, tooltip: 'Escalate to supervisory oversight' },
+            { button: this.resetButton, tooltip: 'Reset field. Begin anew' },
+            { button: this.feedbackButton, tooltip: 'Report anomaly or praise' },
             //{ button: this.hardButton, tooltip: 'Switch to Hard mode: No AI suggestions' },
             //{ button: this.easyButton, tooltip: 'Switch to Easy mode: AI suggestions allowed' }
         ];
