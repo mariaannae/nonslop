@@ -15,9 +15,6 @@ import BadgeGenerator from "./scenes/BadgeGenerator.js";
 
 
 
-
-
-
 function isMobileDevice() {
     const ua = navigator.userAgent.toLowerCase();
     const width = window.screen.width;
@@ -33,7 +30,7 @@ const isMobile = isMobileDevice();
 
 const config = {
     type: Phaser.AUTO,
-    width: isMobile ? 580 : 1920,
+    width: isMobile ? 640 : 1920,
     height: isMobile ? 800 : 900,
     scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene, gameOver, BadgeGenerator],
     physics: { default: 'arcade', arcade: { debug: false } },
