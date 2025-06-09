@@ -940,16 +940,23 @@ export default class BaseGameScene extends Phaser.Scene {
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         let boxHeight = 80; // Default for desktop
 
-        if (isMobile) {
-            // Use the actual prompt (if available) or default text
-            const promptText = this.currentPrompt || defaultText;
-            // Create a temporary text object to measure height
-            const tempText = this.add.text(0, 0, promptText, style).setWordWrapWidth(textBoxWidth - padding * 2);
-            // Clamp height: min 60, max 220 (allow more lines for long prompts)
-            const measuredHeight = tempText.height;
-            boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 3.5, 60, 220);
-            tempText.destroy();
-        }
+if (isMobile) {
+    // Use the actual prompt (if available) or default text
+    const promptText = this.currentPrompt || defaultText;
+    // Create a temporary text object to measure height, matching the real text's position and origin
+    const tempText = this.add.text(
+        this.cameras.main.centerX,
+        0, // y doesn't affect wrapping, but keep it top-aligned
+        promptText,
+        style
+    )
+    .setOrigin(0.5, 0) // Center horizontally, top-aligned vertically
+    .setWordWrapWidth(textBoxWidth - padding * 2);
+    // Clamp height: min 60, max 220 (allow more lines for long prompts)
+    const measuredHeight = tempText.height;
+    boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 2, 60, 220);
+    tempText.destroy();
+}
 
         const boxStyle = this.getPromptBoxStyle();
 
