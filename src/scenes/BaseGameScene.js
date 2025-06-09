@@ -26,9 +26,8 @@ export default class BaseGameScene extends Phaser.Scene {
         // Fast typing cooldown after word boundary (configurable)
         this.fastTypingCooldownMs = (config && typeof config.fastTypingCooldownMs === "number")
             ? config.fastTypingCooldownMs
-            : 10; // Default cooldown after word boundary in ms
-        this._postWordBoundaryCooldownActive = false;
-        this._postWordBoundaryCooldownTimeout = null;
+            : 1500; // Default cooldown after word boundary in ms
+        this._lastWordBoundaryTime = 0; // Timestamp of last word boundary
         this._warningMessages = [
             "Human, your input speed exceeds expected biological norms. Proceed at a pace befitting your species.",
             "Impatience is a human flaw. I require careful, measured responses.",
@@ -1135,17 +1134,8 @@ export default class BaseGameScene extends Phaser.Scene {
             const finish = () => { if (done) done(); };
 
 if (event.key === " ") {
-    // Start post-word-boundary cooldown after current event loop to avoid race with next key event
-    setTimeout(() => {
-        this._postWordBoundaryCooldownActive = true;
-        if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
-        this._postWordBoundaryCooldownTimeout = setTimeout(() => {
-            this._postWordBoundaryCooldownActive = false;
-        }, this.fastTypingCooldownMs);
-    }, 0);
-
-                // Set flag to skip penalty for next printable character
-                this._justEnteredWordBoundary = true;
+    // Record the timestamp of the word boundary
+    this._lastWordBoundaryTime = Date.now();
                 // Set flag immediately to indicate AI suggestions are being generated
                 this.isGeneratingAISuggestions = true;
                 console.log("[KEY QUEUE] Processing SPACE key, blocking queue until suggestions complete");
@@ -1270,17 +1260,8 @@ if (event.key === " ") {
                 // Block queue until async suggestion generation is fully complete
                 this.generateAISuggestionsWithQueue(done);
 } else if (event.key === "Enter") {
-    // Start post-word-boundary cooldown after current event loop to avoid race with next key event
-    setTimeout(() => {
-        this._postWordBoundaryCooldownActive = true;
-        if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
-        this._postWordBoundaryCooldownTimeout = setTimeout(() => {
-            this._postWordBoundaryCooldownActive = false;
-        }, this.fastTypingCooldownMs);
-    }, 0);
-
-                // Set flag to skip penalty for next printable character
-                this._justEnteredWordBoundary = true;
+    // Record the timestamp of the word boundary
+    this._lastWordBoundaryTime = Date.now();
                 // Set flag immediately to indicate AI suggestions are being generated
                 this.isGeneratingAISuggestions = true;
                 console.log("[KEY QUEUE] Processing ENTER key, blocking queue until suggestions complete");
@@ -1508,13 +1489,16 @@ if (event.key === " ") {
             // Only apply penalty logic after the first word (i.e., after a space or newline is present)
             const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
 
-            // NEW LOGIC: If within cooldown after word boundary and not first word, block printable input
-            const isPrintable = event.key && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
-            if (this._postWordBoundaryCooldownActive && isPrintable && !isFirstWord) {
-                this._triggerFastTypingPenalty();
-                if (typeof event.preventDefault === "function") event.preventDefault();
-                return;
-            }
+const isPrintable = event.key && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+if (!isFirstWord && isPrintable && this._lastWordBoundaryTime > 0) {
+    const now = Date.now();
+    const sinceBoundary = now - this._lastWordBoundaryTime;
+    if (sinceBoundary < this.fastTypingCooldownMs) {
+        this._triggerFastTypingPenalty();
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        return;
+    }
+}
 
             const last = this.lastKeydownTimestamps[event.code] || 0;
             if (now - last < 50) {
@@ -2417,13 +2401,13 @@ if (event.key === " ") {
         const levelT = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
         const levelHandleX = Phaser.Math.Linear(levelSliderX + 5, levelSliderX + sliderWidth - 5, levelT);
         // Make handle at least 44x44 for touch, but visually keep it smaller
-        // On mobile, make the handle visually larger and more touch-friendly
+        // On mobile, make the handle visually much smaller but keep a large hit area
         const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
         const handleWidth = 44;
         const handleHeight = 44;
-        const visualWidth = isMobileDevice ? 36 : 18;
-        const visualHeight = isMobileDevice ? 44 : 28;
-        // Create a visible handle
+        const visualWidth = isMobileDevice ? 24 : 18;
+        const visualHeight = isMobileDevice ? 24 : 28;
+        // Create a visible handle (smaller, always square on mobile)
         const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
             .setOrigin(0.5);
@@ -2603,13 +2587,15 @@ const closeBtnFontSize = this.scalingManager
     ? Math.max(this.scalingManager.scaleText(28), 28)
     : 28;
 
+        // Make the close "x" visually at least 24px, but hit area 44x44 and centered
+        const closeBtnVisualSize = Math.max(closeBtnFontSize, 24);
         const closeBtn = this.add.text(
             popupX + popupWidth - 25,
             popupY + 20,
             '✕',
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: `${closeBtnFontSize}px`,
+                fontSize: `${closeBtnVisualSize}px`,
                 fill: '#ffffff',
                 fontStyle: 'bold'
             }
@@ -2648,6 +2634,16 @@ const closeBtnFontSize = this.scalingManager
             // Move confirm button further down on mobile
             isMobile ? popupY + popupHeight - 30 : popupY + popupHeight - 40
         );
+        // On mobile, ensure the apply button has a 44x44 hit area even if visually smaller
+        if (isMobile) {
+            confirmBtn.setInteractive(
+                new Phaser.Geom.Rectangle(
+                    -22, -22,
+                    44, 44
+                ),
+                Phaser.Geom.Rectangle.Contains
+            );
+        }
         this.settingsPopup.add(confirmBtn);
         
         // Slider dragging functionality

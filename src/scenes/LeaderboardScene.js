@@ -1034,18 +1034,34 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
     
     createBackButton() {
+        // Detect if device is mobile (Phaser or window.innerWidth)
+        const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS || window.innerWidth <= 600;
+        const mobilePadding = 32;
+        const desktopPadding = 60;
+        const buttonY = isMobile
+            ? this.cameras.main.height - mobilePadding
+            : this.cameras.main.height - desktopPadding;
+
         const button = this.createButton(
             "DONE",
             () => this.goBack(),
             this.cameras.main.width / 2,
-            this.cameras.main.height - 60
+            buttonY
         );
-        
-        // Add hover effect
-        button.setInteractive()
-            .on('pointerover', () => button.setScale(1.1))
-            .on('pointerout', () => button.setScale(1));
-            
+
+        // On mobile, optionally increase button size or set higher depth
+        if (isMobile) {
+            button.setScale(1.15);
+            button.setDepth(1001); // Ensure above most overlays
+        }
+
+        // Add hover effect (desktop only)
+        if (!isMobile) {
+            button.setInteractive()
+                .on('pointerover', () => button.setScale(1.1))
+                .on('pointerout', () => button.setScale(1));
+        }
+
         return button;
     }
 

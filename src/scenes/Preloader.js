@@ -296,7 +296,7 @@ export default class Preloader extends Phaser.Scene {
     }
 
     onDoneButtonClick() {
-        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        this.scene.start('InstructionsScene', { llmEngine: this.llmEngine });
     }
 
     createBadgeGeneratorButton() {
@@ -496,7 +496,7 @@ export default class Preloader extends Phaser.Scene {
                 });
 
             // Add click effects to both buttons
-            this.addButtonClickEffects(this.doneButton, () => this.scene.start('InstructionScene', { llmEngine: this.llmEngine }));
+            this.addButtonClickEffects(this.doneButton, () => this.scene.start('InstructionsScene', { llmEngine: this.llmEngine }));
 
             // Add typewriter intro box 30px below NEXT button
             this.createTypewriterIntroBox();
