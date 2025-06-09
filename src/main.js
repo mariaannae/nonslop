@@ -30,8 +30,8 @@ const isMobile = isMobileDevice();
 
 const config = {
     type: Phaser.AUTO,
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width: isMobile ? 393 : 1920,
+    height: isMobile ? 600 : 900,
     scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene, gameOver, BadgeGenerator],
     physics: { default: 'arcade', arcade: { debug: false } },
     plugins: {
@@ -44,8 +44,8 @@ const config = {
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: window.innerWidth,
-        height: window.innerHeight
+        width: isMobile ? 640 : 1920,
+        height: isMobile ? 1136 : 1080
     },
     render: {
         pixelArt: false,
@@ -54,10 +54,6 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
-
-window.addEventListener('resize', () => {
-    game.scale.resize(window.innerWidth, window.innerHeight);
-});
 
 /* 
 // --- Responsive resizing for orientation/aspect ratio ---
