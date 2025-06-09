@@ -140,7 +140,7 @@ this.feedbackButton = this.createButton(
     "FEEDBACK",
     () => this.onFeedbackClick(),
     leftPadding + (this.design.BUTTON.WIDTH / 2),
-    this.cameras.main.displayHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2),
+    this.scale.height - bottomPadding - (this.design.BUTTON.HEIGHT / 2),
     'Share your feedback'
 );
 
