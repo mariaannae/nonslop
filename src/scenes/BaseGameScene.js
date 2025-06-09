@@ -2278,7 +2278,8 @@ export default class BaseGameScene extends Phaser.Scene {
         
         // Create popup window (fixed size, no scalingManager/mobile logic)
         const popupWidth = 400; // Fixed width
-        const popupHeight = 230; // Fixed height (increased by 10)
+        const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
+        const popupHeight = isMobile ? 460 : 230; // Double height on mobile
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
