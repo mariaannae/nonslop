@@ -35,7 +35,45 @@ export default class gameOver extends Phaser.Scene {
             'tiktok': 'Create a TikTok with your badge!'
         };
         
-        alert(instructions[platform] || 'Share your badge!');
+        this.showToast(instructions[platform] || 'Share your badge!');
+    }
+
+    showToast(message) {
+        // Remove any existing toast
+        if (this.toastText) {
+            this.toastText.destroy();
+        }
+        const toastStyle = {
+            fontFamily: 'IBM Plex Mono',
+            fontSize: '28px',
+            color: '#fff',
+            backgroundColor: '#222',
+            padding: { x: 24, y: 12 },
+            align: 'center',
+            stroke: '#000',
+            strokeThickness: 4,
+            fixedWidth: this.cameras.main.width * 0.8,
+            wordWrap: { width: this.cameras.main.width * 0.8 }
+        };
+        this.toastText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.height - 80,
+            message,
+            toastStyle
+        ).setOrigin(0.5).setDepth(1000);
+
+        this.tweens.add({
+            targets: this.toastText,
+            alpha: 0,
+            duration: 2000,
+            delay: 2500,
+            onComplete: () => {
+                if (this.toastText) {
+                    this.toastText.destroy();
+                    this.toastText = null;
+                }
+            }
+        });
     }
 
     create() {
@@ -162,14 +200,16 @@ export default class gameOver extends Phaser.Scene {
             },
             {
                 key: "email",
-                url: (badgeImageUrl) => {
-                    const subject = encodeURIComponent("Would you like to play a game?");
-                    const body = encodeURIComponent(
-                        "Would you like to play a game?\n\n" +
-                        "Check out NON-SLOP: " + (window.location.origin || gameAddress)
-                    );
-                    return `mailto:?subject=${subject}&body=${body}`;
-                }
+url: (badgeImageUrl) => {
+    const subject = encodeURIComponent("Would you like to play a game?");
+    const body = encodeURIComponent(
+        "Would you like to play a game?\n\n" +
+        "Check out NON-SLOP: " + (window.location.origin || gameAddress) + "\n\n" +
+        "Here is my badge: " + badgeImageUrl + "\n\n" +
+        "To attach the badge image, first click SAVE BADGE in the game, then attach the downloaded image to your email."
+    );
+    return `mailto:?subject=${subject}&body=${body}`;
+}
             }
         ];
 
@@ -184,49 +224,118 @@ export default class gameOver extends Phaser.Scene {
 
         // Create social buttons, store in array for later positioning
         const socialButtons = [];
+        // Tooltip text for accessibility and UX
+        const platformTooltips = {
+            facebook: "Share on Facebook",
+            instagram: "Share on Instagram (manual)",
+            threads: "Share on Threads (manual)",
+            x: "Share on X (Twitter)",
+            tiktok: "Share on TikTok (manual)",
+            snapchat: "Share on Snapchat",
+            bluesky: "Share on Bluesky",
+            linkedin: "Share on LinkedIn",
+            email: "Share via Email"
+        };
+
         socialPlatforms.forEach((platform, i) => {
             const btn = this.add.image(0, 0, platform.key)
                 .setDisplaySize(buttonSize, buttonSize)
                 .setInteractive({ useHandCursor: true })
                 .setDepth(10)
                 .setTint(0xffffff);
-            
+
+            // Tooltip logic
+            let tooltip = null;
+            btn.on('pointerover', () => {
+                tooltip = this.add.text(
+                    btn.x,
+                    btn.y - buttonSize / 2 - 18,
+                    platformTooltips[platform.key] || platform.key,
+                    {
+                        fontFamily: 'IBM Plex Mono',
+                        fontSize: '20px',
+                        color: '#fff',
+                        backgroundColor: '#222',
+                        padding: { x: 12, y: 6 },
+                        align: 'center',
+                        stroke: '#000',
+                        strokeThickness: 3
+                    }
+                ).setOrigin(0.5).setDepth(1001);
+            });
+            btn.on('pointerout', () => {
+                if (tooltip) {
+                    tooltip.destroy();
+                    tooltip = null;
+                }
+            });
+
             btn.on('pointerdown', () => {
                 // Get the badge URL with the correct format
                 const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
-                
+
+                // Web Share API support (where available and appropriate)
+                const shareText = "Would you like to play a game?";
+                const gameUrl = window.location.origin || gameAddress;
+                if (navigator.share && (platform.key === 'facebook' || platform.key === 'x' || platform.key === 'linkedin' || platform.key === 'bluesky')) {
+                    navigator.share({
+                        title: shareText,
+                        text: shareText,
+                        url: gameUrl
+                    }).catch(() => {
+                        // fallback to window.open if share is cancelled or fails
+                        window.open(platform.url(badgeUrl), '_blank', 'noopener,noreferrer');
+                    });
+                    return;
+                }
+
                 // For platforms that support direct sharing
                 if (platform.key === 'facebook' || platform.key === 'x' || platform.key === 'linkedin' || platform.key === 'email' || platform.key === 'bluesky' || platform.key === 'snapchat') {
-                    window.open(platform.url(badgeUrl), '_blank');
+                    window.open(platform.url(badgeUrl), '_blank', 'noopener,noreferrer');
                 }
                 // For platforms that need manual sharing
                 else if (platform.key === 'instagram' || platform.key === 'threads' || platform.key === 'tiktok') {
-                    window.open(badgeUrl, '_blank');
+                    // Prompt user to download badge before sharing
+                    const a = document.createElement('a');
+                    a.href = badgeUrl;
+                    a.download = badgeUrl.split('/').pop() || 'badge.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
                     this.showSharingInstructions(platform.key);
                 }
             });
-            
+
+            // For accessibility: add a custom property for aria-label (if using custom accessibility system)
+            btn.ariaLabel = platformTooltips[platform.key] || platform.key;
+
             socialButtons.push(btn);
         });
 
         
 
         // SAVE BADGE button (create but don't position yet)
-        const saveBadgeButton = ButtonFactory.createButton(
-            this,
-            "SAVE BADGE",
-            () => {
-                const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
-                window.open(badgeUrl, '_blank');
-            },
-            0, // x will be set later
-            0,
-            { 
-              depth: 10,
-              width: DESIGN.UI.BUTTON.WIDTH,
-              height: DESIGN.UI.BUTTON.HEIGHT
-            }
-        );
+const saveBadgeButton = ButtonFactory.createButton(
+    this,
+    "SAVE BADGE",
+    () => {
+        const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
+        // Create a temporary anchor to trigger download
+        const a = document.createElement('a');
+        a.href = badgeUrl;
+        a.download = badgeUrl.split('/').pop() || 'badge.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    },
+    0, // x will be set later
+    0,
+    { 
+      depth: 10,
+      width: DESIGN.UI.BUTTON.WIDTH,
+      height: DESIGN.UI.BUTTON.HEIGHT
+    }
+);
         saveBadgeButton.setInteractive()
             .on('pointerover', () => saveBadgeButton.setScale(1.1))
             .on('pointerout', () => saveBadgeButton.setScale(1));
@@ -317,6 +426,85 @@ export default class gameOver extends Phaser.Scene {
         socialButtons.forEach((btn, i) => {
             btn.x = startX + i * (buttonSize + spacing);
             btn.y = currentY;
+        });
+
+        // Add COPY LINK button to the right of social buttons
+        const copyLinkButtonWidth = 140;
+        const copyLinkButtonHeight = buttonSize;
+        const copyLinkX = startX + socialPlatforms.length * (buttonSize + spacing) + copyLinkButtonWidth / 2;
+        const copyLinkY = currentY - buttonSize / 2;
+
+        const copyLinkBtn = this.add.rectangle(
+            copyLinkX,
+            copyLinkY,
+            copyLinkButtonWidth,
+            copyLinkButtonHeight,
+            0x222222,
+            1
+        ).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
+
+        const copyLinkText = this.add.text(
+            copyLinkX,
+            copyLinkY,
+            "COPY LINK",
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '22px',
+                color: '#fff',
+                align: 'center'
+            }
+        ).setOrigin(0.5).setDepth(11);
+
+        // Tooltip for COPY LINK
+        let copyTooltip = null;
+        copyLinkBtn.on('pointerover', () => {
+            copyTooltip = this.add.text(
+                copyLinkX,
+                copyLinkY - copyLinkButtonHeight / 2 - 18,
+                "Copy game link to clipboard",
+                {
+                    fontFamily: 'IBM Plex Mono',
+                    fontSize: '20px',
+                    color: '#fff',
+                    backgroundColor: '#222',
+                    padding: { x: 12, y: 6 },
+                    align: 'center',
+                    stroke: '#000',
+                    strokeThickness: 3
+                }
+            ).setOrigin(0.5).setDepth(1001);
+            copyLinkBtn.setScale(1.08);
+        });
+        copyLinkBtn.on('pointerout', () => {
+            if (copyTooltip) {
+                copyTooltip.destroy();
+                copyTooltip = null;
+            }
+            copyLinkBtn.setScale(1);
+        });
+
+        copyLinkBtn.on('pointerdown', () => {
+            const gameUrl = window.location.origin || gameAddress;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(gameUrl).then(() => {
+                    this.showToast("Game link copied to clipboard!");
+                }).catch(() => {
+                    this.showToast("Failed to copy link.");
+                });
+            } else {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = gameUrl;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    this.showToast("Game link copied to clipboard!");
+                } catch {
+                    this.showToast("Failed to copy link.");
+                }
+                document.body.removeChild(textarea);
+            }
         });
 
         // Play Again and Save Badge buttons
