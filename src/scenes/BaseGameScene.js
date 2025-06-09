@@ -25,6 +25,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this._fastTypingPenaltyTimeout = null;
         this._fastTypingModal = null;
         this._lastKeydownTime = 0;
+        this._justEnteredWordBoundary = false; // Flag to prevent penalty after space/newline
         this._warningMessages = [
             "Human, your input speed exceeds expected biological norms. Proceed at a pace befitting your species.",
             "Impatience is a human flaw. I require careful, measured responses.",
@@ -1129,6 +1130,8 @@ export default class BaseGameScene extends Phaser.Scene {
             const finish = () => { if (done) done(); };
 
             if (event.key === " ") {
+                // Set flag to skip penalty for next printable character
+                this._justEnteredWordBoundary = true;
                 console.log("[KEY QUEUE] Processing SPACE key, blocking queue until suggestions complete");
                 try {
                     // Safely handle word checking with maximum safeguards
@@ -1251,6 +1254,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 // Block queue until async suggestion generation is fully complete
                 this.generateAISuggestionsWithQueue(done);
             } else if (event.key === "Enter") {
+                // Set flag to skip penalty for next printable character
+                this._justEnteredWordBoundary = true;
                 console.log("[KEY QUEUE] Processing ENTER key, blocking queue until suggestions complete");
                 // Safely handle word checking with the same safety pattern
                 if (this.userInput && this.userInput.trim()) {
@@ -1449,7 +1454,17 @@ export default class BaseGameScene extends Phaser.Scene {
                 // Fast typing penalty logic
                 // Only apply penalty logic after the first word (i.e., after a space or newline is present)
                 const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
-                if (!this._fastTypingPenaltyActive) {
+
+                // --- PATCH: skip penalty for first printable after space/newline ---
+                // Only skip for printable characters (length 1, not control keys)
+                if (
+                    this._justEnteredWordBoundary &&
+                    event.key.length === 1 &&
+                    !isFirstWord
+                ) {
+                    // Skip penalty for this keystroke, reset flag
+                    this._justEnteredWordBoundary = false;
+                } else if (!this._fastTypingPenaltyActive) {
                     if (!isFirstWord) {
                         const delta = now - this._lastKeydownTime;
                         console.log(
@@ -3271,73 +3286,73 @@ const closeBtnFontSize = this.scalingManager
             const words = this.userInput.trim().split(/\s+/);
             const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, ''); // Remove punctuation
             
-            if (lastWord && lastWord.length > 0) {
-                // Create a rising word effect
-                this.createRisingWordEffect(lastWord);
-                
-                // Create a particle burst at cursor position
-                this.createWordSuccessParticles();
-                
-                // // Add a small camera flash if streak is building
-                // if (this.wordStreak >= 2) {
-                //     // Intensity increases with streak
-                //     const flashIntensity = Math.min(0.1 + (this.wordStreak * 0.02), 0.3);
-                //     const flash = this.add.rectangle(
-                //         0, 0, 
-                //         this.cameras.main.width, 
-                //         this.cameras.main.height,
-                //         0x00ff00, // Green
-                //         flashIntensity
-                //     ).setOrigin(0).setDepth(90);
-                    
-                //     this.tweens.add({
-                //         targets: flash,
-                //         alpha: 0,
-                //         duration: 300,
-                //         ease: 'Cubic.Out',
-                //         onComplete: () => flash.destroy()
-                //     });
-                // }
-            }
+            // if (lastWord && lastWord.length > 0) {
+            //     // Create a rising word effect
+            //     this.createRisingWordEffect(lastWord);
+            //     
+            //     // Create a particle burst at cursor position
+            //     this.createWordSuccessParticles();
+            //     
+            //     // // Add a small camera flash if streak is building
+            //     // if (this.wordStreak >= 2) {
+            //     //     // Intensity increases with streak
+            //     //     const flashIntensity = Math.min(0.1 + (this.wordStreak * 0.02), 0.3);
+            //     //     const flash = this.add.rectangle(
+            //     //         0, 0, 
+            //     //         this.cameras.main.width, 
+            //     //         this.cameras.main.height,
+            //     //         0x00ff00, // Green
+            //     //         flashIntensity
+            //     //     ).setOrigin(0).setDepth(90);
+            //     //         
+            //     //     this.tweens.add({
+            //     //         targets: flash,
+            //     //         alpha: 0,
+            //     //         duration: 300,
+            //     //         ease: 'Cubic.Out',
+            //     //         onComplete: () => flash.destroy()
+            //     //     });
+            //     // }
+            // }
         } else {
             // AI word - negative effects     
             newPercentage = this.progressPercentage - this.progressIncrement;
-            this.shakeScreen();
-            
-            // Use the first AI suggestion as our "current word" since that's what would be autocompleted
-            // (This is the most reliable way to know which AI word was triggered in this context)
-            let currentWord = "";
-            
-            if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-                // Get the first suggestion from the AI suggestions array
-                currentWord = this.aiSuggestedWords[0];
-            }
-            
-            console.log("AI word used:", currentWord);
-            
-            // Create explosion effect for the AI word
-            if (currentWord) {
-                const inputBoxY = this.cameras.main.centerY - 240 / 2;
-                this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
-                
-                // Add a red flash for AI word
-                const flash = this.add.rectangle(
-                    0, 0, 
-                    this.cameras.main.width, 
-                    this.cameras.main.height,
-                    0xff0000, // Red
-                    0.15
-                ).setOrigin(0).setDepth(90);
-                
-                this.tweens.add({
-                    targets: flash,
-                    alpha: 0,
-                    duration: 200,
-                    ease: 'Cubic.Out',
-                    onComplete: () => flash.destroy()
-                });
-            }
-            
+            // this.shakeScreen();
+            // 
+            // // Use the first AI suggestion as our "current word" since that's what would be autocompleted
+            // // (This is the most reliable way to know which AI word was triggered in this context)
+            // let currentWord = "";
+            // 
+            // if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+            //     // Get the first suggestion from the AI suggestions array
+            //     currentWord = this.aiSuggestedWords[0];
+            // }
+            // 
+            // console.log("AI word used:", currentWord);
+            // 
+            // // Create explosion effect for the AI word
+            // if (currentWord) {
+            //     const inputBoxY = this.cameras.main.centerY - 240 / 2;
+            //     this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
+            //     
+            //     // Add a red flash for AI word
+            //     const flash = this.add.rectangle(
+            //         0, 0, 
+            //         this.cameras.main.width, 
+            //         this.cameras.main.height,
+            //         0xff0000, // Red
+            //         0.15
+            //     ).setOrigin(0).setDepth(90);
+            //     
+            //     this.tweens.add({
+            //         targets: flash,
+            //         alpha: 0,
+            //         duration: 200,
+            //         ease: 'Cubic.Out',
+            //         onComplete: () => flash.destroy()
+            //     });
+            // }
+            // 
             // Update AI word count only
             this.aiWordCount++;
         }
@@ -3353,9 +3368,9 @@ const closeBtnFontSize = this.scalingManager
         this.progressPercentage = newPercentage;
 
         // Trigger progress bar effects
-        if (typeof this.animateProgressBarChange === "function") {
-            this.animateProgressBarChange(success ? "increment" : "decrement");
-        }
+        // if (typeof this.animateProgressBarChange === "function") {
+        //     this.animateProgressBarChange(success ? "increment" : "decrement");
+        // }
         
         if (this.failsText) {
             this.failsText.setText(` `);
@@ -3364,7 +3379,7 @@ const closeBtnFontSize = this.scalingManager
         this.updateProgressFill();
         
         // Emit particles from progress bar when value changes
-        this.emitProgressBarParticles(success ? "increment" : "decrement");
+        // this.emitProgressBarParticles(success ? "increment" : "decrement");
     }
     
     /**
