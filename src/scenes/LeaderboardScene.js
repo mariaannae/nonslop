@@ -31,6 +31,10 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
 
     async create() {
+
+        window._leaderboardScene = this;
+        console.log("Camera size:", this.cameras.main.width, this.cameras.main.height);
+        console.log("Window size:", window.innerWidth, window.innerHeight);
         try {
             // Initialize scaling manager for responsive UI
             this.scalingManager = new ScalingManager(this);
