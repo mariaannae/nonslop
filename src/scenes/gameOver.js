@@ -163,10 +163,10 @@ const socialPlatforms = [
     { key: "email", url: () => "mailto:" }
 ];
 
-        const buttonSize = 56;
-        const spacing = 24;
-        const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
-        const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
+const buttonSize = DESIGN.UI.BUTTON.WIDTH;
+const spacing = 24;
+const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
+const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
 
         const badgeImageUrl = window.location.origin
             ? window.location.origin + "/thumbnail.png"

@@ -62,8 +62,31 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.hideLoadingIndicator();
             this.displayScores();
 
-            console.log("[LeaderboardScene] Step 7: Creating back button");
-            this.createBackButton();
+            // --- Position DONE button below leaderboard ---
+            // Find the bottom Y of the leaderboard (last entry or table header)
+            let leaderboardBottomY = 0;
+            if (this.leaderboardEntries && this.leaderboardEntries.length > 0) {
+                // Get the last entry's container
+                const lastEntry = this.leaderboardEntries[this.leaderboardEntries.length - 1].container;
+                leaderboardBottomY = lastEntry.y;
+                // Add the height of the entry (assume 40 as in createScoreEntry)
+                leaderboardBottomY += 40;
+            } else if (this.tableHeader) {
+                // If no entries, use table header
+                leaderboardBottomY = 200 + 40; // startY + boxHeight
+            } else {
+                leaderboardBottomY = this.cameras.main.centerY;
+            }
+
+            // Create the button at the correct position
+            const button = this.createBackButton();
+
+            // Wait for button to be rendered to get its height
+            this.time.delayedCall(0, () => {
+                // Center horizontally, position so top edge is 60px below leaderboard
+                button.x = this.cameras.main.centerX;
+                button.y = leaderboardBottomY + 60 + (button.height ? button.height / 2 : 32);
+            });
         } catch (error) {
             console.error("[LeaderboardScene] ERROR during create:", error);
             this.hideLoadingIndicator();
