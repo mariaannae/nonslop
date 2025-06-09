@@ -1783,7 +1783,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
     input.addEventListener('input', () => {
         const previousInput = this.userInput;
         this.userInput = input.value;
-        this.updateCursor();
 
         // Only generate suggestions if the last character is a space or newline
         const lastChar = this.userInput.slice(-1);
@@ -1818,7 +1817,14 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             this.updateProgressFill();
         }
 
-        setTimeout(() => this.updateCursor(), 20);
+        // Debounced updateCursor to prevent double-letter visual bug on fast mobile typing
+        if (this._pendingMobileCursorTimeout) {
+            clearTimeout(this._pendingMobileCursorTimeout);
+        }
+        this._pendingMobileCursorTimeout = setTimeout(() => {
+            this.updateCursor();
+            this._pendingMobileCursorTimeout = null;
+        }, 30);
     });
 
         // On blur, keep value but do nothing else
