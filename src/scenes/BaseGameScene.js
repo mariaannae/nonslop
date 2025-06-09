@@ -2372,14 +2372,17 @@ export default class BaseGameScene extends Phaser.Scene {
         const handleHeight = 44;
         const visualWidth = 18;
         const visualHeight = 28;
-        // Create a transparent large hit area, but draw a smaller visible handle
-        const levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, handleWidth, handleHeight, 0x000000, 0)
-            .setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
-        // Add a visible handle as a child
+        // Create a visible handle
         const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
-            .setStrokeStyle(2, 0xffffff, 0.7);
-        levelSliderHandle.add(visibleHandle);
-        visibleHandle.setOrigin(0.5);
+            .setStrokeStyle(2, 0xffffff, 0.7)
+            .setOrigin(0.5);
+        // Create a transparent large hit area
+        const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
+            .setOrigin(0.5);
+        // Create a container for the handle
+        const levelSliderHandle = this.add.container(levelHandleX, levelSliderY, [hitArea, visibleHandle]);
+        levelSliderHandle.setSize(handleWidth, handleHeight);
+        levelSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
         this.input.setDraggable(levelSliderHandle);
         this.settingsPopup.add(levelSliderHandle);
 
@@ -2435,6 +2438,38 @@ export default class BaseGameScene extends Phaser.Scene {
                         this.updateWordCountDisplay();
                     }
                 }
+                // --- ENHANCEMENT: Allow dragging from anywhere on the bar ---
+                // Listen for pointermove on the input manager
+                const moveHandler = (movePointer) => {
+                    if (!movePointer.isDown) return;
+                    let dragX = movePointer.x;
+                    dragX = Phaser.Math.Clamp(dragX, levelSliderMinX, levelSliderMaxX);
+                    levelSliderHandle.x = dragX;
+                    const dragLevel = Math.round(Phaser.Math.Linear(1, 3, (dragX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
+                    if (dragLevel !== this.levelValue) {
+                        this.levelValue = dragLevel;
+                        levelLabel.setText(`Level: ${this.levelValue}`);
+                        this.updatePromptBasedOnLevel();
+                        this.updateBackgroundForLevel();
+                        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+                        if (this.failsCounter) {
+                            this.updateProgressFill();
+                        }
+                        this.aiWordCount = 0;
+                        this.aiSuggestedWords = [];
+                        this.showSuggestions([]);
+                        this.clearInputTextBox();
+                        if (this.wordCountDisplay) {
+                            this.updateWordCountDisplay();
+                        }
+                    }
+                };
+                const upHandler = () => {
+                    this.input.off('pointermove', moveHandler);
+                    this.input.off('pointerup', upHandler);
+                };
+                this.input.on('pointermove', moveHandler);
+                this.input.on('pointerup', upHandler);
             });
         
         // (Top K slider removed: only single AI suggestion is supported)
