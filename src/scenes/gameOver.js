@@ -102,7 +102,7 @@ export default class gameOver extends Phaser.Scene {
             "(CONGRATULATIONS)",
             {
                 fontFamily: 'barcade3d',
-                fontSize: isMobile ? `${this.scalingManager.scaleText(80)}px` : '80px',
+                fontSize: isMobile ? `${this.scalingManager.scaleText(60)}px` : '80px',
                 color: this.COLORS_TEXT.TITLE,
                 align: 'center',
                 stroke: '#000',
@@ -153,9 +153,13 @@ export default class gameOver extends Phaser.Scene {
         const ORIGINAL_BADGE_HEIGHT = badge.displayHeight;
         let BADGE_TARGET_HEIGHT = isMobile ? this.scalingManager.scaleValue(ORIGINAL_BADGE_HEIGHT - 100) : (ORIGINAL_BADGE_HEIGHT - 100);
         if (isMobile && BADGE_TARGET_HEIGHT > maxBadgeHeight) BADGE_TARGET_HEIGHT = maxBadgeHeight;
+        // Maintain aspect ratio: set height, then if width is too large, set width and let height auto-adjust
         badge.displayHeight = BADGE_TARGET_HEIGHT;
-        if (isMobile && badge.displayWidth > maxBadgeWidth) badge.displayWidth = maxBadgeWidth;
-        // displayWidth will auto-adjust to preserve aspect ratio
+        if (isMobile && badge.displayWidth > maxBadgeWidth) {
+            badge.displayWidth = maxBadgeWidth;
+            // Do NOT set displayHeight again; let Phaser auto-scale height to preserve aspect ratio
+        }
+        // This ensures the badge is never distorted on mobile
 
         // Create badge container and add badge
         const badgeContainer = this.add.container(0, 0);
@@ -179,7 +183,7 @@ const socialPlatforms = [
 ];
 
 const buttonSize = DESIGN.UI.BUTTON.WIDTH;
-        const spacing = isMobile ? this.scalingManager.scaleValue(24) : 24;
+        const spacing = isMobile ? this.scalingManager.scaleValue(14) : 24;
 const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
 const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
 
@@ -368,26 +372,46 @@ const saveBadgeButton = ButtonFactory.createButton(
         const topMargin = isMobile ? this.scalingManager.scaleValue(40) : 40;
         const bottomMargin = isMobile ? this.scalingManager.scaleValue(40) : 40;
         const availableHeight = screenHeight - topMargin - bottomMargin;
-        const gap = (availableHeight - totalContentHeight) / (elements.length - 1);
+        let gap = (availableHeight - totalContentHeight) / (elements.length - 1);
 
-        // 5. Position elements vertically with even spacing
+        // --- MOBILE OVERFLOW FIX: SCALE DOWN IF NEEDED ---
+        let scaleFactor = 1;
+        if (isMobile && totalContentHeight + (elements.length - 1) * gap > availableHeight) {
+            // Calculate scale factor so everything fits
+            scaleFactor = availableHeight / (totalContentHeight + (elements.length - 1) * gap);
+            // Clamp to a minimum reasonable value (don't shrink to zero)
+            scaleFactor = Math.max(scaleFactor, 0.7);
+        }
+
+        // 5. Position elements vertically with even spacing, scaling if needed
 
         // Move badge up slightly (e.g., 32px)
-        const badgeUpOffset = isMobile ? this.scalingManager.scaleValue(32) : 32;
+        let badgeUpOffset = isMobile ? this.scalingManager.scaleValue(32) : 32;
         // Move celebrateText up (closer to badge) (e.g., 24px)
-        const celebrateUpOffset = isMobile ? this.scalingManager.scaleValue(24) : 24;
+        let celebrateUpOffset = isMobile ? this.scalingManager.scaleValue(24) : 24;
 
-        let currentY = topMargin + elements[0].height / 2;
+        // Apply scale to offsets if scaling
+        badgeUpOffset *= scaleFactor;
+        celebrateUpOffset *= scaleFactor;
+
+        // Scale element heights for positioning
+        const scaledElements = elements.map(el => ({
+            ...el,
+            height: el.height * scaleFactor
+        }));
+
+        let currentY = topMargin + scaledElements[0].height / 2;
         // Title
         winText.y = currentY;
         winText.x = this.cameras.main.centerX;
+        winText.setScale(winText.scaleX * scaleFactor, winText.scaleY * scaleFactor);
 
         // Pop effect (delayed so width is correct)
         this.time.delayedCall(10, () => {
             const screenWidth = this.cameras.main.width;
             const targetWidth = (7 / 8) * screenWidth;
             const baseWidth = winText.width;
-            const targetScale = targetWidth / baseWidth;
+            const targetScale = (targetWidth / baseWidth) * scaleFactor;
             this.tweens.add({
                 targets: winText,
                 scale: targetScale,
@@ -396,7 +420,7 @@ const saveBadgeButton = ButtonFactory.createButton(
                 onComplete: () => {
                     this.tweens.add({
                         targets: winText,
-                        scale: 1,
+                        scale: scaleFactor,
                         duration: 350,
                         ease: 'Back.easeIn'
                     });
@@ -405,37 +429,42 @@ const saveBadgeButton = ButtonFactory.createButton(
         });
 
         // Subtext
-        currentY += winText.height / 2 + gap + subText.height / 2;
+        currentY += scaledElements[0].height / 2 + gap * scaleFactor + scaledElements[1].height / 2;
         subText.y = currentY;
         subText.x = this.cameras.main.centerX;
+        subText.setScale(subText.scaleX * scaleFactor, subText.scaleY * scaleFactor);
 
         // Badge (move up by badgeUpOffset)
-        currentY += subText.height / 2 + gap + badgeHeight / 2 - badgeUpOffset;
+        currentY += scaledElements[1].height / 2 + gap * scaleFactor + scaledElements[2].height / 2 - badgeUpOffset;
         badgeContainer.x = this.cameras.main.centerX;
         badgeContainer.y = currentY;
+        badgeContainer.setScale(scaleFactor);
 
         // Celebrate text (move up by celebrateUpOffset)
-        currentY += badgeHeight / 2 + gap + celebrateText.height / 2 - celebrateUpOffset;
+        currentY += scaledElements[2].height / 2 + gap * scaleFactor + scaledElements[3].height / 2 - celebrateUpOffset;
         celebrateText.y = currentY;
         celebrateText.x = this.cameras.main.centerX;
+        celebrateText.setScale(celebrateText.scaleX * scaleFactor, celebrateText.scaleY * scaleFactor);
 
         // Move copyLinkButton up closer to celebrateText (e.g., 24px)
-        const copyLinkUpOffset = isMobile ? this.scalingManager.scaleValue(24) : 0;
+        let copyLinkUpOffset = isMobile ? this.scalingManager.scaleValue(24) : 0;
+        copyLinkUpOffset *= scaleFactor;
 
         // Position copyLinkButton closer to celebrateText
-        currentY += celebrateText.height / 2 + gap + copyLinkButton.height / 2 - copyLinkUpOffset;
+        currentY += scaledElements[3].height / 2 + gap * scaleFactor + scaledElements[4].height / 2 - copyLinkUpOffset;
         copyLinkButton.y = currentY;
         copyLinkButton.x = this.cameras.main.centerX;
+        copyLinkButton.setScale(copyLinkButton.scaleX * scaleFactor, copyLinkButton.scaleY * scaleFactor);
 
         // Now, evenly distribute the elements below copyLinkButton:
         // These are: social row, playAgainButton/saveBadgeButton
         const elementsBelow = [
-            { obj: null, height: buttonSize }, // social row
-            { obj: null, height: Math.max(playAgainButton.height, saveBadgeButton.height) }
+            { obj: null, height: buttonSize * scaleFactor }, // social row
+            { obj: null, height: Math.max(playAgainButton.height, saveBadgeButton.height) * scaleFactor }
         ];
 
         const bottomY = screenHeight - bottomMargin;
-        const usedY = currentY + copyLinkButton.height / 2;
+        const usedY = currentY + scaledElements[4].height / 2;
         const belowContentHeight = elementsBelow.reduce((sum, el) => sum + el.height, 0);
         const belowGap = (bottomY - usedY - belowContentHeight) / (elementsBelow.length);
 
@@ -443,18 +472,21 @@ const saveBadgeButton = ButtonFactory.createButton(
 
         // Social row
         socialButtons.forEach((btn, i) => {
-            btn.x = startX + i * (buttonSize + spacing);
+            btn.x = startX + i * (buttonSize + spacing) * scaleFactor;
             btn.y = belowY;
+            btn.setScale(scaleFactor);
         });
 
         // Play Again and Save Badge buttons
-        belowY += elementsBelow[0].height / 2 + belowGap + Math.max(playAgainButton.height, saveBadgeButton.height) / 2;
-        const buttonSpacing = isMobile ? this.scalingManager.scaleValue(32) : 32;
-        const totalButtonWidth = playAgainButton.width + saveBadgeButton.width + buttonSpacing;
-        playAgainButton.x = this.cameras.main.centerX + (totalButtonWidth / 2 - playAgainButton.width / 2);
-        saveBadgeButton.x = this.cameras.main.centerX - (totalButtonWidth / 2 - saveBadgeButton.width / 2);
+        belowY += elementsBelow[0].height / 2 + belowGap + elementsBelow[1].height / 2;
+        const buttonSpacing = (isMobile ? this.scalingManager.scaleValue(32) : 32) * scaleFactor;
+        const totalButtonWidth = (playAgainButton.width + saveBadgeButton.width) * scaleFactor + buttonSpacing;
+        playAgainButton.x = this.cameras.main.centerX + (totalButtonWidth / 2 - playAgainButton.width * scaleFactor / 2);
+        saveBadgeButton.x = this.cameras.main.centerX - (totalButtonWidth / 2 - saveBadgeButton.width * scaleFactor / 2);
         playAgainButton.y = belowY;
         saveBadgeButton.y = belowY;
+        playAgainButton.setScale(scaleFactor);
+        saveBadgeButton.setScale(scaleFactor);
 
         // --- END EVEN VERTICAL SPACING REFACTOR ---
     }

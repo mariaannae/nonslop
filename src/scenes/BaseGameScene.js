@@ -945,9 +945,9 @@ export default class BaseGameScene extends Phaser.Scene {
             const promptText = this.currentPrompt || defaultText;
             // Create a temporary text object to measure height
             const tempText = this.add.text(0, 0, promptText, style).setWordWrapWidth(textBoxWidth - padding * 2);
-            // Clamp height: min 60, max 180 (adjust as needed)
+            // Clamp height: min 60, max 220 (allow more lines for long prompts)
             const measuredHeight = tempText.height;
-            boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 2, 60, 180);
+            boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 2, 60, 220);
             tempText.destroy();
         }
 
@@ -983,12 +983,22 @@ export default class BaseGameScene extends Phaser.Scene {
             );
         }
 
-        this.promptText = this.add.text(
-            this.cameras.main.centerX,
-            promptY + boxHeight / 2,
-            defaultText,
-            style
-        ).setOrigin(0.5, 0.5);
+        // On mobile, top-align the text; on desktop, keep it centered
+        if (isMobile) {
+            this.promptText = this.add.text(
+                this.cameras.main.centerX,
+                promptY + padding,
+                defaultText,
+                style
+            ).setOrigin(0.5, 0); // Center horizontally, top-aligned vertically
+        } else {
+            this.promptText = this.add.text(
+                this.cameras.main.centerX,
+                promptY + boxHeight / 2,
+                defaultText,
+                style
+            ).setOrigin(0.5, 0.5);
+        }
         this.promptTextBox.setDepth(12);
         this.promptText.setDepth(13);
 
@@ -3125,8 +3135,14 @@ const closeBtnFontSize = this.scalingManager
                 autocompleteSuggestion = this.generateAutocomplete();
             }
             
-            // Build the display text directly without creating temporary objects
-            let displayText = this.userInput;
+            // On mobile, always use the hidden input's value as the display base if available
+            let displayText;
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+            if (isMobile && this._hiddenInput && typeof this._hiddenInput.value === "string") {
+                displayText = this._hiddenInput.value;
+            } else {
+                displayText = this.userInput;
+            }
             
             if (autocompleteSuggestion && this.cursorVisible) {
                 // Add colored suggestion
