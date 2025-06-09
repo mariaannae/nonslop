@@ -15,7 +15,7 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     constructor(config) {
         super(config);
-        this.fastTypingPenaltyMS = 600;
+        this.fastTypingPenaltyMS = 400;
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
             : 3;
