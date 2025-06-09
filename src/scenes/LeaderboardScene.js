@@ -1042,14 +1042,23 @@ export default class LeaderboardScene extends Phaser.Scene {
         const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS || window.innerWidth <= 600;
         const mobilePadding = 32;
         const desktopPadding = 60;
-        const buttonY = isMobile
-            ? this.cameras.main.height - mobilePadding
-            : this.cameras.main.height - desktopPadding;
+
+        // Use window.innerWidth/innerHeight for mobile button placement if camera is much larger than window
+        let buttonX, buttonY;
+        if (isMobile && (this.cameras.main.height > window.innerHeight * 1.2)) {
+            buttonX = window.innerWidth / 2;
+            buttonY = window.innerHeight - mobilePadding;
+        } else {
+            buttonX = this.cameras.main.width / 2;
+            buttonY = isMobile
+                ? this.cameras.main.height - mobilePadding
+                : this.cameras.main.height - desktopPadding;
+        }
 
         const button = this.createButton(
             "DONE",
             () => this.goBack(),
-            this.cameras.main.width / 2,
+            buttonX,
             buttonY
         );
 
