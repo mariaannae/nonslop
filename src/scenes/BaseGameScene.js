@@ -2324,6 +2324,60 @@ if (!this._fastTypingPenaltyActive) {
         const levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, 10, 20, COLORS_HEX.ACCENT).setInteractive(); // Use basic accent color for handle
         this.input.setDraggable(levelSliderHandle);
         this.settingsPopup.add(levelSliderHandle);
+
+        // --- MOBILE-FRIENDLY SLIDER HANDLE EVENTS ---
+        // Allow tapping or dragging anywhere on the slider bar to move the handle (for mobile)
+        levelSliderHandle.on('pointerdown', (pointer) => {
+            // Calculate new X based on pointer position
+            let pointerX = pointer.x;
+            // Clamp to slider bounds
+            pointerX = Phaser.Math.Clamp(pointerX, levelSliderMinX, levelSliderMaxX);
+            levelSliderHandle.x = pointerX;
+            const newLevel = Math.round(Phaser.Math.Linear(1, 3, (pointerX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
+            if (newLevel !== this.levelValue) {
+                this.levelValue = newLevel;
+                levelLabel.setText(`Level: ${this.levelValue}`);
+                this.updatePromptBasedOnLevel();
+                this.updateBackgroundForLevel();
+                this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+                if (this.failsCounter) {
+                    this.updateProgressFill();
+                }
+                this.aiWordCount = 0;
+                this.aiSuggestedWords = [];
+                this.showSuggestions([]);
+                this.clearInputTextBox();
+                if (this.wordCountDisplay) {
+                    this.updateWordCountDisplay();
+                }
+            }
+        });
+
+        // Also allow dragging on the slider bar itself (not just the handle)
+        levelSlider.setInteractive(new Phaser.Geom.Rectangle(levelSliderX, levelSliderY - 5, sliderWidth, 10), Phaser.Geom.Rectangle.Contains)
+            .on('pointerdown', (pointer) => {
+                let pointerX = pointer.x;
+                pointerX = Phaser.Math.Clamp(pointerX, levelSliderMinX, levelSliderMaxX);
+                levelSliderHandle.x = pointerX;
+                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (pointerX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
+                if (newLevel !== this.levelValue) {
+                    this.levelValue = newLevel;
+                    levelLabel.setText(`Level: ${this.levelValue}`);
+                    this.updatePromptBasedOnLevel();
+                    this.updateBackgroundForLevel();
+                    this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+                    if (this.failsCounter) {
+                        this.updateProgressFill();
+                    }
+                    this.aiWordCount = 0;
+                    this.aiSuggestedWords = [];
+                    this.showSuggestions([]);
+                    this.clearInputTextBox();
+                    if (this.wordCountDisplay) {
+                        this.updateWordCountDisplay();
+                    }
+                }
+            });
         
         // (Top K slider removed: only single AI suggestion is supported)
         

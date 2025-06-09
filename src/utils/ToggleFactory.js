@@ -58,6 +58,10 @@ export default class ToggleFactory {
         hitArea.on('pointerdown', (pointer) => {
             toggleBg.emit('pointerdown', pointer);
         });
+        // Also forward pointerup for mobile compatibility
+        hitArea.on('pointerup', (pointer) => {
+            toggleBg.emit('pointerdown', pointer);
+        });
 
         // Position the toggle circle based on mode
         const updateTogglePosition = (mode) => {
