@@ -456,13 +456,73 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     shakeScreen() {
-        // Haptic feedback for mobile only
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        if (isMobile && "vibrate" in navigator) {
-            navigator.vibrate(100); // Vibrate for 100ms
+        // Robust haptic/visual feedback for mobile, especially iOS
+        const ua = navigator.userAgent || "";
+        const isIOS = /iphone|ipad|ipod/i.test(ua);
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua) || window.screen.width < 900;
+        const canVibrate = "vibrate" in navigator;
+
+        if (isMobile && canVibrate && !isIOS) {
+            try {
+                navigator.vibrate(100);
+            } catch (e) {
+                // Ignore vibration errors
+            }
         }
-        this.cameras.main.shake(250, 0.02); // Shakes for 250ms with intensity 0.02
-    }    
+
+        // On iOS, use a stronger/longer shake and a quick flash for feedback
+        if (isIOS) {
+            this.cameras.main.shake(400, 0.04); // More intense shake
+            // Quick white flash overlay for extra feedback
+            const flash = this.add.rectangle(
+                0, 0,
+                this.cameras.main.width,
+                this.cameras.main.height,
+                0xffffff,
+                0.18
+            ).setOrigin(0).setDepth(999);
+            this.tweens.add({
+                targets: flash,
+                alpha: 0,
+                duration: 180,
+                ease: 'Quad.Out',
+                onComplete: () => flash.destroy()
+            });
+        } else {
+            // Default shake for other platforms
+            this.cameras.main.shake(250, 0.02);
+        }
+    }
+
+    /**
+     * Very brief, subtle screen vibrate for mobile on each keystroke.
+     */
+    miniScreenVibrate() {
+        const ua = navigator.userAgent || "";
+        const isIOS = /iphone|ipad|ipod/i.test(ua);
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua) || window.screen.width < 900;
+        if (isMobile) {
+            // Subtle, very short shake (40ms, low intensity)
+            this.cameras.main.shake(40, 0.005);
+            // Optionally, on iOS, a quick flash for extra feedback (comment out if too much)
+            // if (isIOS) {
+            //     const flash = this.add.rectangle(
+            //         0, 0,
+            //         this.cameras.main.width,
+            //         this.cameras.main.height,
+            //         0xffffff,
+            //         0.07
+            //     ).setOrigin(0).setDepth(998);
+            //     this.tweens.add({
+            //         targets: flash,
+            //         alpha: 0,
+            //         duration: 40,
+            //         ease: 'Quad.Out',
+            //         onComplete: () => flash.destroy()
+            //     });
+            // }
+        }
+    }
 
     createExplosionEffect(word, x, y) {
         const explosion = this.add.text(x, y, word, {
@@ -989,6 +1049,26 @@ export default class BaseGameScene extends Phaser.Scene {
             // Skip if we're shutting down to prevent stray key processing
             if (this.isShuttingDown) { if (done) done(); return; }
 
+            // Mini vibrate on every keystroke for mobile (except ignored keys)
+            const ua = navigator.userAgent || "";
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua) || window.screen.width < 900;
+            const ignoreKeys = [
+                'Shift', 'Control', 'Alt', 'Meta', 'CapsLock',
+                'Escape', 'F1', 'F2', 'F3', 'F4', 'F5',
+                'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
+                'NumLock', 'ScrollLock', 'Pause', 'Insert', 'Home',
+                'PageUp', 'Delete', 'End', 'PageDown', 'ArrowRight',
+                'ArrowLeft', 'ArrowDown', 'ArrowUp'
+            ];
+            if (
+                isMobile &&
+                event &&
+                event.key &&
+                !ignoreKeys.includes(event.key)
+            ) {
+                this.miniScreenVibrate && this.miniScreenVibrate();
+            }
+
             // Update lastKeydownTime at the very start for accurate timing
             this._lastKeydownTime = Date.now();
 
@@ -1015,14 +1095,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.isActivelyTyping = false;
             }, 500);
 
-            const ignoreKeys = [
-                'Shift', 'Control', 'Alt', 'Meta', 'CapsLock',
-                'Escape', 'F1', 'F2', 'F3', 'F4', 'F5',
-                'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
-                'NumLock', 'ScrollLock', 'Pause', 'Insert', 'Home',
-                'PageUp', 'Delete', 'End', 'PageDown', 'ArrowRight',
-                'ArrowLeft', 'ArrowDown', 'ArrowUp'
-            ];
+            // (ignoreKeys already declared above, do not redeclare)
 
             if (ignoreKeys.includes(event.key)) {
                 if (done) done();

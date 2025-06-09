@@ -793,6 +793,10 @@ export default class DoneScene extends Phaser.Scene {
         this.failCountScore = Math.min(this.failCount, 15);
         this.totalScore = this.aiScore  - this.failCountScore
 
+        // Ensure score is 0 if userInput is empty or only whitespace
+        if (typeof this.userInput === "string" && this.userInput.trim() === "") {
+            this.totalScore = 0;
+        }
 
         // Input Box Creation
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
