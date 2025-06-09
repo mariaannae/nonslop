@@ -15,7 +15,7 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     constructor(config) {
         super(config);
-        this.fastTypingPenaltyMS = 400;
+        this.fastTypingPenaltyMS = 200;
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
             : 3;
@@ -24,6 +24,12 @@ export default class BaseGameScene extends Phaser.Scene {
         this._fastTypingModal = null;
         this._lastKeydownTime = 0;
         this._justEnteredWordBoundary = false; // Flag to prevent penalty after space/newline
+        // Fast typing cooldown after word boundary (configurable)
+        this.fastTypingCooldownMs = (config && typeof config.fastTypingCooldownMs === "number")
+            ? config.fastTypingCooldownMs
+            : 400; // Default cooldown after word boundary in ms
+        this._postWordBoundaryCooldownActive = false;
+        this._postWordBoundaryCooldownTimeout = null;
         this._warningMessages = [
             "Human, your input speed exceeds expected biological norms. Proceed at a pace befitting your species.",
             "Impatience is a human flaw. I require careful, measured responses.",
@@ -1130,6 +1136,13 @@ export default class BaseGameScene extends Phaser.Scene {
             const finish = () => { if (done) done(); };
 
             if (event.key === " ") {
+                // Start post-word-boundary cooldown
+                this._postWordBoundaryCooldownActive = true;
+                if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
+                this._postWordBoundaryCooldownTimeout = setTimeout(() => {
+                    this._postWordBoundaryCooldownActive = false;
+                }, this.fastTypingCooldownMs);
+
                 // Set flag to skip penalty for next printable character
                 this._justEnteredWordBoundary = true;
                 // Set flag immediately to indicate AI suggestions are being generated
@@ -1256,6 +1269,13 @@ export default class BaseGameScene extends Phaser.Scene {
                 // Block queue until async suggestion generation is fully complete
                 this.generateAISuggestionsWithQueue(done);
             } else if (event.key === "Enter") {
+                // Start post-word-boundary cooldown
+                this._postWordBoundaryCooldownActive = true;
+                if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
+                this._postWordBoundaryCooldownTimeout = setTimeout(() => {
+                    this._postWordBoundaryCooldownActive = false;
+                }, this.fastTypingCooldownMs);
+
                 // Set flag to skip penalty for next printable character
                 this._justEnteredWordBoundary = true;
                 // Set flag immediately to indicate AI suggestions are being generated
@@ -1485,8 +1505,9 @@ export default class BaseGameScene extends Phaser.Scene {
             // Only apply penalty logic after the first word (i.e., after a space or newline is present)
             const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
 
-            // New logic: If AI suggestions are still generating AND it's not the first word, trigger penalty and block input
-            if (this.isGeneratingAISuggestions && !isFirstWord) {
+            // NEW LOGIC: If within cooldown after word boundary and not first word, block printable input
+            const isPrintable = event.key && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+            if (this._postWordBoundaryCooldownActive && isPrintable && !isFirstWord) {
                 this._triggerFastTypingPenalty();
                 if (typeof event.preventDefault === "function") event.preventDefault();
                 return;
@@ -1599,6 +1620,18 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this._fastTypingPenaltyActive) return;
         this._fastTypingPenaltyActive = true;
 
+        // Clear post-word-boundary cooldown if active
+        this._postWordBoundaryCooldownActive = false;
+        if (this._postWordBoundaryCooldownTimeout) {
+            clearTimeout(this._postWordBoundaryCooldownTimeout);
+            this._postWordBoundaryCooldownTimeout = null;
+        }
+
+        // Pause the timer while penalty is active
+        if (this.timerEvent && !this.timerEvent.paused) {
+            this.timerEvent.paused = true;
+        }
+
         // Log for debugging
         console.log("[FAST TYPING PENALTY] Creating penalty modal");
 
@@ -1686,6 +1719,10 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     _clearFastTypingPenalty() {
         this._fastTypingPenaltyActive = false;
+        // Resume the timer when penalty ends
+        if (this.timerEvent && this.timerEvent.paused) {
+            this.timerEvent.paused = false;
+        }
         if (this._fastTypingPenaltyTimeout) {
             this._fastTypingPenaltyTimeout.remove();
             this._fastTypingPenaltyTimeout = null;
