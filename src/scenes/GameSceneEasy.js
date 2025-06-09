@@ -136,55 +136,19 @@ export default class GameSceneEasy extends BaseGameScene {
         const leftPadding = Math.max(30, safeAreaLeft);
         const bottomPadding = Math.max(30, safeAreaBottom);
 
+const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+const mobileGameHeight = this.sys.game.config.height;
+const feedbackButtonY = isMobile
+    ? mobileGameHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2)
+    : this.scale.height - bottomPadding - (this.design.BUTTON.HEIGHT / 2);
+
 this.feedbackButton = this.createButton(
     "FEEDBACK",
     () => this.onFeedbackClick(),
-    0, // X will be set in positionFeedbackButton
-    0, // Y will be set in positionFeedbackButton
+    leftPadding + (this.design.BUTTON.WIDTH / 2),
+    feedbackButtonY,
     'Share your feedback'
 );
-this.positionFeedbackButton = () => {
-    // Use the actual visible area height for Y positioning
-    let visibleHeight = (window.visualViewport && window.visualViewport.height)
-        ? window.visualViewport.height
-        : (this.cameras && this.cameras.main && this.cameras.main.height)
-            ? this.cameras.main.height
-            : this.scale.height;
-    // Use left/bottom padding as before, fallback to 30 if not available
-    const leftPadding = Math.max(30, safeAreaLeft || 0);
-    const btnX = leftPadding + (this.design.BUTTON.WIDTH / 2);
-
-    // Detect mobile device
-    const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
-
-    let btnY;
-    if (isMobile && this.failsCounter) {
-        // Place 60px below the scorebar (failsCounter)
-        const failsY = this.failsCounter.y || 0;
-        const failsHeight = this.failsCounter.height || this.failsCounter.displayHeight || 0;
-        btnY = failsY + failsHeight + 60;
-    } else {
-        // Desktop: keep previous logic (relative to bottom)
-        let visibleHeight = (window.visualViewport && window.visualViewport.height)
-            ? window.visualViewport.height
-            : (this.cameras && this.cameras.main && this.cameras.main.height)
-                ? this.cameras.main.height
-                : this.scale.height;
-        const bottomPadding = Math.max(30, safeAreaBottom || 0);
-        const minMargin = 30;
-        btnY = visibleHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2) - minMargin;
-        btnY = Math.max(btnY, (this.design.BUTTON.HEIGHT / 2) + minMargin);
-    }
-    if (this.feedbackButton) {
-        this.feedbackButton.setPosition(btnX, btnY);
-    }
-};
-// Initial positioning
-this.positionFeedbackButton();
-// Reposition on resize/orientation change
-window.addEventListener('resize', () => {
-    if (this.positionFeedbackButton) this.positionFeedbackButton();
-});
 
         // Reapply effects and layering
         this.addButtonClickEffects && this.addButtonClickEffects();
@@ -307,13 +271,19 @@ window.addEventListener('resize', () => {
         // );
         
 
-        this.feedbackButton = this.createButton(
-            "FEEDBACK", 
-            () => this.onFeedbackClick(), 
-            this.design.BUTTON.WIDTH / 2 + padding, 
-            this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding,
-            'Share your feedback'
-        );
+const isMobile2 = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+const mobileGameHeight2 = this.sys.game.config.height;
+const feedbackButtonY2 = isMobile2
+    ? mobileGameHeight2 - this.design.BUTTON.HEIGHT / 2 - padding
+    : this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding;
+
+this.feedbackButton = this.createButton(
+    "FEEDBACK", 
+    () => this.onFeedbackClick(), 
+    this.design.BUTTON.WIDTH / 2 + padding, 
+    feedbackButtonY2,
+    'Share your feedback'
+);
         
         // Mode toggle moved to settings popup
 
