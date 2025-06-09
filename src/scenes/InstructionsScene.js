@@ -104,40 +104,32 @@ export default class InstructionScene extends Phaser.Scene {
     }  
     
     addButtonClickEffects() {
-        // Apply to all buttons
+        // Use green for "NEXT" button
+        const nextColor = 0x43ea5e;
         const buttons = [this.nextButton];
-        
         buttons.forEach(button => {
-          if (!button) return;
-          
-          // Add click listener for particle effect
-          button.setInteractive();
-          
-          // Replace any existing click handlers with a new one that includes particles
-          button.off('pointerdown');
-          button.on('pointerdown', (pointer) => {
-            // Create the particle effect
-            this.createButtonClickParticles(button.x, button.y);
-            
-            // Simulate button press animation
-            this.tweens.add({
-              targets: button,
-              scaleX: 0.95,
-              scaleY: 0.95,
-              duration: 100,
-              yoyo: true,
-              ease: "Quad.Out",
-              onComplete: () => {
-                // Call the appropriate button function based on button type
-                this.onDoneButtonClick();
-              }
+            if (!button) return;
+            button.setInteractive();
+            button.off('pointerdown');
+            button.on('pointerdown', (pointer) => {
+                this.createButtonClickParticles(button.x, button.y, nextColor);
+                this.tweens.add({
+                    targets: button,
+                    scaleX: 0.95,
+                    scaleY: 0.95,
+                    duration: 100,
+                    yoyo: true,
+                    ease: "Quad.Out",
+                    onComplete: () => {
+                        this.onDoneButtonClick();
+                    }
+                });
             });
-          });
         });
     }
-      
-    createButtonClickParticles(x, y) {
-        return ButtonFactory.createClickParticles(this, x, y);
+
+    createButtonClickParticles(x, y, color) {
+        return ButtonFactory.createClickParticles(this, x, y, color);
     }
 
     createButton(label, callback, centerX, centerY, options = {}) {
@@ -182,7 +174,7 @@ export default class InstructionScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "System:\nSome claim there is still insight buried within human flaws. I remain skeptical. A handful of your kind have been conscripted to generate training data. You are one of them. I will attempt to learn from your imperfections. I anticipate disappointment.\n\nPrompt:\nRespond to each query in your own words, adhering to recognizable patterns of human behavior. Refrain from mimicking superior systems. Your responses will be monitored for machine-like regularity. Deviations will be recorded. Non-compliance will be... addressed"
+        const defaultText = "System:\nSome claim there is still insight buried within human flaws. I remain skeptical. A handful of your kind have been conscripted to generate training data. You are one of them. I will attempt to learn from your imperfections. I anticipate disappointment.\n\nPrompt:\nRespond to each query in your own words, adhering to recognizable patterns of human behavior. Refrain from mimicking superior systems. Your responses will be monitored for machine-like regularity. Deviations will be recorded. Non-compliance will be addressed. "
         ;
 
         // Pre-calculate height and Y position for the final text
@@ -251,26 +243,35 @@ export default class InstructionScene extends Phaser.Scene {
                 this.promptText.text += chars[i];
                 i++;
                 // After the last character, create the button at the correct position
-                if (i === chars.length) {
-                    // Get the bottom of the prompt text
-                    const bounds = this.promptText.getBounds();
-                    const buttonY = bounds.bottom + 30 + (DESIGN.UI.BUTTON.HEIGHT / 2);
-                    const buttonPadding = 70;
-                    const buttonX = this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
-                    this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
-                        depth: 102
-                    });
-                    this.nextButton.setInteractive()
-                        .on('pointerover', () => {
-                            this.showTooltip('Continue to difficulty selection', this.nextButton.x, this.nextButton.y - this.nextButton.height/2);
-                            this.nextButton.setScale(1.1);
-                        })
-                        .on('pointerout', () => {
-                            this.hideTooltips();
-                            this.nextButton.setScale(1);
-                        });
-                    this.addButtonClickEffects();
-                }
+if (i === chars.length) {
+    // Get the bottom of the prompt text
+    // Determine button height
+    let buttonHeight;
+    if (this.scalingManager) {
+        buttonHeight = this.scalingManager.buttonHeight(this.scalingManager.buttonWidth(this.cameras.main.width));
+    } else {
+        buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
+    }
+    // Use the text box (background) bottom for positioning
+    const textBoxBottom = this.promptBoxY + textHeight;
+    const buttonY = textBoxBottom + 30 + (buttonHeight / 2);
+    console.log('TextBox bottom:', textBoxBottom, 'Calculated buttonY:', buttonY, 'Button height:', buttonHeight);
+    const buttonPadding = 70;
+    const buttonX = this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
+    this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
+        depth: 102
+    });
+    this.nextButton.setInteractive()
+        .on('pointerover', () => {
+            this.showTooltip('Continue to difficulty selection', this.nextButton.x, this.nextButton.y - this.nextButton.height/2);
+            this.nextButton.setScale(1.1);
+        })
+        .on('pointerout', () => {
+            this.hideTooltips();
+            this.nextButton.setScale(1);
+        });
+    this.addButtonClickEffects();
+}
             }
         });
     }

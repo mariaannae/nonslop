@@ -251,26 +251,34 @@ export default class ButtonFactory {
      * @param {Phaser.Scene} scene - The scene to add particles to
      * @param {number} x - X coordinate of button center
      * @param {number} y - Y coordinate of button center
+     * @param {number|number[]} [colorOrColors] - Optional color or array of colors for particles
      */
-    static createClickParticles(scene, x, y) {
+    static createClickParticles(scene, x, y, colorOrColors) {
         const particleCount = 12;
-        
+        let colors;
+        if (Array.isArray(colorOrColors)) {
+            colors = colorOrColors;
+        } else if (typeof colorOrColors === "number") {
+            colors = [colorOrColors];
+        } else {
+            colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Default: Blue, gold, pink
+        }
+
         for (let i = 0; i < particleCount; i++) {
             // Create a particle
             const particle = scene.add.circle(x, y, 3, 0xffffff, 0.8);
-            
+
             // Random angle for particle direction
             const angle = Math.random() * Math.PI * 2;
             const distance = 30 + Math.random() * 30;
-            
-            // Randomize particle color
-            const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
+
+            // Pick color
             const color = colors[Math.floor(Math.random() * colors.length)];
             particle.setFillStyle(color, 0.8);
-            
+
             // Set particle depth above buttons
             particle.setDepth(20);
-            
+
             // Animate the particle
             scene.tweens.add({
                 targets: particle,

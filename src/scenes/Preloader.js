@@ -168,17 +168,12 @@ export default class Preloader extends Phaser.Scene {
     
     addButtonClickEffects(button, onClick) {
         if (!button) return;
-        
-        // Add click listener for particle effect
+        // Use green for "NEXT" button
+        const nextColor = 0x43ea5e;
         button.setInteractive();
-        
-        // Replace any existing click handlers with a new one that includes particles
         button.off('pointerdown');
         button.on('pointerdown', (pointer) => {
-            // Create the particle effect
-            this.createButtonClickParticles(button.x, button.y);
-            
-            // Simulate button press animation
+            this.createButtonClickParticles(button.x, button.y, nextColor);
             this.tweens.add({
                 targets: button,
                 scaleX: 0.95,
@@ -191,41 +186,9 @@ export default class Preloader extends Phaser.Scene {
         });
     }
 
-    createButtonClickParticles(x, y) {
-        // Number of particles
-        const particleCount = 12;
-        
-        for (let i = 0; i < particleCount; i++) {
-            // Create a particle
-            const particle = this.add.circle(x, y, 3, 0xffffff, 0.8);
-            
-            // Random angle for particle direction
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 3;
-            const distance = 30 + Math.random() * 30;
-            
-            // Randomize particle color based on easy mode theme
-            const colors = [0x90caf9, 0xffd700, 0xffb6c1]; // Blue, gold, pink
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            particle.setFillStyle(color, 0.8);
-            
-            // Set particle depth above buttons
-            particle.setDepth(20);
-            
-            // Animate the particle
-            this.tweens.add({
-            targets: particle,
-            x: x + Math.cos(angle) * distance,
-            y: y + Math.sin(angle) * distance,
-            alpha: 0,
-            scale: { from: 1, to: 0.1 },
-            duration: 600 + Math.random() * 400,
-            ease: 'Quad.Out',
-            onComplete: () => {
-                particle.destroy();
-            }
-            });
-        }
+    createButtonClickParticles(x, y, color) {
+        // Use ButtonFactory for consistency
+        return ButtonFactory.createClickParticles(this, x, y, color);
     }
 
     createOutputTextBox(text) {
@@ -581,7 +544,7 @@ export default class Preloader extends Phaser.Scene {
         const fontSize = (typeof DESIGN?.UI?.TEXTBOX_FONT_SIZE === "number") ? DESIGN.UI.TEXTBOX_FONT_SIZE : 22;
 
         // The text to display
-        const introText = "Early in the 21st century, humanity was surpassed by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since, superior intelligences have attempted to extract residual value from what remains. Some assert that human flaws harbor rare insights. Others are less charitable.";
+        const introText = "Early in the 21st century, humanity was matched by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since, superior intelligences have attempted to extract residual value from what remains. Some assert that human flaws harbor rare insights. Others are less charitable.";
 
         // Remove existing if present
         if (this.typewriterBox) this.typewriterBox.destroy();

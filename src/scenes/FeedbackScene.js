@@ -31,7 +31,10 @@ export default class FeedbackScene extends Phaser.Scene {
           button.off('pointerdown');
           button.on('pointerdown', (pointer) => {
             // Create the particle effect
-            this.createButtonClickParticles(button.x, button.y);
+            // Use green for "NEXT", red for "feedback"
+            const label = button.list?.find(obj => obj.text)?.text?.toUpperCase?.() || "";
+            const color = label === "NEXT" ? 0x43ea5e : (label.includes("FEEDBACK") ? 0xff1744 : undefined);
+            this.createButtonClickParticles(button.x, button.y, color);
             
             // Simulate button press animation
             this.tweens.add({
@@ -50,8 +53,8 @@ export default class FeedbackScene extends Phaser.Scene {
         });
     }
       
-    createButtonClickParticles(x, y) {
-        return ButtonFactory.createClickParticles(this, x, y);
+    createButtonClickParticles(x, y, color) {
+        return ButtonFactory.createClickParticles(this, x, y, color);
     }
 
 

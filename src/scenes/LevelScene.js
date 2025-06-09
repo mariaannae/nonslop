@@ -146,40 +146,26 @@ export default class LevelScene extends Phaser.Scene {
     }
     
     addButtonClickEffects() {
-        // Apply to all buttons
-        const buttons = [this.playButton];
-        
-        buttons.forEach(button => {
-          if (!button) return;
-          
-          // Add click listener for particle effect
-          button.setInteractive();
-          
-          // Replace any existing click handlers with a new one that includes particles
-          button.off('pointerdown');
-          button.on('pointerdown', (pointer) => {
-            // Create the particle effect
-            this.createButtonClickParticles(button.x, button.y);
-            
-            // Simulate button press animation
-            this.tweens.add({
-              targets: button,
-              scaleX: 0.95,
-              scaleY: 0.95,
-              duration: 100,
-              yoyo: true,
-              ease: "Quad.Out",
-              onComplete: () => {
-                // Call the appropriate button function based on button type
-                this.onDoneButtonClick();
-              }
+        // Color mapping for button labels
+        const colorMap = {
+            "EASY": 0x2196f3, // Blue
+            "HARD": 0xff1744, // Red
+            "NEXT": 0x43ea5e // Green
+        };
+        if (this.playButtons && Array.isArray(this.playButtons)) {
+            this.playButtons.forEach(button => {
+                if (!button) return;
+                const label = button.list?.find(obj => obj.text)?.text?.toUpperCase?.() || "";
+                const color = colorMap[label] || undefined;
+                // Only add click particles and animation if needed, but do not override the original callback
+                // The button's callback is set in ButtonFactory.createButton
+                // If you want to add visual effects, do so in the callback itself
             });
-          });
-        });
+        }
     }
-      
-    createButtonClickParticles(x, y) {
-        return ButtonFactory.createClickParticles(this, x, y);
+
+    createButtonClickParticles(x, y, color) {
+        return ButtonFactory.createClickParticles(this, x, y, color);
     }
 
     createButton(label, callback, centerX, centerY, options = {}) {
@@ -219,12 +205,28 @@ export default class LevelScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "Select mode:\n\nEasy:\nMinor deviations from human norms tolerated. Repeated infractions will be penalized.\n\nHard:\nStrict adherence to human behavioral variance required. Any indication of algorithmic mimicry will trigger corrective measures.\n\nProceed.";
+        const defaultText = "Easy:\nMinor deviations from human norms tolerated. Repeated infractions will be penalized.\n\nHard:\nStrict adherence to human behavioral variance required. Any indication of algorithmic mimicry will trigger corrective measures.\n\nProceed.";
 
-        this.promptText = this.add.text(
-            this.cameras.main.centerX, 
-            0, // Y will be adjusted later
+        // Pre-calculate height and Y position for the final text
+        const tempText = this.add.text(
+            this.cameras.main.centerX,
+            0,
             defaultText,
+            {
+                fontFamily: "IBM Plex Mono",
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
+                wordWrap: { width: this.uiBoxWidth - padding * 2 },
+                align: "left"
+            }
+        ).setOrigin(0.5, 0);
+        const textHeight = tempText.height + padding * 2;
+        tempText.destroy();
+
+        // Start with empty text for typewriter effect, fixed top-left position
+        this.promptText = this.add.text(
+            this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
+            this.promptBoxY + padding,
+            "",
             {
                 fontFamily: "IBM Plex Mono",
                 fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
@@ -232,20 +234,8 @@ export default class LevelScene extends Phaser.Scene {
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left"
             }
-        ).setOrigin(0.5, 0);
+        ).setOrigin(0, 0);
 
-        // Fade-in effect
-        this.promptText.setAlpha(0);
-        this.tweens.add({
-            targets: this.promptText,
-            alpha: 1,
-            duration: 600,
-            ease: 'Quad.easeOut'
-        });
-
-        // ✅ Ensure text box height dynamically adjusts
-        const textHeight = this.promptText.height + padding * 2;
-    
         // ✅ Create the Prompt Background Box
         this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
         this.promptTextBox.fillRoundedRect(
@@ -255,7 +245,7 @@ export default class LevelScene extends Phaser.Scene {
             textHeight,
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
-    
+
         // ✅ Add Outline to Match Output Box
         this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
@@ -265,13 +255,28 @@ export default class LevelScene extends Phaser.Scene {
             textHeight,
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
-    
-        // ✅ Position the Text inside the Box
-        this.promptText.setY(this.promptBoxY + padding);
-    
+
         // ✅ Ensure Prompt Box Appears Above Other UI Elements
         this.promptTextBox.setDepth(102);
         this.promptText.setDepth(103);
+
+        // Typewriter effect
+        const chars = defaultText.split("");
+        let i = 0;
+        const typeSpeed = 18; // ms per character
+        this.time.addEvent({
+            delay: typeSpeed,
+            repeat: chars.length - 1,
+            callback: () => {
+                this.promptText.text += chars[i];
+                i++;
+                // After the last character, show the play buttons
+                if (i === chars.length) {
+                    this.showPlayButtons();
+                    this.addButtonClickEffects();
+                }
+            }
+        });
     }
 
     init(data) {
@@ -455,9 +460,7 @@ export default class LevelScene extends Phaser.Scene {
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         this.createPromptTextBox();
 
-        // Show the play buttons
-        this.showPlayButtons();
-        this.addButtonClickEffects();
+        // Play buttons will be shown after typewriter effect in createPromptTextBox
         
         this.inputActive = false;
     }

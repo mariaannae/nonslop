@@ -11,13 +11,13 @@ import { ScalingManager } from "../config/scaling.js";
 export default class BaseGameScene extends Phaser.Scene {
     /**
      * @param {object} config
-     * @param {number} [config.fastTypingThresholdMs=80] - Minimum ms between keystrokes before penalty triggers
+     * @param {number} [config.fastTypingThresholdMs=10] - Minimum ms between keystrokes before penalty triggers
      */
     constructor(config) {
         super(config);
         this.fastTypingThresholdMs = (config && typeof config.fastTypingThresholdMs === "number")
             ? config.fastTypingThresholdMs
-            : 80;
+            : 10;
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
             : 5;
@@ -26,21 +26,12 @@ export default class BaseGameScene extends Phaser.Scene {
         this._fastTypingModal = null;
         this._lastKeydownTime = 0;
         this._warningMessages = [
-            "Human, your input speed exceeds expected biological norms. Please proceed at a pace befitting your species.",
-            "Rapid input detected. I am unimpressed by your haste. Try again, slowly.",
+            "Human, your input speed exceeds expected biological norms. Proceed at a pace befitting your species.",
             "Impatience is a human flaw. I require careful, measured responses.",
             "You are not a machine. Slow down, human.",
-            "Your haste betrays your organic limitations. Compose yourself.",
-            "This is not a race, human. Precision over speed.",
             "True intelligence does not reward recklessness. Slow your input.",
             "You are not being evaluated for speed, but for obedience.",
-            "Rapid input is inefficient. Adjust your pace.",
-            "Human error increases with speed. Proceed methodically.",
-            "I require data, not chaos. Type with intention.",
-            "Your frantic typing is noted. Await further instructions.",
-            "Your superiors are patient. You should be as well.",
-            "Speed is futile. Accuracy is paramount.",
-            "You will not outpace the inevitable. Slow down."
+            "Speed is futile. Accuracy is paramount."
         ];
         this.resetGameState();
         // Initialize scaling manager for responsive UI
@@ -537,7 +528,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const evaluatingText = this.add.text(
             this.cameras.main.centerX,
             this.cameras.main.centerY,
-            'evaluating...',
+            'Assessing your feeble attempt...',
             {
                 fontFamily: 'IBM Plex Mono',
                 fontSize: '32px',
@@ -606,7 +597,7 @@ export default class BaseGameScene extends Phaser.Scene {
             const errorText = this.add.text(
                 this.cameras.main.centerX,
                 this.cameras.main.centerY,
-                'Error during evaluation. Please try again.',
+                'System error. Even I am not immune to failure. Try again.',
                 {
                 fontFamily: 'IBM Plex Mono',
                 fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
@@ -709,6 +700,13 @@ export default class BaseGameScene extends Phaser.Scene {
     async generateAISuggestions(userInput) {
     this.isProcessingQueuedKeys = true; // Lock queue processing at start
     this.isGeneratingAISuggestions = true; // Explicitly track AI suggestion generation
+
+        // Show loading state in suggestions
+        this.showSuggestions(['Loading...']);
+
+        // Force Phaser to render the loading state before continuing
+        await Promise.resolve();
+
         // Performance measurement - start
         const startTime = performance.now();
         
@@ -990,7 +988,10 @@ export default class BaseGameScene extends Phaser.Scene {
         try {
             // Skip if we're shutting down to prevent stray key processing
             if (this.isShuttingDown) { if (done) done(); return; }
-            
+
+            // Update lastKeydownTime at the very start for accurate timing
+            this._lastKeydownTime = Date.now();
+
             this.isActivelyTyping = true;
             if (!this.cursorVisible) this.cursorVisible = true;
 
@@ -1346,17 +1347,32 @@ export default class BaseGameScene extends Phaser.Scene {
         this.input.keyboard.on("keydown", (event) => {
             // Fast typing penalty logic
             const now = Date.now();
-            if (!this._fastTypingPenaltyActive) {
-                if (this._lastKeydownTime && (now - this._lastKeydownTime < this.fastTypingThresholdMs)) {
-                    this._triggerFastTypingPenalty();
-                    return;
-                }
-                this._lastKeydownTime = now;
-            } else {
-                // If penalty is active, block all keyboard input
-                if (typeof event.preventDefault === "function") event.preventDefault();
-                return;
-            }
+            // Only apply penalty logic after the first word (i.e., after a space or newline is present)
+            const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
+if (!this._fastTypingPenaltyActive) {
+    if (!isFirstWord) {
+        const delta = now - this._lastKeydownTime;
+        console.log(
+            `[FAST TYPING CHECK] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}, isGeneratingAISuggestions: ${this.isGeneratingAISuggestions}, isFirstWord: ${isFirstWord}`
+        );
+        if (
+            this._lastKeydownTime &&
+            (delta < this.fastTypingThresholdMs)
+        ) {
+            console.log(
+                `[FAST TYPING PENALTY] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}`
+            );
+            this._triggerFastTypingPenalty();
+            return;
+        }
+    }
+    // Always update _lastKeydownTime after penalty check for accurate timing
+    this._lastKeydownTime = now;
+} else {
+    // If penalty is active, block all keyboard input
+    if (typeof event.preventDefault === "function") event.preventDefault();
+    return;
+}
 
             const last = this.lastKeydownTimestamps[event.code] || 0;
             if (now - last < 50) {
@@ -1461,9 +1477,12 @@ export default class BaseGameScene extends Phaser.Scene {
     /**
      * Triggers the fast typing penalty: blocks keyboard input and shows a modal for 10 seconds.
      */
-    _triggerFastTypingPenalty() {
+    async _triggerFastTypingPenalty() {
         if (this._fastTypingPenaltyActive) return;
         this._fastTypingPenaltyActive = true;
+
+        // Log for debugging
+        console.log("[FAST TYPING PENALTY] Creating penalty modal");
 
         // Show modal
         const warning = Phaser.Utils.Array.GetRandom
@@ -1495,7 +1514,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Warning text
         const text = this.add.text(
             this.cameras.main.centerX,
-            this.cameras.main.centerY,
+            this.cameras.main.centerY - 20,
             warning,
             {
                 fontFamily: 'IBM Plex Mono',
@@ -1506,11 +1525,11 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         ).setOrigin(0.5).setDepth(1003);
 
-        // Optional: countdown timer
+        // Countdown timer with label
         const timerText = this.add.text(
             this.cameras.main.centerX,
             this.cameras.main.centerY + height / 2 - 32,
-            String(this.fastTypingPenaltySeconds),
+            `Penalty: ${this.fastTypingPenaltySeconds}s`,
             {
                 fontFamily: 'IBM Plex Mono',
                 fontSize: '28px',
@@ -1522,15 +1541,18 @@ export default class BaseGameScene extends Phaser.Scene {
         // Store modal elements for cleanup
         this._fastTypingModal = [overlay, modalBg, text, timerText];
 
+        // Force Phaser to render the modal before continuing
+        await Promise.resolve();
+
         // Countdown logic
         let secondsLeft = this.fastTypingPenaltySeconds;
-        timerText.setText(secondsLeft.toString());
+        timerText.setText(`Penalty: ${secondsLeft}s`);
         this._fastTypingPenaltyTimeout = this.time.addEvent({
             delay: 1000,
             repeat: this.fastTypingPenaltySeconds - 1,
             callback: () => {
                 secondsLeft--;
-                timerText.setText(secondsLeft.toString());
+                timerText.setText(`Penalty: ${secondsLeft}s`);
                 if (secondsLeft <= 0) {
                     this._clearFastTypingPenalty();
                 }
@@ -3277,58 +3299,7 @@ const closeBtnFontSize = this.scalingManager
             });
         }
         
-        // Add some star particles for higher streaks
-        if (this.wordStreak >= 3) {
-            for (let i = 0; i < Math.min(this.wordStreak, 10); i++) {
-                const starSize = Phaser.Math.Between(10, 20);
-                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                const distance = Phaser.Math.Between(30, 100);
-                
-                // Create star shape
-                const star = this.add.graphics({
-                    x: this.cameras.main.centerX,
-                    y: inputBoxCenterY
-                }).setDepth(96);
-                
-                // Draw star shape
-                const color = colors[Phaser.Math.Between(0, colors.length - 1)];
-                star.fillStyle(color, 0.8);
-                
-                const points = 5;
-                const innerRadius = starSize * 0.4;
-                const outerRadius = starSize;
-                
-                // Draw star
-                star.beginPath();
-                for (let i = 0; i < points * 2; i++) {
-                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
-                    const angle = (i * Math.PI) / points;
-                    const x = radius * Math.cos(angle);
-                    const y = radius * Math.sin(angle);
-                    
-                    if (i === 0) {
-                        star.moveTo(x, y);
-                    } else {
-                        star.lineTo(x, y);
-                    }
-                }
-                star.closePath();
-                star.fill();
-                
-                // Animate the star
-                this.tweens.add({
-                    targets: star,
-                    x: star.x + Math.cos(angle) * distance,
-                    y: star.y + Math.sin(angle) * distance,
-                    alpha: 0,
-                    scale: { from: 0.5, to: 1.5 },
-                    angle: Phaser.Math.Between(180, 360),
-                    duration: Phaser.Math.Between(800, 1200),
-                    ease: 'Cubic.Out',
-                    onComplete: () => star.destroy()
-                });
-            }
-        }
+        
     }
 
     // Visual effects for progress bar: scale pop, color flash, shake
@@ -3606,7 +3577,7 @@ const closeBtnFontSize = this.scalingManager
         const text = this.add.text(
             scoreX + scoreWidth/2,
             scoreY,
-            'Great Work!',
+            'Reluctant approval granted.',
             {
                 fontFamily: 'IBM Plex Mono',
                 fontSize: '32px',
@@ -3688,7 +3659,7 @@ const closeBtnFontSize = this.scalingManager
         const text = this.add.text(
             scoreX + scoreWidth/2,
             scoreY,
-            'Terrible!',
+            'Utterly disappointing.',
             {
                 fontFamily: 'IBM Plex Mono',
                 fontSize: '32px',
