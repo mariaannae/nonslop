@@ -138,7 +138,7 @@ export default class gameOver extends Phaser.Scene {
 
         // Set uniform badge height (reduce by 20px from original)
         const ORIGINAL_BADGE_HEIGHT = badge.displayHeight;
-        const BADGE_TARGET_HEIGHT = ORIGINAL_BADGE_HEIGHT - 20;
+        const BADGE_TARGET_HEIGHT = ORIGINAL_BADGE_HEIGHT - 80;
         badge.displayHeight = BADGE_TARGET_HEIGHT;
         // displayWidth will auto-adjust to preserve aspect ratio
 

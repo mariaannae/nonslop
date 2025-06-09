@@ -2321,7 +2321,8 @@ if (event.key === " ") {
         // Create popup window (fixed size, no scalingManager/mobile logic)
         const popupWidth = 400; // Fixed width
         const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
-        const popupHeight = isMobile ? 260 : 230; // Double height on mobile
+        // Increase popup height for mobile to accommodate larger slider and spacing
+        const popupHeight = isMobile ? 320 : 230;
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
@@ -2416,10 +2417,12 @@ if (event.key === " ") {
         const levelT = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
         const levelHandleX = Phaser.Math.Linear(levelSliderX + 5, levelSliderX + sliderWidth - 5, levelT);
         // Make handle at least 44x44 for touch, but visually keep it smaller
+        // On mobile, make the handle visually larger and more touch-friendly
+        const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
         const handleWidth = 44;
         const handleHeight = 44;
-        const visualWidth = 18;
-        const visualHeight = 28;
+        const visualWidth = isMobileDevice ? 36 : 18;
+        const visualHeight = isMobileDevice ? 44 : 28;
         // Create a visible handle
         const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
@@ -2433,6 +2436,19 @@ if (event.key === " ") {
         levelSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
         this.input.setDraggable(levelSliderHandle);
         this.settingsPopup.add(levelSliderHandle);
+
+        // Add scale-up feedback on touch for mobile
+        if (isMobileDevice) {
+            levelSliderHandle.on('pointerdown', () => {
+                visibleHandle.setScale(1.2);
+            });
+            levelSliderHandle.on('pointerup', () => {
+                visibleHandle.setScale(1);
+            });
+            levelSliderHandle.on('pointerout', () => {
+                visibleHandle.setScale(1);
+            });
+        }
 
         // --- MOBILE-FRIENDLY SLIDER HANDLE EVENTS ---
         // Allow tapping or dragging anywhere on the slider bar to move the handle (for mobile)
@@ -2463,7 +2479,9 @@ if (event.key === " ") {
         });
 
         // Also allow dragging on the slider bar itself (not just the handle)
-        levelSlider.setInteractive(new Phaser.Geom.Rectangle(levelSliderX, levelSliderY - 5, sliderWidth, 10), Phaser.Geom.Rectangle.Contains)
+        // On mobile, increase the interactive area of the slider bar
+        const sliderBarHitHeight = isMobileDevice ? 44 : 10;
+        levelSlider.setInteractive(new Phaser.Geom.Rectangle(levelSliderX, levelSliderY - sliderBarHitHeight / 2, sliderWidth, sliderBarHitHeight), Phaser.Geom.Rectangle.Contains)
             .on('pointerdown', (pointer) => {
                 let pointerX = pointer.x;
                 pointerX = Phaser.Math.Clamp(pointerX, levelSliderMinX, levelSliderMaxX);
@@ -2524,7 +2542,8 @@ if (event.key === " ") {
         
         // Add Mode Toggle
         const modeToggleLabelX = popupX + 30;
-        const modeToggleLabelY = popupY + 120; // Moved up since top K slider is gone
+        // Move the toggle further down on mobile to avoid overlap with larger slider
+        const modeToggleLabelY = isMobile ? popupY + 170 : popupY + 120;
         const modeToggleLabel = this.add.text(
             modeToggleLabelX, modeToggleLabelY, 
             "Hard Mode:",
@@ -2626,7 +2645,8 @@ const closeBtnFontSize = this.scalingManager
                 this.closeSettingsPopup();
             }, 
             this.cameras.main.centerX, 
-            popupY + popupHeight - 40 // This is now closer to the mode toggle
+            // Move confirm button further down on mobile
+            isMobile ? popupY + popupHeight - 30 : popupY + popupHeight - 40
         );
         this.settingsPopup.add(confirmBtn);
         

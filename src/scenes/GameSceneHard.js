@@ -3,6 +3,9 @@ import { createBackground } from "../backgrounds/createBackground.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import BaseGameScene from "./BaseGameScene.js";
 
+// Device detection utility (available everywhere in this file)
+const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+
 export default class GameSceneHard extends BaseGameScene {
     constructor() {
         super({ key: 'GameSceneHard' });
@@ -570,7 +573,7 @@ const padding = 30;
         const leftPadding = Math.max(30, safeAreaLeft);
         const bottomPadding = Math.max(30, safeAreaBottom);
 
-const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+// (moved isMobile to top of file)
 const mobileGameHeight = this.sys.game.config.height;
 
 // Mode toggle moved to settings popup
