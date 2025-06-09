@@ -589,9 +589,8 @@ this.positionFeedbackButton = () => {
     const bottomPadding = Math.max(30, safeAreaBottom || 0);
     const minMargin = 30;
     const btnX = leftPadding + (this.design.BUTTON.WIDTH / 2);
-    let btnY = visibleHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2);
-    // Clamp to always be at least minMargin from the bottom
-    btnY = Math.min(btnY, visibleHeight - (this.design.BUTTON.HEIGHT / 2) - minMargin);
+    let btnY = visibleHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2) - minMargin;
+    // Only clamp if button would go off the top
     btnY = Math.max(btnY, (this.design.BUTTON.HEIGHT / 2) + minMargin);
     if (this.feedbackButton) {
         this.feedbackButton.setPosition(btnX, btnY);
