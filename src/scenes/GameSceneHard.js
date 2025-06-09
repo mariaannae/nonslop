@@ -588,7 +588,7 @@ let feedbackButtonY;
 if (isMobile) {
     // Get progress bar bottom edge and add 60px
     const scoreHeight = this.design.BUTTON.HEIGHT;
-    feedbackButtonY = this.failsCounter.y + scoreHeight + 60;
+    feedbackButtonY = this.failsCounter.y + scoreHeight + 100;
 } else {
     feedbackButtonY = this.scale.height - bottomPadding - (this.design.BUTTON.HEIGHT / 2);
 }

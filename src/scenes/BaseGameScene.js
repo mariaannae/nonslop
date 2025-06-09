@@ -20,7 +20,7 @@ export default class BaseGameScene extends Phaser.Scene {
             : 10;
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
-            : 5;
+            : 3;
         this._fastTypingPenaltyActive = false;
         this._fastTypingPenaltyTimeout = null;
         this._fastTypingModal = null;
@@ -93,6 +93,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.isShuttingDown = false;
         this.isActivelyTyping = false;
         this.inputActive = false;
+        this.isGeneratingAISuggestions = false;
         this.aiSuggestedWords = [];
         this.suggestionBoxes = [];
         this.suggestionTexts = [];
@@ -783,7 +784,8 @@ export default class BaseGameScene extends Phaser.Scene {
 
     async generateAISuggestions(userInput) {
         this.isProcessingQueuedKeys = true; // Lock queue processing at start
-        this.isGeneratingAISuggestions = true; // Explicitly track AI suggestion generation
+        // The flag should already be set by the caller, but ensure it's true
+        this.isGeneratingAISuggestions = true;
 
         // Show loading state in suggestions
         this.showSuggestions(['Loading...']);
@@ -904,7 +906,7 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         } finally {
             this.isProcessingQueuedKeys = false; // Unlock queue processing at end
-            this.isGeneratingAISuggestions = false; // Explicitly reset AI suggestion generation flag
+            // Don't reset isGeneratingAISuggestions here - let generateAISuggestionsWithQueue handle it
         }
     }
 
@@ -1132,6 +1134,8 @@ export default class BaseGameScene extends Phaser.Scene {
             if (event.key === " ") {
                 // Set flag to skip penalty for next printable character
                 this._justEnteredWordBoundary = true;
+                // Set flag immediately to indicate AI suggestions are being generated
+                this.isGeneratingAISuggestions = true;
                 console.log("[KEY QUEUE] Processing SPACE key, blocking queue until suggestions complete");
                 try {
                     // Safely handle word checking with maximum safeguards
@@ -1256,6 +1260,8 @@ export default class BaseGameScene extends Phaser.Scene {
             } else if (event.key === "Enter") {
                 // Set flag to skip penalty for next printable character
                 this._justEnteredWordBoundary = true;
+                // Set flag immediately to indicate AI suggestions are being generated
+                this.isGeneratingAISuggestions = true;
                 console.log("[KEY QUEUE] Processing ENTER key, blocking queue until suggestions complete");
                 // Safely handle word checking with the same safety pattern
                 if (this.userInput && this.userInput.trim()) {
@@ -1315,12 +1321,35 @@ export default class BaseGameScene extends Phaser.Scene {
         ) {
             // Call the async suggestion generator and call done when finished
             this.generateAISuggestions(currentInput).then(() => {
+                // Don't clear the flag here - it will be cleared when the next key is pressed
+                // or after a timeout
                 if (done) done();
+                
+                // Set a timeout to clear the flag after a reasonable time
+                // This gives the user a window to type and trigger the penalty
+                if (this._aiGenerationTimeout) {
+                    clearTimeout(this._aiGenerationTimeout);
+                }
+                this._aiGenerationTimeout = setTimeout(() => {
+                    this.isGeneratingAISuggestions = false;
+                    this._aiGenerationTimeout = null;
+                }, 1000); // 1 second window
             }).catch(() => {
+                // Don't clear the flag here either
                 if (done) done();
+                
+                // Set timeout for error case too
+                if (this._aiGenerationTimeout) {
+                    clearTimeout(this._aiGenerationTimeout);
+                }
+                this._aiGenerationTimeout = setTimeout(() => {
+                    this.isGeneratingAISuggestions = false;
+                    this._aiGenerationTimeout = null;
+                }, 1000);
             });
         } else {
-            // No suggestions needed, just call done
+            // No suggestions needed, clear the flag
+            this.isGeneratingAISuggestions = false;
             if (done) done();
         }
     }
@@ -1449,45 +1478,20 @@ export default class BaseGameScene extends Phaser.Scene {
             // Always define now for debounce and event queue logic
             const now = Date.now();
 
-            // Exclude Backspace from fast typing penalty logic
-            if (event.key !== "Backspace") {
-                // Fast typing penalty logic
-                // Only apply penalty logic after the first word (i.e., after a space or newline is present)
-                const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
+            // Block all input if penalty is active
+            if (this._fastTypingPenaltyActive) {
+                if (typeof event.preventDefault === "function") event.preventDefault();
+                return;
+            }
 
-                // --- PATCH: skip penalty for first printable after space/newline ---
-                // Only skip for printable characters (length 1, not control keys)
-                if (
-                    this._justEnteredWordBoundary &&
-                    event.key.length === 1 &&
-                    !isFirstWord
-                ) {
-                    // Skip penalty for this keystroke, reset flag
-                    this._justEnteredWordBoundary = false;
-                } else if (!this._fastTypingPenaltyActive) {
-                    if (!isFirstWord) {
-                        const delta = now - this._lastKeydownTime;
-                        console.log(
-                            `[FAST TYPING CHECK] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}, isGeneratingAISuggestions: ${this.isGeneratingAISuggestions}, isFirstWord: ${isFirstWord}`
-                        );
-                        if (
-                            this._lastKeydownTime &&
-                            (delta < this.fastTypingThresholdMs)
-                        ) {
-                            console.log(
-                                `[FAST TYPING PENALTY] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}`
-                            );
-                            this._triggerFastTypingPenalty();
-                            return;
-                        }
-                    }
-                    // Always update _lastKeydownTime after penalty check for accurate timing
-                    this._lastKeydownTime = now;
-                } else {
-                    // If penalty is active, block all keyboard input
-                    if (typeof event.preventDefault === "function") event.preventDefault();
-                    return;
-                }
+            // Only apply penalty logic after the first word (i.e., after a space or newline is present)
+            const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
+
+            // New logic: If AI suggestions are still generating AND it's not the first word, trigger penalty and block input
+            if (this.isGeneratingAISuggestions && !isFirstWord) {
+                this._triggerFastTypingPenalty();
+                if (typeof event.preventDefault === "function") event.preventDefault();
+                return;
             }
 
             const last = this.lastKeydownTimestamps[event.code] || 0;
