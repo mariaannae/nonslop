@@ -263,20 +263,19 @@ export default class LevelScene extends Phaser.Scene {
         // Typewriter effect
         const chars = defaultText.split("");
         let i = 0;
-        const typeSpeed = 18; // ms per character
+        const typeSpeed = 8; // ms per character (faster)
         this.time.addEvent({
             delay: typeSpeed,
             repeat: chars.length - 1,
             callback: () => {
                 this.promptText.text += chars[i];
                 i++;
-                // After the last character, show the play buttons
-                if (i === chars.length) {
-                    this.showPlayButtons();
-                    this.addButtonClickEffects();
-                }
             }
         });
+
+        // Show play buttons immediately, using precomputed textHeight for correct placement
+        this.showPlayButtons(textHeight);
+        this.addButtonClickEffects();
     }
 
     init(data) {
@@ -286,7 +285,7 @@ export default class LevelScene extends Phaser.Scene {
         this.promptText = null;
     }
 
-    showPlayButtons(llmEngine) {
+    showPlayButtons(textHeight) {
         if (this.playButton) return; // Prevent duplicate buttons
 
         // Calculate button positions
@@ -294,7 +293,7 @@ export default class LevelScene extends Phaser.Scene {
         
         // Use the same positioning logic as InstructionsScene
         const boxY = this.promptBoxY;
-        const boxHeight = this.promptText.height + 80; // padding (40 top + 40 bottom)
+        const boxHeight = textHeight; // Use precomputed textHeight
         const buttonPaddingY = DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
         
         // Position the buttons below the prompt text box

@@ -145,73 +145,17 @@ export default class gameOver extends Phaser.Scene {
 
         // Social share buttons (create but don't position yet)
         const gameAddress = "nonslop.app";
-        const socialPlatforms = [
-            {
-                key: "facebook",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent("Would you like to play a game?");
-                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
-                    return `https://www.facebook.com/sharer/sharer.php?u=${gameUrl}&quote=${shareText}`;
-                }
-            },
-            {
-                key: "instagram",
-                url: () => `https://www.instagram.com/`
-            },
-            {
-                key: "threads",
-                url: () => `https://www.threads.net/`
-            },
-            {
-                key: "x",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent("Would you like to play a game?");
-                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
-                    return `https://twitter.com/intent/tweet?text=${shareText}&url=${gameUrl}`;
-                }
-            },
-            {
-                key: "tiktok",
-                url: () => `https://www.tiktok.com/`
-            },
-            {
-                key: "snapchat",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent("Would you like to play a game?");
-                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
-                    return `https://www.snapchat.com/create?text=${shareText}&url=${gameUrl}`;
-                }
-            },
-            {
-                key: "bluesky",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent("Would you like to play a game?");
-                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
-                    return `https://bsky.app/intent/compose?text=${shareText}%20${gameUrl}`;
-                }
-            },
-            {
-                key: "linkedin",
-                url: (badgeImageUrl) => {
-                    const shareText = encodeURIComponent("Would you like to play a game?");
-                    const gameUrl = encodeURIComponent(window.location.origin || gameAddress);
-                    return `https://www.linkedin.com/sharing/share-offsite/?url=${gameUrl}&summary=${shareText}`;
-                }
-            },
-            {
-                key: "email",
-url: (badgeImageUrl) => {
-    const subject = encodeURIComponent("Would you like to play a game?");
-    const body = encodeURIComponent(
-        "Would you like to play a game?\n\n" +
-        "Check out NON-SLOP: " + (window.location.origin || gameAddress) + "\n\n" +
-        "Here is my badge: " + badgeImageUrl + "\n\n" +
-        "To attach the badge image, first click SAVE BADGE in the game, then attach the downloaded image to your email."
-    );
-    return `mailto:?subject=${subject}&body=${body}`;
-}
-            }
-        ];
+const socialPlatforms = [
+    { key: "facebook", url: () => "https://www.facebook.com/" },
+    { key: "instagram", url: () => "https://www.instagram.com/" },
+    { key: "threads", url: () => "https://www.threads.net/" },
+    { key: "x", url: () => "https://x.com/" },
+    { key: "tiktok", url: () => "https://www.tiktok.com/" },
+    { key: "snapchat", url: () => "https://www.snapchat.com/" },
+    { key: "bluesky", url: () => "https://bsky.app/" },
+    { key: "linkedin", url: () => "https://www.linkedin.com/" },
+    { key: "email", url: () => "mailto:" }
+];
 
         const buttonSize = 56;
         const spacing = 24;
@@ -270,41 +214,9 @@ url: (badgeImageUrl) => {
                 }
             });
 
-            btn.on('pointerdown', () => {
-                // Get the badge URL with the correct format
-                const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
-
-                // Web Share API support (where available and appropriate)
-                const shareText = "Would you like to play a game?";
-                const gameUrl = window.location.origin || gameAddress;
-                if (navigator.share && (platform.key === 'facebook' || platform.key === 'x' || platform.key === 'linkedin' || platform.key === 'bluesky')) {
-                    navigator.share({
-                        title: shareText,
-                        text: shareText,
-                        url: gameUrl
-                    }).catch(() => {
-                        // fallback to window.open if share is cancelled or fails
-                        window.open(platform.url(badgeUrl), '_blank', 'noopener,noreferrer');
-                    });
-                    return;
-                }
-
-                // For platforms that support direct sharing
-                if (platform.key === 'facebook' || platform.key === 'x' || platform.key === 'linkedin' || platform.key === 'email' || platform.key === 'bluesky' || platform.key === 'snapchat') {
-                    window.open(platform.url(badgeUrl), '_blank', 'noopener,noreferrer');
-                }
-                // For platforms that need manual sharing
-                else if (platform.key === 'instagram' || platform.key === 'threads' || platform.key === 'tiktok') {
-                    // Prompt user to download badge before sharing
-                    const a = document.createElement('a');
-                    a.href = badgeUrl;
-                    a.download = badgeUrl.split('/').pop() || 'badge.png';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    this.showSharingInstructions(platform.key);
-                }
-            });
+btn.on('pointerdown', () => {
+    window.open(platform.url(), '_blank', 'noopener,noreferrer');
+});
 
             // For accessibility: add a custom property for aria-label (if using custom accessibility system)
             btn.ariaLabel = platformTooltips[platform.key] || platform.key;
@@ -364,11 +276,64 @@ const saveBadgeButton = ButtonFactory.createButton(
         // For badge, use badgeHeight
         // For playAgainButton and saveBadgeButton, use their heights
 
-        // 3. Calculate total content height and gap
+        // 3. Create "Celebrate adequacy.\nPublicly:" and COPY LINK button (but don't position yet)
+        const celebrateText = this.add.text(
+            this.cameras.main.centerX,
+            0,
+            "Celebrate adequacy.\nPublicly:",
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '26px',
+                color: this.COLORS_TEXT.PRIMARY,
+                align: 'center'
+            }
+        ).setOrigin(0.5);
+
+        const copyLinkButton = ButtonFactory.createButton(
+            this,
+            "COPY LINK",
+            () => {
+                const gameUrl = window.location.origin || gameAddress;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(gameUrl).then(() => {
+                        this.showToast("Game link copied to clipboard!");
+                    }).catch(() => {
+                        this.showToast("Failed to copy link.");
+                    });
+                } else {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = gameUrl;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        this.showToast("Game link copied to clipboard!");
+                    } catch {
+                        this.showToast("Failed to copy link.");
+                    }
+                    document.body.removeChild(textarea);
+                }
+            },
+            this.cameras.main.centerX,
+            0,
+            { 
+                depth: 10,
+                width: DESIGN.UI.BUTTON.WIDTH,
+                height: DESIGN.UI.BUTTON.HEIGHT
+            }
+        );
+        copyLinkButton.setInteractive()
+            .on('pointerover', () => copyLinkButton.setScale(1.1))
+            .on('pointerout', () => copyLinkButton.setScale(1));
+
+        // 4. Calculate total content height and gap, including all vertical elements
         const elements = [
             { obj: winText, height: winText.height },
             { obj: subText, height: subText.height },
             { obj: badgeContainer, height: badgeHeight },
+            { obj: celebrateText, height: celebrateText.height },
+            { obj: copyLinkButton, height: copyLinkButton.height },
             { obj: null, height: buttonSize }, // social row
             { obj: null, height: Math.max(playAgainButton.height, saveBadgeButton.height) }
         ];
@@ -382,7 +347,7 @@ const saveBadgeButton = ButtonFactory.createButton(
         const availableHeight = screenHeight - topMargin - bottomMargin;
         const gap = (availableHeight - totalContentHeight) / (elements.length - 1);
 
-        // 4. Position elements vertically with even spacing
+        // 5. Position elements vertically with even spacing
         let currentY = topMargin + elements[0].height / 2;
         // Title
         winText.y = currentY;
@@ -420,91 +385,21 @@ const saveBadgeButton = ButtonFactory.createButton(
         badgeContainer.x = this.cameras.main.centerX;
         badgeContainer.y = currentY;
 
+        // Celebrate text
+        currentY += badgeHeight / 2 + gap + celebrateText.height / 2;
+        celebrateText.y = currentY;
+        celebrateText.x = this.cameras.main.centerX;
+
+        // COPY LINK button
+        currentY += celebrateText.height / 2 + gap + copyLinkButton.height / 2;
+        copyLinkButton.y = currentY;
+        copyLinkButton.x = this.cameras.main.centerX;
+
         // Social row
-        currentY += badgeHeight / 2 + gap + buttonSize / 2;
-        // Position social buttons horizontally centered at currentY
+        currentY += copyLinkButton.height / 2 + gap + buttonSize / 2;
         socialButtons.forEach((btn, i) => {
             btn.x = startX + i * (buttonSize + spacing);
             btn.y = currentY;
-        });
-
-        // Add COPY LINK button to the right of social buttons
-        const copyLinkButtonWidth = 140;
-        const copyLinkButtonHeight = buttonSize;
-        const copyLinkX = startX + socialPlatforms.length * (buttonSize + spacing) + copyLinkButtonWidth / 2;
-        const copyLinkY = currentY - buttonSize / 2;
-
-        const copyLinkBtn = this.add.rectangle(
-            copyLinkX,
-            copyLinkY,
-            copyLinkButtonWidth,
-            copyLinkButtonHeight,
-            0x222222,
-            1
-        ).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
-
-        const copyLinkText = this.add.text(
-            copyLinkX,
-            copyLinkY,
-            "COPY LINK",
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '22px',
-                color: '#fff',
-                align: 'center'
-            }
-        ).setOrigin(0.5).setDepth(11);
-
-        // Tooltip for COPY LINK
-        let copyTooltip = null;
-        copyLinkBtn.on('pointerover', () => {
-            copyTooltip = this.add.text(
-                copyLinkX,
-                copyLinkY - copyLinkButtonHeight / 2 - 18,
-                "Copy game link to clipboard",
-                {
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: '20px',
-                    color: '#fff',
-                    backgroundColor: '#222',
-                    padding: { x: 12, y: 6 },
-                    align: 'center',
-                    stroke: '#000',
-                    strokeThickness: 3
-                }
-            ).setOrigin(0.5).setDepth(1001);
-            copyLinkBtn.setScale(1.08);
-        });
-        copyLinkBtn.on('pointerout', () => {
-            if (copyTooltip) {
-                copyTooltip.destroy();
-                copyTooltip = null;
-            }
-            copyLinkBtn.setScale(1);
-        });
-
-        copyLinkBtn.on('pointerdown', () => {
-            const gameUrl = window.location.origin || gameAddress;
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(gameUrl).then(() => {
-                    this.showToast("Game link copied to clipboard!");
-                }).catch(() => {
-                    this.showToast("Failed to copy link.");
-                });
-            } else {
-                // Fallback for older browsers
-                const textarea = document.createElement('textarea');
-                textarea.value = gameUrl;
-                document.body.appendChild(textarea);
-                textarea.select();
-                try {
-                    document.execCommand('copy');
-                    this.showToast("Game link copied to clipboard!");
-                } catch {
-                    this.showToast("Failed to copy link.");
-                }
-                document.body.removeChild(textarea);
-            }
         });
 
         // Play Again and Save Badge buttons

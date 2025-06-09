@@ -274,8 +274,13 @@ if (isMobile) {
     }, false);
 }
 
-// Performance monitoring for optimization
-if (!isMobile && process.env.NODE_ENV === 'development') {
+ // Performance monitoring for optimization
+if (
+    !isMobile &&
+    typeof process !== 'undefined' &&
+    process.env &&
+    process.env.NODE_ENV === 'development'
+) {
     // Add FPS display for development
     game.events.on('postrender', () => {
         // Your FPS monitoring code here

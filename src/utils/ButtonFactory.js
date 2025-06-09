@@ -80,6 +80,8 @@ export default class ButtonFactory {
         // Make button interactive
         buttonContainer.setSize(buttonWidth, buttonHeight);
         buttonContainer.setInteractive();
+
+        // Animate on pointerdown (visual feedback)
         buttonContainer.on("pointerdown", () => {
             scene.tweens.add({
                 targets: buttonContainer,
@@ -89,9 +91,22 @@ export default class ButtonFactory {
                 yoyo: true,
                 ease: "Quad.Out"
             });
-
-            scene.time.delayedCall(100, callback);
         });
+
+        // Call callback on pointerup if pointer is still over the button
+        buttonContainer.on("pointerup", (pointer) => {
+            // Check if pointer is still over the button
+if (pointer && buttonContainer.input && buttonContainer.input.enabled && buttonContainer.input.hitArea.contains(pointer.x - buttonContainer.x + buttonWidth/2, pointer.y - buttonContainer.y + buttonHeight/2)) {
+    if (typeof callback === "function") {
+        callback();
+    }
+}
+        });
+
+        // For extra robustness, also handle pointerupoutside (optional: comment out if not desired)
+        // buttonContainer.on("pointerupoutside", () => {
+        //     // Optionally reset visual state or ignore
+        // });
 
         // Add to scene
         buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);

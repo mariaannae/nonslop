@@ -172,6 +172,9 @@ export default class Preloader extends Phaser.Scene {
         const nextColor = 0x43ea5e;
         button.setInteractive();
         button.off('pointerdown');
+        button.off('pointerup');
+
+        // Animate and particles on pointerdown (visual feedback only)
         button.on('pointerdown', (pointer) => {
             this.createButtonClickParticles(button.x, button.y, nextColor);
             this.tweens.add({
@@ -180,9 +183,21 @@ export default class Preloader extends Phaser.Scene {
                 scaleY: 0.95,
                 duration: 100,
                 yoyo: true,
-                ease: "Quad.Out",
-                onComplete: onClick
+                ease: "Quad.Out"
             });
+        });
+
+        // Call onClick on pointerup if pointer is still over the button
+        button.on('pointerup', (pointer) => {
+            if (
+                pointer &&
+                button.input &&
+                button.input.enabled &&
+                button.input.hitArea &&
+                button.input.hitArea.contains(pointer.x - button.x + button.width / 2, pointer.y - button.y + button.height / 2)
+            ) {
+                onClick();
+            }
         });
     }
 
@@ -615,7 +630,7 @@ export default class Preloader extends Phaser.Scene {
         // Typewriter effect
         const chars = introText.split("");
         let i = 0;
-        const typeSpeed = 18;
+        const typeSpeed = 8;
         this.typewriterTimer = this.time.addEvent({
             delay: typeSpeed,
             repeat: chars.length - 1,

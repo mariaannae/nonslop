@@ -235,45 +235,40 @@ export default class InstructionScene extends Phaser.Scene {
         // Typewriter effect
         const chars = defaultText.split("");
         let i = 0;
-        const typeSpeed = 18; // ms per character
+        const typeSpeed = 8; // ms per character (faster)
         this.time.addEvent({
             delay: typeSpeed,
             repeat: chars.length - 1,
             callback: () => {
                 this.promptText.text += chars[i];
                 i++;
-                // After the last character, create the button at the correct position
-if (i === chars.length) {
-    // Get the bottom of the prompt text
-    // Determine button height
-    let buttonHeight;
-    if (this.scalingManager) {
-        buttonHeight = this.scalingManager.buttonHeight(this.scalingManager.buttonWidth(this.cameras.main.width));
-    } else {
-        buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
-    }
-    // Use the text box (background) bottom for positioning
-    const textBoxBottom = this.promptBoxY + textHeight;
-    const buttonY = textBoxBottom + 30 + (buttonHeight / 2);
-    console.log('TextBox bottom:', textBoxBottom, 'Calculated buttonY:', buttonY, 'Button height:', buttonHeight);
-    const buttonPadding = 70;
-    const buttonX = this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
-    this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
-        depth: 102
-    });
-    this.nextButton.setInteractive()
-        .on('pointerover', () => {
-            this.showTooltip('Continue to difficulty selection', this.nextButton.x, this.nextButton.y - this.nextButton.height/2);
-            this.nextButton.setScale(1.1);
-        })
-        .on('pointerout', () => {
-            this.hideTooltips();
-            this.nextButton.setScale(1);
-        });
-    this.addButtonClickEffects();
-}
             }
         });
+
+        // Create the NEXT button immediately (not gated by typewriter)
+        let buttonHeight;
+        if (this.scalingManager) {
+            buttonHeight = this.scalingManager.buttonHeight(this.scalingManager.buttonWidth(this.cameras.main.width));
+        } else {
+            buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
+        }
+        const textBoxBottom = this.promptBoxY + textHeight;
+        const buttonY = textBoxBottom + 30 + (buttonHeight / 2);
+        const buttonPadding = 70;
+        const buttonX = this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
+        this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
+            depth: 102
+        });
+        this.nextButton.setInteractive()
+            .on('pointerover', () => {
+                this.showTooltip('Continue to difficulty selection', this.nextButton.x, this.nextButton.y - this.nextButton.height/2);
+                this.nextButton.setScale(1.1);
+            })
+            .on('pointerout', () => {
+                this.hideTooltips();
+                this.nextButton.setScale(1);
+            });
+        this.addButtonClickEffects();
     }
 
     init(data) {

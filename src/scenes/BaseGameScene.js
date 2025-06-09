@@ -15,10 +15,10 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     constructor(config) {
         super(config);
-        this.fastTypingPenaltyMS = 200;
+        this.fastTypingPenaltyMS = 600;
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
-            : 3;
+            : 2;
         this._fastTypingPenaltyActive = false;
         this._fastTypingPenaltyTimeout = null;
         this._fastTypingModal = null;
@@ -27,7 +27,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Fast typing cooldown after word boundary (configurable)
         this.fastTypingCooldownMs = (config && typeof config.fastTypingCooldownMs === "number")
             ? config.fastTypingCooldownMs
-            : 400; // Default cooldown after word boundary in ms
+            : 200; // Default cooldown after word boundary in ms
         this._postWordBoundaryCooldownActive = false;
         this._postWordBoundaryCooldownTimeout = null;
         this._warningMessages = [
@@ -1351,7 +1351,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this._aiGenerationTimeout = setTimeout(() => {
                     this.isGeneratingAISuggestions = false;
                     this._aiGenerationTimeout = null;
-                }, this.fastTypingPenaltyMS); // 1 second window
+                }, 1000); // 1 second window
             }).catch(() => {
                 // Don't clear the flag here either
                 if (done) done();
