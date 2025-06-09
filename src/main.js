@@ -31,7 +31,7 @@ const isMobile = isMobileDevice();
 const config = {
     type: Phaser.AUTO,
     width: isMobile ? 393 : 1920,
-    height: isMobile ? 600 : 900,
+    height: isMobile ? 500 : 900,
     scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene, gameOver, BadgeGenerator],
     physics: { default: 'arcade', arcade: { debug: false } },
     plugins: {
