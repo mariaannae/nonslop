@@ -550,6 +550,12 @@ export default class Preloader extends Phaser.Scene {
         if (this.typewriterBox) this.typewriterBox.destroy();
         if (this.typewriterText) this.typewriterText.destroy();
 
+        // --- FIX: Prevent multiple typewriter timers ---
+        if (this.typewriterTimer && typeof this.typewriterTimer.remove === "function") {
+            this.typewriterTimer.remove();
+            this.typewriterTimer = null;
+        }
+
         // Pre-calculate height for the text
         const tempText = this.add.text(
             0, 0, introText,
@@ -610,12 +616,16 @@ export default class Preloader extends Phaser.Scene {
         const chars = introText.split("");
         let i = 0;
         const typeSpeed = 18;
-        this.time.addEvent({
+        this.typewriterTimer = this.time.addEvent({
             delay: typeSpeed,
             repeat: chars.length - 1,
             callback: () => {
                 this.typewriterText.text += chars[i];
                 i++;
+                // When done, clear the timer reference
+                if (i >= chars.length) {
+                    this.typewriterTimer = null;
+                }
             }
         });
     }

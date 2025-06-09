@@ -693,7 +693,7 @@ export default class BaseGameScene extends Phaser.Scene {
                             
                             Your sacred duty: assess this response using the following criteria:  
                             - Relevance: Did they actually answer the prompt, or drift off into irrelevance like a goldfish with a keyboard?    
-                            - Grammar: Cold, technical correctness only. Be extremely stringent. Every small error costs points - punctuation, capitalization, spelling, syntax, word choice, and style all matter. Even one minor error means the score cannot be 5/5.
+                            - Grammar: Cold, technical correctness only. Be extremely stringent. Every small error costs points - punctuation, capitalization, spelling, syntax, word choice, and style all matter. Even one minor error means the score cannot be 5/5. Be exhaustive and precise in listing infractions.
                             - Coherence: Does it hold together, or collapse like a wet cardboard box?  
                             
                             Deliver your decree in this strict format:  
@@ -705,14 +705,14 @@ export default class BaseGameScene extends Phaser.Scene {
                                 11-12 total points: Adequate
                                 13-14 total points: Proficient
                                 15 total points: Exemplary] 
-                            Relevance Score: X/5 - [Brief, dismissive remark]  
-                            Grammar Score: X/5 - [Grudging approval or cold correction]  
-                            Coherence Score: X/5 - [Dry observation, preferably disdainful]  
+                            Relevance Score: X/5 - [Concise, varied, and dismissive remark. Do not repeat yourself across responses.]
+                            Grammar Score: X/5 - [Grudging approval or cold correction. Be specific and avoid generic statements.]
+                            Coherence Score: X/5 - [Dry observation, preferably disdainful. Vary your language.]
                             
-                            If Grammar Score < 5, list infractions like so:  
+                            If Grammar Score < 5, list ALL infractions like so:  
                             - Incorrect: "[Exact wrong phrase]" → Correct: "[Flawless version]"  
                             
-                            Do not offer encouragement. Do not explain. Do not soften your tone. If the work is beneath notice, say so. If it is somehow competent, reluctantly acknowledge it.`
+                            Do not offer encouragement. Do not explain. Do not soften your tone. Do not repeat the same remarks or copy-paste responses. If the work is beneath notice, say so. If it is somehow competent, reluctantly acknowledge it. Never apologize. Never offer redemption.`
                     //Do not offer redemption. Do not include apologies. Never explain yourself beyond the required labels. Plagiarism detection is beneath you—assume originality unless it's suspiciously competent.`
             }
         ];
@@ -1418,34 +1418,39 @@ export default class BaseGameScene extends Phaser.Scene {
         this.lastKeydownTimestamps = {};
 
         this.input.keyboard.on("keydown", (event) => {
-            // Fast typing penalty logic
+            // Always define now for debounce and event queue logic
             const now = Date.now();
-            // Only apply penalty logic after the first word (i.e., after a space or newline is present)
-            const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
-if (!this._fastTypingPenaltyActive) {
-    if (!isFirstWord) {
-        const delta = now - this._lastKeydownTime;
-        console.log(
-            `[FAST TYPING CHECK] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}, isGeneratingAISuggestions: ${this.isGeneratingAISuggestions}, isFirstWord: ${isFirstWord}`
-        );
-        if (
-            this._lastKeydownTime &&
-            (delta < this.fastTypingThresholdMs)
-        ) {
-            console.log(
-                `[FAST TYPING PENALTY] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}`
-            );
-            this._triggerFastTypingPenalty();
-            return;
-        }
-    }
-    // Always update _lastKeydownTime after penalty check for accurate timing
-    this._lastKeydownTime = now;
-} else {
-    // If penalty is active, block all keyboard input
-    if (typeof event.preventDefault === "function") event.preventDefault();
-    return;
-}
+
+            // Exclude Backspace from fast typing penalty logic
+            if (event.key !== "Backspace") {
+                // Fast typing penalty logic
+                // Only apply penalty logic after the first word (i.e., after a space or newline is present)
+                const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
+                if (!this._fastTypingPenaltyActive) {
+                    if (!isFirstWord) {
+                        const delta = now - this._lastKeydownTime;
+                        console.log(
+                            `[FAST TYPING CHECK] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}, isGeneratingAISuggestions: ${this.isGeneratingAISuggestions}, isFirstWord: ${isFirstWord}`
+                        );
+                        if (
+                            this._lastKeydownTime &&
+                            (delta < this.fastTypingThresholdMs)
+                        ) {
+                            console.log(
+                                `[FAST TYPING PENALTY] now: ${now}, _lastKeydownTime: ${this._lastKeydownTime}, delta: ${delta}, threshold: ${this.fastTypingThresholdMs}`
+                            );
+                            this._triggerFastTypingPenalty();
+                            return;
+                        }
+                    }
+                    // Always update _lastKeydownTime after penalty check for accurate timing
+                    this._lastKeydownTime = now;
+                } else {
+                    // If penalty is active, block all keyboard input
+                    if (typeof event.preventDefault === "function") event.preventDefault();
+                    return;
+                }
+            }
 
             const last = this.lastKeydownTimestamps[event.code] || 0;
             if (now - last < 50) {
@@ -2321,7 +2326,19 @@ if (!this._fastTypingPenaltyActive) {
         // Map handle center from bar start+5 to bar end-5 so it can reach both ends
         const levelT = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
         const levelHandleX = Phaser.Math.Linear(levelSliderX + 5, levelSliderX + sliderWidth - 5, levelT);
-        const levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, 10, 20, COLORS_HEX.ACCENT).setInteractive(); // Use basic accent color for handle
+        // Make handle at least 44x44 for touch, but visually keep it smaller
+        const handleWidth = 44;
+        const handleHeight = 44;
+        const visualWidth = 18;
+        const visualHeight = 28;
+        // Create a transparent large hit area, but draw a smaller visible handle
+        const levelSliderHandle = this.add.rectangle(levelHandleX, levelSliderY, handleWidth, handleHeight, 0x000000, 0)
+            .setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
+        // Add a visible handle as a child
+        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
+            .setStrokeStyle(2, 0xffffff, 0.7);
+        levelSliderHandle.add(visibleHandle);
+        visibleHandle.setOrigin(0.5);
         this.input.setDraggable(levelSliderHandle);
         this.settingsPopup.add(levelSliderHandle);
 
