@@ -866,8 +866,8 @@ const bottomPadding = Math.max(30, safeAreaBottom);
 this.feedbackButton = this.createButton(
     "FEEDBACK",
     () => this.onFeedbackClick(),
-    this.design.BUTTON.WIDTH / 2 + padding,
-    this.scale.height - this.design.BUTTON.HEIGHT / 2 - padding,
+    DESIGN.UI.BUTTON.WIDTH / 2 + padding,
+    this.scale.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
     'Share your feedback'
 );
         
