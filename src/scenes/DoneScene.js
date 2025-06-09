@@ -843,11 +843,31 @@ export default class DoneScene extends Phaser.Scene {
             .on('pointerout', () => this.hideTooltips());
 
 const padding = 30;
+// Calculate safe area insets for mobile (if available)
+let safeAreaLeft = 0, safeAreaBottom = 0;
+if (typeof window !== "undefined" && window.CSS && window.CSS.supports && window.CSS.supports("padding-bottom: env(safe-area-inset-bottom)")) {
+    // Try to read the safe area insets from CSS environment variables
+    safeAreaLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--satmp-safe-area-inset-left') || 0, 10);
+    safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--satmp-safe-area-inset-bottom') || 0, 10);
+    // Fallback: try direct env() if custom properties not set
+    if (!safeAreaLeft) {
+        safeAreaLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding-left') || 0, 10);
+    }
+    if (!safeAreaBottom) {
+        safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding-bottom') || 0, 10);
+    }
+}
+// Default to 0 if not found
+safeAreaLeft = isNaN(safeAreaLeft) ? 0 : safeAreaLeft;
+safeAreaBottom = isNaN(safeAreaBottom) ? 0 : safeAreaBottom;
+const leftPadding = Math.max(30, safeAreaLeft);
+const bottomPadding = Math.max(30, safeAreaBottom);
+
 this.feedbackButton = this.createButton(
     "FEEDBACK", 
     () => this.onFeedbackClick(), 
-    30 + (DESIGN.UI.BUTTON.WIDTH / 2), 
-    this.cameras.main.height - 30 - (DESIGN.UI.BUTTON.HEIGHT / 2),
+    leftPadding + (DESIGN.UI.BUTTON.WIDTH / 2), 
+    this.cameras.main.height - bottomPadding - (DESIGN.UI.BUTTON.HEIGHT / 2),
     'Share your feedback'     
 );
         

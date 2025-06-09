@@ -698,13 +698,6 @@ export default class BaseGameScene extends Phaser.Scene {
                             
                             Deliver your decree in this strict format:  
                             
-                            Overall Rating: [One-word verdict based on total score:
-                                0-5 total points: Abysmal
-                                6-8 total points: Inadequate  
-                                9-10 total points: Mediocre
-                                11-12 total points: Adequate
-                                13-14 total points: Proficient
-                                15 total points: Exemplary] 
                             Relevance Score: X/5 - [Concise, varied, and dismissive remark. Do not repeat yourself across responses.]
                             Grammar Score: X/5 - [Grudging approval or cold correction. Be specific and avoid generic statements.]
                             Coherence Score: X/5 - [Dry observation, preferably disdainful. Vary your language.]
@@ -735,14 +728,44 @@ export default class BaseGameScene extends Phaser.Scene {
         console.log("Response from OpenAI:", responseData);
         let aiResponse = responseData.content.trim();
 
-        
+        // Parse scores from aiResponse
+        const scoreRegex = /Relevance Score:\s*(\d)\/5[\s\S]*?Grammar Score:\s*(\d)\/5[\s\S]*?Coherence Score:\s*(\d)\/5/i;
+        const match = aiResponse.match(scoreRegex);
+        let totalScore = null;
+        if (match) {
+            const rel = parseInt(match[1], 10);
+            const gram = parseInt(match[2], 10);
+            const coh = parseInt(match[3], 10);
+            totalScore = rel + gram + coh;
+        }
+
+        // Adjective lists for verdicts
+        const verdicts = {
+            low: ["Abysmal", "Dismal", "Pathetic", "Hopeless", "Feeble"],
+            mid: ["Inadequate", "Mediocre", "Lackluster", "Unimpressive", "Passable"],
+            high: ["Proficient", "Competent", "Impressive", "Exemplary", "Outstanding"]
+        };
+        let chosenVerdict = "Unrated";
+        if (totalScore !== null) {
+            if (totalScore < 5) {
+                chosenVerdict = verdicts.low[Math.floor(Math.random() * verdicts.low.length)];
+            } else if (totalScore < 10) {
+                chosenVerdict = verdicts.mid[Math.floor(Math.random() * verdicts.mid.length)];
+            } else {
+                chosenVerdict = verdicts.high[Math.floor(Math.random() * verdicts.high.length)];
+            }
+        }
+
+        // Prepend the verdict to the output
+        let finalOutput = `Overall Rating: ${chosenVerdict}\n${aiResponse}`;
+
         // Calculate totalWordCount directly from userInput to avoid undefined values
         const calculatedTotalWordCount = userInput.trim() ? userInput.trim().split(/\s+/).length : 0;
         
         const interaction = {
             prompt: this.currentPrompt,
             submittedText: userInput,
-            aiEvaluation: aiResponse,
+            aiEvaluation: finalOutput,
             topKValue: this.topKValue,
             levelValue: this.levelValue,
             failCount: this.aiWordCount,
@@ -752,20 +775,20 @@ export default class BaseGameScene extends Phaser.Scene {
         };
 
         saveInteraction(interaction, "userSubmissions");
-        console.log("ai response:", aiResponse);
-        return aiResponse
+        console.log("ai response:", finalOutput);
+        return finalOutput
         
     }
 
     async generateAISuggestions(userInput) {
-    this.isProcessingQueuedKeys = true; // Lock queue processing at start
-    this.isGeneratingAISuggestions = true; // Explicitly track AI suggestion generation
+        this.isProcessingQueuedKeys = true; // Lock queue processing at start
+        this.isGeneratingAISuggestions = true; // Explicitly track AI suggestion generation
 
         // Show loading state in suggestions
         this.showSuggestions(['Loading...']);
 
-        // Force Phaser to render the loading state before continuing
-        await Promise.resolve();
+        // Force Phaser to render the loading state before continuing (allow at least one frame)
+        await new Promise(resolve => this.time.delayedCall(16, resolve));
 
         // Performance measurement - start
         const startTime = performance.now();
@@ -1570,8 +1593,11 @@ export default class BaseGameScene extends Phaser.Scene {
         // Modal dimensions
         const width = Math.min(500, this.cameras.main.width * 0.8);
         const height = 180;
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        // On mobile, position modal higher to avoid keyboard
+        const modalTopY = isMobile ? 120 : (this.cameras.main.centerY - height / 2);
         const x = this.cameras.main.centerX - width / 2;
-        const y = this.cameras.main.centerY - height / 2;
+        const y = modalTopY;
 
         // Overlay
         const overlay = this.add.rectangle(
@@ -1592,7 +1618,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Warning text
         const text = this.add.text(
             this.cameras.main.centerX,
-            this.cameras.main.centerY - 20,
+            y + 50,
             warning,
             {
                 fontFamily: 'IBM Plex Mono',
@@ -1606,7 +1632,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Countdown timer with label
         const timerText = this.add.text(
             this.cameras.main.centerX,
-            this.cameras.main.centerY + height / 2 - 32,
+            y + height - 32,
             `Penalty: ${this.fastTypingPenaltySeconds}s`,
             {
                 fontFamily: 'IBM Plex Mono',
