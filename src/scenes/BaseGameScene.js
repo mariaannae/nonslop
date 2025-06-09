@@ -2130,23 +2130,38 @@ if (!this._fastTypingPenaltyActive) {
             1: [
                 "What do you want to have for dinner today?", 
                 "Describe what you see around you right now.",
-                "Who is your favorite musical artist and why? ",
+                "Who is your favorite musical artist and why?",
                 "Describe your living room.",
                 "Describe the sky right now.",
-                ],
+                "What is your favorite color and what does it remind you of?",
+                "What is something that made you smile today?",
+                "If you could have any animal as a pet, what would it be?",
+                "What is your favorite thing to do on weekends?",
+                "What is your favorite season and why?"
+            ],
             2: [
                 "Why do polar bears not eat penguins?",
                 "What is the difference between a chair and a stool?",
                 "What did young you want to do when you grew up?",
                 "Who was Thomas Edison?",
                 "What is an interest rate?",
-                ],
+                "Why do we need to sleep?",
+                "How does a rainbow form?",
+                "What is the difference between a fruit and a vegetable?",
+                "Why do we have different time zones?",
+                "What is the purpose of money?"
+            ],
             3: [
                 "Write a two-line poem that rhymes.",
                 "Write a haiku.",
                 "What do you think beauty is?",
                 "What makes something art or not?",
-                "Write a very short story about a woman and her pet lion."
+                "Invent a new word and define it.",
+                "If you could travel to any time period, when would it be and why?",
+                "Describe a world where gravity is half as strong as on Earth.",
+                "If you could ask any historical figure a question, who would it be and what would you ask?",
+                "Write a short story in three sentences.",
+                "Imagine a new holiday. What is it called and how is it celebrated?"
             ],
         };
     
