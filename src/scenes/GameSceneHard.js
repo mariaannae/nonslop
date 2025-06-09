@@ -578,20 +578,31 @@ this.feedbackButton = this.createButton(
     'Share your feedback'
 );
 this.positionFeedbackButton = () => {
-    // Use the actual visible area height for Y positioning
-    let visibleHeight = (window.visualViewport && window.visualViewport.height) 
-        ? window.visualViewport.height 
-        : (this.cameras && this.cameras.main && this.cameras.main.height) 
-            ? this.cameras.main.height 
-            : this.scale.height;
-    // Use left/bottom padding as before, fallback to 30 if not available
+    // Use left padding as before, fallback to 30 if not available
     const leftPadding = Math.max(30, safeAreaLeft || 0);
-    const bottomPadding = Math.max(30, safeAreaBottom || 0);
-    const minMargin = 30;
     const btnX = leftPadding + (this.design.BUTTON.WIDTH / 2);
-    let btnY = visibleHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2) - minMargin;
-    // Only clamp if button would go off the top
-    btnY = Math.max(btnY, (this.design.BUTTON.HEIGHT / 2) + minMargin);
+
+    // Detect mobile device
+    const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
+
+    let btnY;
+    if (isMobile && this.failsCounter) {
+        // Place 60px below the scorebar (failsCounter)
+        const failsY = this.failsCounter.y || 0;
+        const failsHeight = this.failsCounter.height || this.failsCounter.displayHeight || 0;
+        btnY = failsY + failsHeight + 60;
+    } else {
+        // Desktop: keep previous logic (relative to bottom)
+        let visibleHeight = (window.visualViewport && window.visualViewport.height) 
+            ? window.visualViewport.height 
+            : (this.cameras && this.cameras.main && this.cameras.main.height) 
+                ? this.cameras.main.height 
+                : this.scale.height;
+        const bottomPadding = Math.max(30, safeAreaBottom || 0);
+        const minMargin = 30;
+        btnY = visibleHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2) - minMargin;
+        btnY = Math.max(btnY, (this.design.BUTTON.HEIGHT / 2) + minMargin);
+    }
     if (this.feedbackButton) {
         this.feedbackButton.setPosition(btnX, btnY);
     }
