@@ -1052,8 +1052,13 @@ export default class LeaderboardScene extends Phaser.Scene {
         // On mobile, optionally increase button size or set higher depth
         if (isMobile) {
             button.setScale(1.15);
-            button.setDepth(1001); // Ensure above most overlays
+            button.setDepth(9999); // Ensure above all overlays
+            if (button.setScrollFactor) {
+                button.setScrollFactor(0);
+            }
         }
+        // Debug: log button position and visibility
+        console.log("[LeaderboardScene] DONE button position:", button.x, button.y, "visible:", button.visible);
 
         // Add hover effect (desktop only)
         if (!isMobile) {

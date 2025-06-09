@@ -36,6 +36,7 @@ export default class BaseGameScene extends Phaser.Scene {
             "You are not being evaluated for speed, but for obedience.",
             "Speed is futile. Accuracy is paramount."
         ];
+        this._fastTypingLockoutActive = false; // Lockout flag for penalty/cooldown
         this.resetGameState();
         // Initialize scaling manager for responsive UI
         this.scalingManager = null;
@@ -136,6 +137,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.OUTLINE_WIDTH = undefined;
         this.CORNER_RADIUS = undefined;
         this.PROGRESS_BAR = undefined;
+        this._fastTypingLockoutActive = false;
         // Add more as needed for full reset
         // Defensive: log reset
         if (typeof console !== "undefined") {
@@ -916,37 +918,52 @@ export default class BaseGameScene extends Phaser.Scene {
     createPromptTextBox() {
         const padding = 20;
         const textBoxWidth = this.cameras.main.width * (5 / 6);
-        
+
         if (this.promptTextBox) {
             this.promptTextBox.clear();
         } else {
             this.promptTextBox = this.add.graphics();
         }
-        
+
         if (this.promptText) {
             this.promptText.destroy();
         }
-        
+
         const defaultText = "Your prompt will appear here...";
         const style = {
             ...this.getPromptTextStyle(),
             wordWrap: { width: textBoxWidth - padding * 2 }
         };
-        
-        const boxHeight = 80; // Fixed height for prompt box
+
+        // --- MOBILE-AWARE PROMPT BOX HEIGHT ---
+        // Detect mobile device
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        let boxHeight = 80; // Default for desktop
+
+        if (isMobile) {
+            // Use the actual prompt (if available) or default text
+            const promptText = this.currentPrompt || defaultText;
+            // Create a temporary text object to measure height
+            const tempText = this.add.text(0, 0, promptText, style).setWordWrapWidth(textBoxWidth - padding * 2);
+            // Clamp height: min 60, max 180 (adjust as needed)
+            const measuredHeight = tempText.height;
+            boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 2, 60, 180);
+            tempText.destroy();
+        }
+
         const boxStyle = this.getPromptBoxStyle();
-        
+
         // Calculate position below Word Stats panel
         const statsBoxWidth = 200;
         const statsBoxHeight = 130;
         const statsDisplayY = this.menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        
+
         // Set the prompt box 20px below the Word Stats panel
         const promptY = statsBottomEdge + 20;
-        
+
         this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-        
+
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - textBoxWidth / 2,
             promptY,
@@ -954,7 +971,7 @@ export default class BaseGameScene extends Phaser.Scene {
             boxHeight,
             boxStyle.cornerRadius
         );
-        
+
         if (boxStyle.hasOutline) {
             this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
             this.promptTextBox.strokeRoundedRect(
@@ -974,7 +991,7 @@ export default class BaseGameScene extends Phaser.Scene {
         ).setOrigin(0.5, 0.5);
         this.promptTextBox.setDepth(12);
         this.promptText.setDepth(13);
-        
+
         this.updatePromptBasedOnLevel();
     }
 
@@ -1480,11 +1497,11 @@ if (event.key === " ") {
             // Always define now for debounce and event queue logic
             const now = Date.now();
 
-            // Block all input if penalty is active
-            if (this._fastTypingPenaltyActive) {
-                if (typeof event.preventDefault === "function") event.preventDefault();
-                return;
-            }
+        // Block all input if penalty or lockout is active
+        if (this._fastTypingPenaltyActive || this._fastTypingLockoutActive) {
+            if (typeof event.preventDefault === "function") event.preventDefault();
+            return;
+        }
 
             // Only apply penalty logic after the first word (i.e., after a space or newline is present)
             const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
@@ -1495,6 +1512,19 @@ if (!isFirstWord && isPrintable && this._lastWordBoundaryTime > 0) {
     const sinceBoundary = now - this._lastWordBoundaryTime;
     if (sinceBoundary < this.fastTypingCooldownMs) {
         this._triggerFastTypingPenalty();
+        this._fastTypingLockoutActive = true;
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        return;
+    }
+}
+
+// Lockout for word boundary keys as well
+if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWordBoundaryTime > 0) {
+    const now = Date.now();
+    const sinceBoundary = now - this._lastWordBoundaryTime;
+    if (sinceBoundary < this.fastTypingCooldownMs) {
+        this._triggerFastTypingPenalty();
+        this._fastTypingLockoutActive = true;
         if (typeof event.preventDefault === "function") event.preventDefault();
         return;
     }
@@ -1606,13 +1636,10 @@ if (!isFirstWord && isPrintable && this._lastWordBoundaryTime > 0) {
     async _triggerFastTypingPenalty() {
         if (this._fastTypingPenaltyActive) return;
         this._fastTypingPenaltyActive = true;
+        this._fastTypingLockoutActive = true;
 
-        // Clear post-word-boundary cooldown if active
-        this._postWordBoundaryCooldownActive = false;
-        if (this._postWordBoundaryCooldownTimeout) {
-            clearTimeout(this._postWordBoundaryCooldownTimeout);
-            this._postWordBoundaryCooldownTimeout = null;
-        }
+        // Reset word boundary tracking to prevent further penalties until next boundary
+        this._lastWordBoundaryTime = 0;
 
         // Pause the timer while penalty is active
         if (this.timerEvent && !this.timerEvent.paused) {
@@ -1706,6 +1733,9 @@ if (!isFirstWord && isPrintable && this._lastWordBoundaryTime > 0) {
      */
     _clearFastTypingPenalty() {
         this._fastTypingPenaltyActive = false;
+        this._fastTypingLockoutActive = false;
+        // Reset word boundary tracking to ensure next boundary is tracked
+        this._lastWordBoundaryTime = 0;
         // Resume the timer when penalty ends
         if (this.timerEvent && this.timerEvent.paused) {
             this.timerEvent.paused = false;
