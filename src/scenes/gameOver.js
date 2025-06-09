@@ -183,7 +183,7 @@ const socialPlatforms = [
 ];
 
 const buttonSize = DESIGN.UI.BUTTON.WIDTH;
-        const spacing = isMobile ? this.scalingManager.scaleValue(14) : 24;
+        const spacing = isMobile ? this.scalingManager.scaleValue(24) : 24;
 const totalWidth = socialPlatforms.length * buttonSize + (socialPlatforms.length - 1) * spacing;
 const startX = this.cameras.main.centerX - totalWidth / 2 + buttonSize / 2;
 
@@ -377,10 +377,9 @@ const saveBadgeButton = ButtonFactory.createButton(
         // --- MOBILE OVERFLOW FIX: SCALE DOWN IF NEEDED ---
         let scaleFactor = 1;
         if (isMobile && totalContentHeight + (elements.length - 1) * gap > availableHeight) {
-            // Calculate scale factor so everything fits
+            // Calculate scale factor so everything fits, allow as small as needed (but not zero)
             scaleFactor = availableHeight / (totalContentHeight + (elements.length - 1) * gap);
-            // Clamp to a minimum reasonable value (don't shrink to zero)
-            scaleFactor = Math.max(scaleFactor, 0.7);
+            scaleFactor = Math.max(scaleFactor, 0.1);
         }
 
         // 5. Position elements vertically with even spacing, scaling if needed
@@ -488,6 +487,46 @@ const saveBadgeButton = ButtonFactory.createButton(
         playAgainButton.setScale(scaleFactor);
         saveBadgeButton.setScale(scaleFactor);
 
+        // --- FINAL SAFETY: If last element is still out of bounds, compress all elements further ---
+        if (isMobile) {
+            // Find the bottom-most element (playAgainButton or saveBadgeButton)
+            const lastY = belowY + Math.max(playAgainButton.height, saveBadgeButton.height) * scaleFactor / 2;
+            if (lastY > screenHeight - bottomMargin) {
+                // Compute a final compression factor
+                const totalHeightUsed = lastY - topMargin;
+                const finalScale = (screenHeight - topMargin - bottomMargin) / totalHeightUsed;
+                // Apply this final scale to all elements
+                [winText, subText, badgeContainer, celebrateText, copyLinkButton, ...socialButtons, playAgainButton, saveBadgeButton].forEach(el => {
+                    if (el && el.setScale) {
+                        el.setScale(el.scaleX * finalScale, el.scaleY * finalScale);
+                    }
+                });
+                // Re-run vertical positioning with the new scale
+                let y = topMargin + (winText.height * winText.scaleY) / 2;
+                winText.y = y;
+                y += (winText.height * winText.scaleY) / 2 + gap * finalScale + (subText.height * subText.scaleY) / 2;
+                subText.y = y;
+                y += (subText.height * subText.scaleY) / 2 + gap * finalScale + (badgeContainer.height * badgeContainer.scaleY) / 2 - badgeUpOffset * finalScale;
+                badgeContainer.y = y;
+                y += (badgeContainer.height * badgeContainer.scaleY) / 2 + gap * finalScale + (celebrateText.height * celebrateText.scaleY) / 2 - celebrateUpOffset * finalScale;
+                celebrateText.y = y;
+                y += (celebrateText.height * celebrateText.scaleY) / 2 + gap * finalScale + (copyLinkButton.height * copyLinkButton.scaleY) / 2 - copyLinkUpOffset * finalScale;
+                copyLinkButton.y = y;
+                // Social row
+                y += (copyLinkButton.height * copyLinkButton.scaleY) / 2 + belowGap * finalScale + (buttonSize * scaleFactor * finalScale) / 2;
+                socialButtons.forEach((btn, i) => {
+                    btn.x = startX + i * (buttonSize + spacing) * scaleFactor * finalScale;
+                    btn.y = y;
+                });
+                // Play Again and Save Badge buttons
+                y += (buttonSize * scaleFactor * finalScale) / 2 + belowGap * finalScale + (Math.max(playAgainButton.height, saveBadgeButton.height) * scaleFactor * finalScale) / 2;
+                playAgainButton.y = y;
+                saveBadgeButton.y = y;
+                const totalButtonWidthFinal = (playAgainButton.width + saveBadgeButton.width) * scaleFactor * finalScale + buttonSpacing * finalScale;
+                playAgainButton.x = this.cameras.main.centerX + (totalButtonWidthFinal / 2 - playAgainButton.width * scaleFactor * finalScale / 2);
+                saveBadgeButton.x = this.cameras.main.centerX - (totalButtonWidthFinal / 2 - saveBadgeButton.width * scaleFactor * finalScale / 2);
+            }
+        }
         // --- END EVEN VERTICAL SPACING REFACTOR ---
     }
 }
