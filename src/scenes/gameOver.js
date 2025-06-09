@@ -135,7 +135,13 @@ export default class gameOver extends Phaser.Scene {
         // Load the pre-generated badge image
         const badgeKey = this.getBadgeKey();
         const badge = this.add.image(0, 0, badgeKey).setOrigin(0.5);
-        
+
+        // Set uniform badge height (reduce by 20px from original)
+        const ORIGINAL_BADGE_HEIGHT = badge.displayHeight;
+        const BADGE_TARGET_HEIGHT = ORIGINAL_BADGE_HEIGHT - 20;
+        badge.displayHeight = BADGE_TARGET_HEIGHT;
+        // displayWidth will auto-adjust to preserve aspect ratio
+
         // Create badge container and add badge
         const badgeContainer = this.add.container(0, 0);
         badgeContainer.add(badge);

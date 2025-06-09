@@ -15,7 +15,6 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     constructor(config) {
         super(config);
-        this.fastTypingPenaltyMS = 600;
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
             : 2;
@@ -1135,13 +1134,15 @@ export default class BaseGameScene extends Phaser.Scene {
             // --- Main Key Processing Logic ---
             const finish = () => { if (done) done(); };
 
-            if (event.key === " ") {
-                // Start post-word-boundary cooldown
-                this._postWordBoundaryCooldownActive = true;
-                if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
-                this._postWordBoundaryCooldownTimeout = setTimeout(() => {
-                    this._postWordBoundaryCooldownActive = false;
-                }, this.fastTypingCooldownMs);
+if (event.key === " ") {
+    // Start post-word-boundary cooldown after current event loop to avoid race with next key event
+    setTimeout(() => {
+        this._postWordBoundaryCooldownActive = true;
+        if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
+        this._postWordBoundaryCooldownTimeout = setTimeout(() => {
+            this._postWordBoundaryCooldownActive = false;
+        }, this.fastTypingCooldownMs);
+    }, 0);
 
                 // Set flag to skip penalty for next printable character
                 this._justEnteredWordBoundary = true;
@@ -1268,13 +1269,15 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.updateCursor();
                 // Block queue until async suggestion generation is fully complete
                 this.generateAISuggestionsWithQueue(done);
-            } else if (event.key === "Enter") {
-                // Start post-word-boundary cooldown
-                this._postWordBoundaryCooldownActive = true;
-                if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
-                this._postWordBoundaryCooldownTimeout = setTimeout(() => {
-                    this._postWordBoundaryCooldownActive = false;
-                }, this.fastTypingCooldownMs);
+} else if (event.key === "Enter") {
+    // Start post-word-boundary cooldown after current event loop to avoid race with next key event
+    setTimeout(() => {
+        this._postWordBoundaryCooldownActive = true;
+        if (this._postWordBoundaryCooldownTimeout) clearTimeout(this._postWordBoundaryCooldownTimeout);
+        this._postWordBoundaryCooldownTimeout = setTimeout(() => {
+            this._postWordBoundaryCooldownActive = false;
+        }, this.fastTypingCooldownMs);
+    }, 0);
 
                 // Set flag to skip penalty for next printable character
                 this._justEnteredWordBoundary = true;
