@@ -469,12 +469,42 @@ const saveBadgeButton = ButtonFactory.createButton(
 
         let belowY = usedY + belowGap + elementsBelow[0].height / 2;
 
-        // Social row
-        socialButtons.forEach((btn, i) => {
-            btn.x = startX + i * (buttonSize + spacing) * scaleFactor;
-            btn.y = belowY;
-            btn.setScale(scaleFactor);
-        });
+        // Social row (MOBILE: two lines, same size, no tweens/effects)
+        if (isMobile) {
+            // Remove any scale effects from previous layout
+            socialButtons.forEach(btn => btn.setScale(1));
+
+            // Split into two rows: 5 on first, 4 on second
+            const firstRowCount = 5;
+            const secondRowCount = socialButtons.length - firstRowCount;
+            const rowSpacing = this.scalingManager.scaleValue(18) * scaleFactor;
+            const row1Y = belowY - (buttonSize / 2 + rowSpacing / 2);
+            const row2Y = belowY + (buttonSize / 2 + rowSpacing / 2);
+
+            // Center both rows
+            const row1TotalWidth = firstRowCount * buttonSize + (firstRowCount - 1) * spacing;
+            const row2TotalWidth = secondRowCount * buttonSize + (secondRowCount - 1) * spacing;
+            const row1StartX = this.cameras.main.centerX - row1TotalWidth / 2 + buttonSize / 2;
+            const row2StartX = this.cameras.main.centerX - row2TotalWidth / 2 + buttonSize / 2;
+
+            socialButtons.forEach((btn, i) => {
+                if (i < firstRowCount) {
+                    btn.x = row1StartX + i * (buttonSize + spacing);
+                    btn.y = row1Y;
+                } else {
+                    btn.x = row2StartX + (i - firstRowCount) * (buttonSize + spacing);
+                    btn.y = row2Y;
+                }
+                btn.setScale(1); // Ensure all are the same size
+            });
+        } else {
+            // Desktop/tablet: single row, scaled as before
+            socialButtons.forEach((btn, i) => {
+                btn.x = startX + i * (buttonSize + spacing) * scaleFactor;
+                btn.y = belowY;
+                btn.setScale(scaleFactor);
+            });
+        }
 
         // Play Again and Save Badge buttons
         belowY += elementsBelow[0].height / 2 + belowGap + elementsBelow[1].height / 2;

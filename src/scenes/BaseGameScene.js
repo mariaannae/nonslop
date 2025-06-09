@@ -947,7 +947,7 @@ export default class BaseGameScene extends Phaser.Scene {
             const tempText = this.add.text(0, 0, promptText, style).setWordWrapWidth(textBoxWidth - padding * 2);
             // Clamp height: min 60, max 220 (allow more lines for long prompts)
             const measuredHeight = tempText.height;
-            boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 4, 60, 220);
+            boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 3, 60, 220);
             tempText.destroy();
         }
 
