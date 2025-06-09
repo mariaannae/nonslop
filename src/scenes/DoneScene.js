@@ -864,11 +864,11 @@ const leftPadding = Math.max(30, safeAreaLeft);
 const bottomPadding = Math.max(30, safeAreaBottom);
 
 this.feedbackButton = this.createButton(
-    "FEEDBACK", 
-    () => this.onFeedbackClick(), 
-    leftPadding + (DESIGN.UI.BUTTON.WIDTH / 2), 
-    this.cameras.main.height - bottomPadding - (DESIGN.UI.BUTTON.HEIGHT / 2),
-    'Share your feedback'     
+    "FEEDBACK",
+    () => this.onFeedbackClick(),
+    this.design.BUTTON.WIDTH / 2 + padding,
+    this.cameras.main.displayHeight - this.design.BUTTON.HEIGHT / 2 - padding,
+    'Share your feedback'
 );
         
         // Test button removed as requested

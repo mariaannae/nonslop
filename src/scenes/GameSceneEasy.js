@@ -136,13 +136,13 @@ export default class GameSceneEasy extends BaseGameScene {
         const leftPadding = Math.max(30, safeAreaLeft);
         const bottomPadding = Math.max(30, safeAreaBottom);
 
-        this.feedbackButton = this.createButton(
-            "FEEDBACK", 
-            () => this.onFeedbackClick(), 
-            leftPadding + (this.design.BUTTON.WIDTH / 2), 
-            this.cameras.main.height - bottomPadding - (this.design.BUTTON.HEIGHT / 2),
-            'Share your feedback'
-        );
+this.feedbackButton = this.createButton(
+    "FEEDBACK",
+    () => this.onFeedbackClick(),
+    leftPadding + (this.design.BUTTON.WIDTH / 2),
+    this.cameras.main.displayHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2),
+    'Share your feedback'
+);
 
         // Reapply effects and layering
         this.addButtonClickEffects && this.addButtonClickEffects();
