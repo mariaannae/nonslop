@@ -138,7 +138,7 @@ export default class gameOver extends Phaser.Scene {
 
         // Set uniform badge height (reduce by 20px from original)
         const ORIGINAL_BADGE_HEIGHT = badge.displayHeight;
-        const BADGE_TARGET_HEIGHT = ORIGINAL_BADGE_HEIGHT - 80;
+        const BADGE_TARGET_HEIGHT = ORIGINAL_BADGE_HEIGHT - 100;
         badge.displayHeight = BADGE_TARGET_HEIGHT;
         // displayWidth will auto-adjust to preserve aspect ratio
 
@@ -354,6 +354,12 @@ const saveBadgeButton = ButtonFactory.createButton(
         const gap = (availableHeight - totalContentHeight) / (elements.length - 1);
 
         // 5. Position elements vertically with even spacing
+
+        // Move badge up slightly (e.g., 32px)
+        const badgeUpOffset = 32;
+        // Move celebrateText up (closer to badge) (e.g., 24px)
+        const celebrateUpOffset = 24;
+
         let currentY = topMargin + elements[0].height / 2;
         // Title
         winText.y = currentY;
@@ -386,37 +392,52 @@ const saveBadgeButton = ButtonFactory.createButton(
         subText.y = currentY;
         subText.x = this.cameras.main.centerX;
 
-        // Badge
-        currentY += subText.height / 2 + gap + badgeHeight / 2;
+        // Badge (move up by badgeUpOffset)
+        currentY += subText.height / 2 + gap + badgeHeight / 2 - badgeUpOffset;
         badgeContainer.x = this.cameras.main.centerX;
         badgeContainer.y = currentY;
 
-        // Celebrate text
-        currentY += badgeHeight / 2 + gap + celebrateText.height / 2;
+        // Celebrate text (move up by celebrateUpOffset)
+        currentY += badgeHeight / 2 + gap + celebrateText.height / 2 - celebrateUpOffset;
         celebrateText.y = currentY;
         celebrateText.x = this.cameras.main.centerX;
 
-        // COPY LINK button
-        currentY += celebrateText.height / 2 + gap + copyLinkButton.height / 2;
+        // Move copyLinkButton up closer to celebrateText (e.g., 24px)
+        const copyLinkUpOffset = 24;
+
+        // Position copyLinkButton closer to celebrateText
+        currentY += celebrateText.height / 2 + gap + copyLinkButton.height / 2 - copyLinkUpOffset;
         copyLinkButton.y = currentY;
         copyLinkButton.x = this.cameras.main.centerX;
 
+        // Now, evenly distribute the elements below copyLinkButton:
+        // These are: social row, playAgainButton/saveBadgeButton
+        const elementsBelow = [
+            { obj: null, height: buttonSize }, // social row
+            { obj: null, height: Math.max(playAgainButton.height, saveBadgeButton.height) }
+        ];
+
+        const bottomY = screenHeight - bottomMargin;
+        const usedY = currentY + copyLinkButton.height / 2;
+        const belowContentHeight = elementsBelow.reduce((sum, el) => sum + el.height, 0);
+        const belowGap = (bottomY - usedY - belowContentHeight) / (elementsBelow.length);
+
+        let belowY = usedY + belowGap + elementsBelow[0].height / 2;
+
         // Social row
-        currentY += copyLinkButton.height / 2 + gap + buttonSize / 2;
         socialButtons.forEach((btn, i) => {
             btn.x = startX + i * (buttonSize + spacing);
-            btn.y = currentY;
+            btn.y = belowY;
         });
 
         // Play Again and Save Badge buttons
-        currentY += buttonSize / 2 + gap + Math.max(playAgainButton.height, saveBadgeButton.height) / 2;
-        // Place SAVE BADGE to the left of PLAY AGAIN, with spacing
+        belowY += elementsBelow[0].height / 2 + belowGap + Math.max(playAgainButton.height, saveBadgeButton.height) / 2;
         const buttonSpacing = 32;
         const totalButtonWidth = playAgainButton.width + saveBadgeButton.width + buttonSpacing;
         playAgainButton.x = this.cameras.main.centerX + (totalButtonWidth / 2 - playAgainButton.width / 2);
         saveBadgeButton.x = this.cameras.main.centerX - (totalButtonWidth / 2 - saveBadgeButton.width / 2);
-        playAgainButton.y = currentY;
-        saveBadgeButton.y = currentY;
+        playAgainButton.y = belowY;
+        saveBadgeButton.y = belowY;
 
         // --- END EVEN VERTICAL SPACING REFACTOR ---
     }
