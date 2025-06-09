@@ -2269,7 +2269,7 @@ export default class BaseGameScene extends Phaser.Scene {
     // Common utility methods
     // Create and show settings popup with Level, Top K sliders and Mode Toggle
     toggleSettingsPopup() {
-        this.popupJustOpened = true;
+    this.popupJustOpened = true;
         if (this.settingsPopup) {
             // If popup exists, close it
             this.closeSettingsPopup();
@@ -2279,7 +2279,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create popup window (fixed size, no scalingManager/mobile logic)
         const popupWidth = 400; // Fixed width
         const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
-        const popupHeight = isMobile ? 300 : 230; // Double height on mobile
+        const popupHeight = isMobile ? 460 : 230; // Double height on mobile
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
@@ -2482,8 +2482,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         // Add Mode Toggle
         const modeToggleLabelX = popupX + 30;
-        // Double the gap between slider and mode toggle on mobile
-        const modeToggleLabelY = isMobile ? popupY + 160 : popupY + 120;
+        const modeToggleLabelY = popupY + 120; // Moved up since top K slider is gone
         const modeToggleLabel = this.add.text(
             modeToggleLabelX, modeToggleLabelY, 
             "Hard Mode:",

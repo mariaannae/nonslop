@@ -16,6 +16,8 @@
         <meta name="twitter:image" content="thumbnail.png" />
         <title>NON-SLOP</title>
         <style>
+     
+            
             /* Reset CSS: Please avoid making changes here unless you know what you're doing :) */
             *,
             *::before,
@@ -24,61 +26,28 @@
                 padding: 0;
                 box-sizing: border-box;
             }
-
+    
             html, body {
-                width: 100vw;
-                height: 100vh;
-                min-height: 100vh;
-                min-width: 100vw;
-                overflow: hidden;
-                position: fixed;
-                top: 0;
-                left: 0;
+                width: 100%;
+                height: 100%;
             }
-
+    
             body {
                 line-height: 1;
                 font-family: 'barcade3d', Arial, sans-serif;
                 background-color: #13091e;
             }
-
-            #game-container {
-                width: 100vw;
-                height: 100vh;
-                min-width: 100vw;
-                min-height: 100vh;
-                overflow: hidden;
-                position: fixed;
-                top: 0;
-                left: 0;
-            }
-
-            canvas {
-                display: block !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                min-width: 100vw !important;
-                min-height: 100vh !important;
-                max-width: 100vw !important;
-                max-height: 100vh !important;
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                z-index: 1;
-            }
-
+    
             ol, ul {
                 list-style: none;
             }
-
+    
             img, video {
                 max-width: 100%;
                 height: auto;
                 display: block;
             }
-
+    
             a {
                 text-decoration: none;
                 color: inherit;
@@ -88,6 +57,7 @@
             #game-container, canvas {
                 cursor: default !important;
             }
+            
         </style>
     </head>
     <body>

@@ -30,6 +30,8 @@ const isMobile = isMobileDevice();
 
 const config = {
     type: Phaser.AUTO,
+    width: isMobile ? 200 : 1920,
+    height: isMobile ? 900 : 900,
     scene: [Boot, Preloader, InstructionScene, LevelScene, GameSceneHard, GameSceneEasy, DoneScene, FeedbackScene, LeaderboardScene, UsernameScene, gameOver, BadgeGenerator],
     physics: { default: 'arcade', arcade: { debug: false } },
     plugins: {
@@ -40,8 +42,10 @@ const config = {
         }]
     },
     scale: {
-        mode: Phaser.Scale.RESIZE,
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: isMobile ? 640 : 1920,
+        height: isMobile ? 1136 : 1080
     },
     render: {
         pixelArt: false,
