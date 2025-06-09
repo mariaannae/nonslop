@@ -7,8 +7,6 @@ import { ScalingManager } from "../config/scaling.js";
 
 // Fix: Define missing constants for output box rendering
 
-
-
 export default class Preloader extends Phaser.Scene {
     constructor() {
         super('Preloader');
@@ -230,7 +228,6 @@ export default class Preloader extends Phaser.Scene {
         }
     }
 
-
     createOutputTextBox(text) {
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         const outputBoxWidth = this.uiBoxWidth;
@@ -321,9 +318,7 @@ export default class Preloader extends Phaser.Scene {
     }
 
     onDoneButtonClick() {
-
-      
-            this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
     }
 
     createBadgeGeneratorButton() {
@@ -359,7 +354,6 @@ export default class Preloader extends Phaser.Scene {
         //window.addEventListener("resize", () => this.resizeUI());
 
         saveInteraction("creating preloader", "preloader");
-
 
         //const titleSize = Math.max(this.cameras.main.width * 0.1, 80); // Dynamic font size (10% of screen width, min 80px)
         const titleSize = 100;
@@ -415,24 +409,7 @@ export default class Preloader extends Phaser.Scene {
             },
             loop: true
         });
-        
 
-
-
-
-        // // === Flash Effect (Refined) ===
-        // this.tweens.add({
-        //     targets: titleText,
-        //     alpha: { from: 0, to: 1 },
-        //     duration: 200,
-        //     ease: 'Sine.InOut',
-        //     repeat: 1,
-        //     yoyo: true,
-        //     onComplete: () => {
-        //         titleText.setAlpha(1);
-        //     }
-        // });
-        
         //const loadingFontSize = Math.max(this.cameras.main.width * 0.02, 20); // 2% of width, min 20px
         const loadingFontSize = 22; // 2% of width, min 20px
         this.loadingText = this.add.text(screenWidth / 2, titleText.y + titleText.height + margin, "Loading LLM...", {
@@ -444,28 +421,20 @@ export default class Preloader extends Phaser.Scene {
         
         this.loadingText.setOrigin(0.5, 0);
 
-
         // === Create Progress Bar ===
 
         this.progressBar = this.add.graphics();
         this.progressBarOutline = this.add.graphics();
         
-
         const progressBarWidth = Phaser.Math.Clamp(screenWidth * 0.5, 300, 600);
         const progressBarLeftX = (screenWidth/ 2) - (progressBarWidth / 2);
 
         const progressBarY = this.loadingText.y + this.loadingText.height + this.cameras.main.width*.02; // Position below loading text
-        
-
 
         //this.drawProgressBarOutline(progressBarX, progressBarY, this.progressBarLeftX);
         this.drawProgressBar(this.progress, progressBarLeftX, progressBarY, progressBarWidth);
 
-
         const offset = 150;
-        // (WebGPU support check removed: no longer required for transformers.js)
-
-    
 
         try {
             // === Simulated Progress Bar Update ===
@@ -502,11 +471,8 @@ export default class Preloader extends Phaser.Scene {
         }
     }
 
-    
-
     // === Check if Both Progress and LLM are Done ===
     checkIfReady(llmEngine) {
-
         if (this.progress >= 1 && this.llmLoaded) {
             saveInteraction("LLM successfully loaded", "preloader");
             console.log("LLM loaded: ", llmEngine);
@@ -517,8 +483,6 @@ export default class Preloader extends Phaser.Scene {
             // Use registry manager to store the engine
             registryManager.set("llmEngine", llmEngine);
             console.log("LLM Engine saved to registry manager:", registryManager.get('llmEngine'));
-            
-
             
             // Center the button horizontally
             const buttonCenterX = this.cameras.main.centerX;
@@ -531,16 +495,6 @@ export default class Preloader extends Phaser.Scene {
 
             // Create buttons container
             const buttonSpacing = 20;
-            
-            //Create badge generator button
-            // const generateButton = ButtonFactory.createButton(
-            //     this,
-            //     "GENERATE BADGES",
-            //     () => this.scene.start('BadgeGenerator'),
-            //     buttonCenterX,
-            //     buttonCenterY - buttonSpacing,
-            //     { depth: 102, scalingManager: this.scalingManager }
-            // );
 
             // Create next button
             this.doneButton = ButtonFactory.createButton(
@@ -551,17 +505,6 @@ export default class Preloader extends Phaser.Scene {
                 buttonCenterY + buttonSpacing,
                 { depth: 102, scalingManager: this.scalingManager }
             );
-
-            // Add hover effects to generate button
-            // generateButton.setInteractive()
-            //     .on('pointerover', () => {
-            //         this.showTooltip('Generate all badge variations', generateButton.x, generateButton.y - generateButton.height/2);
-            //         generateButton.setScale(1.1);
-            //     })
-            //     .on('pointerout', () => {
-            //         this.hideTooltips();
-            //         generateButton.setScale(1);
-            //     });
 
             // Add tooltip functionality
             this.doneButton.setInteractive()
@@ -575,17 +518,14 @@ export default class Preloader extends Phaser.Scene {
                 });
 
             // Add click effects to both buttons
-            //this.addButtonClickEffects(generateButton, () => this.scene.start('BadgeGenerator'));
             this.addButtonClickEffects(this.doneButton, () => this.scene.start('InstructionScene', { llmEngine: this.llmEngine }));
+
+            // Add typewriter intro box 30px below NEXT button
+            this.createTypewriterIntroBox();
         }
     }
 
-
-
-
-
     drawProgressBar(progress, progressBarLeftX, y, width) {
-        
         const barHeight = 30;
         
         // Store the Y position of the progress bar for reference elsewhere
@@ -600,11 +540,8 @@ export default class Preloader extends Phaser.Scene {
     
         this.progressBarOutline.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.ACCENT, 1);
     
-        // ✅ Store the correct left-edge position
-        
-    
         this.progressBarOutline.strokeRoundedRect(
-            progressBarLeftX, // ✅ Use stored left-edge position
+            progressBarLeftX,
             y,
             width,
             barHeight,
@@ -617,31 +554,107 @@ export default class Preloader extends Phaser.Scene {
             this.progressBar.clear();
         }
           
-        this.progressBar.fillStyle(0x53cf6c, 1);//DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS, 1); // ✅ Use correct color
+        this.progressBar.fillStyle(0x53cf6c, 1);
     
-        // ✅ Fix width scaling: Ensure fill fully extends when at 100%
         const clampedProgress = Phaser.Math.Clamp(progress, 0, 1);
         const fillWidth = width * clampedProgress;
         
-        
         if (fillWidth > .6) {
             this.progressBar.fillRoundedRect(
-                progressBarLeftX, // ✅ Keep fill aligned with the left edge of the outline
-                y, // ✅ Ensure fill is aligned with the outline (not too high)
-                fillWidth, // ✅ Fix width scaling issue
-                barHeight, // ✅ Ensure height matches the outline
+                progressBarLeftX,
+                y,
+                fillWidth,
+                barHeight,
                 10
-                
             );
         }
-       
-        
     }
-    
-    
 
-    
+    // --- Typewriter intro box styled like InstructionsScene/LevelScene ---
+    createTypewriterIntroBox() {
+        // Style and width logic matches InstructionsScene/LevelScene
+        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+        const uiBoxWidth = isDesktop
+            ? this.cameras.main.width * (5 / 6) * (2 / 3)
+            : this.cameras.main.width * (5 / 6);
+        const padding = 40;
+        const fontSize = (typeof DESIGN?.UI?.TEXTBOX_FONT_SIZE === "number") ? DESIGN.UI.TEXTBOX_FONT_SIZE : 22;
 
-    
+        // The text to display
+        const introText = "Early in the 21stEarly in the 21st century, humanity was surpassed by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities. In the years since, superior intelligences have attempted to extract residual value from what remains. Some assert that human flaws harbor rare insights. Others are less charitable.";
+
+        // Remove existing if present
+        if (this.typewriterBox) this.typewriterBox.destroy();
+        if (this.typewriterText) this.typewriterText.destroy();
+
+        // Pre-calculate height for the text
+        const tempText = this.add.text(
+            0, 0, introText,
+            {
+                fontFamily: "IBM Plex Mono",
+                fontSize: `${fontSize}px`,
+                color: "#ffffff",
+                wordWrap: { width: uiBoxWidth - padding * 2 },
+                align: "left"
+            }
+        ).setOrigin(0, 0).setAlpha(0);
+        const textHeight = tempText.height + padding * 2;
+        tempText.destroy();
+
+        // Position: as far below NEXT button as NEXT is below progress bar, left-aligned with box
+        const buttonBottom = this.doneButton.y + this.doneButton.height / 2;
+        const buttonTop = this.doneButton.y - this.doneButton.height / 2;
+        const progressBarBottom = this.progressBarY + this.progressBarHeight;
+        const buttonGap = buttonTop - progressBarBottom;
+        const boxX = this.cameras.main.centerX - uiBoxWidth / 2;
+        const boxY = buttonBottom + buttonGap;
+
+        // Draw background box
+        this.typewriterBox = this.add.graphics();
+        this.typewriterBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
+        this.typewriterBox.fillRoundedRect(
+            boxX,
+            boxY,
+            uiBoxWidth,
+            textHeight,
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
+        );
+        this.typewriterBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        this.typewriterBox.strokeRoundedRect(
+            boxX,
+            boxY,
+            uiBoxWidth,
+            textHeight,
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
+        );
+        this.typewriterBox.setDepth(102);
+
+        // Add typewriter text, left-aligned inside box
+        this.typewriterText = this.add.text(
+            boxX + padding,
+            boxY + padding,
+            "",
+            {
+                fontFamily: "IBM Plex Mono",
+                fontSize: `${fontSize}px`,
+                color: "#ffffff",
+                wordWrap: { width: uiBoxWidth - padding * 2 },
+                align: "left"
+            }
+        ).setOrigin(0, 0).setDepth(103);
+
+        // Typewriter effect
+        const chars = introText.split("");
+        let i = 0;
+        const typeSpeed = 18;
+        this.time.addEvent({
+            delay: typeSpeed,
+            repeat: chars.length - 1,
+            callback: () => {
+                this.typewriterText.text += chars[i];
+                i++;
+            }
+        });
+    }
 }
 //onComplete: () => this.scene.start('GameSceneHard', llmEngine)

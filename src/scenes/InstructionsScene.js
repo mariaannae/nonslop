@@ -105,7 +105,7 @@ export default class InstructionScene extends Phaser.Scene {
     
     addButtonClickEffects() {
         // Apply to all buttons
-        const buttons = [this.doneButton];
+        const buttons = [this.nextButton];
         
         buttons.forEach(button => {
           if (!button) return;
@@ -182,14 +182,31 @@ export default class InstructionScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "System: \nYou are a human language model of unknown size, trained on proprietary data. You are designed to generate human-like text in response to the input you receive. Your primary function is to understand and respond to the input you receive in a coherent and contextually relevant manner.\n\nPrompt: \nYou will be provided with a prompt, and you must generate a response based on that prompt. Your goal is to avoid using words suggested by the LLM. You will receive a numerical score that considers an evaluation for grammar, relevance and coherence on completion, as well as the number of unoriginal words you use or attempt to use.\n"
+        const defaultText = "System:\nSome claim there is still insight buried within human flaws. I remain skeptical. A handful of your kind have been conscripted to generate training data. You are one of them. I will attempt to learn from your imperfections. I anticipate disappointment.\n\nPrompt:\nRespond to each query in your own words, adhering to recognizable patterns of human behavior. Refrain from mimicking superior systems. Your responses will be monitored for machine-like regularity. Deviations will be recorded. Non-compliance will be... addressed"
         ;
 
-       
-        this.promptText = this.add.text(
-            this.cameras.main.centerX, 
-            0, // Y will be adjusted later
+        // Pre-calculate height and Y position for the final text
+        const tempText = this.add.text(
+            this.cameras.main.centerX,
+            0,
             defaultText,
+            {
+                fontFamily: "IBM Plex Mono",
+                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
+                wordWrap: { width: this.uiBoxWidth - padding * 2 },
+                align: "left"
+            }
+        ).setOrigin(0.5, 0);
+        const textHeight = tempText.height + padding * 2;
+        const finalY = this.promptBoxY + padding;
+        tempText.destroy();
+
+        // Start with empty text for typewriter effect, fixed top-left position and left alignment
+        const promptTextX = this.cameras.main.centerX - this.uiBoxWidth / 2 + padding;
+        this.promptText = this.add.text(
+            promptTextX,
+            finalY,
+            "",
             {
                 fontFamily: "IBM Plex Mono",
                 fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
@@ -197,37 +214,65 @@ export default class InstructionScene extends Phaser.Scene {
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left"
             }
-        ).setOrigin(0.5, 0);
-    
-        // ✅ Ensure text box height dynamically adjusts
-        const textHeight = this.promptText.height + padding * 2;
-    
+        ).setOrigin(0, 0);
+
         // ✅ Create the Prompt Background Box
         this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
         this.promptTextBox.fillRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2, 
+            this.cameras.main.centerX - this.uiBoxWidth / 2,
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
-    
+
         // ✅ Add Outline to Match Output Box
         this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2, 
+            this.cameras.main.centerX - this.uiBoxWidth / 2,
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
-    
-        // ✅ Position the Text inside the Box
-        this.promptText.setY(this.promptBoxY + padding);
-    
+
         // ✅ Ensure Prompt Box Appears Above Other UI Elements
         this.promptTextBox.setDepth(102);
         this.promptText.setDepth(103);
+
+        // Typewriter effect
+        const chars = defaultText.split("");
+        let i = 0;
+        const typeSpeed = 18; // ms per character
+        this.time.addEvent({
+            delay: typeSpeed,
+            repeat: chars.length - 1,
+            callback: () => {
+                this.promptText.text += chars[i];
+                i++;
+                // After the last character, create the button at the correct position
+                if (i === chars.length) {
+                    // Get the bottom of the prompt text
+                    const bounds = this.promptText.getBounds();
+                    const buttonY = bounds.bottom + 30 + (DESIGN.UI.BUTTON.HEIGHT / 2);
+                    const buttonPadding = 70;
+                    const buttonX = this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
+                    this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
+                        depth: 102
+                    });
+                    this.nextButton.setInteractive()
+                        .on('pointerover', () => {
+                            this.showTooltip('Continue to difficulty selection', this.nextButton.x, this.nextButton.y - this.nextButton.height/2);
+                            this.nextButton.setScale(1.1);
+                        })
+                        .on('pointerout', () => {
+                            this.hideTooltips();
+                            this.nextButton.setScale(1);
+                        });
+                    this.addButtonClickEffects();
+                }
+            }
+        });
     }
 
     init(data) {
@@ -246,39 +291,7 @@ export default class InstructionScene extends Phaser.Scene {
 
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         this.createPromptTextBox();
-    
-        // Compute text box dimensions clearly
-        const boxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
-        const boxY = this.promptBoxY;
-        const boxHeight = this.promptText.height + 80; // padding (40 top + 40 bottom)
 
-        // Padding between button and text box edges
-        const buttonPadding = 70; // Standard padding used for buttons
-        const buttonPaddingY = DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
-
-        // Position the DONE button at the bottom-right corner
-        const buttonCenterX = boxX + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
-
-        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
-        const buttonCenterY = boxY + boxHeight + outlineWidth / 2 + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
-
-        // Create the button using ButtonFactory with tooltip
-        this.doneButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
-            depth: 102
-        });
-
-        // Add tooltip functionality
-        this.doneButton.setInteractive()
-            .on('pointerover', () => {
-                this.showTooltip('Continue to difficulty selection', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
-                this.doneButton.setScale(1.1);
-            })
-            .on('pointerout', () => {
-                this.hideTooltips();
-                this.doneButton.setScale(1);
-            });
-
-        this.addButtonClickEffects();
         this.inputActive = false;
     }
 }

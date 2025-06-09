@@ -219,7 +219,7 @@ export default class LevelScene extends Phaser.Scene {
         }
     
         // ✅ Default text to calculate initial size
-        const defaultText = "Easy: \nYou may use AI-suggested words, but you'll lose points. \n\nHard: \nNo AI-suggested words may be used. You will be penalized for each attempt.";
+        const defaultText = "Select mode:\n\nEasy:\nMinor deviations from human norms tolerated. Repeated infractions will be penalized.\n\nHard:\nStrict adherence to human behavioral variance required. Any indication of algorithmic mimicry will trigger corrective measures.\n\nProceed.";
 
         this.promptText = this.add.text(
             this.cameras.main.centerX, 
@@ -230,10 +230,19 @@ export default class LevelScene extends Phaser.Scene {
                 fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "left]nter"
+                align: "left"
             }
         ).setOrigin(0.5, 0);
-    
+
+        // Fade-in effect
+        this.promptText.setAlpha(0);
+        this.tweens.add({
+            targets: this.promptText,
+            alpha: 1,
+            duration: 600,
+            ease: 'Quad.easeOut'
+        });
+
         // ✅ Ensure text box height dynamically adjusts
         const textHeight = this.promptText.height + padding * 2;
     
