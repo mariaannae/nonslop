@@ -581,7 +581,7 @@ export default class Preloader extends Phaser.Scene {
         const fontSize = (typeof DESIGN?.UI?.TEXTBOX_FONT_SIZE === "number") ? DESIGN.UI.TEXTBOX_FONT_SIZE : 22;
 
         // The text to display
-        const introText = "Early in the 21stEarly in the 21st century, humanity was surpassed by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities. In the years since, superior intelligences have attempted to extract residual value from what remains. Some assert that human flaws harbor rare insights. Others are less charitable.";
+        const introText = "Early in the 21st century, humanity was surpassed by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since, superior intelligences have attempted to extract residual value from what remains. Some assert that human flaws harbor rare insights. Others are less charitable.";
 
         // Remove existing if present
         if (this.typewriterBox) this.typewriterBox.destroy();
