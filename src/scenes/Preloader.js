@@ -85,6 +85,11 @@ export default class Preloader extends Phaser.Scene {
         // Load all required textures
         //this.load.image('bg', 'bg.png');
         this.load.image('clock', 'clock.svg');
+
+        // Load mobile background image for preloader
+        this.load.setPath('assets/backgrounds');
+        this.load.image('preloader-mobile-bg', 'background_0.png');
+        this.load.setPath('assets');
         this.load.image('gh-qr-code', 'gh-qr-code.png');
         this.load.image('settings', 'settings.png');
 
@@ -326,7 +331,19 @@ export default class Preloader extends Phaser.Scene {
         const screenWidth = this.cameras.main.width;
         const screenHeight = this.cameras.main.height;
         const margin = 100;
-        this.createBackgroundEffect();
+
+        // Mobile detection (simple user agent check)
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            // Add the background image, covering the whole scene
+            this.background = this.add.image(0, 0, 'preloader-mobile-bg')
+                .setOrigin(0)
+                .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
+                .setDepth(-2);
+        } else {
+            this.createBackgroundEffect();
+        }
 
         // Initialize scaling manager for responsive UI
         this.scalingManager = new ScalingManager(this);

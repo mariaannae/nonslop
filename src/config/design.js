@@ -312,10 +312,5 @@ export function setActiveTheme(themeName) {
  * @returns {object}
  */
 export function getActiveTheme() {
-  if (isMobileDevice()) {
-    return THEMES.hard;
-  }
   return THEMES[ACTIVE_THEME];
 }
-
-export { isMobileDevice };

@@ -791,7 +791,7 @@ export default class DoneScene extends Phaser.Scene {
         this.aiScore = sumArray(xOver5Digits);
         //const wordCountScore = Math.min(this.totalWordCount, 20);
         this.failCountScore = Math.min(this.failCount, 15);
-        this.totalScore = this.aiScore  - this.failCountScore
+        this.totalScore = 15;//this.aiScore  - this.failCountScore;
 
         // Ensure score is 0 if userInput is empty or only whitespace
         if (typeof this.userInput === "string" && this.userInput.trim() === "") {

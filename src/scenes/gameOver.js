@@ -488,18 +488,14 @@ const saveBadgeButton = ButtonFactory.createButton(
             const row2StartX = this.cameras.main.centerX - row2TotalWidth / 2 + buttonSize / 2;
 
             socialButtons.forEach((btn, i) => {
-                let scale = scaleFactor;
-                if (typeof finalScale !== "undefined") {
-                    scale *= finalScale;
-                }
                 if (i < firstRowCount) {
-                    btn.x = row1StartX + i * (buttonSize + spacing) * scale;
-                    btn.y = row1Y * (typeof finalScale !== "undefined" ? finalScale : 1);
+                    btn.x = row1StartX + i * (buttonSize + spacing);
+                    btn.y = row1Y;
                 } else {
-                    btn.x = row2StartX + (i - firstRowCount) * (buttonSize + spacing) * scale;
-                    btn.y = row2Y * (typeof finalScale !== "undefined" ? finalScale : 1);
+                    btn.x = row2StartX + (i - firstRowCount) * (buttonSize + spacing);
+                    btn.y = row2Y;
                 }
-                btn.setDisplaySize(buttonSize * scale, buttonSize * scale);
+                btn.setScale(1); // Ensure all are the same size
             });
         } else {
             // Desktop/tablet: single row, scaled as before
