@@ -479,6 +479,8 @@ function getStreakIntensity(streak) {
   return Math.min(4, intensity);
 }
 
+import { isMobileDevice } from "../config/design.js";
+
 // Main entry point - updated to support streak-based effects
 export function createBackground(scene, backgroundConfig, levelValue = 1, wordStreak = 0) {
   const width = scene.cameras.main.width;
@@ -487,6 +489,20 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
   const color = backgroundConfig?.color || 0x000000;
   const asset = backgroundConfig?.asset || null;
   const params = backgroundConfig?.params || {};
+
+  // Mobile-only: Use static backgrounds with intensity mapping and hard mode palette
+  if (isMobileDevice()) {
+    // Map streak intensity (0-4) to background_0.png ... background_4.png
+    const streakIntensity = Math.round(getStreakIntensity(wordStreak));
+    const cappedIntensity = Math.max(0, Math.min(4, streakIntensity));
+    const bgAsset = `backgrounds/background_${cappedIntensity}.png`;
+    // Use Phaser loader key (assume asset is loaded with this key)
+    scene.background = scene.add.image(0, 0, bgAsset)
+      .setOrigin(0)
+      .setDisplaySize(width, height)
+      .setDepth(-1);
+    return;
+  }
 
   // Static image background
   if (effect === "static" && asset) {
