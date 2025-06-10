@@ -111,8 +111,8 @@ export default class FeedbackScene extends Phaser.Scene {
 
     createInputTextBox() {    
         const textBoxWidth = this.uiBoxWidth;
-        const textBoxHeight = 340;
-        const padding = 20;
+        const textBoxHeight = 240;
+        const padding = 30;
     
         // Input Text Border
         if (this.inputTextBorder) {
@@ -166,7 +166,8 @@ export default class FeedbackScene extends Phaser.Scene {
                 fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
                 fill: "#000000",
                 wordWrap: { width: textBoxWidth - padding * 2 },
-                align: "left"
+                align: "left",
+                padding: { x: padding, y: 10 }
             }
         )
         .setOrigin(0, 0)
@@ -209,8 +210,8 @@ export default class FeedbackScene extends Phaser.Scene {
         input.maxLength = 500;
         input.style.position = 'fixed';
         input.style.opacity = '0';
-        input.style.pointerEvents = 'none';
-        input.style.left = '-1000px';
+        input.style.pointerEvents = 'auto';
+        input.style.left = '0';
         input.style.top = '0';
         input.style.width = '1px';
         input.style.height = '1px';
@@ -218,12 +219,14 @@ export default class FeedbackScene extends Phaser.Scene {
 
         // Sync input to Phaser text
         input.addEventListener('input', () => {
+            console.log('[FeedbackScene] Hidden input value:', input.value);
             this.userInput = input.value;
             this.updateCursor();
         });
 
-        // On blur, keep value but do nothing else
+        // On blur, set inputActive to false and update cursor
         input.addEventListener('blur', () => {
+            this.inputActive = false;
             this.updateCursor();
         });
 
@@ -232,9 +235,11 @@ export default class FeedbackScene extends Phaser.Scene {
     }
 
     focusHiddenInput() {
+        console.log('[FeedbackScene] focusHiddenInput called');
         if (!this._hiddenInput) this.setupHiddenInput();
         this._hiddenInput.value = this.userInput;
         this._hiddenInput.focus();
+        this.inputActive = true;
         // Move cursor to end
         this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
     }
@@ -336,6 +341,24 @@ export default class FeedbackScene extends Phaser.Scene {
         // Ensure both text objects are visible and at the correct depth
         this.inputText.setVisible(true)//.setDepth(101);
     }
+
+    setupKeyboardInput() {
+        this._feedbackKeydownHandler = (event) => {
+            // Allow printable characters (letters, numbers, punctuation, space)
+            if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+                if (this.userInput.length < 500) {
+                    this.userInput += event.key;
+                    this.updateCursor();
+                }
+            } else if (event.key === 'Backspace') {
+                this.userInput = this.userInput.slice(0, -1);
+                this.updateCursor();
+            } else if (event.key === 'Enter') {
+                this.onDoneButtonClick();
+            }
+        };
+        this.input.keyboard.on('keydown', this._feedbackKeydownHandler);
+    }
    
     init(data) {
         if (!data.mode) {
@@ -407,6 +430,9 @@ export default class FeedbackScene extends Phaser.Scene {
 
         this.addButtonClickEffects();
         this.inputActive = false;
+
+        // Setup keyboard input for desktop typing
+        this.setupKeyboardInput();
 
         // Update cursor explicitly at end
         this.updateCursor();

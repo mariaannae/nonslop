@@ -1,3 +1,12 @@
+window.onerror = function(message, source, lineno, colno, error) {
+    alert("Global error: " + message + " at " + source + ":" + lineno + ":" + colno);
+    console.error("Global error:", message, source, lineno, colno, error);
+};
+window.onunhandledrejection = function(event) {
+    alert("Unhandled promise rejection: " + event.reason);
+    console.error("Unhandled promise rejection:", event.reason);
+};
+
 //import Phaser from 'phaser';
 
 import GameSceneHard from "./scenes/GameSceneHard.js";

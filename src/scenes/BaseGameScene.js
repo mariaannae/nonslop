@@ -26,7 +26,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Fast typing cooldown after word boundary (configurable)
         this.fastTypingCooldownMs = (config && typeof config.fastTypingCooldownMs === "number")
             ? config.fastTypingCooldownMs
-            : 1400; // Default cooldown after word boundary in ms
+            : 1250; // Default cooldown after word boundary in ms
         this._lastWordBoundaryTime = 0; // Timestamp of last word boundary
         this._warningMessages = [
             "Human, your input speed exceeds expected biological norms. Proceed at a pace befitting your species.",
