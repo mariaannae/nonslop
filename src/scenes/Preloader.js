@@ -95,11 +95,31 @@ export default class Preloader extends Phaser.Scene {
 
         // Load badge images with scores
         this.load.setPath('assets/badges');
-        for (let i = 1; i <= 12; i++) {
-            for (let score = 10; score <= 15; score++) {
-                this.load.image(`badge_${i}_easy_${score}`, `badge_${i}_easy_${score}.png`);
-                this.load.image(`badge_${i}_hard_${score}`, `badge_${i}_hard_${score}.png`);
+        // Preload all badgeNum 1-12, both modes, and all available score files
+        const badgeNums = Array.from({ length: 12 }, (_, i) => i + 1); // 1-12 inclusive
+        const modes = ['easy', 'hard'];
+        // Dynamically find all badge files in assets/badges
+        const badgeFiles = (typeof require !== "undefined")
+          ? require('fs').readdirSync('assets/badges')
+          : [];
+        // Extract all unique score values from filenames
+        const scoreSet = new Set();
+        if (badgeFiles && badgeFiles.length) {
+          badgeFiles.forEach(file => {
+            const match = file.match(/^badge_(\d+)_(easy|hard)_(\d+)\.png$/);
+            if (match) {
+              scoreSet.add(Number(match[3]));
             }
+          });
+        }
+        // If unable to read files, fallback to 10-15
+        const scores = scoreSet.size ? Array.from(scoreSet) : [10, 11, 12, 13, 14, 15];
+        for (const badgeNum of badgeNums) {
+          for (const mode of modes) {
+            for (const score of scores) {
+              this.load.image(`badge_${badgeNum}_${mode}_${score}`, `badge_${badgeNum}_${mode}_${score}.png`);
+            }
+          }
         }
         this.load.setPath('assets');
 

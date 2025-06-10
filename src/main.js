@@ -19,8 +19,8 @@ import LevelScene from "./scenes/LevelScene.js";
 import DoneScene from "./scenes/DoneScene.js";
 import LeaderboardScene from "./scenes/LeaderboardScene.js";
 import UsernameScene from "./scenes/UsernameScene.js";
-import gameOver from "./scenes/gameOver.js";
 import BadgeGenerator from "./scenes/BadgeGenerator.js";
+import GameOverScene from "./scenes/GameOverScene.js";
 
 // Improved mobile detection
 function isMobileDevice() {
@@ -38,39 +38,36 @@ function isMobileDevice() {
 // Calculate optimal game dimensions based on device and screen
 function getOptimalDimensions() {
     const isMobile = isMobileDevice();
-    const screenWidth = window.innerWidth;
-    // On mobile, use the most accurate viewport height available (not screen.height)
-    const screenHeight = isMobile
-        ? (window.innerHeight || document.documentElement.clientHeight || screen.height)
-        : window.innerHeight;
-    const aspectRatio = screenWidth / screenHeight;
+    // Use visualViewport if available for the most accurate visible area
+    const viewportWidth = (window.visualViewport && window.visualViewport.width) ||
+        window.innerWidth || document.documentElement.clientWidth || screen.width;
+    const viewportHeight = (window.visualViewport && window.visualViewport.height) ||
+        window.innerHeight || document.documentElement.clientHeight || screen.height;
+    const aspectRatio = viewportWidth / viewportHeight;
 
     if (isMobile) {
-        // Mobile configurations
-        // Use screenHeight determined by the browser's viewport, not device screen size
+        // Always use design resolution for game world, scale to fit viewport
+        let width, height;
         if (aspectRatio < 1) {
-            // Portrait mode
-            return {
-                width: 720,
-                height: 1280,
-                mode: Phaser.Scale.FIT,
-                maxWidth: 540,
-                maxHeight: 960
-            };
+            // Portrait
+            width = 720;
+            height = 1280;
         } else {
-            // Landscape mode
-            return {
-                width: 1280,
-                height: 720,
-                mode: Phaser.Scale.FIT,
-                maxWidth: 960,
-                maxHeight: 540
-            };
+            // Landscape
+            width = 1280;
+            height = 720;
         }
+        return {
+            width,
+            height,
+            mode: Phaser.Scale.FIT,
+            maxWidth: Math.round(viewportWidth),
+            maxHeight: Math.round(viewportHeight)
+        };
     } else {
         // Desktop configurations - more sophisticated approach
-        const maxGameWidth = Math.min(screenWidth * 0.9, 1920);
-        const maxGameHeight = Math.min(screenHeight * 0.9, 1080);
+        const maxGameWidth = Math.min(viewportWidth * 0.9, 1920);
+        const maxGameHeight = Math.min(viewportHeight * 0.9, 1080);
 
         // For ultra-wide monitors, constrain to 16:9
         if (aspectRatio > 2) {
@@ -131,7 +128,7 @@ const config = {
         FeedbackScene, 
         LeaderboardScene, 
         UsernameScene, 
-        gameOver, 
+        GameOverScene, 
         BadgeGenerator
     ],
     physics: { 
@@ -157,12 +154,12 @@ const config = {
         width: dimensions.width,
         height: dimensions.height,
         min: {
-            width: isMobile ? 320 : 800,
-            height: isMobile ? 480 : 600
+            width: isMobile ? dimensions.width : 800,
+            height: isMobile ? dimensions.height : 600
         },
         max: {
-            width: dimensions.maxWidth || dimensions.width,
-            height: dimensions.maxHeight || dimensions.height
+            width: isMobile ? dimensions.maxWidth : (dimensions.maxWidth || dimensions.width),
+            height: isMobile ? dimensions.maxHeight : (dimensions.maxHeight || dimensions.height)
         },
         parent: 'game-container',
         expandParent: false,
@@ -256,36 +253,25 @@ if (!isMobile) {
     });
 }
 
-// Mobile-specific: orientation and touch handling
-if (isMobile) {
-    window.addEventListener('orientationchange', () => {
-        setTimeout(() => {
-            if (game.scale) {
-                // Recalculate dimensions on orientation change
-                const newDimensions = getOptimalDimensions();
-                game.scale.resize(newDimensions.width, newDimensions.height);
-                game.events.emit('orientation-change', window.orientation);
+    // Mobile-specific: prevent unwanted mobile behaviors
+    if (isMobile) {
+        // Prevent unwanted mobile behaviors
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.closest('#game-container')) {
+                e.preventDefault();
             }
-        }, 100);
-    });
-    
-    // Prevent unwanted mobile behaviors
-    document.addEventListener('touchmove', (e) => {
-        if (e.target.closest('#game-container')) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-    
-    // Prevent double-tap zoom
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', (e) => {
-        const now = Date.now();
-        if (now - lastTouchEnd <= 300) {
-            e.preventDefault();
-        }
-        lastTouchEnd = now;
-    }, false);
-}
+        }, { passive: false });
+
+        // Prevent double-tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    }
 
  // Performance monitoring for optimization
 if (
