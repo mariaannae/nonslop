@@ -317,3 +317,5 @@ export function getActiveTheme() {
   }
   return THEMES[ACTIVE_THEME];
 }
+
+export { isMobileDevice };
