@@ -3,8 +3,23 @@ window.onerror = function(message, source, lineno, colno, error) {
     console.error("Global error:", message, source, lineno, colno, error);
 };
 window.onunhandledrejection = function(event) {
-    alert("Unhandled promise rejection: " + event.reason);
-    console.error("Unhandled promise rejection:", event.reason);
+    // Suppress alert for known IndexedDB/Firestore errors on mobile
+    const reason = event.reason && event.reason.message ? event.reason.message : (event.reason || "");
+    const knownIndexedDBErrorPatterns = [
+        "Error looking up record in object store by key range",
+        "UnknownError",
+        "A mutation operation was attempted on a database that did not allow mutations"
+    ];
+    const isKnownIndexedDBError = knownIndexedDBErrorPatterns.some(pattern =>
+        reason && reason.toString().includes(pattern)
+    );
+    if (isKnownIndexedDBError) {
+        // Log to console, but do not alert
+        console.warn("Suppressed IndexedDB/Firestore error:", reason);
+        return;
+    }
+    alert("Unhandled promise rejection: " + reason);
+    console.error("Unhandled promise rejection:", reason);
 };
 
 //import Phaser from 'phaser';
@@ -37,7 +52,6 @@ function isMobileDevice() {
 
 // Calculate optimal game dimensions based on device and screen
 function getOptimalDimensions() {
-    const isMobile = isMobileDevice();
     // Use visualViewport if available for the most accurate visible area
     const viewportWidth = (window.visualViewport && window.visualViewport.width) ||
         window.innerWidth || document.documentElement.clientWidth || screen.width;
@@ -45,71 +59,24 @@ function getOptimalDimensions() {
         window.innerHeight || document.documentElement.clientHeight || screen.height;
     const aspectRatio = viewportWidth / viewportHeight;
 
-    if (isMobile) {
-        // Always use design resolution for game world, scale to fit viewport
-        let width, height;
-        if (aspectRatio < 1) {
-            // Portrait
-            width = 720;
-            height = 1280;
-        } else {
-            // Landscape
-            width = 1280;
-            height = 720;
-        }
-        return {
-            width,
-            height,
-            mode: Phaser.Scale.FIT,
-            maxWidth: Math.round(viewportWidth),
-            maxHeight: Math.round(viewportHeight)
-        };
+    // Always use design resolution, scale to fit viewport, preserve aspect ratio
+    let width, height;
+    if (aspectRatio < 1) {
+        // Portrait
+        width = 720;
+        height = 1280;
     } else {
-        // Desktop configurations - more sophisticated approach
-        const maxGameWidth = Math.min(viewportWidth * 0.9, 1920);
-        const maxGameHeight = Math.min(viewportHeight * 0.9, 1080);
-
-        // For ultra-wide monitors, constrain to 16:9
-        if (aspectRatio > 2) {
-            return {
-                width: 1920,
-                height: 1080,
-                mode: Phaser.Scale.FIT,
-                maxWidth: maxGameHeight * (16/9),
-                maxHeight: maxGameHeight
-            };
-        }
-
-        // For standard desktop displays
-        if (screenWidth >= 1920 && screenHeight >= 1080) {
-            // Full HD or higher - use optimal gaming resolution
-            return {
-                width: 1920,
-                height: 1080,
-                mode: Phaser.Scale.FIT,
-                maxWidth: maxGameWidth,
-                maxHeight: maxGameHeight
-            };
-        } else if (screenWidth >= 1366) {
-            // HD displays
-            return {
-                width: 1366,
-                height: 768,
-                mode: Phaser.Scale.FIT,
-                maxWidth: screenWidth * 0.9,
-                maxHeight: screenHeight * 0.9
-            };
-        } else {
-            // Smaller desktop displays
-            return {
-                width: 1280,
-                height: 720,
-                mode: Phaser.Scale.FIT,
-                maxWidth: screenWidth * 0.9,
-                maxHeight: screenHeight * 0.9
-            };
-        }
+        // Landscape
+        width = 1280;
+        height = 720;
     }
+    return {
+        width,
+        height,
+        mode: Phaser.Scale.FIT,
+        maxWidth: Math.round(viewportWidth),
+        maxHeight: Math.round(viewportHeight)
+    };
 }
 
 const dimensions = getOptimalDimensions();
@@ -212,10 +179,21 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// Store device type globally for scenes to access
+// Helper to compute and store the current scale factor in the registry
+function updateUIScale() {
+    // The scale factor is the ratio between the actual canvas size and the design resolution
+    const scaleWidth = game.scale.displaySize.width / game.scale.gameSize.width;
+    const scaleHeight = game.scale.displaySize.height / game.scale.gameSize.height;
+    // Use the smaller scale to ensure everything fits
+    const uiScale = Math.min(scaleWidth, scaleHeight);
+    game.registry.set('uiScale', uiScale);
+}
+
+// Store device type and base dimensions globally for scenes to access
 game.registry.set('isMobile', isMobile);
 game.registry.set('baseWidth', dimensions.width);
 game.registry.set('baseHeight', dimensions.height);
+updateUIScale();
 
 // Handle window resize events
 let resizeTimeout;
@@ -223,8 +201,15 @@ window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         if (game.scale) {
-            game.scale.refresh();
-            
+            // Recompute optimal dimensions for new viewport
+            const newDimensions = getOptimalDimensions();
+            // Resize the game world (design resolution stays the same)
+            game.scale.resize(newDimensions.width, newDimensions.height);
+            // Update maxWidth/maxHeight for scale manager
+            game.scale.maxWidth = newDimensions.maxWidth;
+            game.scale.maxHeight = newDimensions.maxHeight;
+            // Update UI scale factor
+            updateUIScale();
             // Emit custom resize event for scenes
             game.events.emit('resize', game.scale.width, game.scale.height);
         }
@@ -271,6 +256,21 @@ if (!isMobile) {
             }
             lastTouchEnd = now;
         }, false);
+
+        // Fix: Resume audio context on first user gesture to prevent AudioContext error
+        const unlockAudio = () => {
+            if (game.sound && typeof game.sound.unlock === 'function') {
+                game.sound.unlock();
+            }
+            // For extra safety, also try to resume the context directly if available
+            if (game.sound && game.sound.context && game.sound.context.state === 'suspended') {
+                game.sound.context.resume();
+            }
+            document.removeEventListener('touchstart', unlockAudio, true);
+            document.removeEventListener('mousedown', unlockAudio, true);
+        };
+        document.addEventListener('touchstart', unlockAudio, true);
+        document.addEventListener('mousedown', unlockAudio, true);
     }
 
  // Performance monitoring for optimization

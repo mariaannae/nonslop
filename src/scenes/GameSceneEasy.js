@@ -178,6 +178,9 @@ this.feedbackButton = this.createButton(
 
     // Mode-specific scene setup
     create(data) {
+        // Use global UI scale for all elements
+        this.uiScale = this.registry.get('uiScale') || 1;
+
         // --- Robust state reset for every transition ---
         this.resetGameState();
 
@@ -232,28 +235,28 @@ this.feedbackButton = this.createButton(
         this.createInputTextBox();
         this.updatePromptBasedOnLevel();
 
-        const inputBoxWidth = this.cameras.main.width * (5 / 6);
-        const padding = 20;
-        const buttonPadding = 70; // Standard padding used for buttons
+        const inputBoxWidth = this.cameras.main.width * (5 / 6) * this.uiScale;
+        const padding = 20 * this.uiScale;
+        const buttonPadding = 70 * this.uiScale; // Standard padding used for buttons
         const boxX = this.cameras.main.centerX - inputBoxWidth / 2;
-        const buttonCenterX = boxX + inputBoxWidth - buttonPadding - this.design.BUTTON.WIDTH / 2;
+        const buttonCenterX = boxX + inputBoxWidth - buttonPadding - this.design.BUTTON.WIDTH * this.uiScale / 2;
 
         // Calculate the actual input box Y and height based on the layout in BaseGameScene
         // This matches the logic in createInputTextBox()
-        const statsBoxHeight = 130;
-        const menuBarHeight = this.menuBarHeight || 100;
+        const statsBoxHeight = 130 * this.uiScale;
+        const menuBarHeight = (this.menuBarHeight || 100) * this.uiScale;
         const statsDisplayY = menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        const promptY = statsBottomEdge + 20;
-        const promptBoxHeight = 80;
+        const promptY = statsBottomEdge + 20 * this.uiScale;
+        const promptBoxHeight = 80 * this.uiScale;
         const promptBottomEdge = promptY + promptBoxHeight;
-        const inputBoxY = promptBottomEdge + 20;
-        const inputBoxHeight = 240;
+        const inputBoxY = promptBottomEdge + 20 * this.uiScale;
+        const inputBoxHeight = 240 * this.uiScale;
         const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
 
         // Position button further below input box bottom edge (configurable gap from design.js)
-        const outlineWidth = this.design.OUTLINE.WIDTH;
-        const doneButtonY = inputBoxBottomEdge + outlineWidth / 2 + this.design.BUTTON.BELOW_TEXTBOX_GAP + this.design.BUTTON.HEIGHT / 2;
+        const outlineWidth = this.design.OUTLINE.WIDTH * this.uiScale;
+        const doneButtonY = inputBoxBottomEdge + outlineWidth / 2 + this.design.BUTTON.BELOW_TEXTBOX_GAP * this.uiScale + this.design.BUTTON.HEIGHT * this.uiScale / 2;
 
         // Create buttons with tooltips
         this.doneButton = this.createButton(
@@ -284,16 +287,16 @@ this.feedbackButton = this.createButton(
         let feedbackButtonY;
         if (isMobile) {
             // Get progress bar bottom edge and add 60px
-            const scoreHeight = this.design.BUTTON.HEIGHT;
-            feedbackButtonY = this.failsCounter.y + scoreHeight + 100;
+            const scoreHeight = this.design.BUTTON.HEIGHT * this.uiScale;
+            feedbackButtonY = this.failsCounter.y + scoreHeight + 100 * this.uiScale;
         } else {
-            feedbackButtonY = this.cameras.main.height - this.design.BUTTON.HEIGHT / 2 - padding;
+            feedbackButtonY = this.cameras.main.height - this.design.BUTTON.HEIGHT * this.uiScale / 2 - padding;
         }
 
         this.feedbackButton = this.createButton(
             "FEEDBACK", 
             () => this.onFeedbackClick(), 
-            this.design.BUTTON.WIDTH / 2 + padding, 
+            this.design.BUTTON.WIDTH * this.uiScale / 2 + padding, 
             feedbackButtonY,
             'Share your feedback'
         );
@@ -314,10 +317,10 @@ this.feedbackButton = this.createButton(
     getPromptTextStyle() {
         return {
             fontFamily: "IBM Plex Mono",
-            fontSize: `${this.design.TEXTBOX_FONT_SIZE}px`,
+            fontSize: `${this.design.TEXTBOX_FONT_SIZE * (this.uiScale || 1)}px`,
             fill: this.COLORS_TEXT.PRIMARY,
             align: "center",
-            lineSpacing: 6
+            lineSpacing: 6 * (this.uiScale || 1)
         };
     }
 
@@ -346,22 +349,22 @@ this.feedbackButton = this.createButton(
     getInputTextStyle() {
         return {
             fontFamily: "IBM Plex Mono",
-            fontSize: `${this.design.TEXTBOX_FONT_SIZE}px`,
+            fontSize: `${this.design.TEXTBOX_FONT_SIZE * (this.uiScale || 1)}px`,
             fill: "#000",
             align: "left",
-            lineSpacing: 6,
-            wordWrap: { width: this.uiBoxWidth - 60 } // Add word wrap
+            lineSpacing: 6 * (this.uiScale || 1),
+            wordWrap: { width: (this.uiBoxWidth - 60) * (this.uiScale || 1) } // Add word wrap
         };
     }
 
     getAutocompleteTextStyle() {
         return {
             fontFamily: "IBM Plex Mono",
-            fontSize: `${this.design.TEXTBOX_FONT_SIZE}px`,
+            fontSize: `${this.design.TEXTBOX_FONT_SIZE * (this.uiScale || 1)}px`,
             fill: "#ff0000",
             align: "left",
             alpha: 0.7, // Make slightly transparent
-            wordWrap: { width: this.uiBoxWidth - 60 } // Add word wrap
+            wordWrap: { width: (this.uiBoxWidth - 60) * (this.uiScale || 1) } // Add word wrap
         };
     }
 
@@ -369,16 +372,16 @@ this.feedbackButton = this.createButton(
         return {
             backgroundColor: this.COLORS_HEX.BACKGROUND,
             borderColor: this.COLORS_HEX.ACCENT,
-            borderWidth: this.OUTLINE_WIDTH,
+            borderWidth: this.OUTLINE_WIDTH * (this.uiScale || 1),
             titleStyle: {
                 fontFamily: 'barcade3d',
-                fontSize: '50px',
+                fontSize: `${50 * (this.uiScale || 1)}px`,
                 color: this.COLORS_TEXT.TITLE,
                 shadow: {
-                    offsetX: 2,
-                    offsetY: 2,
+                    offsetX: 2 * (this.uiScale || 1),
+                    offsetY: 2 * (this.uiScale || 1),
                     color: '#000',
-                    blur: 2,
+                    blur: 2 * (this.uiScale || 1),
                     fill: true
                 }
             }

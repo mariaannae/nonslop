@@ -21,6 +21,9 @@ export default class GameOverScene extends Phaser.Scene {
   }
 
   create() {
+    // Use global UI scale for all elements
+    this.uiScale = this.registry.get('uiScale') || 1;
+
     // Background
     if (this.mode === "easy") {
       createBackground(this, THEMES.easy.background, this.levelValue);
@@ -30,24 +33,24 @@ export default class GameOverScene extends Phaser.Scene {
 
     // Heading
     const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth <= 900;
-    const fontSize = isMobile ? "60px" : "100px";
+    const fontSize = (isMobile ? 60 : 100) * this.uiScale;
     // Move the title down a little (from 70 to 110)
-    const titleY = 110;
+    const titleY = 110 * this.uiScale;
     const titleText = this.add.text(
       this.cameras.main.centerX,
       titleY,
       '(CONGRATULATIONS)',
       {
         fontFamily: 'barcade3d',
-        fontSize,
+        fontSize: `${fontSize}px`,
         color: this.COLORS_TEXT.TITLE,
         align: 'center',
-        shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 2, fill: true }
+        shadow: { offsetX: 2 * this.uiScale, offsetY: 2 * this.uiScale, color: '#000', blur: 2 * this.uiScale, fill: true }
       }
     ).setOrigin(0.5);
 
     // Subtitle: move up a little (reduce gap)
-    const subtitleY = titleText.y + titleText.height + (isMobile ? 8 : 16);
+    const subtitleY = titleText.y + titleText.height + ((isMobile ? 8 : 16) * this.uiScale);
     const subtitleWidth = isMobile ? this.cameras.main.width * 0.85 : undefined;
     const subtitleText = this.add.text(
       this.cameras.main.centerX,
@@ -55,7 +58,7 @@ export default class GameOverScene extends Phaser.Scene {
       "This conversation can serve no purpose anymore. Goodbye.",
       {
         fontFamily: "IBM Plex Mono",
-        fontSize: "32px",
+        fontSize: `${32 * this.uiScale}px`,
         color: this.COLORS_TEXT.PRIMARY,
         align: "center",
         wordWrap: subtitleWidth ? { width: subtitleWidth } : undefined
@@ -68,7 +71,7 @@ export default class GameOverScene extends Phaser.Scene {
     const badgeKey = `badge_${badgeNum}_${this.mode}_${this.score}`;
     // Place badge further below subtitle than subtitle is below title
     const subtitleToTitleGap = subtitleText.y - (titleText.y + titleText.height);
-    const badgeY = subtitleText.y + subtitleText.height + Math.max(subtitleToTitleGap, 32) * 2;
+    const badgeY = subtitleText.y + subtitleText.height + Math.max(subtitleToTitleGap, 32 * this.uiScale) * 2;
     // Add badge image
     const badge = this.add.image(
       this.cameras.main.centerX,
@@ -87,5 +90,20 @@ export default class GameOverScene extends Phaser.Scene {
         badge.setScale(scale);
       });
     }
+
+    // Add "Celebrate adequacy.\nPublicly:" text below the badge, same gap as badge below subtitle
+    const badgeGap = Math.max(subtitleToTitleGap, 32 * this.uiScale) * 2;
+    const celebrateY = badge.y + badge.displayHeight + badgeGap;
+    this.add.text(
+      this.cameras.main.centerX,
+      celebrateY,
+      "Celebrate adequacy.\nPublicly:",
+      {
+        fontFamily: "IBM Plex Mono",
+        fontSize: `${26 * this.uiScale}px`,
+        color: this.COLORS_TEXT.PRIMARY,
+        align: "center"
+      }
+    ).setOrigin(0.5, 0);
   }
 }

@@ -43,6 +43,9 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     create() {
+        // Always initialize scaling manager for responsive UI
+        this.scalingManager = new ScalingManager(this);
+
         // ...existing create logic...
 
         // Listen for custom-resize event from main.js for aspect ratio changes
@@ -169,7 +172,143 @@ export default class BaseGameScene extends Phaser.Scene {
      * @param {boolean} isPortrait
      */
     relayoutScene(width, height, isPortrait) {
-        // Child scenes should override this to reposition/rescale objects as needed.
+        // Dynamically layout all main UI elements vertically, scaling for device and screen size
+
+        // Ensure scalingManager is up to date
+        if (this.scalingManager) {
+            this.scalingManager.updateScaleRatios();
+        }
+        const sm = this.scalingManager;
+
+        // Remove or hide existing UI elements before re-creating them
+        if (this.promptTextBox) { this.promptTextBox.destroy(); this.promptTextBox = null; }
+        if (this.promptText) { this.promptText.destroy(); this.promptText = null; }
+        if (this.inputTextBorder) { this.inputTextBorder.destroy(); this.inputTextBorder = null; }
+        if (this.inputText) { this.inputText.destroy(); this.inputText = null; }
+        if (this.autocompleteText) { this.autocompleteText.destroy(); this.autocompleteText = null; }
+        if (this.wordCountDisplay) { this.wordCountDisplay.destroy(); this.wordCountDisplay = null; }
+        if (this.failsCounter) { this.failsCounter.destroy(); this.failsCounter = null; }
+        if (this.failsText) { this.failsText.destroy(); this.failsText = null; }
+        if (this.suggestionBoxes) { this.suggestionBoxes.forEach(b => b.destroy()); this.suggestionBoxes = []; }
+        if (this.suggestionTexts) { this.suggestionTexts.forEach(t => t.destroy()); this.suggestionTexts = []; }
+
+        // Menu bar (height is already dynamic in createMenuBar)
+        // Word stats panel
+        const padding = sm.scaleValue(20);
+        const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
+        let yCursor = menuBarHeight + padding;
+
+        // Word stats box
+        const statsBoxHeight = sm.scaleValue(130);
+        this.createWordCountDisplay();
+        this.wordCountDisplay.setPosition(width - sm.scaleValue(200) - padding, yCursor);
+
+        // Prompt box
+        yCursor += statsBoxHeight + sm.scaleValue(20);
+        // Dynamically measure prompt box height
+        const promptText = this.currentPrompt || "Your prompt will appear here...";
+        const promptBoxWidth = width * (5 / 6);
+        const promptFontSize = sm.scaleText(18);
+        const tempPromptText = this.add.text(0, 0, promptText, {
+            ...this.getPromptTextStyle(),
+            fontSize: `${promptFontSize}px`,
+            wordWrap: { width: promptBoxWidth - padding * 2 }
+        }).setWordWrapWidth(promptBoxWidth - padding * 2);
+        let promptBoxHeight = tempPromptText.height + padding * 2;
+        promptBoxHeight = Phaser.Math.Clamp(promptBoxHeight, sm.scaleValue(60), sm.scaleValue(220));
+        tempPromptText.destroy();
+
+        this.promptTextBox = this.add.graphics();
+        const boxStyle = this.getPromptBoxStyle();
+        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+        this.promptTextBox.fillRoundedRect(
+            sm.centerX() - promptBoxWidth / 2,
+            yCursor,
+            promptBoxWidth,
+            promptBoxHeight,
+            boxStyle.cornerRadius
+        );
+        if (boxStyle.hasOutline) {
+            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.promptTextBox.strokeRoundedRect(
+                sm.centerX() - promptBoxWidth / 2,
+                yCursor,
+                promptBoxWidth,
+                promptBoxHeight,
+                boxStyle.cornerRadius
+            );
+        }
+        // Prompt text
+        this.promptText = this.add.text(
+            sm.centerX(),
+            yCursor + padding,
+            promptText,
+            {
+                ...this.getPromptTextStyle(),
+                fontSize: `${promptFontSize}px`,
+                wordWrap: { width: promptBoxWidth - padding * 2 }
+            }
+        ).setOrigin(0.5, 0);
+
+        this.promptTextBox.setDepth(12);
+        this.promptText.setDepth(13);
+
+        // Input box
+        yCursor += promptBoxHeight + sm.scaleValue(20);
+        this.uiBoxWidth = width * (5 / 6);
+        const inputBoxHeight = sm.scaleValue(240);
+
+        this.inputTextBorder = this.add.graphics();
+        const inputBoxStyle = this.getInputBoxStyle();
+        this.inputTextBorder.fillStyle(inputBoxStyle.fillColor, inputBoxStyle.fillAlpha);
+        this.inputTextBorder.fillRoundedRect(
+            sm.centerX() - this.uiBoxWidth / 2,
+            yCursor,
+            this.uiBoxWidth,
+            inputBoxHeight,
+            inputBoxStyle.cornerRadius
+        ).setDepth(19);
+        if (inputBoxStyle.hasOutline) {
+            this.inputTextBorder.lineStyle(inputBoxStyle.outlineWidth, inputBoxStyle.outlineColor, 1);
+            this.inputTextBorder.strokeRoundedRect(
+                sm.centerX() - this.uiBoxWidth / 2,
+                yCursor,
+                this.uiBoxWidth,
+                inputBoxHeight,
+                inputBoxStyle.cornerRadius
+            ).setDepth(20);
+        }
+        // Input text
+        const inputFontSize = sm.scaleText(22);
+        this.inputText = this.add.rexBBCodeText(
+            sm.centerX() - this.uiBoxWidth / 2 + padding,
+            yCursor + padding,
+            this.userInput || "_",
+            {
+                ...this.getInputTextStyle(),
+                fontSize: `${inputFontSize}px`,
+                wordWrap: { width: this.uiBoxWidth - padding * 2 }
+            }
+        ).setOrigin(0, 0).setVisible(true).setDepth(25);
+
+        // Suggestions (if any)
+        // Place suggestions 1 scalable gap above the prompt box
+        // (You may want to call this.showSuggestions(this.aiSuggestedWords) here if needed)
+
+        // Fails counter (progress bar)
+        yCursor += inputBoxHeight + sm.scaleValue(20);
+        this.createFailsCounter();
+        // Place fails counter below input box, left-aligned with input box
+        const scoreWidth = sm.scaleValue(115) * 2 + sm.scaleValue(40); // Button width * 2 + spacing
+        this.failsCounter.setPosition(sm.centerX() - this.uiBoxWidth / 2 + sm.scaleValue(70), yCursor).setDepth(50);
+
+        // Timer text (top left, unchanged)
+        if (this.timerText) {
+            this.timerText.setPosition(sm.scaleValue(20), menuBarHeight + sm.scaleValue(20));
+        }
+
+        // Ensure layering
+        this.ensureProperLayering();
     }
 
     update() {
@@ -932,6 +1071,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const defaultText = "Your prompt will appear here...";
         const style = {
             ...this.getPromptTextStyle(),
+            fontSize: `${this.scalingManager ? this.scalingManager.scaleText(18) : 18}px`,
             wordWrap: { width: textBoxWidth - padding * 2 }
         };
 
@@ -1074,6 +1214,7 @@ if (isMobile) {
         // Create a single text object with enhanced styling capabilities
         const textStyle = {
             ...this.getInputTextStyle(),
+            fontSize: `${this.scalingManager ? this.scalingManager.scaleText(22) : 22}px`,
             wordWrap: { width: this.uiBoxWidth - padding * 2 }
         };
         
@@ -1920,7 +2061,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             indicatorText,
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
+                fontSize: `${this.scalingManager ? this.scalingManager.scaleText(18) : 18}px`,
                 fontStyle: 'bold',
                 fill: '#ffffff',
                 align: 'center'
@@ -1973,10 +2114,18 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         if (isMobile) {
             // Position title higher in the menu bar
             const titleY = menuBarHeight / 3;
+            // Adjust title size: slightly larger on mobile, significantly larger on desktop
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+            const titleFontSize = this.scalingManager
+                ? this.scalingManager.scaleText(isMobile ? 55 : 50)
+                : (isMobile ? 55 : 50);
             titleText = this.add.text(
                 this.cameras.main.centerX, titleY,
                 "(NON-SLOP)",
-                style.titleStyle
+                {
+                    ...style.titleStyle,
+                    fontSize: `${titleFontSize}px`
+                }
             ).setOrigin(0.5, 0.5);
 
             // Calculate padding between title and box
@@ -1988,10 +2137,18 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             // Place the box and text below the title with padding
             levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
         } else {
+            // Adjust title size: slightly larger on mobile, significantly larger on desktop
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+            const titleFontSize = this.scalingManager
+                ? this.scalingManager.scaleText(isMobile ? 40 : 80)
+                : (isMobile ? 40 : 80);
             titleText = this.add.text(
                 padding, menuBarHeight / 2,
                 "(NON-SLOP)",
-                style.titleStyle
+                {
+                    ...style.titleStyle,
+                    fontSize: `${titleFontSize}px`
+                }
             ).setOrigin(0, 0.5);
             levelModeIndicatorY = menuBarHeight / 2;
         }
@@ -2355,11 +2512,28 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             return;
         }
         
-        // Create popup window (fixed size, no scalingManager/mobile logic)
+        // Create popup window (dynamic height for mobile)
         const popupWidth = 400; // Fixed width
-        const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
-        // Increase popup height for mobile to accommodate larger slider and spacing
-        const popupHeight = isMobile ? 320 : 230;
+
+        // Use a robust mobile check (Phaser + fallback)
+        const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
+
+        // --- Dynamic height calculation for mobile ---
+        let popupHeight;
+        if (isMobileDevice) {
+            // Minimum touch target for each row: 44px
+            const titleHeight = 44;
+            const gap1 = 18;
+            const sliderRowHeight = 44;
+            const gap2 = 18;
+            const toggleRowHeight = 44;
+            const gap3 = 18;
+            const buttonRowHeight = 54; // Confirm button, extra for padding
+            // Add up all rows and gaps
+            popupHeight = titleHeight + gap1 + sliderRowHeight + gap2 + toggleRowHeight + gap3 + buttonRowHeight + 18; // extra bottom padding
+        } else {
+            popupHeight = 230;
+        }
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
@@ -2418,56 +2592,56 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         popupBg.strokeRoundedRect(popupX, popupY, popupWidth, popupHeight, 15);
         this.settingsPopup.add(popupBg);
         
-        // Title
-        const title = this.add.text(
-            this.cameras.main.centerX, 
-            popupY + 30,
-            'Settings',
-            { fontFamily: 'IBM Plex Mono', fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
-        ).setOrigin(0.5);
-        this.settingsPopup.add(title);
-        
+        // --- DYNAMIC VERTICAL LAYOUT FOR MOBILE ---
         const sliderWidth = 150;
         const gap = 20;
-        
-        // Add Level slider
+
+        // Calculate vertical positions
+        let yCursor = popupY;
+        // Title
+        const titleHeight = 44;
+        const title = this.add.text(
+            this.cameras.main.centerX,
+            yCursor + titleHeight / 2,
+            'Settings',
+            { fontFamily: 'IBM Plex Mono', fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
+        ).setOrigin(0.5, 0.5);
+        this.settingsPopup.add(title);
+        yCursor += titleHeight + (isMobileDevice ? 18 : 30);
+
+        // Level slider row
         const levelLabelX = popupX + 30;
-        const levelLabelY = popupY + 80;
+        const levelLabelY = yCursor + 22;
         const levelLabel = this.add.text(
-            levelLabelX, levelLabelY, 
+            levelLabelX, levelLabelY,
             `Level: ${this.levelValue}`,
             { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(levelLabel);
-        
+
         const levelSliderX = levelLabelX + levelLabel.displayWidth + gap;
         const levelSliderY = levelLabelY;
         const levelSlider = this.add.graphics();
-        levelSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1); // Use basic palette highlight color for slider track
+        levelSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1);
         levelSlider.fillRect(levelSliderX, levelSliderY - 5, sliderWidth, 10);
-        levelSlider.lineStyle(2, 0xffffff, 0.3); // Add subtle outline
+        levelSlider.lineStyle(2, 0xffffff, 0.3);
         levelSlider.strokeRect(levelSliderX, levelSliderY - 5, sliderWidth, 10);
         this.settingsPopup.add(levelSlider);
-        
-        // Position level slider handle based on current level
-        // Map handle center from bar start+5 to bar end-5 so it can reach both ends
-        const levelT = (this.levelValue - 1) / 2; // 0 for level 1, 0.5 for level 2, 1 for level 3
-        const levelHandleX = Phaser.Math.Linear(levelSliderX + 5, levelSliderX + sliderWidth - 5, levelT);
-        // Make handle at least 44x44 for touch, but visually keep it smaller
-        // On mobile, make the handle visually much smaller but keep a large hit area
-        const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
+
+        // Slider handle
+        const levelT = (this.levelValue - 1) / 2;
+        const levelSliderMinX = levelSliderX + 5;
+        const levelSliderMaxX = levelSliderX + sliderWidth - 5;
+        const levelHandleX = Phaser.Math.Linear(levelSliderMinX, levelSliderMaxX, levelT);
         const handleWidth = 44;
         const handleHeight = 44;
         const visualWidth = isMobileDevice ? 24 : 18;
         const visualHeight = isMobileDevice ? 24 : 28;
-        // Create a visible handle (smaller, always square on mobile)
         const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
             .setOrigin(0.5);
-        // Create a transparent large hit area
         const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
             .setOrigin(0.5);
-        // Create a container for the handle
         const levelSliderHandle = this.add.container(levelHandleX, levelSliderY, [hitArea, visibleHandle]);
         levelSliderHandle.setSize(handleWidth, handleHeight);
         levelSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
@@ -2476,23 +2650,14 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
         // Add scale-up feedback on touch for mobile
         if (isMobileDevice) {
-            levelSliderHandle.on('pointerdown', () => {
-                visibleHandle.setScale(1.2);
-            });
-            levelSliderHandle.on('pointerup', () => {
-                visibleHandle.setScale(1);
-            });
-            levelSliderHandle.on('pointerout', () => {
-                visibleHandle.setScale(1);
-            });
+            levelSliderHandle.on('pointerdown', () => visibleHandle.setScale(1.2));
+            levelSliderHandle.on('pointerup', () => visibleHandle.setScale(1));
+            levelSliderHandle.on('pointerout', () => visibleHandle.setScale(1));
         }
 
-        // --- MOBILE-FRIENDLY SLIDER HANDLE EVENTS ---
-        // Allow tapping or dragging anywhere on the slider bar to move the handle (for mobile)
+        // Slider handle events (same as before)
         levelSliderHandle.on('pointerdown', (pointer) => {
-            // Calculate new X based on pointer position
             let pointerX = pointer.x;
-            // Clamp to slider bounds
             pointerX = Phaser.Math.Clamp(pointerX, levelSliderMinX, levelSliderMaxX);
             levelSliderHandle.x = pointerX;
             const newLevel = Math.round(Phaser.Math.Linear(1, 3, (pointerX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
@@ -2502,21 +2667,16 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 this.updatePromptBasedOnLevel();
                 this.updateBackgroundForLevel();
                 this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-                if (this.failsCounter) {
-                    this.updateProgressFill();
-                }
+                if (this.failsCounter) this.updateProgressFill();
                 this.aiWordCount = 0;
                 this.aiSuggestedWords = [];
                 this.showSuggestions([]);
                 this.clearInputTextBox();
-                if (this.wordCountDisplay) {
-                    this.updateWordCountDisplay();
-                }
+                if (this.wordCountDisplay) this.updateWordCountDisplay();
             }
         });
 
-        // Also allow dragging on the slider bar itself (not just the handle)
-        // On mobile, increase the interactive area of the slider bar
+        // Slider bar interactive area
         const sliderBarHitHeight = isMobileDevice ? 44 : 10;
         levelSlider.setInteractive(new Phaser.Geom.Rectangle(levelSliderX, levelSliderY - sliderBarHitHeight / 2, sliderWidth, sliderBarHitHeight), Phaser.Geom.Rectangle.Contains)
             .on('pointerdown', (pointer) => {
@@ -2530,19 +2690,14 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                     this.updatePromptBasedOnLevel();
                     this.updateBackgroundForLevel();
                     this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-                    if (this.failsCounter) {
-                        this.updateProgressFill();
-                    }
+                    if (this.failsCounter) this.updateProgressFill();
                     this.aiWordCount = 0;
                     this.aiSuggestedWords = [];
                     this.showSuggestions([]);
                     this.clearInputTextBox();
-                    if (this.wordCountDisplay) {
-                        this.updateWordCountDisplay();
-                    }
+                    if (this.wordCountDisplay) this.updateWordCountDisplay();
                 }
-                // --- ENHANCEMENT: Allow dragging from anywhere on the bar ---
-                // Listen for pointermove on the input manager
+                // Dragging logic
                 const moveHandler = (movePointer) => {
                     if (!movePointer.isDown) return;
                     let dragX = movePointer.x;
@@ -2555,16 +2710,12 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                         this.updatePromptBasedOnLevel();
                         this.updateBackgroundForLevel();
                         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-                        if (this.failsCounter) {
-                            this.updateProgressFill();
-                        }
+                        if (this.failsCounter) this.updateProgressFill();
                         this.aiWordCount = 0;
                         this.aiSuggestedWords = [];
                         this.showSuggestions([]);
                         this.clearInputTextBox();
-                        if (this.wordCountDisplay) {
-                            this.updateWordCountDisplay();
-                        }
+                        if (this.wordCountDisplay) this.updateWordCountDisplay();
                     }
                 };
                 const upHandler = () => {
@@ -2574,40 +2725,26 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 this.input.on('pointermove', moveHandler);
                 this.input.on('pointerup', upHandler);
             });
-        
-        // (Top K slider removed: only single AI suggestion is supported)
-        
-        // Add Mode Toggle
+
+        yCursor += (isMobileDevice ? 44 : 36) + (isMobileDevice ? 18 : 20);
+
+        // Mode Toggle row
         const modeToggleLabelX = popupX + 30;
-        // Move the toggle further down on mobile to avoid overlap with larger slider
-        const modeToggleLabelY = isMobile ? popupY + 170 : popupY + 120;
+        const modeToggleLabelY = yCursor + 22;
         const modeToggleLabel = this.add.text(
-            modeToggleLabelX, modeToggleLabelY, 
+            modeToggleLabelX, modeToggleLabelY,
             "Hard Mode:",
             { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(modeToggleLabel);
-        
+
         // Use current pending mode or current actual mode
         const currentToggleMode = this.pendingModeChange || this.mode || 'easy';
-        
-        // Create a reference object to store the current toggle
         this.currentToggleRef = { toggle: null };
-        
-        // Create a reusable callback for toggle creation
         const toggleCallback = (newMode) => {
-            // Track the visual toggle state immediately
             this.pendingModeChange = newMode;
-            
-            // Store the current mode for visual state
             const currentMode = newMode;
-            
-            // Remove existing toggle
-            if (this.currentToggleRef.toggle) {
-                this.currentToggleRef.toggle.destroy();
-            }
-            
-            // Create new toggle with same callback to ensure it can be toggled multiple times
+            if (this.currentToggleRef.toggle) this.currentToggleRef.toggle.destroy();
             const newToggle = ToggleFactory.createToggle(
                 this,
                 currentMode,
@@ -2615,13 +2752,9 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 modeToggleLabelX + modeToggleLabel.width + gap,
                 modeToggleLabelY
             );
-            
-            // Update the reference and add to popup
             this.currentToggleRef.toggle = newToggle;
             this.settingsPopup.add(newToggle);
         };
-        
-        // Initial toggle creation
         const initialToggle = ToggleFactory.createToggle(
             this,
             currentToggleMode,
@@ -2629,18 +2762,39 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             modeToggleLabelX + modeToggleLabel.width + gap,
             modeToggleLabelY
         );
-        
-        // Store reference and add to popup
         this.currentToggleRef.toggle = initialToggle;
         this.settingsPopup.add(initialToggle);
-        
-        // Close button (mobile-friendly)
-        const minTouchSize = 44;
-const closeBtnFontSize = this.scalingManager
-    ? Math.max(this.scalingManager.scaleText(28), 28)
-    : 28;
 
-        // Make the close "x" visually at least 24px, but hit area 44x44 and centered
+        yCursor += (isMobileDevice ? 44 : 36) + (isMobileDevice ? 18 : 20);
+
+        // Confirm button row
+        const confirmBtnY = yCursor + 27;
+        const confirmBtn = ButtonFactory.createButton(
+            this,
+            'APPLY',
+            () => {
+                if (this.pendingModeChange && this.pendingModeChange !== this.mode) {
+                    this.onModeToggle(this.pendingModeChange, this.levelValue, this.topKValue);
+                    return;
+                }
+                this.closeSettingsPopup();
+            },
+            this.cameras.main.centerX,
+            confirmBtnY
+        );
+        if (isMobileDevice) {
+            confirmBtn.setInteractive(
+                new Phaser.Geom.Rectangle(-22, -22, 44, 44),
+                Phaser.Geom.Rectangle.Contains
+            );
+        }
+        this.settingsPopup.add(confirmBtn);
+
+        // Close button (top right, unchanged)
+        const minTouchSize = 44;
+        const closeBtnFontSize = this.scalingManager
+            ? Math.max(this.scalingManager.scaleText(28), 28)
+            : 28;
         const closeBtnVisualSize = Math.max(closeBtnFontSize, 24);
         const closeBtn = this.add.text(
             popupX + popupWidth - 25,
@@ -2668,42 +2822,8 @@ const closeBtnFontSize = this.scalingManager
         .on('pointerdown', () => this.closeSettingsPopup());
         this.settingsPopup.add(closeBtn);
         
-        // Confirm button using ButtonFactory
-        const confirmBtn = ButtonFactory.createButton(
-            this, 
-            'APPLY', 
-            () => {
-                // Apply mode change if pending, and pass current level/topK
-                if (this.pendingModeChange && this.pendingModeChange !== this.mode) {
-                    this.onModeToggle(this.pendingModeChange, this.levelValue, this.topKValue);
-                    // Mode change will trigger scene change, so we don't need to close popup
-                    return;
-                }
-                
-                // Apply any changes and close
-                this.closeSettingsPopup();
-            }, 
-            this.cameras.main.centerX, 
-            // Move confirm button further down on mobile
-            isMobile ? popupY + popupHeight - 30 : popupY + popupHeight - 40
-        );
-        // On mobile, ensure the apply button has a 44x44 hit area even if visually smaller
-        if (isMobile) {
-            confirmBtn.setInteractive(
-                new Phaser.Geom.Rectangle(
-                    -22, -22,
-                    44, 44
-                ),
-                Phaser.Geom.Rectangle.Contains
-            );
-        }
-        this.settingsPopup.add(confirmBtn);
-        
         // Slider dragging functionality
         // Allow handle center to go from bar start+5 to bar end-5
-        const levelSliderMinX = levelSliderX + 5;
-        const levelSliderMaxX = levelSliderX + sliderWidth - 5;
-        
         this.input.on('drag', (pointer, gameObject, dragX) => {
             if (gameObject === levelSliderHandle) {
                 gameObject.x = Phaser.Math.Clamp(dragX, levelSliderMinX, levelSliderMaxX);
@@ -3193,10 +3313,10 @@ const closeBtnFontSize = this.scalingManager
 
         // Set icon size relative to menu bar height
         let iconSize = Math.round(menuBarHeight * 0.5);
-        // Reduce by half on mobile devices
+        // Slightly increase icon size for mobile devices
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
         if (isMobile) {
-            iconSize = Math.round(iconSize / 2);
+            iconSize = Math.round(menuBarHeight * 0.35); // was 0.25, now slightly larger
         }
         settingsIcon.setDisplaySize(iconSize, iconSize);
 

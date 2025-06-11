@@ -62,20 +62,13 @@ export class ScalingManager {
     }
 
     buttonWidth(cameraWidth) {
-        // Fixed size for desktop/tablet, larger for mobile
-        if (this.deviceType === "desktop" || this.deviceType === "tablet") {
-            return 115;
-        } else {
-            return 115;
-        }
+        // Scale button width for all device types
+        return 115 * this.scale;
     }
 
     buttonHeight(buttonWidth) {
-        if (this.deviceType === "desktop" || this.deviceType === "tablet") {
-            return 40;
-        } else {
-            return 40;
-        }
+        // Scale button height for all device types
+        return 40 * this.scale;
     }
 
     buttonSpacing(buttonHeight) {

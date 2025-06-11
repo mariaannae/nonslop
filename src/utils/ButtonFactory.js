@@ -65,9 +65,11 @@ export default class ButtonFactory {
         );
 
         // Button Text
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const baseFontSize = isMobile ? 30 : 26;
         const fontSize = scalingManager
-            ? `${scalingManager.scaleText(26)}px`
-            : '26px';
+            ? `${scalingManager.scaleText(baseFontSize)}px`
+            : `${baseFontSize}px`;
         const buttonText = scene.add.text(0, 0, label, {
             fontFamily: 'VT323',
             fontSize: fontSize,
@@ -79,7 +81,25 @@ export default class ButtonFactory {
 
         // Make button interactive
         buttonContainer.setSize(buttonWidth, buttonHeight);
-        buttonContainer.setInteractive();
+
+        // For mobile, add invisible 44x44 hit area if button is smaller
+        const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        if (isMobileDevice && (buttonWidth < 44 || buttonHeight < 44)) {
+            // Add invisible rectangle to expand hit area
+            const minTouchSize = 44;
+            const hitAreaWidth = Math.max(buttonWidth, minTouchSize);
+            const hitAreaHeight = Math.max(buttonHeight, minTouchSize);
+            const hitArea = scene.add.rectangle(0, 0, hitAreaWidth, hitAreaHeight, 0x000000, 0)
+                .setOrigin(0.5);
+            buttonContainer.addAt(hitArea, 0);
+            buttonContainer.setSize(hitAreaWidth, hitAreaHeight);
+            buttonContainer.setInteractive(
+                new Phaser.Geom.Rectangle(-hitAreaWidth/2, -hitAreaHeight/2, hitAreaWidth, hitAreaHeight),
+                Phaser.Geom.Rectangle.Contains
+            );
+        } else {
+            buttonContainer.setInteractive();
+        }
 
         // Animate on pointerdown (visual feedback)
         buttonContainer.on("pointerdown", () => {
@@ -95,12 +115,23 @@ export default class ButtonFactory {
 
         // Call callback on pointerup if pointer is still over the button
         buttonContainer.on("pointerup", (pointer) => {
-            // Check if pointer is still over the button
-if (pointer && buttonContainer.input && buttonContainer.input.enabled && buttonContainer.input.hitArea.contains(pointer.x - buttonContainer.x + buttonWidth/2, pointer.y - buttonContainer.y + buttonHeight/2)) {
-    if (typeof callback === "function") {
-        callback();
-    }
-}
+            // Use the actual hit area size for the check
+            const w = buttonContainer.width || buttonWidth;
+            const h = buttonContainer.height || buttonHeight;
+            if (
+                pointer &&
+                buttonContainer.input &&
+                buttonContainer.input.enabled &&
+                buttonContainer.input.hitArea &&
+                buttonContainer.input.hitArea.contains(
+                    pointer.x - buttonContainer.x + w / 2,
+                    pointer.y - buttonContainer.y + h / 2
+                )
+            ) {
+                if (typeof callback === "function") {
+                    callback();
+                }
+            }
         });
 
         // For extra robustness, also handle pointerupoutside (optional: comment out if not desired)
@@ -150,9 +181,11 @@ if (pointer && buttonContainer.input && buttonContainer.input.enabled && buttonC
 
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const baseFontSize = isMobile ? 28 : 26;
         const fontSize = scalingManager
-            ? `${scalingManager.scaleText(26)}px`
-            : `${Math.max(buttonSize * 0.13, 16)}px`;
+            ? `${scalingManager.scaleText(baseFontSize)}px`
+            : `${Math.max(buttonSize * 0.13, 16) + (isMobile ? 2 : 0)}px`;
 
         // Position calculation
         const x = centerX + offsetX;

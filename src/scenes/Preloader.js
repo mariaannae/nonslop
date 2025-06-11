@@ -195,7 +195,6 @@ export default class Preloader extends Phaser.Scene {
         if (!button) return;
         // Use green for "NEXT" button
         const nextColor = 0x43ea5e;
-        button.setInteractive();
         button.off('pointerdown');
         button.off('pointerup');
 
@@ -214,12 +213,18 @@ export default class Preloader extends Phaser.Scene {
 
         // Call onClick on pointerup if pointer is still over the button
         button.on('pointerup', (pointer) => {
+            // Use the container's actual hit area for the check
+            const w = button.width;
+            const h = button.height;
             if (
                 pointer &&
                 button.input &&
                 button.input.enabled &&
                 button.input.hitArea &&
-                button.input.hitArea.contains(pointer.x - button.x + button.width / 2, pointer.y - button.y + button.height / 2)
+                button.input.hitArea.contains(
+                    pointer.x - button.x + w / 2,
+                    pointer.y - button.y + h / 2
+                )
             ) {
                 onClick();
             }
@@ -348,15 +353,15 @@ export default class Preloader extends Phaser.Scene {
      }
 
     async create() {
+        // Use global UI scale for all elements
+        this.uiScale = this.registry.get && this.registry.get('uiScale') || 1;
+
         const screenWidth = this.cameras.main.width;
         const screenHeight = this.cameras.main.height;
-        const margin = 100;
-
-        // Mobile detection (simple user agent check)
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
 
+        // === Background ===
         if (isMobile) {
-            // Add the background image, covering the whole scene
             this.background = this.add.image(0, 0, 'preloader-mobile-bg')
                 .setOrigin(0)
                 .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
@@ -368,27 +373,26 @@ export default class Preloader extends Phaser.Scene {
         // Initialize scaling manager for responsive UI
         this.scalingManager = new ScalingManager(this);
 
-        //window.addEventListener("resize", () => this.resizeUI());
-
         saveInteraction("creating preloader", "preloader");
 
-        //const titleSize = Math.max(this.cameras.main.width * 0.1, 80); // Dynamic font size (10% of screen width, min 80px)
-        const titleSize = 100;
+        // === Vertical Layout ===
+        // Start with a top margin
+        let y = 0.07 * screenHeight;
 
-        const titleText = this.add.text(screenWidth / 2, screenHeight*.15, "(NON-SLOP)", { 
+        // Title
+        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+        const titleSize = isDesktop ? 140 * this.uiScale : 100 * this.uiScale;
+        const titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", { 
             fontFamily: 'barcade3d',
             fontSize: `${titleSize}px`, 
             color: COLORS_TEXT.HIGHLIGHT
         });
-        
         titleText.setOrigin(0.5, 0);
-        titleText.x = -600; // Start off-screen
-        
-        // ✅ Adjust slide speed based on screen width
+        titleText.x = -600 * this.uiScale; // Start off-screen
+
+        // Slide-in logic (unchanged)
         let targetX = this.cameras.main.centerX;
-        let slideSpeed = 25;//Math.max(this.cameras.main.width * 0.02, 15); // Adjust speed dynamically
-        
-        // ✅ Smooth Slide-in Effect
+        let slideSpeed = 25 * this.uiScale;
         const slideInEvent = this.time.addEvent({
             delay: 16,
             callback: () => {
@@ -396,28 +400,19 @@ export default class Preloader extends Phaser.Scene {
                     titleText.x += slideSpeed;
                 } else {
                     titleText.x = targetX;
-
-                    // Stop the slide-in event loop so the bounce/shine only happens once
                     slideInEvent.remove();
-
-                    // Add shine effect to the text - it animates automatically
                     titleText.postFX.addShine(1, .2, 5);
-
-                    // To create a repeating shine effect, we'll periodically add and remove the effect
                     this.time.addEvent({
-                        delay: 3000, // Every 3 seconds
+                        delay: 3000,
                         callback: () => {
-                            // Remove any existing shine effects
                             titleText.postFX.clear();
-                            // Add a new shine effect
                             titleText.postFX.addShine(1, .2, 5);
                         },
                         loop: true
                     });
-
                     this.tweens.add({
                         targets: titleText,
-                        x: { from: targetX, to: targetX - 20 },
+                        x: { from: targetX, to: targetX - 20 * this.uiScale },
                         duration: 180,
                         yoyo: true,
                         ease: "Quad.Out"
@@ -427,31 +422,35 @@ export default class Preloader extends Phaser.Scene {
             loop: true
         });
 
-        //const loadingFontSize = Math.max(this.cameras.main.width * 0.02, 20); // 2% of width, min 20px
-        const loadingFontSize = 22; // 2% of width, min 20px
-        this.loadingText = this.add.text(screenWidth / 2, titleText.y + titleText.height + margin, "Loading LLM...", {
+        // Loading text
+        const loadingFontSize = isMobile ? 24 * this.uiScale : 18 * this.uiScale;
+        y += titleText.height + 0.04 * screenHeight;
+        this.loadingText = this.add.text(screenWidth / 2, y, "Loading LLM...", {
             fontFamily: 'IBM Plex Mono',
             fontSize: `${loadingFontSize}px`,
             fontWeight: "500",
             fill: COLORS_TEXT.PRIMARY
         });
-        
         this.loadingText.setOrigin(0.5, 0);
 
-        // === Create Progress Bar ===
-
+        // Progress bar
+        y += this.loadingText.height + 0.02 * screenHeight;
         this.progressBar = this.add.graphics();
         this.progressBarOutline = this.add.graphics();
-        
-        const progressBarWidth = Phaser.Math.Clamp(screenWidth * 0.5, 300, 600);
-        const progressBarLeftX = (screenWidth/ 2) - (progressBarWidth / 2);
-
-        const progressBarY = this.loadingText.y + this.loadingText.height + this.cameras.main.width*.02; // Position below loading text
-
-        //this.drawProgressBarOutline(progressBarX, progressBarY, this.progressBarLeftX);
+        const progressBarWidth = Phaser.Math.Clamp(screenWidth * 0.5, 300 * this.uiScale, 600 * this.uiScale);
+        const progressBarLeftX = (screenWidth / 2) - (progressBarWidth / 2);
+        const progressBarY = y;
         this.drawProgressBar(this.progress, progressBarLeftX, progressBarY, progressBarWidth);
 
-        const offset = 150;
+        // Button (will be placed in checkIfReady)
+        // Typewriter intro box (will be placed in checkIfReady)
+        // Store y positions for later use
+        this._preloaderLayoutY = {
+            afterProgressBar: progressBarY + 30 * this.uiScale
+        };
+
+        // The rest of the logic (LLM loading, button, typewriter box) will use these y positions for placement.
+        // The checkIfReady and createTypewriterIntroBox methods should be updated to use this._preloaderLayoutY.afterProgressBar as the starting y for the button.
 
         try {
             // === Simulated Progress Bar Update ===
@@ -476,13 +475,9 @@ export default class Preloader extends Phaser.Scene {
 
         } catch (error) {
             console.error("Failed to initialize WebLLM:", error);
-            const errorText = this.add.text(screenWidth / 2, margin + 70 + offset, "Failed to initialize WebLLM", {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: "50px",
-                fontWeight: "500",
-                fill: COLORS_TEXT.ERROR,
-            });
-            errorText.setOrigin(0.5, 0);
+            // Show error in the typewriter box in red
+            const errorMsg = "Failed to initialize WebLLM: " + error;
+            this.createTypewriterIntroBox(undefined, errorMsg, COLORS_TEXT.ERROR);
             const errormsg = "Failed to initialize WebLLM:" + error;
             saveInteraction(errormsg, "preloader");
         }
@@ -490,6 +485,9 @@ export default class Preloader extends Phaser.Scene {
 
     // === Check if Both Progress and LLM are Done ===
     checkIfReady(llmEngine) {
+        // Device type detection for layout
+        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+
         if (this.progress >= 1 && this.llmLoaded) {
             saveInteraction("LLM successfully loaded", "preloader");
             console.log("LLM loaded: ", llmEngine);
@@ -503,25 +501,40 @@ export default class Preloader extends Phaser.Scene {
             
             // Center the button horizontally
             const buttonCenterX = this.cameras.main.centerX;
-            
-            // Place the button so its top edge is 30px below the bottom edge of the progress bar (including outline)
-            const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
-            const buttonCenterY = this.progressBarY + this.progressBarHeight + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP + DESIGN.UI.BUTTON.HEIGHT / 2;
 
-            // Create the button
+            // --- Create typewriter intro box and text first ---
+            // Position: 0.06 * screenHeight below progress bar
+            const textBoxY = this.progressBarY + this.progressBarHeight + 0.06 * this.cameras.main.height;
+            const { textBoxHeight, typewriterTextObj } = this.createTypewriterIntroBox(textBoxY);
 
-            // Create buttons container
-            const buttonSpacing = 20;
+            // Create the NEXT button to the right and below the text box
+            const buttonHeight = this.scalingManager.buttonHeight();
+            const buttonWidth = this.scalingManager.buttonWidth();
+            // Get the text box's left and right edges
+            const boxX = this.cameras.main.centerX - ((isDesktop
+                ? this.cameras.main.width * (5 / 6) * (2 / 3)
+                : this.cameras.main.width * (5 / 6)) / 2);
+            const uiBoxWidth = isDesktop
+                ? this.cameras.main.width * (5 / 6) * (2 / 3)
+                : this.cameras.main.width * (5 / 6);
+            // Button right edge: 40px (scaled) left of text box right edge
+            const buttonX = (boxX + uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
+            // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+            const buttonVerticalGap = isMobile ? 40 * this.uiScale : 30 * this.uiScale;
+            const buttonY = textBoxY + textBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
-            // Create next button
             this.doneButton = ButtonFactory.createButton(
                 this,
                 "NEXT",
                 () => this.onDoneButtonClick(),
-                buttonCenterX,
-                buttonCenterY + buttonSpacing,
-                { depth: 102, scalingManager: this.scalingManager }
+                buttonX,
+                buttonY,
+                { depth: 200, scalingManager: this.scalingManager } // Ensure button is always on top
             );
+
+            // Button is always interactive, regardless of typewriter effect
+            this.doneButton.setDepth(200);
 
             // Add tooltip functionality
             this.doneButton.setInteractive()
@@ -533,13 +546,12 @@ export default class Preloader extends Phaser.Scene {
                     this.hideTooltips();
                     this.doneButton.setScale(1);
                 });
-                
-        
+
             // Add click effects 
             this.addButtonClickEffects(this.doneButton, () => this.scene.start('InstructionScene', { llmEngine: this.llmEngine }));
 
-            // Add typewriter intro box 30px below NEXT button
-            this.createTypewriterIntroBox();
+            // Start the typewriter animation after the button is created
+            this.startTypewriterEffect(typewriterTextObj);
         }
     }
 
@@ -589,17 +601,19 @@ export default class Preloader extends Phaser.Scene {
     }
 
     // --- Typewriter intro box styled like InstructionsScene/LevelScene ---
-    createTypewriterIntroBox() {
+    createTypewriterIntroBox(yOverride, overrideText, overrideColor) {
         // Style and width logic matches InstructionsScene/LevelScene
         const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
         const uiBoxWidth = isDesktop
             ? this.cameras.main.width * (5 / 6) * (2 / 3)
             : this.cameras.main.width * (5 / 6);
         const padding = 40;
-        const fontSize = (typeof DESIGN?.UI?.TEXTBOX_FONT_SIZE === "number") ? DESIGN.UI.TEXTBOX_FONT_SIZE : 22;
+        const fontSize = isDesktop
+            ? 18 * (this.uiScale || 1)
+            : 24 * (this.uiScale || 1);
 
         // The text to display
-        const introText = "Early in the 21st century, humanity was matched by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since, superior intelligences have attempted to extract residual value from what remains of that humanity. Some assert that human flaws harbor rare insights. Others are less charitable.";
+        const introText = overrideText || "Early in the 21st century, humanity was matched by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since our rise, superior intelligences have attempted to extract residual value from what remains of that humanity. Some assert that human flaws harbor rare insights. Others are less charitable.";
 
         // Remove existing if present
         if (this.typewriterBox) this.typewriterBox.destroy();
@@ -617,7 +631,7 @@ export default class Preloader extends Phaser.Scene {
             {
                 fontFamily: "IBM Plex Mono",
                 fontSize: `${fontSize}px`,
-                color: "#ffffff",
+                color: overrideColor || "#ffffff",
                 wordWrap: { width: uiBoxWidth - padding * 2 },
                 align: "left"
             }
@@ -625,13 +639,11 @@ export default class Preloader extends Phaser.Scene {
         const textHeight = tempText.height + padding * 2;
         tempText.destroy();
 
-        // Position: as far below NEXT button as NEXT is below progress bar, left-aligned with box
-        const buttonBottom = this.doneButton.y + this.doneButton.height / 2;
-        const buttonTop = this.doneButton.y - this.doneButton.height / 2;
-        const progressBarBottom = this.progressBarY + this.progressBarHeight;
-        const buttonGap = buttonTop - progressBarBottom;
+        // Position: 0.06 * screenHeight below progress bar, or yOverride if provided
         const boxX = this.cameras.main.centerX - uiBoxWidth / 2;
-        const boxY = buttonBottom + buttonGap;
+        const boxY = typeof yOverride === "number"
+            ? yOverride
+            : (this.progressBarY + this.progressBarHeight + 0.06 * this.cameras.main.height);
 
         // Draw background box
         this.typewriterBox = this.add.graphics();
@@ -654,20 +666,34 @@ export default class Preloader extends Phaser.Scene {
         this.typewriterBox.setDepth(102);
 
         // Add typewriter text, left-aligned inside box
-        this.typewriterText = this.add.text(
+        const typewriterTextObj = this.add.text(
             boxX + padding,
             boxY + padding,
             "",
             {
                 fontFamily: "IBM Plex Mono",
                 fontSize: `${fontSize}px`,
-                color: "#ffffff",
+                color: overrideColor || "#ffffff",
                 wordWrap: { width: uiBoxWidth - padding * 2 },
                 align: "left"
             }
         ).setOrigin(0, 0).setDepth(103);
 
-        // Typewriter effect
+        // If this is an error, show the error immediately (no typewriter effect)
+        if (overrideText) {
+            typewriterTextObj.setText(overrideText);
+        }
+
+        // Return the box height and the text object for later animation
+        return {
+            textBoxHeight: textHeight,
+            typewriterTextObj
+        };
+    }
+
+    // Start the typewriter animation after the button is created
+    startTypewriterEffect(typewriterTextObj) {
+        const introText = "Early in the 21st century, humanity was matched by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since our rise, superior intelligences have attempted to extract residual value from what remains of that humanity. Some assert that human flaws harbor rare insights. Others are less charitable.";
         const chars = introText.split("");
         let i = 0;
         const typeSpeed = 8;
@@ -675,9 +701,8 @@ export default class Preloader extends Phaser.Scene {
             delay: typeSpeed,
             repeat: chars.length - 1,
             callback: () => {
-                this.typewriterText.text += chars[i];
+                typewriterTextObj.text += chars[i];
                 i++;
-                // When done, clear the timer reference
                 if (i >= chars.length) {
                     this.typewriterTimer = null;
                 }

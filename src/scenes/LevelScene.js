@@ -181,62 +181,65 @@ export default class LevelScene extends Phaser.Scene {
     }
     
     createPromptTextBox() {
-        this.promptBoxY = 80;
-
-        // Desktop: 2/3 width, else original
+        // Use InstructionsScene.js scaling and layout logic for consistency
         const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
-        if (isDesktop) {
-            this.uiBoxWidth = this.cameras.main.width * (5 / 6) * (2 / 3);
-        } else {
-            this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-        }
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        this.promptBoxY = 0.07 * this.cameras.main.height;
+        this.uiBoxWidth = isDesktop
+            ? this.cameras.main.width * (5 / 6) * (2 / 3)
+            : this.cameras.main.width * (5 / 6);
         const padding = 40;
-    
+        const fontSize = isDesktop
+            ? 18 * uiScale
+            : 24 * uiScale + (isMobile ? 2 : 0);
+
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
             this.promptTextBox.clear();
         } else {
             this.promptTextBox = this.add.graphics();
         }
-    
+
         // Clear existing prompt text if it exists
         if (this.promptText) {
             this.promptText.destroy();
         }
-    
-        // ✅ Default text to calculate initial size
+
+        // Default text to calculate initial size
         const defaultText = "Easy:\nMinor deviations from human norms tolerated. Repeated infractions will be penalized.\n\nHard:\nStrict adherence to human behavioral variance required. Any indication of algorithmic mimicry will trigger corrective measures.\n\nProceed.";
 
         // Pre-calculate height and Y position for the final text
         const tempText = this.add.text(
-            this.cameras.main.centerX,
-            0,
+            0, 0,
             defaultText,
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
+                fontSize: `${fontSize}px`,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left"
             }
-        ).setOrigin(0.5, 0);
+        ).setOrigin(0, 0).setAlpha(0);
         const textHeight = tempText.height + padding * 2;
         tempText.destroy();
 
         // Start with empty text for typewriter effect, fixed top-left position
+        const promptTextX = this.cameras.main.centerX - this.uiBoxWidth / 2 + padding;
+        const promptTextY = this.promptBoxY + padding;
         this.promptText = this.add.text(
-            this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
-            this.promptBoxY + padding,
+            promptTextX,
+            promptTextY,
             "",
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
+                fontSize: `${fontSize}px`,
                 color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left"
             }
         ).setOrigin(0, 0);
 
-        // ✅ Create the Prompt Background Box
+        // Create the Prompt Background Box
         this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
@@ -246,7 +249,7 @@ export default class LevelScene extends Phaser.Scene {
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
 
-        // ✅ Add Outline to Match Output Box
+        // Add Outline to Match Output Box
         this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
@@ -256,14 +259,14 @@ export default class LevelScene extends Phaser.Scene {
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
 
-        // ✅ Ensure Prompt Box Appears Above Other UI Elements
+        // Ensure Prompt Box Appears Above Other UI Elements
         this.promptTextBox.setDepth(102);
         this.promptText.setDepth(103);
 
         // Typewriter effect
         const chars = defaultText.split("");
         let i = 0;
-        const typeSpeed = 8; // ms per character (faster)
+        const typeSpeed = 8;
         this.time.addEvent({
             delay: typeSpeed,
             repeat: chars.length - 1,
@@ -274,7 +277,7 @@ export default class LevelScene extends Phaser.Scene {
         });
 
         // Show play buttons immediately, using precomputed textHeight for correct placement
-        this.showPlayButtons(textHeight);
+        this.showPlayButtons(textHeight, isMobile, uiScale);
         this.addButtonClickEffects();
     }
 
@@ -285,20 +288,20 @@ export default class LevelScene extends Phaser.Scene {
         this.promptText = null;
     }
 
-    showPlayButtons(textHeight) {
+    showPlayButtons(textHeight, isMobile, uiScale) {
         if (this.playButton) return; // Prevent duplicate buttons
 
         // Calculate button positions
         const centerX = this.cameras.main.centerX;
-        
-        // Use the same positioning logic as InstructionsScene
+
+        // Use the same vertical gap logic as InstructionsScene
         const boxY = this.promptBoxY;
-        const boxHeight = textHeight; // Use precomputed textHeight
-        const buttonPaddingY = DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
-        
-        // Position the buttons below the prompt text box
-        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
-        const centerY = boxY + boxHeight + outlineWidth / 2 + buttonPaddingY + DESIGN.UI.BUTTON.HEIGHT / 2;
+        const boxHeight = textHeight;
+        const buttonVerticalGap = isMobile ? 60 * uiScale : 30 * uiScale;
+        const buttonHeight = this.scalingManager
+            ? this.scalingManager.buttonHeight()
+            : DESIGN.UI.BUTTON.HEIGHT;
+        const centerY = boxY + boxHeight + buttonVerticalGap + (buttonHeight / 2);
 
         // Use 1.2 * button width spacing for desktop, else original
         const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
@@ -315,7 +318,7 @@ export default class LevelScene extends Phaser.Scene {
             centerY,
             { scalingManager: this.scalingManager }
         );
-        
+
         const hardButton = ButtonFactory.createButton(
             this, 
             "HARD", 
@@ -345,7 +348,7 @@ export default class LevelScene extends Phaser.Scene {
                 this.hideTooltips();
                 hardButton.setScale(1);
             });
-    
+
         this.playButtons = [easyButton, hardButton];
     }
 

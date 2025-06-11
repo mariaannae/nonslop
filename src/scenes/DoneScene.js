@@ -760,6 +760,9 @@ export default class DoneScene extends Phaser.Scene {
 
 
     async create() {
+        // Use global UI scale for all elements
+        this.uiScale = this.registry.get('uiScale') || 1;
+
         this.cameras.main.scrollY = 0;
 
         // Initialize scaling manager for responsive UI

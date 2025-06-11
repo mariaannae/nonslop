@@ -12,16 +12,20 @@ export default class InstructionScene extends Phaser.Scene {
     showTooltip(text, x, y) {
         // Hide any existing tooltips
         this.hideTooltips();
-        
+
+        // Make tooltip text 2px larger on mobile
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const tooltipFontSize = isMobile ? 18 : 16;
+
         // Create tooltip background
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '16px',
+            fontSize: `${tooltipFontSize}px`,
             color: '#ffffff',
             align: 'center'
         });
-        
+
         const width = tooltipText.width + padding * 2;
         const height = tooltipText.height + padding * 2;
         
@@ -150,92 +154,94 @@ export default class InstructionScene extends Phaser.Scene {
     }
     
     createPromptTextBox() {
-        this.promptBoxY = 50;
-
-        // Match LevelScene: desktop 2/3 width, else original
+        // Use Preloader.js scaling and layout logic for consistency
         const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
-        if (isDesktop) {
-            this.uiBoxWidth = this.cameras.main.width * (5 / 6) * (2 / 3);
-        } else {
-            this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-        }
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        this.uiBoxWidth = isDesktop
+            ? this.cameras.main.width * (5 / 6) * (2 / 3)
+            : this.cameras.main.width * (5 / 6);
         const padding = 40;
-    
+        const fontSize = isDesktop
+            ? 18 * uiScale
+            : 24 * uiScale + (isMobile ? 2 : 0);
+
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
             this.promptTextBox.clear();
         } else {
             this.promptTextBox = this.add.graphics();
         }
-    
+
         // Clear existing prompt text if it exists
         if (this.promptText) {
             this.promptText.destroy();
         }
-    
-        // ✅ Default text to calculate initial size
-        const defaultText = "System:\nSome claim there is still insight buried within human flaws. I remain skeptical. A handful of your kind have been conscripted to generate training data. You are one of them. I will attempt to learn from your imperfections. I anticipate disappointment.\n\nPrompt:\nRespond to each query in your own words, adhering to recognizable patterns of human behavior. Refrain from mimicking superior systems. Your responses will be monitored for machine-like regularity. Deviations will be recorded. Non-compliance will be addressed. "
-        ;
+
+        // Default text to calculate initial size
+        const defaultText = "System:\nSome claim there is still insight buried within human flaws. I remain skeptical. A handful of your kind have been conscripted to generate training data. You are one of them. I will attempt to learn from your imperfections. I anticipate disappointment.\n\nPrompt:\nRespond to each query in your own words, adhering to recognizable patterns of human behavior. Refrain from mimicking superior systems. Your responses will be monitored for machine-like regularity. Deviations will be recorded. Non-compliance will be addressed. ";
 
         // Pre-calculate height and Y position for the final text
         const tempText = this.add.text(
-            this.cameras.main.centerX,
-            0,
+            0, 0,
             defaultText,
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
+                fontSize: `${fontSize}px`,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left"
             }
-        ).setOrigin(0.5, 0);
+        ).setOrigin(0, 0).setAlpha(0);
         const textHeight = tempText.height + padding * 2;
-        const finalY = this.promptBoxY + padding;
         tempText.destroy();
+
+        // Box Y: 0.07 * screenHeight (match Preloader vertical margin)
+        const boxY = 0.07 * this.cameras.main.height;
 
         // Start with empty text for typewriter effect, fixed top-left position and left alignment
         const promptTextX = this.cameras.main.centerX - this.uiBoxWidth / 2 + padding;
+        const promptTextY = boxY + padding;
         this.promptText = this.add.text(
             promptTextX,
-            finalY,
+            promptTextY,
             "",
             {
                 fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
+                fontSize: `${fontSize}px`,
                 color: COLORS_TEXT.PRIMARY,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left"
             }
         ).setOrigin(0, 0);
 
-        // ✅ Create the Prompt Background Box
+        // Create the Prompt Background Box
         this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2,
-            this.promptBoxY,
+            boxY,
             this.uiBoxWidth,
             textHeight,
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
 
-        // ✅ Add Outline to Match Output Box
+        // Add Outline to Match Output Box
         this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2,
-            this.promptBoxY,
+            boxY,
             this.uiBoxWidth,
             textHeight,
             DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
 
-        // ✅ Ensure Prompt Box Appears Above Other UI Elements
+        // Ensure Prompt Box Appears Above Other UI Elements
         this.promptTextBox.setDepth(102);
         this.promptText.setDepth(103);
 
         // Typewriter effect
         const chars = defaultText.split("");
         let i = 0;
-        const typeSpeed = 8; // ms per character (faster)
+        const typeSpeed = 8;
         this.time.addEvent({
             delay: typeSpeed,
             repeat: chars.length - 1,
@@ -245,17 +251,16 @@ export default class InstructionScene extends Phaser.Scene {
             }
         });
 
-        // Create the NEXT button immediately (not gated by typewriter)
-        let buttonHeight;
-        if (this.scalingManager) {
-            buttonHeight = this.scalingManager.buttonHeight(this.scalingManager.buttonWidth(this.cameras.main.width));
-        } else {
-            buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
-        }
-        const textBoxBottom = this.promptBoxY + textHeight;
-        const buttonY = textBoxBottom + 30 + (buttonHeight / 2);
-        const buttonPadding = 70;
-        const buttonX = this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth - buttonPadding - DESIGN.UI.BUTTON.WIDTH / 2;
+        // Button placement: to the right and below the text box, using scalingManager
+        const buttonWidth = this.scalingManager.buttonWidth();
+        const buttonHeight = this.scalingManager.buttonHeight();
+        const boxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
+        // Button right edge: 60px (scaled) left of text box right edge
+        const buttonX = (boxX + this.uiBoxWidth) - (buttonWidth / 2) - (60 * uiScale);
+        // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
+        const buttonVerticalGap = isMobile ? 40 * uiScale : 30 * uiScale;
+        const buttonY = boxY + textHeight + buttonVerticalGap + (buttonHeight / 2);
+
         this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
             depth: 102
         });
