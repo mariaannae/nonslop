@@ -219,160 +219,6 @@ export default class BaseGameScene extends Phaser.Scene {
         });
     }
     
-    /**
-     * Fade out animation helper
-     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
-     * @param {number} [duration=500] - Animation duration in milliseconds
-     * @param {string} [ease='Quad.In'] - Easing function
-     * @param {Function} [onComplete] - Callback when animation completes
-     * @returns {Phaser.Tweens.Tween} The created tween
-     */
-    fadeOut(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.In', onComplete = null) {
-        return this.tweens.add({
-            targets: targets,
-            alpha: { from: 1, to: 0 },
-            duration: duration,
-            ease: ease,
-            onComplete: onComplete
-        });
-    }
-    
-    /**
-     * Scale pop in animation helper (scale from 0 to 1)
-     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
-     * @param {number} [duration=500] - Animation duration in milliseconds
-     * @param {string} [ease='Back.Out'] - Easing function
-     * @param {Function} [onComplete] - Callback when animation completes
-     * @returns {Phaser.Tweens.Tween} The created tween
-     */
-    scalePopIn(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Back.Out', onComplete = null) {
-        return this.tweens.add({
-            targets: targets,
-            scale: { from: 0, to: 1 },
-            duration: duration,
-            ease: ease,
-            onComplete: onComplete
-        });
-    }
-    
-    /**
-     * Scale pop out animation helper (scale from 1 to 0)
-     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
-     * @param {number} [duration=500] - Animation duration in milliseconds
-     * @param {string} [ease='Back.In'] - Easing function
-     * @param {Function} [onComplete] - Callback when animation completes
-     * @returns {Phaser.Tweens.Tween} The created tween
-     */
-    scalePopOut(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Back.In', onComplete = null) {
-        return this.tweens.add({
-            targets: targets,
-            scale: { from: 1, to: 0 },
-            duration: duration,
-            ease: ease,
-            onComplete: onComplete
-        });
-    }
-    
-    /**
-     * Combined fade in and scale pop animation
-     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
-     * @param {number} [duration=500] - Animation duration in milliseconds
-     * @param {string} [ease='Quad.Out'] - Easing function
-     * @param {Function} [onComplete] - Callback when animation completes
-     * @returns {Phaser.Tweens.Tween} The created tween
-     */
-    fadeInScale(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.Out', onComplete = null) {
-        return this.tweens.add({
-            targets: targets,
-            alpha: { from: 0, to: 1 },
-            scale: { from: 0.8, to: 1 },
-            duration: duration,
-            ease: ease,
-            onComplete: onComplete
-        });
-    }
-    
-    /**
-     * Combined fade out and scale down animation
-     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
-     * @param {number} [duration=500] - Animation duration in milliseconds
-     * @param {string} [ease='Quad.In'] - Easing function
-     * @param {Function} [onComplete] - Callback when animation completes
-     * @returns {Phaser.Tweens.Tween} The created tween
-     */
-    fadeOutScale(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.In', onComplete = null) {
-        return this.tweens.add({
-            targets: targets,
-            alpha: { from: 1, to: 0 },
-            scale: { from: 1, to: 0.8 },
-            duration: duration,
-            ease: ease,
-            onComplete: onComplete
-        });
-    }
-    
-    /**
-     * Pulse animation helper (scale up and down repeatedly)
-     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
-     * @param {number} [scaleAmount=1.1] - Maximum scale during pulse
-     * @param {number} [duration=1000] - Duration of one pulse cycle
-     * @param {number} [repeat=-1] - Number of repeats (-1 for infinite)
-     * @returns {Phaser.Tweens.Tween} The created tween
-     */
-    pulse(targets, scaleAmount = 1.1, duration = 1000, repeat = -1) {
-        return this.tweens.add({
-            targets: targets,
-            scale: { from: 1, to: scaleAmount },
-            duration: duration,
-            yoyo: true,
-            repeat: repeat,
-            ease: 'Sine.InOut'
-        });
-    }
-    
-    /**
-     * Shake animation helper
-     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
-     * @param {number} [intensity=5] - Shake intensity in pixels
-     * @param {number} [duration=500] - Total duration of shake
-     * @param {Function} [onComplete] - Callback when animation completes
-     * @returns {Phaser.Tweens.Tween} The created tween
-     */
-    shake(targets, intensity = 5, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, onComplete = null) {
-        // Store original positions
-        const originalPositions = Array.isArray(targets) 
-            ? targets.map(t => ({ x: t.x, y: t.y }))
-            : { x: targets.x, y: targets.y };
-        
-        return this.tweens.add({
-            targets: targets,
-            x: { 
-                from: function(target, key, value) { return value - intensity; },
-                to: function(target, key, value) { return value + intensity; }
-            },
-            y: { 
-                from: function(target, key, value) { return value - intensity; },
-                to: function(target, key, value) { return value + intensity; }
-            },
-            duration: duration / 10,
-            yoyo: true,
-            repeat: 9,
-            ease: 'Sine.InOut',
-            onComplete: () => {
-                // Restore original positions
-                if (Array.isArray(targets)) {
-                    targets.forEach((target, i) => {
-                        target.x = originalPositions[i].x;
-                        target.y = originalPositions[i].y;
-                    });
-                } else {
-                    targets.x = originalPositions.x;
-                    targets.y = originalPositions.y;
-                }
-                if (onComplete) onComplete();
-            }
-        });
-    }
     
     /**
      * Flash animation helper (quickly fade in and out)
@@ -453,6 +299,25 @@ export default class BaseGameScene extends Phaser.Scene {
     }
     
     /**
+     * Pulse animation helper (scale in and out)
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [scaleAmount=1.1] - Maximum scale during pulse
+     * @param {number} [duration=1000] - Animation duration
+     * @param {number} [repeat=-1] - Number of times to repeat (-1 for infinite)
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    pulse(targets, scaleAmount = 1.1, duration = 1000, repeat = -1) {
+        return this.tweens.add({
+            targets: targets,
+            scale: { from: 1, to: scaleAmount },
+            duration: duration,
+            yoyo: true,
+            repeat: repeat,
+            ease: 'Sine.InOut'
+        });
+    }
+    
+    /**
      * Calculate font size based on device type and base sizes
      * @param {number} desktopBase - Base font size for desktop
      * @param {number} mobileBase - Base font size for mobile
@@ -485,6 +350,24 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     isInTransition() {
         return this.isShuttingDown || this.isCleaningUp;
+    }
+    
+    /**
+     * Fade out animation helper
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Quad.In'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    fadeOut(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.In', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            alpha: { from: 1, to: 0 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
     }
     
     /**
@@ -781,7 +664,15 @@ export default class BaseGameScene extends Phaser.Scene {
 
         // Prompt box calculations
         const wordStatsBottom = statsY + statsBoxHeight;
-        const promptY = this.isMobile ? wordStatsBottom + padding + 60 : wordStatsBottom + padding + 80;
+        // Calculate where we want the TOP EDGE of the prompt box
+        // Scale the offset to match the scaled stats box
+        const promptOffset = this.isMobile 
+            ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS)
+            : sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS);
+        const promptTopEdge = wordStatsBottom + promptOffset;
+        
+        // Pass the desired top edge position directly
+        const promptY = promptTopEdge;
 
         // Input box calculations
         this.uiBoxWidth = !this.isMobile
@@ -822,7 +713,37 @@ export default class BaseGameScene extends Phaser.Scene {
      * @returns {object} Information about the created prompt box
      */
     createPromptSection(promptY) {
-        return this.createPromptTextBox(promptY);
+        const result = this.createPromptTextBox(promptY);
+        
+        // Enhanced debug logging to diagnose positioning issue
+        const sm = this.scalingManager;
+        const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
+        const padding = sm.scaleValue(20);
+        const statsBoxHeight = sm.scaleValue(130);
+        const statsY = menuBarHeight + padding;
+        const statsBottomEdge = statsY + statsBoxHeight;
+        const promptOffset = this.isMobile 
+            ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS)
+            : sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS);
+        
+        console.log('Enhanced Prompt Box Positioning Debug:', {
+            menuBarHeight: menuBarHeight,
+            padding: padding,
+            statsY: statsY,
+            statsBoxHeight: statsBoxHeight,
+            statsBottomEdge: statsBottomEdge,
+            promptOffset: promptOffset,
+            desiredPromptTopEdge: statsBottomEdge + promptOffset,
+            passedPromptY: promptY,
+            actualBoxY: result.boxY,
+            actualBoxTopEdge: result.boxY,
+            boxHeight: result.boxHeight,
+            boxBottom: result.boxBottom,
+            distanceFromStatsBottom: result.boxY - statsBottomEdge,
+            uiScale: sm.uiScale
+        });
+        
+        return result;
     }
 
     /**
@@ -1639,13 +1560,10 @@ export default class BaseGameScene extends Phaser.Scene {
     // Template methods with customization hooks
     /**
      * Create the prompt text box at a given y position.
-     * @param {number} yStart - The y position to start placing the prompt box.
+     * @param {number} yStart - The y position for the TOP EDGE of the prompt box.
      * @returns {object} { boxBottom: number } - The bottom y-value after the prompt box.
      */
     createPromptTextBox(yStart) {
-        // Add 40px to yStart to move the prompt box down
-        yStart += 40;
-        
         const padding = this.getLargePadding();
         const mobilePadding = this.getStandardPadding();
         const centerX = this.getCenterX();
@@ -1668,10 +1586,10 @@ export default class BaseGameScene extends Phaser.Scene {
 
         const fontSize = this.calculateFontSize(14, 24, 2);
 
-        let promptTextObj, textHeight, boxHeight, boxStyle, promptY;
+        let promptTextObj, textHeight, boxHeight, boxStyle, promptY, textCenterY;
 
         if (this.isMobile) {
-            // MOBILE: vertically centered, smaller padding, larger max height, minimum 3 lines
+            // MOBILE: smaller padding, larger max height, minimum 3 lines
             const effectivePadding = mobilePadding;
             const style = {
                 ...this.getPromptTextStyle(),
@@ -1687,31 +1605,26 @@ export default class BaseGameScene extends Phaser.Scene {
             const min3LineHeight = temp3Lines.height;
             temp3Lines.destroy();
 
+            // Create text temporarily to measure height
             promptTextObj = this.add.rexBBCodeText(
                 centerX,
-                yStart,
+                0, // Temporary position
                 promptString,
                 style
-            ).setOrigin(0.5, 0.5); // Center horizontally and vertically
+            ).setOrigin(0.5, 0.5);
 
             textHeight = promptTextObj.height;
             // Ensure box is at least high enough for 3 lines
             boxHeight = Math.max(min3LineHeight + effectivePadding * 2, textHeight + effectivePadding * 2, 60);
             boxHeight = Math.min(boxHeight, 300);
             boxStyle = this.getPromptBoxStyle();
-            // Calculate the position where the box should be centered vertically relative to yStart
-            promptY = yStart - boxHeight / 2;
+            
+            // yStart is the TOP EDGE of the box
+            promptY = yStart;
+            // Calculate center position for the text
+            textCenterY = promptY + boxHeight / 2;
 
-            // TEMP: Draw a visible background color for debugging
-            //this.promptTextBox.fillStyle(0xffff00, 0.5); // semi-transparent yellow
-
-        
-            this.promptTextBox.fillRect(
-                centerX - textBoxWidth / 2,
-                promptY,
-                textBoxWidth,
-                boxHeight
-            );
+            // Draw the box
             this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
             this.promptTextBox.fillRoundedRect(
                 centerX - textBoxWidth / 2,
@@ -1730,21 +1643,21 @@ export default class BaseGameScene extends Phaser.Scene {
                     boxStyle.cornerRadius
                 );
             }
-            // Set text position to match yStart exactly (centered in box)
-            promptTextObj.setY(yStart);
+            // Set text position to center of box
+            promptTextObj.setY(textCenterY);
         } else {
-            // DESKTOP: vertically centered, larger padding, smaller max height
-            
+            // DESKTOP: larger padding, smaller max height
             const effectivePadding = padding;
             const style = {
                 ...this.getPromptTextStyle(),
                 fontSize: `${fontSize}px`,
                 wordWrap: { width: textBoxWidth - effectivePadding * 2 }
             };
-            // Temporarily place at yStart, will adjust after measuring height
+            
+            // Create text temporarily to measure height
             promptTextObj = this.add.rexBBCodeText(
                 centerX,
-                yStart,
+                0, // Temporary position
                 promptString,
                 style
             ).setOrigin(0.5, 0.5);
@@ -1752,8 +1665,11 @@ export default class BaseGameScene extends Phaser.Scene {
             textHeight = promptTextObj.height;
             boxHeight = Phaser.Math.Clamp(textHeight + effectivePadding * 2, 60, 220);
             boxStyle = this.getPromptBoxStyle();
-            // Calculate the position where the box should be centered vertically relative to yStart
-            promptY = yStart - boxHeight / 2;
+            
+            // yStart is the TOP EDGE of the box
+            promptY = yStart;
+            // Calculate center position for the text
+            textCenterY = promptY + boxHeight / 2;
 
             this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
             this.promptTextBox.fillRoundedRect(
@@ -1773,8 +1689,8 @@ export default class BaseGameScene extends Phaser.Scene {
                     boxStyle.cornerRadius
                 );
             }
-            // Set text position to match yStart exactly
-            promptTextObj.setY(yStart);
+            // Set text position to center of box
+            promptTextObj.setY(textCenterY);
         }
 
         this.promptText = promptTextObj;
@@ -1804,13 +1720,19 @@ export default class BaseGameScene extends Phaser.Scene {
         const statsDisplayY = this.menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
         
-        // Prompt box is 60px below stats box (increased by 40px)
-        const promptY = statsBottomEdge + 60;
+        // Use configuration constants for offsets
+        const promptOffset = this.isMobile 
+            ? SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS 
+            : SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS;
+        const promptY = statsBottomEdge + promptOffset;
         const promptBoxHeight = 80;
         const promptBottomEdge = promptY + promptBoxHeight;
         
-        // Input box is 20px below prompt box
-        const textBoxY = promptBottomEdge + 20;
+        // Use configuration constants for input offset
+        const inputOffset = this.isMobile 
+            ? SCENE_CONFIG.LAYOUT.MOBILE_INPUT_OFFSET_BELOW_PROMPT 
+            : SCENE_CONFIG.LAYOUT.INPUT_OFFSET_BELOW_PROMPT;
+        const textBoxY = promptBottomEdge + inputOffset;
         
         // Clear any existing elements first
         if (this.inputTextBorder) {
@@ -4034,8 +3956,11 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const statsDisplayY = this.menuBarHeight + 20;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
         
-        // Prompt box is 20px below stats box
-        const promptY = statsBottomEdge + 20;
+        // Use configuration constants for prompt offset
+        const promptOffset = this.isMobile 
+            ? SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS 
+            : SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS;
+        const promptY = statsBottomEdge + promptOffset;
         const promptBoxHeight = 80;
         const promptBottomEdge = promptY + promptBoxHeight;
         
