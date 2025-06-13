@@ -81,11 +81,11 @@ const SCENE_CONFIG = {
     
     // Offsets and gaps
     LAYOUT: {
-        PROMPT_OFFSET_BELOW_STATS: 80,
-        MOBILE_PROMPT_OFFSET_BELOW_STATS: 60,
-        INPUT_OFFSET_BELOW_PROMPT: 10,
-        MOBILE_INPUT_OFFSET_BELOW_PROMPT: 30,
-        BUTTON_VERTICAL_GAP_DESKTOP: 30,
+        PROMPT_OFFSET_BELOW_STATS: 10,
+        MOBILE_PROMPT_OFFSET_BELOW_STATS: 20,
+        INPUT_OFFSET_BELOW_PROMPT: 60,
+        MOBILE_INPUT_OFFSET_BELOW_PROMPT: 70,
+        BUTTON_VERTICAL_GAP_DESKTOP: 50,
         BUTTON_VERTICAL_GAP_MOBILE: 40,
         BUTTON_HORIZONTAL_OFFSET_DESKTOP: 60,
         BUTTON_HORIZONTAL_OFFSET_MOBILE: 30,
@@ -715,33 +715,8 @@ export default class BaseGameScene extends Phaser.Scene {
     createPromptSection(promptY) {
         const result = this.createPromptTextBox(promptY);
         
-        // Enhanced debug logging to diagnose positioning issue
-        const sm = this.scalingManager;
-        const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
-        const padding = sm.scaleValue(20);
-        const statsBoxHeight = sm.scaleValue(130);
-        const statsY = menuBarHeight + padding;
-        const statsBottomEdge = statsY + statsBoxHeight;
-        const promptOffset = this.isMobile 
-            ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS)
-            : sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS);
-        
-        console.log('Enhanced Prompt Box Positioning Debug:', {
-            menuBarHeight: menuBarHeight,
-            padding: padding,
-            statsY: statsY,
-            statsBoxHeight: statsBoxHeight,
-            statsBottomEdge: statsBottomEdge,
-            promptOffset: promptOffset,
-            desiredPromptTopEdge: statsBottomEdge + promptOffset,
-            passedPromptY: promptY,
-            actualBoxY: result.boxY,
-            actualBoxTopEdge: result.boxY,
-            boxHeight: result.boxHeight,
-            boxBottom: result.boxBottom,
-            distanceFromStatsBottom: result.boxY - statsBottomEdge,
-            uiScale: sm.uiScale
-        });
+        // Store prompt box info for suggestion positioning
+        this.promptBoxInfo = result;
         
         return result;
     }
@@ -804,9 +779,11 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         ).setOrigin(0, 0).setVisible(true).setDepth(25);
 
-        // Store input box position for button placement
+        // Store input box position for button placement and suggestion positioning
         this.inputBoxY = inputBoxY;
         this.inputBoxHeight = positions.inputBoxHeight;
+        this.inputBoxX = inputBoxX;
+        this.inputBoxWidth = this.uiBoxWidth;
     }
 
     /**
@@ -1710,28 +1687,29 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     createInputTextBox() {
+        const sm = this.scalingManager;
         const padding = SCENE_CONFIG.PADDING.LARGE;
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         const textBoxHeight = SCENE_CONFIG.BOX_DIMENSIONS.INPUT_HEIGHT;
         
         // Calculate position below Word Stats panel and prompt box
         const statsBoxWidth = 180;
-        const statsBoxHeight = 130;
-        const statsDisplayY = this.menuBarHeight + padding;
+        const statsBoxHeight = sm.scaleValue(130);
+        const statsDisplayY = this.menuBarHeight + sm.scaleValue(padding);
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
         
-        // Use configuration constants for offsets
+        // Use configuration constants for offsets WITH SCALING
         const promptOffset = this.isMobile 
-            ? SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS 
-            : SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS;
+            ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS)
+            : sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS);
         const promptY = statsBottomEdge + promptOffset;
-        const promptBoxHeight = 80;
+        const promptBoxHeight = sm.scaleValue(80);
         const promptBottomEdge = promptY + promptBoxHeight;
         
-        // Use configuration constants for input offset
+        // Use configuration constants for input offset WITH SCALING
         const inputOffset = this.isMobile 
-            ? SCENE_CONFIG.LAYOUT.MOBILE_INPUT_OFFSET_BELOW_PROMPT 
-            : SCENE_CONFIG.LAYOUT.INPUT_OFFSET_BELOW_PROMPT;
+            ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_INPUT_OFFSET_BELOW_PROMPT)
+            : sm.scaleValue(SCENE_CONFIG.LAYOUT.INPUT_OFFSET_BELOW_PROMPT);
         const textBoxY = promptBottomEdge + inputOffset;
         
         // Clear any existing elements first
@@ -2365,7 +2343,10 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
             let yCursor = menuBarHeight + sm.scaleValue(20); // matches relayoutScene
             yCursor += sm.scaleValue(130); // stats box height
-            yCursor += (this.isMobile ? 50 : 40); // prompt offset
+            // Use configuration constants WITH SCALING for prompt offset
+            yCursor += this.isMobile 
+                ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS)
+                : sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS);
             yCursor += this.createPromptTextBox(yCursor).boxBottom + sm.scaleValue(20) - yCursor; // prompt box
             // Now yCursor is the top of the input box
 
@@ -4842,13 +4823,35 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const boxHeight = 30;
         const boxSpacing = 10;
         
-        // Get the position of the input text box
-        const inputBoxY = this.inputTextBorder ? this.inputTextBorder.y : 0;
+        // Calculate position dynamically between prompt box and input box
+        let suggestionsY;
         
-        // Position suggestions directly above the input box at a fixed distance
-        // Using a large enough offset (70px) to ensure visibility
-        const suggestionsOffset = 70;
-        const suggestionsY = inputBoxY - suggestionsOffset - boxHeight;
+        if (this.promptBoxInfo && this.inputBoxY) {
+            // Calculate available space between prompt box bottom and input box top
+            const promptBottom = this.promptBoxInfo.boxBottom;
+            const inputTop = this.inputBoxY;
+            const availableSpace = inputTop - promptBottom;
+            
+            // Position suggestions in the middle of available space
+            const middlePoint = promptBottom + (availableSpace / 2);
+            suggestionsY = middlePoint - (boxHeight / 2);
+            
+            // Ensure there's at least some padding from both boxes
+            const minPadding = 10;
+            const maxY = inputTop - boxHeight - minPadding;
+            const minY = promptBottom + minPadding;
+            
+            suggestionsY = Math.max(minY, Math.min(suggestionsY, maxY));
+        } else {
+            // Fallback positioning - use stored inputBoxY if available
+            if (this.inputBoxY) {
+                const suggestionsOffset = 70;
+                suggestionsY = this.inputBoxY - suggestionsOffset - boxHeight;
+            } else {
+                // Last resort - position relative to center
+                suggestionsY = this.cameras.main.centerY - 100;
+            }
+        }
         
         // Create a single temporary text object to measure widths instead of creating many
         const tempText = this.add.text(0, 0, '', {
