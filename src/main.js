@@ -1,3 +1,12 @@
+/*
+ * To enable BBCode text support, download:
+ * https://github.com/rexrainbow/phaser3-rex-notes/tree/master/dist/rexbbcodetextplugin.min.js
+ * and place it in a 'plugins/' directory at the project root.
+ * Then add this to your index.html BEFORE your main.js script:
+ * <script src="plugins/rexbbcodetextplugin.min.js"></script>
+ * The plugin will be available as window.rexbbcodetextplugin.
+ */
+
 window.onerror = function(message, source, lineno, colno, error) {
     alert("Global error: " + message + " at " + source + ":" + lineno + ":" + colno);
     console.error("Global error:", message, source, lineno, colno, error);
@@ -37,48 +46,10 @@ import UsernameScene from "./scenes/UsernameScene.js";
 import BadgeGenerator from "./scenes/BadgeGenerator.js";
 import GameOverScene from "./scenes/GameOverScene.js";
 
-// Improved mobile detection
-function isMobileDevice() {
-    const ua = navigator.userAgent.toLowerCase();
-    const touchPoints = navigator.maxTouchPoints || 'ontouchstart' in window;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    
-    return (
-        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(ua) ||
-        (touchPoints && Math.min(width, height) < 768)
-    );
-}
+// Import centralized dimensions configuration
+import { isMobileDevice, getOptimalDimensions, SCALE_CONFIG } from "./config/dimensions.js";
 
-// Calculate optimal game dimensions based on device and screen
-function getOptimalDimensions() {
-    // Use visualViewport if available for the most accurate visible area
-    const viewportWidth = (window.visualViewport && window.visualViewport.width) ||
-        window.innerWidth || document.documentElement.clientWidth || screen.width;
-    const viewportHeight = (window.visualViewport && window.visualViewport.height) ||
-        window.innerHeight || document.documentElement.clientHeight || screen.height;
-    const aspectRatio = viewportWidth / viewportHeight;
-
-    // Always use design resolution, scale to fit viewport, preserve aspect ratio
-    let width, height;
-    if (aspectRatio < 1) {
-        // Portrait
-        width = 720;
-        height = 1280;
-    } else {
-        // Landscape
-        width = 1280;
-        height = 720;
-    }
-    return {
-        width,
-        height,
-        mode: Phaser.Scale.FIT,
-        maxWidth: Math.round(viewportWidth),
-        maxHeight: Math.round(viewportHeight)
-    };
-}
-
+// Get optimal dimensions and device info
 const dimensions = getOptimalDimensions();
 const isMobile = isMobileDevice();
 
@@ -111,27 +82,23 @@ const config = {
     plugins: {
         global: [{
             key: 'rexBBCodeTextPlugin',
-            plugin: rexbbcodetextplugin,
+            plugin: window.rexbbcodetextplugin,
             start: true
         }]
     },
     scale: {
-        mode: dimensions.mode,
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: dimensions.width,
         height: dimensions.height,
-        min: {
-            width: isMobile ? dimensions.width : 800,
-            height: isMobile ? dimensions.height : 600
-        },
-        max: {
-            width: isMobile ? dimensions.maxWidth : (dimensions.maxWidth || dimensions.width),
-            height: isMobile ? dimensions.maxHeight : (dimensions.maxHeight || dimensions.height)
-        },
         parent: 'game-container',
-        expandParent: false,
+        expandParent: false,  // Don't expand parent - let FIT mode work within container
         resolution: window.devicePixelRatio || 1,
-        autoRound: true
+        autoRound: false,  // Disable auto rounding for more precise scaling
+        // Ensure proper scaling
+        zoom: 1,
+        // Force refresh on resize
+        fullscreenTarget: 'game-container'
     },
     render: {
         pixelArt: false,
@@ -147,9 +114,9 @@ const config = {
     input: {
         activePointers: isMobile ? 3 : 1,
         smoothFactor: isMobile ? 0.5 : 0,
-        // Enable keyboard for desktop
+        // Enable keyboard for desktop; let Phaser use the canvas as the target
         keyboard: {
-            target: window
+            target: null
         },
         // Mouse settings for desktop
         mouse: {
@@ -179,14 +146,42 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+
+// Ensure the game canvas is focusable for keyboard input
+game.events.once('ready', () => {
+    if (game.canvas) {
+        game.canvas.setAttribute('tabindex', '1');
+        game.canvas.style.outline = 'none';
+    }
+    
+    // Force a scale refresh to ensure FIT mode works correctly
+    if (game.scale) {
+        game.scale.refresh();
+        console.log('[SCALE] Forced refresh after game ready');
+        console.log('[SCALE] Parent size:', game.scale.parentSize.width, 'x', game.scale.parentSize.height);
+        console.log('[SCALE] Canvas size:', game.canvas.width, 'x', game.canvas.height);
+        console.log('[SCALE] Display size:', game.scale.displaySize.width, 'x', game.scale.displaySize.height);
+    }
+});
+
 // Helper to compute and store the current scale factor in the registry
 function updateUIScale() {
     // The scale factor is the ratio between the actual canvas size and the design resolution
     const scaleWidth = game.scale.displaySize.width / game.scale.gameSize.width;
     const scaleHeight = game.scale.displaySize.height / game.scale.gameSize.height;
-    // Use the smaller scale to ensure everything fits
+    // Use the smaller scale to ensure everything fits and maintains aspect ratio
     const uiScale = Math.min(scaleWidth, scaleHeight);
+    
+    // Store both the uniform scale and the individual dimensions for flexibility
     game.registry.set('uiScale', uiScale);
+    // ALWAYS use uniform scale to prevent stretching on any device
+    game.registry.set('uiScaleX', uiScale);
+    game.registry.set('uiScaleY', uiScale);
+    
+    // Log the scales for debugging
+    console.log('[SCALE] Display:', game.scale.displaySize.width, 'x', game.scale.displaySize.height);
+    console.log('[SCALE] Game:', game.scale.gameSize.width, 'x', game.scale.gameSize.height);
+    console.log('[SCALE] Scales - Width:', scaleWidth.toFixed(3), 'Height:', scaleHeight.toFixed(3), 'UI:', uiScale.toFixed(3));
 }
 
 // Store device type and base dimensions globally for scenes to access
@@ -201,14 +196,9 @@ window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         if (game.scale) {
-            // Recompute optimal dimensions for new viewport
-            const newDimensions = getOptimalDimensions();
-            // Resize the game world (design resolution stays the same)
-            game.scale.resize(newDimensions.width, newDimensions.height);
-            // Update maxWidth/maxHeight for scale manager
-            game.scale.maxWidth = newDimensions.maxWidth;
-            game.scale.maxHeight = newDimensions.maxHeight;
-            // Update UI scale factor
+            // With FIT mode, we don't need to resize the game dimensions
+            // Phaser will handle the scaling automatically
+            // Just update the UI scale factor
             updateUIScale();
             // Emit custom resize event for scenes
             game.events.emit('resize', game.scale.width, game.scale.height);

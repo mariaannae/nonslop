@@ -1,4 +1,5 @@
 import { BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT, DESIGN } from "../config/design.js";
+import { getTextStyle } from "../config/textStyles.js";
 
 
 export default class ButtonFactory {
@@ -27,10 +28,24 @@ export default class ButtonFactory {
             buttonWidth = DESIGN.UI.BUTTON.WIDTH;
             buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
         }
+        // Reduce button height for desktop only (by 25% instead of 15%)
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        if (!isMobile) {
+            buttonHeight = Math.round(buttonHeight * 0.75);
+        }
+        // Enforce minimum touch target size for accessibility
+        const minTouchSize = isMobile ? 44 : 30; // Reduced min size by 10px for desktop
+        buttonWidth = Math.max(buttonWidth, minTouchSize);
+        buttonHeight = Math.max(buttonHeight, minTouchSize);
         const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
 
         // Create button container
         const buttonContainer = scene.add.container(centerX, centerY);
+
+        // Add an invisible rectangle as the hit area
+        const hitRect = scene.add.rectangle(0, 0, buttonWidth, buttonHeight, 0x000000, 0);
+        hitRect.setOrigin(0.5, 0.5);
+        hitRect.setInteractive();
 
         // Button Background
         const buttonBackground = scene.add.graphics();
@@ -39,6 +54,7 @@ export default class ButtonFactory {
             -buttonWidth / 2, -buttonHeight / 2,
             buttonWidth, buttonHeight, buttonCornerRadius
         );
+        buttonBackground.disableInteractive?.();
 
         // Button Outline
         const buttonOutline = scene.add.graphics();
@@ -47,6 +63,7 @@ export default class ButtonFactory {
             -buttonWidth / 2, -buttonHeight / 2,
             buttonWidth, buttonHeight, buttonCornerRadius
         );
+        buttonOutline.disableInteractive?.();
 
         // Gradient Overlay (Lighter Top)
         const gradientOverlay = scene.add.graphics();
@@ -55,6 +72,7 @@ export default class ButtonFactory {
             -buttonWidth / 2, -buttonHeight / 2,
             buttonWidth, buttonHeight / 2, buttonCornerRadius
         );
+        gradientOverlay.disableInteractive?.();
 
         // Highlight Effect (Shiny Reflection)
         const buttonHighlight = scene.add.graphics();
@@ -63,46 +81,36 @@ export default class ButtonFactory {
             -buttonWidth / 2 + 5, -buttonHeight / 2 + 2,
             buttonWidth - 10, buttonHeight / 3, buttonCornerRadius
         );
+        buttonHighlight.disableInteractive?.();
 
         // Button Text
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-        const baseFontSize = isMobile ? 30 : 26;
-        const fontSize = scalingManager
-            ? `${scalingManager.scaleText(baseFontSize)}px`
-            : `${baseFontSize}px`;
-        const buttonText = scene.add.text(0, 0, label, {
-            fontFamily: 'VT323',
-            fontSize: fontSize,
-            fontWeight: "700",
-            color: COLORS_TEXT.PRIMARY,
-            align: 'center',
-            lineSpacing: 10 // Add vertical space between lines
-        }).setOrigin(0.5, 0.5);
+        const deviceType = isMobile ? 'phone' : 'desktop';
+        const buttonTextStyle = getTextStyle('button', deviceType, 'basic', 1);
+        
+        // Override font size if scalingManager is available
+        if (scalingManager) {
+            buttonTextStyle.fontSize = `${scalingManager.scaleText(parseInt(buttonTextStyle.fontSize))}px`;
+        }
+        
+        const buttonText = scene.add.text(0, 0, label, buttonTextStyle).setOrigin(0.5, 0.5);
+        buttonText.disableInteractive?.();
 
         // Make button interactive
         buttonContainer.setSize(buttonWidth, buttonHeight);
+        // Set the container itself as interactive with a rectangle hit area
+        buttonContainer.setInteractive(new Phaser.Geom.Rectangle(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight), Phaser.Geom.Rectangle.Contains);
 
-        // For mobile, add invisible 44x44 hit area if button is smaller
-        const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-        if (isMobileDevice && (buttonWidth < 44 || buttonHeight < 44)) {
-            // Add invisible rectangle to expand hit area
-            const minTouchSize = 44;
-            const hitAreaWidth = Math.max(buttonWidth, minTouchSize);
-            const hitAreaHeight = Math.max(buttonHeight, minTouchSize);
-            const hitArea = scene.add.rectangle(0, 0, hitAreaWidth, hitAreaHeight, 0x000000, 0)
-                .setOrigin(0.5);
-            buttonContainer.addAt(hitArea, 0);
-            buttonContainer.setSize(hitAreaWidth, hitAreaHeight);
-            buttonContainer.setInteractive(
-                new Phaser.Geom.Rectangle(-hitAreaWidth/2, -hitAreaHeight/2, hitAreaWidth, hitAreaHeight),
-                Phaser.Geom.Rectangle.Contains
-            );
-        } else {
-            buttonContainer.setInteractive();
-        }
+        // Forward pointerover/pointerout from hitRect to container for tooltips
+        hitRect.on("pointerover", (pointer, localX, localY, event) => {
+            buttonContainer.emit("pointerover", pointer, localX, localY, event);
+        });
+        hitRect.on("pointerout", (pointer, event) => {
+            buttonContainer.emit("pointerout", pointer, event);
+        });
 
-        // Animate on pointerdown (visual feedback)
-        buttonContainer.on("pointerdown", () => {
+        // Attach pointer events to the invisible hitRect
+        hitRect.on("pointerdown", (pointer) => {
+            console.log("ButtonFactory: pointerdown", {label, pointer, isTouch: pointer.pointerType === "touch"});
             scene.tweens.add({
                 targets: buttonContainer,
                 scaleX: 0.95,
@@ -113,34 +121,15 @@ export default class ButtonFactory {
             });
         });
 
-        // Call callback on pointerup if pointer is still over the button
-        buttonContainer.on("pointerup", (pointer) => {
-            // Use the actual hit area size for the check
-            const w = buttonContainer.width || buttonWidth;
-            const h = buttonContainer.height || buttonHeight;
-            if (
-                pointer &&
-                buttonContainer.input &&
-                buttonContainer.input.enabled &&
-                buttonContainer.input.hitArea &&
-                buttonContainer.input.hitArea.contains(
-                    pointer.x - buttonContainer.x + w / 2,
-                    pointer.y - buttonContainer.y + h / 2
-                )
-            ) {
-                if (typeof callback === "function") {
-                    callback();
-                }
+        hitRect.on("pointerup", (pointer) => {
+            console.log("ButtonFactory: pointerup", {label, pointer, isTouch: pointer.pointerType === "touch"});
+            if (typeof callback === "function") {
+                callback();
             }
         });
 
-        // For extra robustness, also handle pointerupoutside (optional: comment out if not desired)
-        // buttonContainer.on("pointerupoutside", () => {
-        //     // Optionally reset visual state or ignore
-        // });
-
-        // Add to scene
-        buttonContainer.add([buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
+        // Add to scene (hitRect must be first for proper layering)
+        buttonContainer.add([hitRect, buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
         scene.add.existing(buttonContainer);
 
         // Set any optional depth
@@ -177,19 +166,30 @@ export default class ButtonFactory {
             buttonSize = DESIGN.UI.BUTTON.WIDTH;
             buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
         }
+        // Reduce button height for desktop only (by 25% instead of 15%)
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        if (!isMobile) {
+            buttonHeight = Math.round(buttonHeight * 0.75);
+        }
+        // Enforce minimum touch target size for accessibility
+        const minTouchSize = isMobile ? 44 : 34; // Reduced min size by 10px for desktop
+        buttonSize = Math.max(buttonSize, minTouchSize);
+        buttonHeight = Math.max(buttonHeight, minTouchSize);
         const buttonCornerRadius = DESIGN.UI.BUTTON.CORNER_RADIUS;
 
         // Dynamic adjustments
         const outlineThickness = Phaser.Math.Clamp(buttonSize * 0.02, 1, 6);
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-        const baseFontSize = isMobile ? 28 : 26;
-        const fontSize = scalingManager
-            ? `${scalingManager.scaleText(baseFontSize)}px`
-            : `${Math.max(buttonSize * 0.13, 16) + (isMobile ? 2 : 0)}px`;
+        // Get uiScale from options or default to 1
+        const uiScale = options.uiScale || 1;
 
         // Position calculation
         const x = centerX + offsetX;
         const y = centerY;
+
+        // Add an invisible rectangle as the hit area
+        const hitRect = scene.add.rectangle(0, 0, buttonSize, buttonHeight, 0x000000, 0);
+        hitRect.setOrigin(0.5, 0.5);
+        hitRect.setInteractive();
 
         // White Outline (Bolder)
         const buttonOutline = scene.add.graphics();
@@ -201,6 +201,7 @@ export default class ButtonFactory {
             buttonHeight + outlineThickness,
             buttonCornerRadius + 2
         );
+        buttonOutline.disableInteractive?.();
 
         // Button Background (Base Color - Darker)
         const buttonBackground = scene.add.graphics();
@@ -209,6 +210,7 @@ export default class ButtonFactory {
             -buttonSize / 2, -buttonHeight / 2,
             buttonSize, buttonHeight, buttonCornerRadius
         );
+        buttonBackground.disableInteractive?.();
 
         // Simulated Gradient Overlay (Lighter Top)
         const gradientOverlay = scene.add.graphics();
@@ -217,6 +219,7 @@ export default class ButtonFactory {
             -buttonSize / 2, -buttonHeight / 2,
             buttonSize, buttonHeight / 2, buttonCornerRadius
         );
+        gradientOverlay.disableInteractive?.();
 
         // Highlight Effect
         const buttonHighlight = scene.add.graphics();
@@ -228,16 +231,18 @@ export default class ButtonFactory {
             buttonHeight / 3,
             buttonCornerRadius
         );
+        buttonHighlight.disableInteractive?.();
 
         // Button Text
-        const buttonText = scene.add.text(0, 0, `${label}`, {
-            fontFamily: 'VT323',
-            fontSize: fontSize,
-            color: COLORS_TEXT.WHITE
-        }).setOrigin(0.5, 0.5);
+        const deviceType = isMobile ? 'phone' : 'desktop';
+        const buttonTextStyle = getTextStyle('fancyButton', deviceType, 'basic', uiScale);
+        const buttonText = scene.add.text(0, 0, `${label}`, buttonTextStyle).setOrigin(0.5, 0.5);
+        buttonText.disableInteractive?.();
 
         // Group Button Elements
-        const buttonContainer = scene.add.container(x, y, [buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
+        const buttonContainer = scene.add.container(x, y, [hitRect, buttonOutline, buttonBackground, gradientOverlay, buttonHighlight, buttonText]);
+
+        // Set size BEFORE adding children
         buttonContainer.setSize(buttonSize, buttonHeight);
 
         // Start invisible for fade-in if specified
@@ -251,11 +256,16 @@ export default class ButtonFactory {
             });
         }
 
-        // Make Button Interactive
-        buttonContainer.setInteractive({ useHandCursor: true });
+        // Forward pointerover/pointerout from hitRect to container for tooltips
+        hitRect.on("pointerover", (pointer, localX, localY, event) => {
+            buttonContainer.emit("pointerover", pointer, localX, localY, event);
+        });
+        hitRect.on("pointerout", (pointer, event) => {
+            buttonContainer.emit("pointerout", pointer, event);
+        });
 
         // Hover Effect (Subtle Scale Up)
-        buttonContainer.on('pointerover', () => {
+        hitRect.on('pointerover', () => {
             scene.tweens.add({
                 targets: buttonContainer,
                 scaleX: 1.1,
@@ -265,7 +275,7 @@ export default class ButtonFactory {
             });
         });
 
-        buttonContainer.on('pointerout', () => {
+        hitRect.on('pointerout', () => {
             scene.tweens.add({
                 targets: buttonContainer,
                 scaleX: 1,
@@ -276,19 +286,19 @@ export default class ButtonFactory {
         });
 
         // Click Animation
-        buttonContainer.on('pointerdown', () => {
+        hitRect.on('pointerdown', () => {
             buttonContainer.y += 3;
             buttonText.y += 2;
             buttonContainer.x += 3;
             buttonText.x += 2;
+        });
 
-            scene.time.delayedCall(150, () => {
-                buttonContainer.y -= 3;
-                buttonText.y -= 2;
-                buttonContainer.x -= 3;
-                buttonText.x -= 2;
-                callback();
-            });
+        hitRect.on('pointerup', () => {
+            buttonContainer.y -= 3;
+            buttonText.y -= 2;
+            buttonContainer.x -= 3;
+            buttonText.x -= 2;
+            callback();
         });
 
         return buttonContainer;

@@ -3,6 +3,8 @@ import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 import { ScalingManager } from "../config/scaling.js";
+import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
+import { detectDeviceType } from "../config/dimensions.js";
 
 // DESIGN.UI.OUTLINE.WIDTH, DESIGN.UI.OUTLINE.CORNER_RADIUS, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, DESIGN.UI.BUTTON.WIDTH
 
@@ -109,6 +111,18 @@ export default class FeedbackScene extends Phaser.Scene {
         });
     }
 
+    // Get input text style using centralized text styles
+    getInputTextStyle() {
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('input', deviceType, this.mode || 'basic', uiScale);
+    }
+
+    // Get input box style using centralized box styles
+    getInputBoxStyle() {
+        return getBoxStyle('input', this.mode || 'basic', this.scalingManager?.uiScale || 1);
+    }
+    
     createInputTextBox() {    
         const textBoxWidth = this.uiBoxWidth;
         const textBoxHeight = 240;
@@ -118,23 +132,30 @@ export default class FeedbackScene extends Phaser.Scene {
         if (this.inputTextBorder) {
             this.inputTextBorder.destroy();
         }
+        
+        // Use centralized box style for input box
+        const boxStyle = this.getInputBoxStyle();
+        
         this.inputTextBorder = this.add.graphics();
-        this.inputTextBorder.fillStyle(0xffffff, 1);
+        this.inputTextBorder.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.inputTextBorder.fillRoundedRect(
             this.cameras.main.centerX - textBoxWidth / 2,
             this.cameras.main.centerY - textBoxHeight / 2,
             textBoxWidth,
             textBoxHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
-        this.inputTextBorder.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.ACCENT, 1);
-        this.inputTextBorder.strokeRoundedRect(
-            this.cameras.main.centerX - textBoxWidth / 2,
-            this.cameras.main.centerY - textBoxHeight / 2,
-            textBoxWidth,
-            textBoxHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
-        );
+        
+        if (boxStyle.hasOutline) {
+            this.inputTextBorder.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.inputTextBorder.strokeRoundedRect(
+                this.cameras.main.centerX - textBoxWidth / 2,
+                this.cameras.main.centerY - textBoxHeight / 2,
+                textBoxWidth,
+                textBoxHeight,
+                boxStyle.cornerRadius
+            );
+        }
         this.inputTextBorder.setDepth(100).setVisible(true);
 
         // Make input area interactive for mobile typing
@@ -157,18 +178,18 @@ export default class FeedbackScene extends Phaser.Scene {
         this.userInput = "";
         this.cursorVisible = true;
 
+        // Use centralized text style for input text
+        const textStyle = {
+            ...this.getInputTextStyle(),
+            wordWrap: { width: textBoxWidth - padding * 2 },
+            padding: { x: padding, y: 10 }
+        };
+        
         this.inputText = this.add.text(
             this.cameras.main.centerX - textBoxWidth / 2 + padding,
             this.cameras.main.centerY - textBoxHeight / 2 + padding,
             "_",
-            {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
-                fill: "#000000",
-                wordWrap: { width: textBoxWidth - padding * 2 },
-                align: "left",
-                padding: { x: padding, y: 10 }
-            }
+            textStyle
         )
         .setOrigin(0, 0)
         .setAlpha(1)
@@ -244,6 +265,18 @@ export default class FeedbackScene extends Phaser.Scene {
         this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
     }
     
+    // Get prompt text style using centralized text styles
+    getPromptTextStyle() {
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
+    }
+
+    // Get prompt box style using centralized box styles
+    getPromptBoxStyle() {
+        return getBoxStyle('prompt', this.mode || 'basic', this.scalingManager?.uiScale || 1);
+    }
+
     createPromptTextBox() {
         this.promptBoxY = 110;
     
@@ -264,41 +297,48 @@ export default class FeedbackScene extends Phaser.Scene {
     
         // ✅ Default text to calculate initial size
         const defaultText = "Thank you for playing! Please use the below space to provide all your gripes and helpful ideas, and hit 'DONE' to return to your game. Be honest. We won't be mad, we promise...";
+        
+        // Use centralized text style for prompt text
+        const textStyle = {
+            ...this.getPromptTextStyle(),
+            wordWrap: { width: this.uiBoxWidth - padding * 2 },
+            align: "center"
+        };
+        
         this.promptText = this.add.text(
             this.cameras.main.centerX, 
             0, // Y will be adjusted later
             defaultText,
-            {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
-                color: this.COLORS_TEXT.PRIMARY,
-                wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "center"
-            }
+            textStyle
         ).setOrigin(0.5, 0);
     
         // ✅ Ensure text box height dynamically adjusts
         const textHeight = this.promptText.height + padding * 2;
     
+        // ✅ Use centralized box style for prompt box
+        const boxStyle = this.getPromptBoxStyle();
+        
         // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(this.COLORS_HEX.BACKGROUND, 1);
+        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.BOX_OUTLINE, 1);
-        this.promptTextBox.strokeRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2, 
-            this.promptBoxY,
-            this.uiBoxWidth,
-            textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
-        );
+        if (boxStyle.hasOutline) {
+            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.promptTextBox.strokeRoundedRect(
+                this.cameras.main.centerX - this.uiBoxWidth / 2, 
+                this.promptBoxY,
+                this.uiBoxWidth,
+                textHeight,
+                boxStyle.cornerRadius
+            );
+        }
     
         // ✅ Position the Text inside the Box
         this.promptText.setY(this.promptBoxY + padding);

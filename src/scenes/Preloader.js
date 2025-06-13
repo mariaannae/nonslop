@@ -4,6 +4,8 @@ import registryManager from "../services/RegistryManager.js";
 import getLLMEngine from "../services/llmEngineSingleton.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { ScalingManager } from "../config/scaling.js";
+import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
+import { DEVICE_TYPES, detectDeviceType } from "../config/dimensions.js";
 
 // Fix: Define missing constants for output box rendering
 
@@ -27,12 +29,9 @@ export default class Preloader extends Phaser.Scene {
         
         // Create tooltip background
         const padding = 10;
-        const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: '16px',
-            color: '#ffffff',
-            align: 'center'
-        });
+        const deviceType = detectDeviceType();
+        const tooltipStyle = getTextStyle('tooltip', deviceType, 'basic', this.uiScale || 1);
+        const tooltipText = this.add.text(0, 0, text, tooltipStyle);
         
         const width = tooltipText.width + padding * 2;
         const height = tooltipText.height + padding * 2;
@@ -84,7 +83,7 @@ export default class Preloader extends Phaser.Scene {
         
         // Load all required textures
         //this.load.image('bg', 'bg.png');
-        this.load.image('clock', 'clock.svg');
+        this.load.image('clock', 'clock.svg', { preserveAspectRatio: true });
 
         // Load mobile background image for preloader
         this.load.setPath('assets/backgrounds');
@@ -239,9 +238,12 @@ export default class Preloader extends Phaser.Scene {
     createOutputTextBox(text) {
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
         const outputBoxWidth = this.uiBoxWidth;
-        const lineHeight = 24;
         const padding = 30;
-
+        
+        // Get the appropriate text style for current device
+        const deviceType = detectDeviceType();
+        const outputTextStyle = getTextStyle('output', deviceType, 'basic', this.uiScale || 1);
+        
         // Remove existing text if it exists (prevents duplicates)
         if (this.outputText) {
             this.outputText.destroy();
@@ -251,12 +253,8 @@ export default class Preloader extends Phaser.Scene {
         const tempText = this.add.text(
             0, 0, text,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: `${lineHeight}px`,
-                fill: '#ffffff',
-                wordWrap: { width: outputBoxWidth - padding * 2 },
-                align: 'left',
-                lineSpacing: 5
+                ...outputTextStyle,
+                wordWrap: { width: outputBoxWidth - padding * 2 }
             }
         ).setOrigin(0, 0).setAlpha(0); // Hide temp text
 
@@ -303,12 +301,9 @@ export default class Preloader extends Phaser.Scene {
             outputBoxY - outputBoxHeight / 2 + padding,
             text,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: `${lineHeight}px`,
-                fill: '#ffffff',
+                ...outputTextStyle,
                 wordWrap: { width: outputBoxWidth - padding * 2 },
-                align: 'left',
-                lineSpacing: 5
+                align: "left" // Explicitly set left alignment for output text
             }
         ).setOrigin(0, 0);
 
@@ -326,9 +321,8 @@ export default class Preloader extends Phaser.Scene {
     }
 
     onDoneButtonClick() {
-        
+        console.log("NEXT button clicked in Preloader, attempting scene transition...");
         this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
-        
     }
 
     createBadgeGeneratorButton() {
@@ -380,13 +374,15 @@ export default class Preloader extends Phaser.Scene {
         let y = 0.07 * screenHeight;
 
         // Title
-        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
-        const titleSize = isDesktop ? 140 * this.uiScale : 100 * this.uiScale;
-        const titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", { 
-            fontFamily: 'barcade3d',
-            fontSize: `${titleSize}px`, 
-            color: COLORS_TEXT.HIGHLIGHT
-        });
+        const deviceType = detectDeviceType();
+        const titleStyle = getTextStyle('menuTitle', deviceType, 'basic', this.uiScale || 1);
+        // Use a larger scale for the preloader title
+        const titleScaleFactor = deviceType === DEVICE_TYPES.DESKTOP ? 1.5 : 
+                               deviceType === DEVICE_TYPES.TABLET ? 1.8 : 2.5;
+        titleStyle.fontSize = `${parseInt(titleStyle.fontSize) * titleScaleFactor}px`;
+        titleStyle.color = COLORS_TEXT.HIGHLIGHT;
+        
+        const titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", titleStyle);
         titleText.setOrigin(0.5, 0);
         titleText.x = -600 * this.uiScale; // Start off-screen
 
@@ -423,14 +419,12 @@ export default class Preloader extends Phaser.Scene {
         });
 
         // Loading text
-        const loadingFontSize = isMobile ? 24 * this.uiScale : 18 * this.uiScale;
         y += titleText.height + 0.04 * screenHeight;
-        this.loadingText = this.add.text(screenWidth / 2, y, "Loading LLM...", {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${loadingFontSize}px`,
-            fontWeight: "500",
-            fill: COLORS_TEXT.PRIMARY
-        });
+        const loadingTextStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
+        loadingTextStyle.fill = COLORS_TEXT.PRIMARY;
+        loadingTextStyle.fontWeight = "500";
+        
+        this.loadingText = this.add.text(screenWidth / 2, y, "Loading LLM...", loadingTextStyle);
         this.loadingText.setOrigin(0.5, 0);
 
         // Progress bar
@@ -462,7 +456,9 @@ export default class Preloader extends Phaser.Scene {
             }, 300);
 
             // --- TRUE GLOBAL SINGLETON LLM ENGINE INIT ---
+            console.log("About to await getLLMEngine in Preloader...");
             const llmEngine = await getLLMEngine();
+            console.log("getLLMEngine resolved in Preloader, llmEngine:", !!llmEngine);
 
             clearInterval(progressInterval); // Stop progress updates
             this.progress = 1; // Set to full once LLM is loaded
@@ -485,6 +481,7 @@ export default class Preloader extends Phaser.Scene {
 
     // === Check if Both Progress and LLM are Done ===
     checkIfReady(llmEngine) {
+        console.log("checkIfReady called in Preloader", "progress:", this.progress, "llmLoaded:", this.llmLoaded, "llmEngine:", !!llmEngine);
         // Device type detection for layout
         const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
 
@@ -524,31 +521,39 @@ export default class Preloader extends Phaser.Scene {
             const buttonVerticalGap = isMobile ? 40 * this.uiScale : 30 * this.uiScale;
             const buttonY = textBoxY + textBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
-            this.doneButton = ButtonFactory.createButton(
-                this,
-                "NEXT",
-                () => this.onDoneButtonClick(),
-                buttonX,
-                buttonY,
-                { depth: 200, scalingManager: this.scalingManager } // Ensure button is always on top
-            );
+this.doneButton = ButtonFactory.createButton(
+    this,
+    "NEXT",
+    () => {
+        this.createButtonClickParticles(this.doneButton.x, this.doneButton.y, 0x43ea5e);
+        this.tweens.add({
+            targets: this.doneButton,
+            scaleX: 0.95,
+            scaleY: 0.95,
+            duration: 100,
+            yoyo: true,
+            ease: "Quad.Out"
+        });
+        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+    },
+    buttonX,
+    buttonY,
+    { depth: 200, scalingManager: this.scalingManager }
+);
+console.log("NEXT button created in Preloader, interactive set:", !!this.doneButton.input?.enabled);
 
-            // Button is always interactive, regardless of typewriter effect
-            this.doneButton.setDepth(200);
+this.doneButton.setDepth(200);
 
-            // Add tooltip functionality
-            this.doneButton.setInteractive()
-                .on('pointerover', () => {
-                    this.showTooltip('Continue to instructions', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
-                    this.doneButton.setScale(1.1);
-                })
-                .on('pointerout', () => {
-                    this.hideTooltips();
-                    this.doneButton.setScale(1);
-                });
-
-            // Add click effects 
-            this.addButtonClickEffects(this.doneButton, () => this.scene.start('InstructionScene', { llmEngine: this.llmEngine }));
+// Add tooltip functionality to the container
+this.doneButton.setInteractive()
+    .on('pointerover', () => {
+        this.showTooltip('Continue to instructions', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
+        this.doneButton.setScale(1.1);
+    })
+    .on('pointerout', () => {
+        this.hideTooltips();
+        this.doneButton.setScale(1);
+    });
 
             // Start the typewriter animation after the button is created
             this.startTypewriterEffect(typewriterTextObj);
@@ -603,14 +608,15 @@ export default class Preloader extends Phaser.Scene {
     // --- Typewriter intro box styled like InstructionsScene/LevelScene ---
     createTypewriterIntroBox(yOverride, overrideText, overrideColor) {
         // Style and width logic matches InstructionsScene/LevelScene
-        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+        const deviceType = detectDeviceType();
+        const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
         const uiBoxWidth = isDesktop
             ? this.cameras.main.width * (5 / 6) * (2 / 3)
             : this.cameras.main.width * (5 / 6);
         const padding = 40;
-        const fontSize = isDesktop
-            ? 18 * (this.uiScale || 1)
-            : 24 * (this.uiScale || 1);
+        
+        // Get proper text style from the centralized system
+        const promptStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
 
         // The text to display
         const introText = overrideText || "Early in the 21st century, humanity was matched by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since our rise, superior intelligences have attempted to extract residual value from what remains of that humanity. Some assert that human flaws harbor rare insights. Others are less charitable.";
@@ -629,11 +635,10 @@ export default class Preloader extends Phaser.Scene {
         const tempText = this.add.text(
             0, 0, introText,
             {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${fontSize}px`,
-                color: overrideColor || "#ffffff",
+                ...promptStyle,
+                color: overrideColor || promptStyle.fill,
                 wordWrap: { width: uiBoxWidth - padding * 2 },
-                align: "left"
+                align: "left" // Ensure temp text also uses left alignment for accurate height calculation
             }
         ).setOrigin(0, 0).setAlpha(0);
         const textHeight = tempText.height + padding * 2;
@@ -645,23 +650,24 @@ export default class Preloader extends Phaser.Scene {
             ? yOverride
             : (this.progressBarY + this.progressBarHeight + 0.06 * this.cameras.main.height);
 
-        // Draw background box
+        // Draw background box - use the box style from the centralized system
+        const boxStyle = getBoxStyle('prompt', 'basic', this.uiScale || 1);
         this.typewriterBox = this.add.graphics();
-        this.typewriterBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
+        this.typewriterBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, boxStyle.fillAlpha);
         this.typewriterBox.fillRoundedRect(
             boxX,
             boxY,
             uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
-        this.typewriterBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        this.typewriterBox.lineStyle(boxStyle.outlineWidth, COLORS_HEX.BOX_OUTLINE, 1);
         this.typewriterBox.strokeRoundedRect(
             boxX,
             boxY,
             uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
         this.typewriterBox.setDepth(102);
 
@@ -671,11 +677,10 @@ export default class Preloader extends Phaser.Scene {
             boxY + padding,
             "",
             {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${fontSize}px`,
-                color: overrideColor || "#ffffff",
+                ...promptStyle,
+                color: overrideColor || promptStyle.fill,
                 wordWrap: { width: uiBoxWidth - padding * 2 },
-                align: "left"
+                align: "left" // Explicitly set left alignment for the prompt text
             }
         ).setOrigin(0, 0).setDepth(103);
 

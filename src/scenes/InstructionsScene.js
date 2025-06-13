@@ -15,7 +15,7 @@ export default class InstructionScene extends Phaser.Scene {
 
         // Make tooltip text 2px larger on mobile
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-        const tooltipFontSize = isMobile ? 18 : 16;
+        const tooltipFontSize = isMobile ? 14 : 14;
 
         // Create tooltip background
         const padding = 10;
@@ -163,7 +163,7 @@ export default class InstructionScene extends Phaser.Scene {
             : this.cameras.main.width * (5 / 6);
         const padding = 40;
         const fontSize = isDesktop
-            ? 18 * uiScale
+            ? 14 * uiScale
             : 24 * uiScale + (isMobile ? 2 : 0);
 
         // Clear existing prompt box graphics if it exists
@@ -260,6 +260,8 @@ export default class InstructionScene extends Phaser.Scene {
         // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
         const buttonVerticalGap = isMobile ? 40 * uiScale : 30 * uiScale;
         const buttonY = boxY + textHeight + buttonVerticalGap + (buttonHeight / 2);
+
+        console.log("[DEBUG] InstructionsScene button placement", { boxX, boxY, textHeight, buttonWidth, buttonHeight, buttonX, buttonY, uiScale });
 
         this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
             depth: 102

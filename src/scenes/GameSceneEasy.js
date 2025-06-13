@@ -29,134 +29,8 @@ export default class GameSceneEasy extends BaseGameScene {
 
     // Responsive relayout for orientation/resize changes
     relayoutScene(width, height, isPortrait) {
-        // Destroy and recreate background
-        if (this.background) {
-            this.background.destroy();
-            this.background = null;
-        }
-        createBackground(this, THEMES.easy.background, this.levelValue, this.wordStreak);
-
-        // Destroy and recreate menu bar
-        if (this.menuBar) {
-            this.menuBar.destroy();
-            this.menuBar = null;
-        }
-        this.createMenuBar && this.createMenuBar();
-
-        // Destroy and recreate prompt box/text
-        if (this.promptTextBox) {
-            this.promptTextBox.destroy();
-            this.promptTextBox = null;
-        }
-        if (this.promptText) {
-            this.promptText.destroy();
-            this.promptText = null;
-        }
-        this.createPromptTextBox && this.createPromptTextBox();
-
-        // Destroy and recreate input box/text
-        if (this.inputTextBorder) {
-            this.inputTextBorder.destroy();
-            this.inputTextBorder = null;
-        }
-        if (this.inputText) {
-            this.inputText.destroy();
-            this.inputText = null;
-        }
-        this.createInputTextBox && this.createInputTextBox();
-
-        // Destroy and recreate fails counter/progress bar
-        if (this.failsCounter) {
-            this.failsCounter.destroy();
-            this.failsCounter = null;
-        }
-        if (this.failsText) {
-            this.failsText.destroy();
-            this.failsText = null;
-        }
-        this.createFailsCounter && this.createFailsCounter();
-        this.updateProgressFill && this.updateProgressFill();
-
-        // Destroy and recreate word count display
-        if (this.wordCountDisplay) {
-            this.wordCountDisplay.destroy();
-            this.wordCountDisplay = null;
-        }
-        this.createWordCountDisplay && this.createWordCountDisplay();
-
-        // Destroy and recreate buttons
-        if (this.doneButton) {
-            this.doneButton.destroy();
-            this.doneButton = null;
-        }
-        if (this.feedbackButton) {
-            this.feedbackButton.destroy();
-            this.feedbackButton = null;
-        }
-        // Recreate buttons
-        const inputBoxWidth = this.cameras.main.width * (5 / 6);
-        const padding = 20;
-        const buttonPadding = 70;
-        const boxX = this.cameras.main.centerX - inputBoxWidth / 2;
-        const buttonCenterX = boxX + inputBoxWidth - buttonPadding - this.design.BUTTON.WIDTH / 2;
-        const statsBoxHeight = 130;
-        const menuBarHeight = this.menuBarHeight || 100;
-        const statsDisplayY = menuBarHeight + padding;
-        const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        const promptY = statsBottomEdge + 20;
-        const promptBoxHeight = 80;
-        const promptBottomEdge = promptY + promptBoxHeight;
-        const inputBoxY = promptBottomEdge + 20;
-        const inputBoxHeight = 240;
-        const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
-        const outlineWidth = this.design.OUTLINE.WIDTH;
-        const doneButtonY = inputBoxBottomEdge + outlineWidth / 2 + this.design.BUTTON.BELOW_TEXTBOX_GAP + this.design.BUTTON.HEIGHT / 2;
-
-        this.doneButton = this.createButton(
-            "DONE", 
-            () => this.onDoneButtonClick(), 
-            buttonCenterX, 
-            doneButtonY,
-            'Submit your text for evaluation'
-        );
-        // Calculate safe area insets for mobile (if available)
-        let safeAreaLeft = 0, safeAreaBottom = 0;
-        if (typeof window !== "undefined" && window.CSS && window.CSS.supports && window.CSS.supports("padding-bottom: env(safe-area-inset-bottom)")) {
-            // Try to read the safe area insets from CSS environment variables
-            safeAreaLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--satmp-safe-area-inset-left') || 0, 10);
-            safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--satmp-safe-area-inset-bottom') || 0, 10);
-            // Fallback: try direct env() if custom properties not set
-            if (!safeAreaLeft) {
-                safeAreaLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding-left') || 0, 10);
-            }
-            if (!safeAreaBottom) {
-                safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding-bottom') || 0, 10);
-            }
-        }
-        // Default to 0 if not found
-        safeAreaLeft = isNaN(safeAreaLeft) ? 0 : safeAreaLeft;
-        safeAreaBottom = isNaN(safeAreaBottom) ? 0 : safeAreaBottom;
-        const leftPadding = Math.max(30, safeAreaLeft);
-        const bottomPadding = Math.max(30, safeAreaBottom);
-
-const mobileGameHeight = this.sys.game.config.height;
-const feedbackButtonY = isMobile
-    ? mobileGameHeight - bottomPadding - (this.design.BUTTON.HEIGHT / 2)
-    : this.scale.height - bottomPadding - (this.design.BUTTON.HEIGHT / 2);
-
-this.feedbackButton = this.createButton(
-    "FEEDBACK",
-    () => this.onFeedbackClick(),
-    leftPadding + (this.design.BUTTON.WIDTH / 2),
-    feedbackButtonY,
-    'Share your feedback'
-);
-
-        // Reapply effects and layering
-        this.addButtonClickEffects && this.addButtonClickEffects();
-        this.ensureProperLayering && this.ensureProperLayering();
-        this.ensureTextVisibility && this.ensureTextVisibility();
-        this.updateCursor && this.updateCursor();
+        // Use the parent class's relayoutScene to ensure consistent layout and prompt box positioning
+        super.relayoutScene(width, height, isPortrait);
     }
 
     // Mode-specific word processing
@@ -194,15 +68,26 @@ this.feedbackButton = this.createButton(
 
         // Log the data received from other mode for debugging
         console.log("GameSceneEasy received data:", data);
-        this.registry.events.on('changedata', this.logRegistryChange, this);
 
         // Initialize with empty suggestion arrays
         this.aiSuggestedWords = [];
         this.suggestionBoxes = [];
         this.suggestionTexts = [];
         
-        super.create && super.create();
-        
+        // Use parent class's create for all layout and UI
+        super.create && super.create(data);
+
+        // Centralized background creation
+        createBackground(this, THEMES.easy.background, this.levelValue, this.wordStreak);
+        this.createMenuBar();
+
+        // Ensure correct layout after menu bar is created
+        this.relayoutScene(
+            this.cameras.main.width,
+            this.cameras.main.height,
+            this.cameras.main.height > this.cameras.main.width
+        );
+
         // Apply data passed from other modes if available
         if (data && data.progressPercentage !== undefined) {
             this.progressPercentage = data.progressPercentage;
@@ -231,162 +116,15 @@ this.feedbackButton = this.createButton(
         // Centralized background creation
         createBackground(this, THEMES.easy.background, this.levelValue, this.wordStreak);
         this.createMenuBar();
-        this.createPromptTextBox();
-        this.createInputTextBox();
-        this.updatePromptBasedOnLevel();
 
-        const inputBoxWidth = this.cameras.main.width * (5 / 6) * this.uiScale;
-        const padding = 20 * this.uiScale;
-        const buttonPadding = 70 * this.uiScale; // Standard padding used for buttons
-        const boxX = this.cameras.main.centerX - inputBoxWidth / 2;
-        const buttonCenterX = boxX + inputBoxWidth - buttonPadding - this.design.BUTTON.WIDTH * this.uiScale / 2;
-
-        // Calculate the actual input box Y and height based on the layout in BaseGameScene
-        // This matches the logic in createInputTextBox()
-        const statsBoxHeight = 130 * this.uiScale;
-        const menuBarHeight = (this.menuBarHeight || 100) * this.uiScale;
-        const statsDisplayY = menuBarHeight + padding;
-        const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        const promptY = statsBottomEdge + 20 * this.uiScale;
-        const promptBoxHeight = 80 * this.uiScale;
-        const promptBottomEdge = promptY + promptBoxHeight;
-        const inputBoxY = promptBottomEdge + 20 * this.uiScale;
-        const inputBoxHeight = 240 * this.uiScale;
-        const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
-
-        // Position button further below input box bottom edge (configurable gap from design.js)
-        const outlineWidth = this.design.OUTLINE.WIDTH * this.uiScale;
-        const doneButtonY = inputBoxBottomEdge + outlineWidth / 2 + this.design.BUTTON.BELOW_TEXTBOX_GAP * this.uiScale + this.design.BUTTON.HEIGHT * this.uiScale / 2;
-
-        // Create buttons with tooltips
-        this.doneButton = this.createButton(
-            "DONE", 
-            () => this.onDoneButtonClick(), 
-            buttonCenterX, 
-            doneButtonY,
-            'Submit your text for evaluation'
-        );
-        
-        // this.resetButton = this.createButton(
-        //     "RESET", 
-        //     () => this.onResetButtonClick(), 
-        //     buttonCenterX - 120, 
-        //     buttonCenterY,
-        //     'Clear text and start over'
-        // );
-        
-
-        // Mode toggle moved to settings popup
-
-        // Initialize the progress bar with the percentage passed from the other mode
-        this.createFailsCounter();
-        console.log("EasyMode: Created fails counter with progress:", this.progressPercentage);
-        this.updateProgressFill();
-
-        // Now create the feedback button after progress bar is created
-        let feedbackButtonY;
-        if (isMobile) {
-            // Get progress bar bottom edge and add 60px
-            const scoreHeight = this.design.BUTTON.HEIGHT * this.uiScale;
-            feedbackButtonY = this.failsCounter.y + scoreHeight + 100 * this.uiScale;
-        } else {
-            feedbackButtonY = this.cameras.main.height - this.design.BUTTON.HEIGHT * this.uiScale / 2 - padding;
-        }
-
-        this.feedbackButton = this.createButton(
-            "FEEDBACK", 
-            () => this.onFeedbackClick(), 
-            this.design.BUTTON.WIDTH * this.uiScale / 2 + padding, 
-            feedbackButtonY,
-            'Share your feedback'
-        );
-
-        // Create word count display
-        this.createWordCountDisplay();
-        
         this.inputActive = false;
         this.addButtonClickEffects();
         this.ensureProperLayering();
         this.ensureTextVisibility();
         this.updateCursor();
-        
-        // (Mode indicator replaced by toggle)
     }
 
-    // Style methods
-    getPromptTextStyle() {
-        return {
-            fontFamily: "IBM Plex Mono",
-            fontSize: `${this.design.TEXTBOX_FONT_SIZE * (this.uiScale || 1)}px`,
-            fill: this.COLORS_TEXT.PRIMARY,
-            align: "center",
-            lineSpacing: 6 * (this.uiScale || 1)
-        };
-    }
-
-    getPromptBoxStyle() {
-        return {
-            fillColor: this.COLORS_HEX.BOX_FILL,
-            fillAlpha: 0.8,
-            hasOutline: true,
-            outlineWidth: this.OUTLINE_WIDTH,
-            outlineColor: this.COLORS_HEX.BOX_OUTLINE,
-            cornerRadius: this.CORNER_RADIUS
-        };
-    }
-
-    getInputBoxStyle() {
-        return {
-            fillColor: this.COLORS_HEX.TEXT,
-            fillAlpha: 0.95,
-            hasOutline: true,
-            outlineWidth: this.OUTLINE_WIDTH,
-            outlineColor: this.COLORS_HEX.ACCENT,
-            cornerRadius: this.CORNER_RADIUS
-        };
-    }
-
-    getInputTextStyle() {
-        return {
-            fontFamily: "IBM Plex Mono",
-            fontSize: `${this.design.TEXTBOX_FONT_SIZE * (this.uiScale || 1)}px`,
-            fill: "#000",
-            align: "left",
-            lineSpacing: 6 * (this.uiScale || 1),
-            wordWrap: { width: (this.uiBoxWidth - 60) * (this.uiScale || 1) } // Add word wrap
-        };
-    }
-
-    getAutocompleteTextStyle() {
-        return {
-            fontFamily: "IBM Plex Mono",
-            fontSize: `${this.design.TEXTBOX_FONT_SIZE * (this.uiScale || 1)}px`,
-            fill: "#ff0000",
-            align: "left",
-            alpha: 0.7, // Make slightly transparent
-            wordWrap: { width: (this.uiBoxWidth - 60) * (this.uiScale || 1) } // Add word wrap
-        };
-    }
-
-    getMenuBarStyle() {
-        return {
-            backgroundColor: this.COLORS_HEX.BACKGROUND,
-            borderColor: this.COLORS_HEX.ACCENT,
-            borderWidth: this.OUTLINE_WIDTH * (this.uiScale || 1),
-            titleStyle: {
-                fontFamily: 'barcade3d',
-                fontSize: `${50 * (this.uiScale || 1)}px`,
-                color: this.COLORS_TEXT.TITLE,
-                shadow: {
-                    offsetX: 2 * (this.uiScale || 1),
-                    offsetY: 2 * (this.uiScale || 1),
-                    color: '#000',
-                    blur: 2 * (this.uiScale || 1),
-                    fill: true
-                }
-            }
-        };
-    }
+    // Style methods are now provided by BaseGameScene using the centralized textStyles.js
 
 
 

@@ -1,64 +1,91 @@
 // config/scaling.js
+import { 
+  detectDeviceType, 
+  DEVICE_TYPES, 
+  getDimensionsForDevice 
+} from './dimensions.js';
+
 export class ScalingManager {
     constructor(scene) {
       this.scene = scene;
-      this.deviceType = this.detectDeviceType();
-      // Set base dimensions depending on device type
-      if (this.deviceType === "tablet") {
-        this.baseWidth = 1000;
-        this.baseHeight = 800;
-      } else if (this.deviceType === "phone") {
-        this.baseWidth = 720;
-        this.baseHeight = 1280;
-      } else {
-        // desktop
-        this.baseWidth = 1200;
-        this.baseHeight = 900;
-      }
+      this.deviceType = detectDeviceType();
+      
+      // Set initial dimensions
+      this.updateBaseDimensions();
       this.updateScaleRatios();
+      
+      // Listen for resize events
+      if (this.scene.game && this.scene.game.events) {
+        this.scene.game.events.on('resize', () => {
+          // Update base dimensions when window size changes
+          this.updateBaseDimensions();
+          this.updateScaleRatios();
+          console.log(`[ScalingManager] Resize detected, updated dimensions`);
+        });
+      }
     }
-
-    detectDeviceType() {
-      // Use screen size and user agent to distinguish phone/tablet/desktop
-      const ua = navigator.userAgent.toLowerCase();
-      const width = window.screen.width;
-      const height = window.screen.height;
-      const minDim = Math.min(width, height);
-
-      // iPad or Android tablet detection
-      if (
-        (ua.includes("ipad")) ||
-        (ua.includes("android") && !ua.includes("mobile")) ||
-        (minDim >= 600 && minDim < 900)
-      ) {
-        return "tablet";
+    
+    // Set base dimensions based on device type and orientation
+    updateBaseDimensions() {
+      // Check if camera exists before accessing it
+      let width, height;
+      if (this.scene.cameras && this.scene.cameras.main) {
+        width = this.scene.cameras.main.width;
+        height = this.scene.cameras.main.height;
+      } else {
+        // Fallback to game dimensions if camera not ready
+        width = this.scene.game.config.width;
+        height = this.scene.game.config.height;
       }
-      // Phone detection
-      if (
-        (ua.includes("iphone")) ||
-        (ua.includes("android") && ua.includes("mobile")) ||
-        (minDim < 600)
-      ) {
-        return "phone";
+      
+      const isLandscape = width >= height;
+      
+      // For desktop, use standard dimensions
+      if (this.deviceType === DEVICE_TYPES.DESKTOP) {
+        if (isLandscape) {
+          this.baseWidth = 1280;
+          this.baseHeight = 720;
+        } else {
+          this.baseWidth = 405;
+          this.baseHeight = 720;
+        }
+      } else {
+        // For mobile/tablet, use dimensions from config
+        const dimensions = getDimensionsForDevice(this.deviceType, isLandscape);
+        this.baseWidth = dimensions.width;
+        this.baseHeight = dimensions.height;
       }
-      // Default to desktop
-      return "desktop";
     }
   
     updateScaleRatios() {
+      // Check if camera exists before accessing it
+      if (!this.scene.cameras || !this.scene.cameras.main) {
+        // Camera not ready yet, use default scale
+        this.scale = 1;
+        this.scaleX = 1;
+        this.scaleY = 1;
+        this.textScale = 1;
+        return;
+      }
+      
       const { width, height } = this.scene.cameras.main;
       
       // Calculate scale ratios
-      this.scaleX = width / this.baseWidth;
-      this.scaleY = height / this.baseHeight;
+      const scaleX = width / this.baseWidth;
+      const scaleY = height / this.baseHeight;
       
-      // For UI elements that should maintain aspect ratio
-      this.scale = Math.min(this.scaleX, this.scaleY);
+      // ALWAYS use uniform scaling to prevent stretching on any device
+      this.scale = Math.min(scaleX, scaleY);
+      this.scaleX = this.scale;
+      this.scaleY = this.scale;
       
       // For text that might need different scaling
       this.textScale = Math.max(this.scale, 0.5); // Ensure text isn't too small
       
-      //console.log(`Screen size: ${width}x${height}, Scale ratios - X: ${this.scaleX.toFixed(2)}, Y: ${this.scaleY.toFixed(2)}, UI: ${this.scale.toFixed(2)}, Device: ${this.deviceType}`);
+      // Enable diagnostic logging to help debug scaling issues
+      console.log(`[ScalingManager] Base: ${this.baseWidth}x${this.baseHeight}, Camera: ${width}x${height}`);
+      console.log(`[ScalingManager] Raw Scale - X: ${scaleX.toFixed(3)}, Y: ${scaleY.toFixed(3)}`);
+      console.log(`[ScalingManager] Applied Uniform Scale: ${this.scale.toFixed(3)}, Device: ${this.deviceType}`);
     }
 
     buttonWidth(cameraWidth) {
@@ -67,8 +94,9 @@ export class ScalingManager {
     }
 
     buttonHeight(buttonWidth) {
-        // Scale button height for all device types
-        return 40 * this.scale;
+        // Scale button height based on device type
+        // Reduce desktop button height by 5px
+        return (this.deviceType === DEVICE_TYPES.DESKTOP ? 30 : 40) * this.scale;
     }
 
     buttonSpacing(buttonHeight) {
@@ -81,11 +109,13 @@ export class ScalingManager {
     }
     
     scaleValueX(value) {
-      return value * this.scaleX;
+      // Always use uniform scaling to prevent stretching
+      return value * this.scale;
     }
     
     scaleValueY(value) {
-      return value * this.scaleY;
+      // Always use uniform scaling to prevent stretching
+      return value * this.scale;
     }
     
     scaleText(size) {

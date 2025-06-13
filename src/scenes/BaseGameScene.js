@@ -6,6 +6,137 @@ import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
 import registryManager from "../services/RegistryManager.js";
 import { ScalingManager } from "../config/scaling.js";
+import { getTextStyle, getBoxStyle, getAutocompleteTextStyle, getMenuBarStyle } from "../config/textStyles.js";
+import { detectDeviceType } from "../config/dimensions.js";
+
+/**
+ * Configuration constants for BaseGameScene
+ * All magic numbers and hardcoded values are centralized here
+ */
+const SCENE_CONFIG = {
+    // Padding values
+    PADDING: {
+        STANDARD: 20,
+        LARGE: 30,
+        MOBILE: 10,
+        INPUT_HORIZONTAL: 28,
+        INPUT_VERTICAL_RATIO: 0.7,
+        MOBILE_INPUT_VERTICAL_RATIO: 0.6,
+        STATS_RIGHT_MARGIN: 30,
+        MOBILE_STATS_RIGHT_MARGIN: 35
+    },
+    
+    // Box dimensions
+    BOX_DIMENSIONS: {
+        STATS_HEIGHT: 130,
+        INPUT_HEIGHT: 180,
+        MOBILE_INPUT_HEIGHT: 170,
+        PROMPT_MIN_HEIGHT: 60,
+        PROMPT_MAX_HEIGHT_DESKTOP: 220,
+        PROMPT_MAX_HEIGHT_MOBILE: 300,
+        STATS_MAX_WIDTH_DESKTOP: 200,
+        STATS_MAX_WIDTH_MOBILE: 220,
+        SUGGESTION_HEIGHT: 30,
+        SUGGESTION_SPACING: 10
+    },
+    
+    // Animation durations (in milliseconds)
+    ANIMATIONS: {
+        FAST: 200,
+        MEDIUM: 500,
+        SLOW: 800,
+        CURSOR_BLINK: 500,
+        TYPING_TIMEOUT: 500,
+        ERROR_MESSAGE_DURATION: 3000,
+        CELEBRATION_DURATION: 1200,
+        PARTICLE_DURATION_MIN: 600,
+        PARTICLE_DURATION_MAX: 1000,
+        CLOCK_FLASH_DURATION: 220,
+        SHAKE_DURATION_DEFAULT: 250,
+        SHAKE_DURATION_IOS: 400,
+        MINI_SHAKE_DURATION: 40
+    },
+    
+    // Timer configuration
+    TIMER: {
+        DEFAULT_VALUE: 20,
+        UPDATE_INTERVAL: 1000
+    },
+    
+    // Visual effects
+    EFFECTS: {
+        SHAKE_INTENSITY_DEFAULT: 0.02,
+        SHAKE_INTENSITY_IOS: 0.04,
+        MINI_SHAKE_INTENSITY: 0.005,
+        FLASH_ALPHA_DEFAULT: 0.18,
+        FLASH_ALPHA_MINI: 0.07,
+        PARTICLE_COUNT: 90,
+        PARTICLE_SPEED_MIN: 180,
+        PARTICLE_SPEED_MAX: 340,
+        PARTICLE_DISTANCE_MIN: 120,
+        PARTICLE_DISTANCE_MAX: 260,
+        PARTICLE_SIZE_MIN: 4,
+        PARTICLE_SIZE_MAX: 10
+    },
+    
+    // Offsets and gaps
+    LAYOUT: {
+        PROMPT_OFFSET_BELOW_STATS: 80,
+        MOBILE_PROMPT_OFFSET_BELOW_STATS: 60,
+        INPUT_OFFSET_BELOW_PROMPT: 40,
+        MOBILE_INPUT_OFFSET_BELOW_PROMPT: 80,
+        BUTTON_VERTICAL_GAP_DESKTOP: 30,
+        BUTTON_VERTICAL_GAP_MOBILE: 40,
+        BUTTON_HORIZONTAL_OFFSET_DESKTOP: 60,
+        BUTTON_HORIZONTAL_OFFSET_MOBILE: 30,
+        STATS_OFFSET_BELOW_MENU_DESKTOP: 50,
+        STATS_OFFSET_BELOW_MENU_MOBILE: 60,
+        MENU_BAR_HEIGHT_DESKTOP: 120,
+        MENU_BAR_HEIGHT_MOBILE: 200,
+        SETTINGS_ICON_SIZE_RATIO: 0.5,
+        MOBILE_SETTINGS_ICON_SIZE_RATIO: 0.35
+    },
+    
+    // Settings popup
+    SETTINGS_POPUP: {
+        WIDTH: 400,
+        TITLE_HEIGHT: 44,
+        MIN_GAP: 12,
+        STANDARD_GAP: 18,
+        SLIDER_ROW_HEIGHT: 44,
+        TOGGLE_ROW_HEIGHT: 44,
+        BUTTON_ROW_HEIGHT: 54,
+        BOTTOM_PADDING: 18,
+        SLIDER_WIDTH: 150,
+        SLIDER_HANDLE_WIDTH: 44,
+        SLIDER_HANDLE_HEIGHT: 44,
+        SLIDER_HANDLE_VISUAL_WIDTH_DESKTOP: 18,
+        SLIDER_HANDLE_VISUAL_HEIGHT_DESKTOP: 14,
+        SLIDER_HANDLE_VISUAL_WIDTH_MOBILE: 24,
+        SLIDER_HANDLE_VISUAL_HEIGHT_MOBILE: 24,
+        CLOSE_BUTTON_MIN_TOUCH_SIZE: 44
+    },
+    
+    // Streak milestones
+    STREAK_MILESTONES: [3, 5, 7, 10, 15, 20],
+    
+    // Debounce delays
+    DEBOUNCE: {
+        SUGGESTIONS: 250,
+        MOBILE_CURSOR_UPDATE: 30,
+        KEY_REPEAT_FILTER: 50
+    },
+    
+    // Fast typing penalty
+    FAST_TYPING: {
+        DEFAULT_PENALTY_SECONDS: 2,
+        DEFAULT_COOLDOWN_MS: 1250,
+        MODAL_WIDTH_RATIO: 0.8,
+        MODAL_MAX_WIDTH: 500,
+        MODAL_HEIGHT: 180,
+        MODAL_TOP_Y_MOBILE: 120
+    }
+};
 
 
 export default class BaseGameScene extends Phaser.Scene {
@@ -15,18 +146,22 @@ export default class BaseGameScene extends Phaser.Scene {
      */
     constructor(config) {
         super(config);
+        
+        // Cache device type once to avoid repeated regex tests
+        this._isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
+        this._isDesktop = !this._isMobile;
+        
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
-            : 2;
+            : SCENE_CONFIG.FAST_TYPING.DEFAULT_PENALTY_SECONDS;
         this._fastTypingPenaltyActive = false;
         this._fastTypingPenaltyTimeout = null;
         this._fastTypingModal = null;
         this._lastKeydownTime = 0;
         this._justEnteredWordBoundary = false; // Flag to prevent penalty after space/newline
-        // Fast typing cooldown after word boundary (configurable)
         this.fastTypingCooldownMs = (config && typeof config.fastTypingCooldownMs === "number")
             ? config.fastTypingCooldownMs
-            : 1250; // Default cooldown after word boundary in ms
+            : SCENE_CONFIG.FAST_TYPING.DEFAULT_COOLDOWN_MS; // Default cooldown after word boundary in ms
         this._lastWordBoundaryTime = 0; // Timestamp of last word boundary
         this._warningMessages = [
             "Human, your input speed exceeds expected biological norms. Proceed at a pace befitting your species.",
@@ -40,14 +175,126 @@ export default class BaseGameScene extends Phaser.Scene {
         this.resetGameState();
         // Initialize scaling manager for responsive UI
         this.scalingManager = null;
+        
+        // Cache for frequently accessed values
+        this._cachedValues = {
+            centerX: null,
+            centerY: null,
+            menuBarHeight: null,
+            uiScale: null,
+            lastUserInput: null,
+            lastAutocomplete: null
+        };
+    }
+    
+    // Getter methods for clean access to cached device type
+    get isMobile() {
+        return this._isMobile;
+    }
+    
+    get isDesktop() {
+        return this._isDesktop;
+    }
+    
+    /**
+     * Calculate font size based on device type and base sizes
+     * @param {number} desktopBase - Base font size for desktop
+     * @param {number} mobileBase - Base font size for mobile
+     * @param {number} [mobileOffset=2] - Additional offset for mobile
+     * @returns {number} Calculated font size
+     */
+    calculateFontSize(desktopBase = 14, mobileBase = 24, mobileOffset = 2) {
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return this.isDesktop 
+            ? desktopBase * uiScale
+            : (mobileBase * uiScale) + mobileOffset;
+    }
+    
+    /**
+     * Get standard padding based on device type
+     */
+    getStandardPadding() {
+        return this.isMobile ? SCENE_CONFIG.PADDING.MOBILE : SCENE_CONFIG.PADDING.STANDARD;
+    }
+    
+    /**
+     * Get large padding based on device type
+     */
+    getLargePadding() {
+        return this.isMobile ? SCENE_CONFIG.PADDING.STANDARD : SCENE_CONFIG.PADDING.LARGE;
+    }
+    
+    /**
+     * Check if we're in shutdown/transition state
+     */
+    isInTransition() {
+        return this.isShuttingDown || this.isCleaningUp;
+    }
+    
+    /**
+     * Get cached centerX value
+     */
+    getCenterX() {
+        if (this._cachedValues.centerX === null) {
+            this._cachedValues.centerX = this.cameras.main.centerX;
+        }
+        return this._cachedValues.centerX;
+    }
+    
+    /**
+     * Get cached centerY value
+     */
+    getCenterY() {
+        if (this._cachedValues.centerY === null) {
+            this._cachedValues.centerY = this.cameras.main.centerY;
+        }
+        return this._cachedValues.centerY;
+    }
+    
+    /**
+     * Get cached menuBarHeight value
+     */
+    getMenuBarHeight() {
+        if (this._cachedValues.menuBarHeight === null) {
+            this._cachedValues.menuBarHeight = this.menuBarHeight || (this.scalingManager ? this.scalingManager.scaleValue(100) : 100);
+        }
+        return this._cachedValues.menuBarHeight;
+    }
+    
+    /**
+     * Get cached uiScale value
+     */
+    getUIScale() {
+        if (this._cachedValues.uiScale === null) {
+            this._cachedValues.uiScale = this.scalingManager?.uiScale || 1;
+        }
+        return this._cachedValues.uiScale;
     }
 
     create() {
         // Always initialize scaling manager for responsive UI
         this.scalingManager = new ScalingManager(this);
 
-        // ...existing create logic...
-
+        // Ensure input system is enabled and this scene is on top
+        if (this.input && this.input.keyboard) {
+            this.input.keyboard.enabled = true;
+        }
+        if (this.input) {
+            this.input.enabled = true;
+        }
+        if (this.sys && this.sys.inputPlugin && typeof this.sys.inputPlugin.start === "function") {
+            this.sys.inputPlugin.start();
+        }
+        if (this.scene && this.scene.bringToTop) {
+            this.scene.bringToTop();
+        }
+        // Ensure this scene is active and visible for input
+        if (this.scene && this.scene.setActive) {
+            this.scene.setActive(true);
+        }
+        if (this.scene && this.scene.setVisible) {
+            this.scene.setVisible(true);
+        }
         // Listen for custom-resize event from main.js for aspect ratio changes
         if (this.game && this.game.events) {
             this.game.events.on('custom-resize', ({ width, height, isPortrait }) => {
@@ -63,6 +310,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 }
             });
         }
+
     }
 
     /**
@@ -134,18 +382,15 @@ export default class BaseGameScene extends Phaser.Scene {
         this.bubbleTweens = [];
         this.isCleaningUp = false;
         this.modeIndicator = null;
-        this.COLORS_HEX = undefined;
-        this.COLORS_TEXT = undefined;
-        this.design = undefined;
-        this.OUTLINE_WIDTH = undefined;
-        this.CORNER_RADIUS = undefined;
-        this.PROGRESS_BAR = undefined;
+        // Only set style/config properties if not already set by child scene
+        if (this.COLORS_HEX === undefined) this.COLORS_HEX = COLORS_HEX;
+        if (this.COLORS_TEXT === undefined) this.COLORS_TEXT = COLORS_TEXT;
+        if (this.design === undefined) this.design = DESIGN.UI;
+        if (this.OUTLINE_WIDTH === undefined) this.OUTLINE_WIDTH = DESIGN.UI.OUTLINE.WIDTH;
+        if (this.CORNER_RADIUS === undefined) this.CORNER_RADIUS = DESIGN.UI.OUTLINE.CORNER_RADIUS;
+        if (this.PROGRESS_BAR === undefined) this.PROGRESS_BAR = DESIGN.UI.PROGRESS_BAR;
         this._fastTypingLockoutActive = false;
         // Add more as needed for full reset
-        // Defensive: log reset
-        if (typeof console !== "undefined") {
-            console.log("[BaseGameScene] resetGameState called");
-        }
     }
 
     /**
@@ -159,6 +404,13 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.scalingManager) {
             this.scalingManager.updateScaleRatios();
         }
+        
+        // Invalidate cached values when screen size changes
+        this._cachedValues.centerX = null;
+        this._cachedValues.centerY = null;
+        this._cachedValues.menuBarHeight = null;
+        this._cachedValues.uiScale = null;
+        
         // Call relayoutScene for child-specific layout logic
         if (typeof this.relayoutScene === "function") {
             this.relayoutScene(width, height, isPortrait);
@@ -172,143 +424,305 @@ export default class BaseGameScene extends Phaser.Scene {
      * @param {boolean} isPortrait
      */
     relayoutScene(width, height, isPortrait) {
-        // Dynamically layout all main UI elements vertically, scaling for device and screen size
-
         // Ensure scalingManager is up to date
         if (this.scalingManager) {
             this.scalingManager.updateScaleRatios();
         }
+
+        // Step 1: Destroy existing UI elements
+        this.destroyExistingUI();
+
+        // Step 2: Calculate UI positions
+        const positions = this.calculateUIPositions(width, height);
+
+        // Step 3: Create prompt section
+        const promptBoxInfo = this.createPromptSection(positions.promptY);
+
+        // Step 4: Create input section
+        this.createInputSection(positions, promptBoxInfo);
+
+        // Step 5: Create button section
+        this.createButtonSection(positions);
+
+        // Step 6: Create stats display
+        this.createStatsDisplay(positions.statsBoxWidth, positions.statsX, positions.statsY);
+
+        // Step 7: Final setup
+        this.finalizeLayout();
+    }
+
+    /**
+     * Destroy all existing UI elements before recreating them
+     */
+    destroyExistingUI() {
+        if (this.promptTextBox) { 
+            this.promptTextBox.destroy(); 
+            this.promptTextBox = null; 
+        }
+        if (this.promptText) { 
+            this.promptText.destroy(); 
+            this.promptText = null; 
+        }
+        if (this.inputTextBorder) { 
+            this.inputTextBorder.destroy(); 
+            this.inputTextBorder = null; 
+        }
+        if (this.inputText) { 
+            this.inputText.destroy(); 
+            this.inputText = null; 
+        }
+        if (this.autocompleteText) { 
+            this.autocompleteText.destroy(); 
+            this.autocompleteText = null; 
+        }
+        if (this.wordCountDisplay) { 
+            this.wordCountDisplay.destroy(); 
+            this.wordCountDisplay = null; 
+        }
+        if (this.failsCounter) { 
+            this.failsCounter.destroy(); 
+            this.failsCounter = null; 
+        }
+        if (this.failsText) { 
+            this.failsText.destroy(); 
+            this.failsText = null; 
+        }
+        if (this.suggestionBoxes) { 
+            this.suggestionBoxes.forEach(b => b.destroy()); 
+            this.suggestionBoxes = []; 
+        }
+        if (this.suggestionTexts) { 
+            this.suggestionTexts.forEach(t => t.destroy()); 
+            this.suggestionTexts = []; 
+        }
+        if (this.doneButton) {
+            this.doneButton.destroy();
+            this.doneButton = null;
+        }
+        if (this.feedbackButton) {
+            this.feedbackButton.destroy();
+            this.feedbackButton = null;
+        }
+    }
+
+    /**
+     * Calculate all UI element positions based on screen dimensions
+     * @returns {object} Object containing all calculated positions and dimensions
+     */
+    calculateUIPositions(width, height) {
         const sm = this.scalingManager;
-
-        // Remove or hide existing UI elements before re-creating them
-        if (this.promptTextBox) { this.promptTextBox.destroy(); this.promptTextBox = null; }
-        if (this.promptText) { this.promptText.destroy(); this.promptText = null; }
-        if (this.inputTextBorder) { this.inputTextBorder.destroy(); this.inputTextBorder = null; }
-        if (this.inputText) { this.inputText.destroy(); this.inputText = null; }
-        if (this.autocompleteText) { this.autocompleteText.destroy(); this.autocompleteText = null; }
-        if (this.wordCountDisplay) { this.wordCountDisplay.destroy(); this.wordCountDisplay = null; }
-        if (this.failsCounter) { this.failsCounter.destroy(); this.failsCounter = null; }
-        if (this.failsText) { this.failsText.destroy(); this.failsText = null; }
-        if (this.suggestionBoxes) { this.suggestionBoxes.forEach(b => b.destroy()); this.suggestionBoxes = []; }
-        if (this.suggestionTexts) { this.suggestionTexts.forEach(t => t.destroy()); this.suggestionTexts = []; }
-
-        // Menu bar (height is already dynamic in createMenuBar)
-        // Word stats panel
         const padding = sm.scaleValue(20);
         const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
-        let yCursor = menuBarHeight + padding;
+        const uiScale = sm.uiScale || 1;
 
-        // Word stats box
+        // Stats box calculations
+        const fixedRightMargin = this.isMobile ? 35 : 30;
+        const maxStatsWidth = this.isMobile ? 220 : 200;
+        const statsBoxWidth = Math.min(maxStatsWidth, Math.floor(width * (this.isMobile ? 0.35 : 0.2)));
         const statsBoxHeight = sm.scaleValue(130);
-        this.createWordCountDisplay();
-        this.wordCountDisplay.setPosition(width - sm.scaleValue(200) - padding, yCursor);
+        const statsX = width - statsBoxWidth - fixedRightMargin;
+        const statsY = menuBarHeight + padding;
 
-        // Prompt box
-        yCursor += statsBoxHeight + sm.scaleValue(20);
-        // Dynamically measure prompt box height
-        const promptText = this.currentPrompt || "Your prompt will appear here...";
-        const promptBoxWidth = width * (5 / 6);
-        const promptFontSize = sm.scaleText(18);
-        const tempPromptText = this.add.text(0, 0, promptText, {
-            ...this.getPromptTextStyle(),
-            fontSize: `${promptFontSize}px`,
-            wordWrap: { width: promptBoxWidth - padding * 2 }
-        }).setWordWrapWidth(promptBoxWidth - padding * 2);
-        let promptBoxHeight = tempPromptText.height + padding * 2;
-        promptBoxHeight = Phaser.Math.Clamp(promptBoxHeight, sm.scaleValue(60), sm.scaleValue(220));
-        tempPromptText.destroy();
+        // Prompt box calculations
+        const wordStatsBottom = statsY + statsBoxHeight;
+        const promptY = this.isMobile ? wordStatsBottom + padding + 60 : wordStatsBottom + padding + 80;
 
-        this.promptTextBox = this.add.graphics();
-        const boxStyle = this.getPromptBoxStyle();
-        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-        this.promptTextBox.fillRoundedRect(
-            sm.centerX() - promptBoxWidth / 2,
-            yCursor,
-            promptBoxWidth,
-            promptBoxHeight,
-            boxStyle.cornerRadius
-        );
-        if (boxStyle.hasOutline) {
-            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-            this.promptTextBox.strokeRoundedRect(
-                sm.centerX() - promptBoxWidth / 2,
-                yCursor,
-                promptBoxWidth,
-                promptBoxHeight,
-                boxStyle.cornerRadius
-            );
-        }
-        // Prompt text
-        this.promptText = this.add.text(
-            sm.centerX(),
-            yCursor + padding,
-            promptText,
-            {
-                ...this.getPromptTextStyle(),
-                fontSize: `${promptFontSize}px`,
-                wordWrap: { width: promptBoxWidth - padding * 2 }
-            }
-        ).setOrigin(0.5, 0);
+        // Input box calculations
+        this.uiBoxWidth = !this.isMobile
+            ? this.cameras.main.width * (5 / 6) * (2 / 3)
+            : this.cameras.main.width * (5 / 6);
+        const inputPadding = this.isMobile ? sm.scaleValue(24) : sm.scaleValue(28);
+        const inputBoxHeight = this.isMobile ? sm.scaleValue(170) : sm.scaleValue(180);
 
-        this.promptTextBox.setDepth(12);
-        this.promptText.setDepth(13);
+        // Button calculations
+        const buttonWidth = this.scalingManager.buttonWidth();
+        const buttonHeight = this.scalingManager.buttonHeight();
+        const buttonVerticalGap = this.isMobile ? 40 * uiScale : 30 * uiScale;
+        const horizontalOffset = this.isMobile ? 30 * uiScale : 60 * uiScale;
 
-        // Input box
-        yCursor += promptBoxHeight + sm.scaleValue(20);
-        this.uiBoxWidth = width * (5 / 6);
-        const inputBoxHeight = sm.scaleValue(240);
+        return {
+            width,
+            height,
+            padding,
+            menuBarHeight,
+            uiScale,
+            statsBoxWidth,
+            statsBoxHeight,
+            statsX,
+            statsY,
+            promptY,
+            inputPadding,
+            inputBoxHeight,
+            buttonWidth,
+            buttonHeight,
+            buttonVerticalGap,
+            horizontalOffset
+        };
+    }
 
+    /**
+     * Create the prompt text box section
+     * @param {number} promptY - Y position for prompt box
+     * @returns {object} Information about the created prompt box
+     */
+    createPromptSection(promptY) {
+        return this.createPromptTextBox(promptY);
+    }
+
+    /**
+     * Create the input text box and related elements
+     * @param {object} positions - Calculated positions object
+     * @param {object} promptBoxInfo - Information about the prompt box
+     */
+    createInputSection(positions, promptBoxInfo) {
+        const sm = this.scalingManager;
+        
+        // Calculate input box position
+        const inputBoxY = promptBoxInfo.boxY + promptBoxInfo.boxHeight + (this.isMobile ? 80 : 40);
+        const inputBoxX = sm.centerX() - this.uiBoxWidth / 2;
+
+        // Create input box graphics
         this.inputTextBorder = this.add.graphics();
         const inputBoxStyle = this.getInputBoxStyle();
+
+        this.inputTextBorder.fillRect(
+            inputBoxX,
+            inputBoxY,
+            this.uiBoxWidth,
+            positions.inputBoxHeight
+        );
         this.inputTextBorder.fillStyle(inputBoxStyle.fillColor, inputBoxStyle.fillAlpha);
         this.inputTextBorder.fillRoundedRect(
-            sm.centerX() - this.uiBoxWidth / 2,
-            yCursor,
+            inputBoxX,
+            inputBoxY,
             this.uiBoxWidth,
-            inputBoxHeight,
+            positions.inputBoxHeight,
             inputBoxStyle.cornerRadius
         ).setDepth(19);
+
         if (inputBoxStyle.hasOutline) {
             this.inputTextBorder.lineStyle(inputBoxStyle.outlineWidth, inputBoxStyle.outlineColor, 1);
             this.inputTextBorder.strokeRoundedRect(
-                sm.centerX() - this.uiBoxWidth / 2,
-                yCursor,
+                inputBoxX,
+                inputBoxY,
                 this.uiBoxWidth,
-                inputBoxHeight,
+                positions.inputBoxHeight,
                 inputBoxStyle.cornerRadius
             ).setDepth(20);
         }
-        // Input text
-        const inputFontSize = sm.scaleText(22);
+
+        // Create input text
+        const inputFontSize = this.calculateFontSize(14, 24, 2);
+        const textHorizontalPadding = positions.inputPadding;
+        const textVerticalPadding = this.isMobile ? positions.inputPadding * 0.6 : positions.inputPadding * 0.7;
+        
         this.inputText = this.add.rexBBCodeText(
-            sm.centerX() - this.uiBoxWidth / 2 + padding,
-            yCursor + padding,
+            inputBoxX + textHorizontalPadding,
+            inputBoxY + textVerticalPadding,
             this.userInput || "_",
             {
                 ...this.getInputTextStyle(),
                 fontSize: `${inputFontSize}px`,
-                wordWrap: { width: this.uiBoxWidth - padding * 2 }
+                wordWrap: { width: this.uiBoxWidth - textHorizontalPadding * 2 }
             }
         ).setOrigin(0, 0).setVisible(true).setDepth(25);
 
-        // Suggestions (if any)
-        // Place suggestions 1 scalable gap above the prompt box
-        // (You may want to call this.showSuggestions(this.aiSuggestedWords) here if needed)
+        // Store input box position for button placement
+        this.inputBoxY = inputBoxY;
+        this.inputBoxHeight = positions.inputBoxHeight;
+    }
 
-        // Fails counter (progress bar)
-        yCursor += inputBoxHeight + sm.scaleValue(20);
+    /**
+     * Create buttons and progress bar
+     * @param {object} positions - Calculated positions object
+     */
+    createButtonSection(positions) {
+        const sm = this.scalingManager;
+        
+        // Calculate button positions
+        const buttonX = (sm.centerX() - this.uiBoxWidth / 2 + this.uiBoxWidth) - 
+                       (positions.buttonWidth / 2) - positions.horizontalOffset;
+        const buttonY = this.inputBoxY + this.inputBoxHeight + positions.buttonVerticalGap + 
+                       (positions.buttonHeight / 2);
+
+        // Create progress bar
         this.createFailsCounter();
-        // Place fails counter below input box, left-aligned with input box
-        const scoreWidth = sm.scaleValue(115) * 2 + sm.scaleValue(40); // Button width * 2 + spacing
-        this.failsCounter.setPosition(sm.centerX() - this.uiBoxWidth / 2 + sm.scaleValue(70), yCursor).setDepth(50);
+        const progressBarX = sm.centerX() - this.uiBoxWidth / 2 + positions.horizontalOffset;
+        const progressBarY = buttonY - (positions.buttonHeight / 2);
+        this.failsCounter.setPosition(progressBarX, progressBarY).setDepth(50);
 
-        // Timer text (top left, unchanged)
+        // Create done button
+        this.doneButton = this.createButton(
+            "DONE",
+            () => this.onDoneButtonClick && this.onDoneButtonClick(),
+            buttonX,
+            buttonY,
+            "Submit your text for evaluation"
+        );
+
+        // Create feedback button
+        let feedbackButtonX = sm.scaleValue(30) + positions.buttonWidth / 2;
+        let feedbackButtonY = this.cameras.main.height - positions.buttonHeight / 2 - sm.scaleValue(30);
+        feedbackButtonX = Phaser.Math.Clamp(feedbackButtonX, positions.buttonWidth / 2, 
+                                           this.cameras.main.width - positions.buttonWidth / 2);
+        feedbackButtonY = Phaser.Math.Clamp(feedbackButtonY, positions.buttonHeight / 2, 
+                                           this.cameras.main.height - positions.buttonHeight / 2);
+
+        this.feedbackButton = this.createButton(
+            "FEEDBACK",
+            () => this.onFeedbackClick && this.onFeedbackClick(),
+            feedbackButtonX,
+            feedbackButtonY,
+            "Share your feedback"
+        );
+    }
+
+    /**
+     * Create the word count stats display
+     * @param {number} statsBoxWidth - Width of the stats box
+     * @param {number} statsX - X position
+     * @param {number} statsY - Y position
+     */
+    createStatsDisplay(statsBoxWidth, statsX, statsY) {
+        this.createWordCountDisplay(statsBoxWidth);
+        this.wordCountDisplay.setPosition(statsX, statsY);
+
+        // Position timer text if it exists
         if (this.timerText) {
+            const sm = this.scalingManager;
+            const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
             this.timerText.setPosition(sm.scaleValue(20), menuBarHeight + sm.scaleValue(20));
         }
+    }
 
-        // Ensure layering
-        this.ensureProperLayering();
+    /**
+     * Finalize the layout with proper layering and setup
+     */
+    finalizeLayout() {
+        // Add button click effects
+        if (this.addButtonClickEffects) {
+            this.addButtonClickEffects();
+        }
+
+        // Ensure proper layering
+        if (this.ensureProperLayering) {
+            this.ensureProperLayering();
+        }
+
+        // Ensure text visibility
+        if (this.ensureTextVisibility) {
+            this.ensureTextVisibility();
+        }
+
+        // Update cursor
+        if (this.updateCursor) {
+            this.updateCursor();
+        }
+
+        // Setup input handlers
+        if (this.setupInputHandlers) {
+            this.setupInputHandlers();
+        }
     }
 
     update() {
@@ -316,27 +730,14 @@ export default class BaseGameScene extends Phaser.Scene {
         if (this.isShuttingDown) return;
         
         if (!registryManager.get('llmEngine')) {
-            console.warn("LLM Engine missing entirely. Attempting to recover...");
             registryManager.attemptEngineRecovery((recoveredEngine) => {
-                if (recoveredEngine) {
-                    console.log("Engine successfully recovered in update cycle");
-                } else {
-                    console.error("Engine recovery failed in update cycle");
-                }
+                // Engine recovery attempt - no logging needed
             });
         }
     }
 
-    logRegistryChange() {
-        this.registry.events.on('changedata', (parent, key, data) => {
-            console.log(`Registry changed: ${key} = ${data}, ${data[0]} ${data[1]}`);
-        });
-    }
-
-    // The tryRecoverEngine method is no longer needed as we're using the registry manager
     createToggle(mode, callback, centerX, centerY, tooltipText) {
         if (!this.inputTextBorder) {
-            console.warn("Input text border not found! Skipping toggle creation.");
             return;
         }
         const toggle = ToggleFactory.createToggle(this, mode, callback, centerX, centerY);
@@ -368,9 +769,6 @@ export default class BaseGameScene extends Phaser.Scene {
             aiWordCount: 0
         };
         
-        // Safety check - log what we're transferring
-        console.log(`Transferring to ${mode} mode with reset data:`, dataToTransfer);
-        
         // Explicitly clear autocomplete suggestions before transition
         this.aiSuggestedWords = [];
         if (this.autocompleteText) {
@@ -381,14 +779,12 @@ export default class BaseGameScene extends Phaser.Scene {
         this.updateLevelModeIndicator();
         
         // Detect mobile device - skip fancy transitions for mobile
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         
         // Determine target scene
         const targetScene = mode === 'hard' ? 'GameSceneHard' : 'GameSceneEasy';
         
         // For mobile devices, use direct scene transition without effects
-        if (isMobile) {
-            console.log(`Mobile detected: Switching to ${mode} mode with direct transition`);
+        if (this.isMobile) {
             // Prepare for scene transition by cleaning up resources
             this.prepareForSceneTransition();
             // Start the scene directly without transition effects
@@ -457,6 +853,7 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         // Clean up input handlers to prevent ghost inputs
+        this.input.keyboard.removeAllListeners();
         this.input.keyboard.removeAllListeners('keydown');
         
         // Reset all visual elements to a stable state
@@ -469,7 +866,7 @@ export default class BaseGameScene extends Phaser.Scene {
             try {
                 this.inputText.setText('');
             } catch(e) {
-                console.warn("Could not reset input text during transition");
+                // Could not reset input text during transition
             }
         }
         
@@ -478,7 +875,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.autocompleteText.destroy();
                 this.autocompleteText = null;
             } catch(e) {
-                console.warn("Could not destroy autocomplete text during transition:", e);
+                // Could not destroy autocomplete text during transition
             }
         }
         
@@ -502,7 +899,6 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     shutdown() {
-        console.log("BaseGameScene shutdown");
         // Properly clean up all timers
         
         // Clear any active timeout
@@ -535,7 +931,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 this.autocompleteText.destroy();
                 this.autocompleteText = null;
             } catch(e) {
-                console.warn("Could not destroy autocomplete text during shutdown:", e);
+                // Could not destroy autocomplete text during shutdown
             }
         }
         
@@ -567,7 +963,6 @@ export default class BaseGameScene extends Phaser.Scene {
     // Common UI methods
     createButton(label, callback, centerX, centerY, tooltipText) {
         if (!this.inputTextBorder) {
-            console.warn("Input text border not found! Skipping button creation.");
             return;
         }
         // Ensure scalingManager is initialized
@@ -585,9 +980,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
         if (tooltipText) {
             // Add hover/click listeners for tooltip (desktop: hover, mobile: tap)
-            button.setInteractive();
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-            if (isMobile) {
+            if (this.isMobile) {
                 button.on('pointerdown', () => this.showTooltip(tooltipText, button.x, button.y - button.height));
                 button.on('pointerup', () => this.hideTooltips());
                 button.on('pointerout', () => this.hideTooltips());
@@ -604,10 +997,9 @@ export default class BaseGameScene extends Phaser.Scene {
         // Robust haptic/visual feedback for mobile, especially iOS
         const ua = navigator.userAgent || "";
         const isIOS = /iphone|ipad|ipod/i.test(ua);
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua) || window.screen.width < 900;
         const canVibrate = "vibrate" in navigator;
 
-        if (isMobile && canVibrate && !isIOS) {
+        if (this.isMobile && canVibrate && !isIOS) {
             try {
                 navigator.vibrate(100);
             } catch (e) {
@@ -617,25 +1009,25 @@ export default class BaseGameScene extends Phaser.Scene {
 
         // On iOS, use a stronger/longer shake and a quick flash for feedback
         if (isIOS) {
-            this.cameras.main.shake(400, 0.04); // More intense shake
+            this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.SHAKE_DURATION_IOS, SCENE_CONFIG.EFFECTS.SHAKE_INTENSITY_IOS); // More intense shake
             // Quick white flash overlay for extra feedback
             const flash = this.add.rectangle(
                 0, 0,
                 this.cameras.main.width,
                 this.cameras.main.height,
                 0xffffff,
-                0.18
+                SCENE_CONFIG.EFFECTS.FLASH_ALPHA_DEFAULT
             ).setOrigin(0).setDepth(999);
             this.tweens.add({
                 targets: flash,
                 alpha: 0,
-                duration: 180,
+                duration: SCENE_CONFIG.ANIMATIONS.FAST,
                 ease: 'Quad.Out',
                 onComplete: () => flash.destroy()
             });
         } else {
             // Default shake for other platforms
-            this.cameras.main.shake(250, 0.02);
+            this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.SHAKE_DURATION_DEFAULT, SCENE_CONFIG.EFFECTS.SHAKE_INTENSITY_DEFAULT);
         }
     }
 
@@ -645,8 +1037,7 @@ export default class BaseGameScene extends Phaser.Scene {
     miniScreenVibrate() {
         const ua = navigator.userAgent || "";
         const isIOS = /iphone|ipad|ipod/i.test(ua);
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua) || window.screen.width < 900;
-        if (isMobile) {
+        if (this.isMobile) {
             // Subtle, very short shake (40ms, low intensity)
             this.cameras.main.shake(40, 0.005);
             // Optionally, on iOS, a quick flash for extra feedback (comment out if too much)
@@ -670,22 +1061,25 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     createExplosionEffect(word, x, y) {
+        // Define required variables first
+        const uiScale = this.scalingManager ? this.scalingManager.uiScale || 1 : 1;
+        
         const explosion = this.add.text(x, y, word, {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '22px', 
+            fontSize: `${this.calculateFontSize(14, 24, 2)}px`,
             fill: '#ff0000', 
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(100); // Set a high depth value to ensure visibility
         
-        this.tweens.add({
-            targets: explosion,
-            scale: { from: 1, to: 4 }, // How big is the explosion?
-            alpha: { from: 1, to: 0 }, // Fix - proper alpha from 1 to 0
-            angle: { from: 0, to: 360 }, // Rotation
-            duration: 900,
-            ease: 'Back.easeOut',
-            onComplete: () => explosion.destroy()
-        });
+            this.tweens.add({
+                targets: explosion,
+                scale: { from: 1, to: 4 }, // How big is the explosion?
+                alpha: { from: 1, to: 0 }, // Fix - proper alpha from 1 to 0
+                angle: { from: 0, to: 360 }, // Rotation
+                duration: SCENE_CONFIG.ANIMATIONS.SLOW + 100,
+                ease: 'Back.easeOut',
+                onComplete: () => explosion.destroy()
+            });
     }
 
     clearInputTextBox() {
@@ -716,12 +1110,10 @@ export default class BaseGameScene extends Phaser.Scene {
                     this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
                 
                 if (isAIWord) {
-                    console.log("AI word used:", lastWord);
                     this.updateFailsCounter(false);
                     // Call shakeScreen for mobile when an AI word is detected
                     this.shakeScreen();
                 } else {
-                    console.log("Non-AI word used:", lastWord);
                     this.updateFailsCounter(true);
                 }
             }
@@ -731,8 +1123,8 @@ export default class BaseGameScene extends Phaser.Scene {
         const outlineColorString = '#' + outlineColorHex.toString(16).padStart(6, '0');
 
         const evaluatingText = this.add.text(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY,
+            this.getCenterX(),
+            this.getCenterY(),
             'Assessing your feeble attempt...',
             {
                 fontFamily: 'IBM Plex Mono',
@@ -758,11 +1150,10 @@ export default class BaseGameScene extends Phaser.Scene {
             alpha: { from: 0, to: 1 },
             yoyo: true,
             repeat: -1,
-            duration: 500,
+            duration: SCENE_CONFIG.ANIMATIONS.MEDIUM,
             ease: 'Sine.InOut'
         });
 
-        console.log("userinput: ", this.userInput);
         try {
             const output = await this.evaluateText(this.userInput);
             // Clean up the evaluating text
@@ -782,11 +1173,8 @@ export default class BaseGameScene extends Phaser.Scene {
             };
             
             // Detect if on mobile device - skip transitions for mobile
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-            
-            if (isMobile) {
+            if (this.isMobile) {
                 // For mobile: direct scene transition without effects to avoid freezing
-                console.log("Mobile detected: Starting DoneScene with direct transition");
                 this.scene.start('DoneScene', sceneData);
             } else {
                 // For desktop: use the transition manager for a smooth transition
@@ -805,7 +1193,9 @@ export default class BaseGameScene extends Phaser.Scene {
                 'System error. Even I am not immune to failure. Try again.',
                 {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
+                fontSize: isDesktop
+                    ? 14 * uiScale
+                    : 24 * uiScale + (isMobile ? 2 : 0),
                 fill: '#ff0000',
                 backgroundColor: '#000000',
                 padding: { x: 20, y: 10 }
@@ -820,10 +1210,6 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     async evaluateText(userInput) {
-
-        console.log("Evaluating user input:", userInput);
-
-    
         const promptForEvaluation = this.currentPrompt || "No specific prompt was provided.";
     
         const messages = [
@@ -870,7 +1256,6 @@ export default class BaseGameScene extends Phaser.Scene {
         }
         
         const responseData = await response.json();
-        console.log("Response from OpenAI:", responseData);
         let aiResponse = responseData.content.trim();
 
         // Parse scores from aiResponse
@@ -920,7 +1305,6 @@ export default class BaseGameScene extends Phaser.Scene {
         };
 
         saveInteraction(interaction, "userSubmissions");
-        console.log("ai response:", finalOutput);
         return finalOutput
         
     }
@@ -967,8 +1351,6 @@ export default class BaseGameScene extends Phaser.Scene {
         // Minimal logging - only if there's an issue
         if (!llmEngine) {
             if (requestId !== this.suggestionRequestId) return;
-            console.warn("LLM Engine missing in generateAISuggestions. Attempting recovery...");
-            
             // Mark processing as complete even when engine is missing
             this.keyProcessingComplete = true;
             
@@ -976,7 +1358,6 @@ export default class BaseGameScene extends Phaser.Scene {
             registryManager.attemptEngineRecovery((recoveredEngine) => {
                 if (recoveredEngine && this.userInput === inputAtRequest) {
                     // If we recovered the engine and the input hasn't changed, retry
-                    console.log("Engine recovered, retrying suggestion generation");
                     this.generateAISuggestions(inputAtRequest);
                 }
             });
@@ -986,23 +1367,17 @@ export default class BaseGameScene extends Phaser.Scene {
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         const trimmedcontext = "[ENGLISH ONLY] " + this.currentPrompt + ":\n"+ context.trim();
         
-        // Add retry logic with minimal logging
+        // Add retry logic
         try {
-            console.log("[AISUGGEST] llmEngine:", llmEngine);
-            console.log("[AISUGGEST] trimmedcontext:", trimmedcontext);
-
             // Use the engine from registry manager (transformers.js pipeline)
             const output = await llmEngine(trimmedcontext, { max_new_tokens: 1 });
-            console.log("[AISUGGEST] output from llmEngine:", output);
 
             // Only process the result if this is the latest request AND input matches current userInput
             if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
-                console.log("[AISUGGEST] Request ID or input mismatch, aborting suggestion update.");
                 return;
             }
 
             if (!output || !Array.isArray(output) || output.length === 0 || !output[0].generated_text) {
-                console.warn("[AISUGGEST] No output or generated_text from llmEngine.");
                 this.aiSuggestedWords = [];
                 this.showSuggestions([]);
                 if (this.autocompleteText) {
@@ -1013,40 +1388,33 @@ export default class BaseGameScene extends Phaser.Scene {
 
             // Get the generated text, split into words, filter stopwords/punctuation, and take topK
             let suggestion = output[0].generated_text.trim();
-            console.log("[AISUGGEST] Raw suggestion:", suggestion);
 
             // Remove the prompt context from the start if present
             if (suggestion.startsWith(trimmedcontext)) {
                 suggestion = suggestion.slice(trimmedcontext.length).trim();
-                console.log("[AISUGGEST] Suggestion after context removal:", suggestion);
             }
             // Split into words, filter, and deduplicate
             let words = suggestion.split(/\s+/)
                 .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "")) // Remove leading/trailing punctuation
                 .filter(word => word && !stopwords.includes(word.toLowerCase()));
-            console.log("[AISUGGEST] Filtered words:", words);
 
             // Only keep unique, non-empty words
             const uniqueSuggestedWords = Array.from(new Set(words)).slice(0, this.topKValue);
-            console.log("[AISUGGEST] uniqueSuggestedWords:", uniqueSuggestedWords);
 
             this.aiSuggestedWords = uniqueSuggestedWords;
             this.showSuggestions(uniqueSuggestedWords);
             this.updateCursor(); // Ensure UI refreshes with the latest suggestion
 
-            // Only log performance issues
+            // Only track performance issues
             const endTime = performance.now();
             const duration = endTime - startTime;
-            if (duration > 100) {
-                console.log(`AI suggestion generation took ${duration.toFixed(2)}ms`);
-            }
-        } catch (error) {
-            console.error("Error processing suggestion results:", error);
-            this.aiSuggestedWords = [];
-            this.showSuggestions([]);
-            if (this.autocompleteText) {
-                this.autocompleteText.setText('');
-            }
+            } catch (error) {
+                // Error processing suggestion results
+                this.aiSuggestedWords = [];
+                this.showSuggestions([]);
+                if (this.autocompleteText) {
+                    this.autocompleteText.setText('');
+                }
         } finally {
             this.isProcessingQueuedKeys = false; // Unlock queue processing at end
             // Don't reset isGeneratingAISuggestions here - let generateAISuggestionsWithQueue handle it
@@ -1054,9 +1422,21 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     // Template methods with customization hooks
-    createPromptTextBox() {
-        const padding = 20;
-        const textBoxWidth = this.cameras.main.width * (5 / 6);
+    /**
+     * Create the prompt text box at a given y position.
+     * @param {number} yStart - The y position to start placing the prompt box.
+     * @returns {object} { boxBottom: number } - The bottom y-value after the prompt box.
+     */
+    createPromptTextBox(yStart) {
+        // Add 40px to yStart to move the prompt box down
+        yStart += 40;
+        
+        const padding = this.getLargePadding();
+        const mobilePadding = this.getStandardPadding();
+        const centerX = this.getCenterX();
+        const textBoxWidth = !this.isMobile
+            ? this.cameras.main.width * (5 / 6) * (2 / 3)
+            : this.cameras.main.width * (5 / 6);
 
         if (this.promptTextBox) {
             this.promptTextBox.clear();
@@ -1069,93 +1449,139 @@ export default class BaseGameScene extends Phaser.Scene {
         }
 
         const defaultText = "Your prompt will appear here...";
-        const style = {
-            ...this.getPromptTextStyle(),
-            fontSize: `${this.scalingManager ? this.scalingManager.scaleText(18) : 18}px`,
-            wordWrap: { width: textBoxWidth - padding * 2 }
-        };
+        let promptString = this.currentPrompt || defaultText;
 
-        // --- MOBILE-AWARE PROMPT BOX HEIGHT ---
-        // Detect mobile device
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        let boxHeight = 80; // Default for desktop
+        const fontSize = this.calculateFontSize(14, 24, 2);
 
-if (isMobile) {
-    // Use the actual prompt (if available) or default text
-    const promptText = this.currentPrompt || defaultText;
-    // Create a temporary text object to measure height, matching the real text's position and origin
-    const tempText = this.add.text(
-        this.cameras.main.centerX,
-        0, // y doesn't affect wrapping, but keep it top-aligned
-        promptText,
-        style
-    )
-    .setOrigin(0.5, 0) // Center horizontally, top-aligned vertically
-    .setWordWrapWidth(textBoxWidth - padding * 2);
-    // Clamp height: min 60, max 220 (allow more lines for long prompts)
-    const measuredHeight = tempText.height;
-    boxHeight = Phaser.Math.Clamp(measuredHeight + padding * 2, 60, 220);
-    tempText.destroy();
-}
+        let promptTextObj, textHeight, boxHeight, boxStyle, promptY;
 
-        const boxStyle = this.getPromptBoxStyle();
+        if (this.isMobile) {
+            // MOBILE: vertically centered, smaller padding, larger max height, minimum 3 lines
+            const effectivePadding = mobilePadding;
+            const style = {
+                ...this.getPromptTextStyle(),
+                fontSize: `${fontSize}px`,
+                wordWrap: { width: textBoxWidth - effectivePadding * 2 }
+            };
+            // Create a temp text object with 3 lines to measure minimum height
+            const temp3Lines = this.add.rexBBCodeText(
+                0, 0,
+                "A\nB\nC",
+                style
+            );
+            const min3LineHeight = temp3Lines.height;
+            temp3Lines.destroy();
 
-        // Calculate position below Word Stats panel
-        const statsBoxWidth = 200;
-        const statsBoxHeight = 130;
-        const statsDisplayY = this.menuBarHeight + padding;
-        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+            promptTextObj = this.add.rexBBCodeText(
+                centerX,
+                yStart,
+                promptString,
+                style
+            ).setOrigin(0.5, 0.5); // Center horizontally and vertically
 
-        // Set the prompt box 20px below the Word Stats panel
-        const promptY = statsBottomEdge + 20;
+            textHeight = promptTextObj.height;
+            // Ensure box is at least high enough for 3 lines
+            boxHeight = Math.max(min3LineHeight + effectivePadding * 2, textHeight + effectivePadding * 2, 60);
+            boxHeight = Math.min(boxHeight, 300);
+            boxStyle = this.getPromptBoxStyle();
+            // Calculate the position where the box should be centered vertically relative to yStart
+            promptY = yStart - boxHeight / 2;
 
-        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+            // TEMP: Draw a visible background color for debugging
+            //this.promptTextBox.fillStyle(0xffff00, 0.5); // semi-transparent yellow
 
-        this.promptTextBox.fillRoundedRect(
-            this.cameras.main.centerX - textBoxWidth / 2,
-            promptY,
-            textBoxWidth,
-            boxHeight,
-            boxStyle.cornerRadius
-        );
-
-        if (boxStyle.hasOutline) {
-            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-            this.promptTextBox.strokeRoundedRect(
-                this.cameras.main.centerX - textBoxWidth / 2,
+        
+            this.promptTextBox.fillRect(
+                centerX - textBoxWidth / 2,
+                promptY,
+                textBoxWidth,
+                boxHeight
+            );
+            this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+            this.promptTextBox.fillRoundedRect(
+                centerX - textBoxWidth / 2,
                 promptY,
                 textBoxWidth,
                 boxHeight,
                 boxStyle.cornerRadius
             );
-        }
-
-        // On mobile, top-align the text; on desktop, keep it centered
-        if (isMobile) {
-            this.promptText = this.add.text(
-                this.cameras.main.centerX,
-                promptY + padding,
-                defaultText,
-                style
-            ).setOrigin(0.5, 0); // Center horizontally, top-aligned vertically
+            if (boxStyle.hasOutline) {
+                this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+                this.promptTextBox.strokeRoundedRect(
+                    centerX - textBoxWidth / 2,
+                    promptY,
+                    textBoxWidth,
+                    boxHeight,
+                    boxStyle.cornerRadius
+                );
+            }
+            // Set text position to match yStart exactly (centered in box)
+            promptTextObj.setY(yStart);
         } else {
-            this.promptText = this.add.text(
-                this.cameras.main.centerX,
-                promptY + boxHeight / 2,
-                defaultText,
+            // DESKTOP: vertically centered, larger padding, smaller max height
+            
+            const effectivePadding = padding;
+            const style = {
+                ...this.getPromptTextStyle(),
+                fontSize: `${fontSize}px`,
+                wordWrap: { width: textBoxWidth - effectivePadding * 2 }
+            };
+            // Temporarily place at yStart, will adjust after measuring height
+            promptTextObj = this.add.rexBBCodeText(
+                centerX,
+                yStart,
+                promptString,
                 style
             ).setOrigin(0.5, 0.5);
+
+            textHeight = promptTextObj.height;
+            boxHeight = Phaser.Math.Clamp(textHeight + effectivePadding * 2, 60, 220);
+            boxStyle = this.getPromptBoxStyle();
+            // Calculate the position where the box should be centered vertically relative to yStart
+            promptY = yStart - boxHeight / 2;
+
+            this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+            this.promptTextBox.fillRoundedRect(
+                centerX - textBoxWidth / 2,
+                promptY,
+                textBoxWidth,
+                boxHeight,
+                boxStyle.cornerRadius
+            );
+            if (boxStyle.hasOutline) {
+                this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+                this.promptTextBox.strokeRoundedRect(
+                    centerX - textBoxWidth / 2,
+                    promptY,
+                    textBoxWidth,
+                    boxHeight,
+                    boxStyle.cornerRadius
+                );
+            }
+            // Set text position to match yStart exactly
+            promptTextObj.setY(yStart);
         }
-        this.promptTextBox.setDepth(12);
-        this.promptText.setDepth(13);
+
+        this.promptText = promptTextObj;
+        this.promptTextBox.setDepth(102);
+        this.promptText.setDepth(103);
 
         this.updatePromptBasedOnLevel();
+
+        // Return the bottom y-value for stacking and the actual box position/size for debug
+        return {
+            boxBottom: promptY + boxHeight,
+            boxX: centerX - textBoxWidth / 2,
+            boxY: promptY,
+            boxWidth: textBoxWidth,
+            boxHeight: boxHeight
+        };
     }
 
     createInputTextBox() {
-        const padding = 30;
+        const padding = SCENE_CONFIG.PADDING.LARGE;
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-        const textBoxHeight = 240;
+        const textBoxHeight = SCENE_CONFIG.BOX_DIMENSIONS.INPUT_HEIGHT;
         
         // Calculate position below Word Stats panel and prompt box
         const statsBoxWidth = 180;
@@ -1163,8 +1589,8 @@ if (isMobile) {
         const statsDisplayY = this.menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
         
-        // Prompt box is 20px below stats box
-        const promptY = statsBottomEdge + 20;
+        // Prompt box is 60px below stats box (increased by 40px)
+        const promptY = statsBottomEdge + 60;
         const promptBoxHeight = 80;
         const promptBottomEdge = promptY + promptBoxHeight;
         
@@ -1210,11 +1636,15 @@ if (isMobile) {
                 boxStyle.cornerRadius
             ).setDepth(20);
         }
+
+        const fontSize = isDesktop
+            ? 14 * uiScale
+            : 24 * uiScale + (isMobile ? 2 : 0);
         
         // Create a single text object with enhanced styling capabilities
         const textStyle = {
             ...this.getInputTextStyle(),
-            fontSize: `${this.scalingManager ? this.scalingManager.scaleText(22) : 22}px`,
+            fontSize: `${fontSize}px`,
             wordWrap: { width: this.uiBoxWidth - padding * 2 }
         };
         
@@ -1245,6 +1675,199 @@ if (isMobile) {
         this.setupInputHandlers();
     }
 
+    // Initialize key handlers map
+    initializeKeyHandlers() {
+        this.keyHandlers = {
+            ' ': this.handleSpaceKey.bind(this),
+            'Tab': this.handleTabKey.bind(this),
+            'Enter': this.handleEnterKey.bind(this),
+            'Backspace': this.handleBackspaceKey.bind(this)
+        };
+    }
+
+    // Handle space key
+    handleSpaceKey(event, done) {
+        // Record the timestamp of the word boundary
+        this._lastWordBoundaryTime = Date.now();
+        // Set flag immediately to indicate AI suggestions are being generated
+        this.isGeneratingAISuggestions = true;
+        
+        try {
+            // Safely handle word checking with maximum safeguards
+            if (this.userInput && typeof this.userInput === 'string') {
+                const trimmedInput = this.userInput.trim();
+                if (trimmedInput && trimmedInput.length > 0) {
+                    const words = trimmedInput.split(" ");
+                    if (words && Array.isArray(words) && words.length > 0) {
+                        const lastWordIndex = words.length - 1;
+                        if (lastWordIndex >= 0) {
+                            const lastWord = words[lastWordIndex];
+                            if (lastWord && typeof lastWord === 'string' && lastWord.length > 0) {
+                                const lastWordLower = lastWord.toLowerCase();
+                                
+                                // Check if AI suggested words array exists and is an array before using .some()
+                                const aiWordsValid = this.aiSuggestedWords && 
+                                    Array.isArray(this.aiSuggestedWords) && 
+                                    this.aiSuggestedWords.length > 0;
+                                    
+                                let isAIWord = false;
+                                if (aiWordsValid) {
+                                    isAIWord = this.aiSuggestedWords.some(word => {
+                                        return word && typeof word === 'string' && word.toLowerCase && word.toLowerCase() === lastWordLower;
+                                    });
+                                }
+                                
+                                if (isAIWord) {
+                                    this.updateFailsCounter(false);
+                                    // Call shakeScreen for mobile when an AI word is detected
+                                    this.shakeScreen();
+                                    
+                                    // Call showBlockFeedback in hard mode
+                                    if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
+                                        this.showBlockFeedback(lastWord);
+                                    }
+                                } else {
+                                    this.updateFailsCounter(true);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error processing space key:", error);
+            // Continue even if there's an error with word checking
+        }
+        
+        // Reset timer when space is pressed
+        this.timerValue = SCENE_CONFIG.TIMER.DEFAULT_VALUE;
+        if (this.timerText) {
+            this.timerText.setText('0:20');
+        }
+        
+        this.userInput += " ";
+        this.updateCursor();
+        // Block queue until async suggestion generation is fully complete
+        this.generateAISuggestionsWithQueue(done);
+    }
+
+    // Handle Tab key
+    handleTabKey(event, done) {
+        // Safely call preventDefault if available (for queued events, this may not exist)
+        if (typeof event.preventDefault === "function") {
+            event.preventDefault();
+        } else if (event.originalEvent && typeof event.originalEvent.preventDefault === "function") {
+            event.originalEvent.preventDefault();
+        }
+        
+        if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
+            const lastSpaceIndex = this.userInput.lastIndexOf(' ');
+            const lastNewlineIndex = this.userInput.lastIndexOf('\n');
+            const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+            const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
+            const previousContent = lastBreakIndex >= 0 ? this.userInput.slice(0, lastBreakIndex + 1) : '';
+
+            let suggestionToUse = null;
+            if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
+                suggestionToUse = this.aiSuggestedWords[0];
+            } else {
+                suggestionToUse = this.aiSuggestedWords.find(word =>
+                    word.toLowerCase().startsWith(currentWord.toLowerCase())
+                );
+            }
+            
+            if (suggestionToUse) {
+                this.userInput = previousContent + suggestionToUse + ' ';
+                this.updateFailsCounter(false);
+                // Call shakeScreen for mobile when Tab is used to select an AI word
+                this.shakeScreen();
+                
+                // Call showBlockFeedback in hard mode
+                if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
+                    this.showBlockFeedback(suggestionToUse);
+                }
+                
+                this.updateCursor();
+                // Block queue until async suggestion generation is fully complete
+                this.generateAISuggestionsWithQueue(done);
+                return;
+            }
+        }
+        
+        if (done) done();
+    }
+
+    // Handle Enter key
+    handleEnterKey(event, done) {
+        // Record the timestamp of the word boundary
+        this._lastWordBoundaryTime = Date.now();
+        // Set flag immediately to indicate AI suggestions are being generated
+        this.isGeneratingAISuggestions = true;
+        
+        // Safely handle word checking with the same safety pattern
+        if (this.userInput && this.userInput.trim()) {
+            const words = this.userInput.trim().split(" ");
+            if (words && words.length > 0) {
+                const lastWord = words[words.length - 1];
+                if (lastWord && lastWord.length > 0) {
+                    const lastWordLower = lastWord.toLowerCase();
+                    // Check if AI suggested words array exists and is an array before using .some()
+                    const isAIWord = this.aiSuggestedWords && 
+                        Array.isArray(this.aiSuggestedWords) &&
+                        this.aiSuggestedWords.some(word => word && word.toLowerCase && word.toLowerCase() === lastWordLower);
+                    if (isAIWord) {
+                        this.updateFailsCounter(false);
+                        // Call shakeScreen for mobile when an AI word is detected
+                        this.shakeScreen();
+                        
+                        // Call showBlockFeedback in hard mode
+                        if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
+                            this.showBlockFeedback(lastWord);
+                        }
+                    } else {
+                        this.updateFailsCounter(true);
+                    }
+                }
+            }
+        }
+        
+        // Reset timer when Enter is pressed
+        this.timerValue = SCENE_CONFIG.TIMER.DEFAULT_VALUE;
+        if (this.timerText) {
+            this.timerText.setText('0:20');
+        }
+        
+        this.userInput += "\n";
+        this.updateCursor();
+        // Block queue until async suggestion generation is fully complete
+        this.generateAISuggestionsWithQueue(done);
+    }
+
+    // Handle Backspace key
+    handleBackspaceKey(event, done) {
+        this.userInput = this.userInput.slice(0, -1);
+        this.updateCursor();
+        // Block queue until async suggestion generation is fully complete
+        this.generateAISuggestionsWithQueue(done);
+    }
+
+    // Handle printable characters
+    handlePrintableCharacter(event, done) {
+        this.userInput += event.key;
+
+        // Reset timer when a period is typed
+        if (event.key === '.') {
+            this.timerValue = 20;
+            if (this.timerText) {
+                this.timerText.setText('0:20');
+            }
+        }
+
+        this.updateCursor();
+        // Block queue until async suggestion generation is fully complete
+        this.generateAISuggestionsWithQueue(done);
+    }
+
     // Updated: handleSingleKeyEvent now supports async queueing
     handleSingleKeyEvent(event, done) {
         // This is the main logic extracted from original keydown handler's try block
@@ -1254,7 +1877,6 @@ if (isMobile) {
 
             // Mini vibrate on every keystroke for mobile (except ignored keys)
             const ua = navigator.userAgent || "";
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua) || window.screen.width < 900;
             const ignoreKeys = [
                 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock',
                 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5',
@@ -1264,7 +1886,7 @@ if (isMobile) {
                 'ArrowLeft', 'ArrowDown', 'ArrowUp'
             ];
             if (
-                isMobile &&
+                this.isMobile &&
                 event &&
                 event.key &&
                 !ignoreKeys.includes(event.key)
@@ -1296,191 +1918,30 @@ if (isMobile) {
             }
             this.activeTimeout = setTimeout(() => {
                 this.isActivelyTyping = false;
-            }, 500);
-
-            // (ignoreKeys already declared above, do not redeclare)
+            }, SCENE_CONFIG.ANIMATIONS.TYPING_TIMEOUT);
 
             if (ignoreKeys.includes(event.key)) {
                 if (done) done();
                 return;
             }
 
+            // Initialize key handlers if not already done
+            if (!this.keyHandlers) {
+                this.initializeKeyHandlers();
+            }
+
             // --- Main Key Processing Logic ---
-            const finish = () => { if (done) done(); };
-
-if (event.key === " ") {
-    // Record the timestamp of the word boundary
-    this._lastWordBoundaryTime = Date.now();
-                // Set flag immediately to indicate AI suggestions are being generated
-                this.isGeneratingAISuggestions = true;
-                console.log("[KEY QUEUE] Processing SPACE key, blocking queue until suggestions complete");
-                try {
-                    // Safely handle word checking with maximum safeguards
-                    if (this.userInput && typeof this.userInput === 'string') {
-                        const trimmedInput = this.userInput.trim();
-                        if (trimmedInput && trimmedInput.length > 0) {
-                            const words = trimmedInput.split(" ");
-                            if (words && Array.isArray(words) && words.length > 0) {
-                                const lastWordIndex = words.length - 1;
-                                if (lastWordIndex >= 0) {
-                                    const lastWord = words[lastWordIndex];
-                                    if (lastWord && typeof lastWord === 'string' && lastWord.length > 0) {
-                                        const lastWordLower = lastWord.toLowerCase();
-                                        
-                                        // Check if AI suggested words array exists and is an array before using .some()
-                                        const aiWordsValid = this.aiSuggestedWords && 
-                                            Array.isArray(this.aiSuggestedWords) && 
-                                            this.aiSuggestedWords.length > 0;
-                                            
-                                        let isAIWord = false;
-                                        if (aiWordsValid) {
-                                            isAIWord = this.aiSuggestedWords.some(word => {
-                                                return word && typeof word === 'string' && word.toLowerCase && word.toLowerCase() === lastWordLower;
-                                            });
-                                        }
-                                        
-                                        if (isAIWord) {
-                                            console.log("AI word used:", lastWord);
-                                            this.updateFailsCounter(false);
-                                            // Call shakeScreen for mobile when an AI word is detected
-                                            this.shakeScreen();
-                                            
-                                            // Call showBlockFeedback in hard mode
-                                            if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
-                                                this.showBlockFeedback(lastWord);
-                                            }
-                                        } else {
-                                            console.log("Non-AI word used:", lastWord);
-                                            this.updateFailsCounter(true);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error("Error processing space key:", error);
-                    // Continue even if there's an error with word checking
-                }
-                // Reset timer when space is pressed
-                this.timerValue = 20;
-                if (this.timerText) {
-                    this.timerText.setText('0:20');
-                }
-                
-                this.userInput += " ";
-                this.updateCursor();
-                // Block queue until async suggestion generation is fully complete
-                this.generateAISuggestionsWithQueue(done);
-            } else if (event.key === "Tab") {
-                console.log("[KEY QUEUE] Processing TAB key, blocking queue until suggestions complete");
-                // Safely call preventDefault if available (for queued events, this may not exist)
-                if (typeof event.preventDefault === "function") {
-                    event.preventDefault();
-                } else if (event.originalEvent && typeof event.originalEvent.preventDefault === "function") {
-                    event.originalEvent.preventDefault();
-                }
-                if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-                    const lastSpaceIndex = this.userInput.lastIndexOf(' ');
-                    const lastNewlineIndex = this.userInput.lastIndexOf('\n');
-                    const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
-                    const currentWord = lastBreakIndex >= 0 ? this.userInput.slice(lastBreakIndex + 1) : this.userInput;
-                    const previousContent = lastBreakIndex >= 0 ? this.userInput.slice(0, lastBreakIndex + 1) : '';
-
-                    let suggestionToUse = null;
-                    if (!currentWord || currentWord.endsWith(' ') || currentWord.endsWith('\n')) {
-                        suggestionToUse = this.aiSuggestedWords[0];
-                    } else {
-                        suggestionToUse = this.aiSuggestedWords.find(word =>
-                            word.toLowerCase().startsWith(currentWord.toLowerCase())
-                        );
-                    }
-                    
-                    if (suggestionToUse) {
-                        this.userInput = previousContent + suggestionToUse + ' ';
-                        console.log("AI word used (Tab):", suggestionToUse);
-                        this.updateFailsCounter(false);
-                        // Call shakeScreen for mobile when Tab is used to select an AI word
-                        this.shakeScreen();
-                        
-                        // Call showBlockFeedback in hard mode
-                        if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
-                            this.showBlockFeedback(suggestionToUse);
-                        }
-                        
-                        this.updateCursor();
-                        // Block queue until async suggestion generation is fully complete
-                        this.generateAISuggestionsWithQueue(done);
-                        return;
-                    }
-                }
-                finish();
-            } else if (event.key.length === 1) { // Printable characters
-                this.userInput += event.key;
-
-                // Reset timer when a period is typed
-                if (event.key === '.') {
-                    this.timerValue = 20;
-                    if (this.timerText) {
-                        this.timerText.setText('0:20');
-                    }
-                }
-
-                this.updateCursor();
-                // Block queue until async suggestion generation is fully complete
-                this.generateAISuggestionsWithQueue(done);
-            } else if (event.key === "Backspace") {
-                this.userInput = this.userInput.slice(0, -1);
-                this.updateCursor();
-                // Block queue until async suggestion generation is fully complete
-                this.generateAISuggestionsWithQueue(done);
-} else if (event.key === "Enter") {
-    // Record the timestamp of the word boundary
-    this._lastWordBoundaryTime = Date.now();
-                // Set flag immediately to indicate AI suggestions are being generated
-                this.isGeneratingAISuggestions = true;
-                console.log("[KEY QUEUE] Processing ENTER key, blocking queue until suggestions complete");
-                // Safely handle word checking with the same safety pattern
-                if (this.userInput && this.userInput.trim()) {
-                    const words = this.userInput.trim().split(" ");
-                    if (words && words.length > 0) {
-                        const lastWord = words[words.length - 1];
-                        if (lastWord && lastWord.length > 0) {
-                            const lastWordLower = lastWord.toLowerCase();
-                            // Check if AI suggested words array exists and is an array before using .some()
-                            const isAIWord = this.aiSuggestedWords && 
-                                Array.isArray(this.aiSuggestedWords) &&
-                                this.aiSuggestedWords.some(word => word && word.toLowerCase && word.toLowerCase() === lastWordLower);
-                            if (isAIWord) {
-                                console.log("AI word used:", lastWord);
-                                this.updateFailsCounter(false);
-                                // Call shakeScreen for mobile when an AI word is detected
-                                this.shakeScreen();
-                                
-                                // Call showBlockFeedback in hard mode
-                                if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
-                                    this.showBlockFeedback(lastWord);
-                                }
-                            } else {
-                                console.log("Non-AI word used:", lastWord);
-                                this.updateFailsCounter(true);
-                            }
-                        }
-                    }
-                }
-                
-                // Reset timer when Enter is pressed
-                this.timerValue = 20;
-                if (this.timerText) {
-                    this.timerText.setText('0:20');
-                }
-                
-                this.userInput += "\n";
-                this.updateCursor();
-                // Block queue until async suggestion generation is fully complete
-                this.generateAISuggestionsWithQueue(done);
+            const handler = this.keyHandlers[event.key];
+            
+            if (handler) {
+                // Use specific handler for known keys
+                handler(event, done);
+            } else if (event.key.length === 1) {
+                // Handle printable characters
+                this.handlePrintableCharacter(event, done);
             } else {
-                finish();
+                // Unknown key, just finish
+                if (done) done();
             }
         } catch (error) {
             console.error("Error processing single key event:", error, event);
@@ -1533,10 +1994,8 @@ if (event.key === " ") {
 
 
     triggerProcessQueue() {
-        console.log("TRIGGERPROCESSQUEUE");
         // Don't process if shutting down, already processing, or AI suggestions are being generated
         if (this.isShuttingDown || this.isProcessingQueuedKeys || !this.keyProcessingComplete) {
-            console.log("KEY PROCESSING NOT COMPLETE, FIRST CLAUSE");
             return; 
         }
         
@@ -1645,15 +2104,15 @@ if (event.key === " ") {
             if (currentInput === this.userInput && !this.isShuttingDown) {
                 this.generateAISuggestions(currentInput);
             }
-        }, 250); // Reduced delay for better responsiveness
+        }, SCENE_CONFIG.DEBOUNCE.SUGGESTIONS); // Use config constant
 
         // Set-based deduplication: only enqueue keydown if not already pressed
         this.pressedKeys = new Set();
         this.lastKeydownTimestamps = {};
 
         this.input.keyboard.on("keydown", (event) => {
-            // Always define now for debounce and event queue logic
-            const now = Date.now();
+        // Always define now for debounce and event queue logic
+        const now = Date.now();
 
         // Block all input if penalty or lockout is active
         if (this._fastTypingPenaltyActive || this._fastTypingLockoutActive) {
@@ -1690,12 +2149,10 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
             const last = this.lastKeydownTimestamps[event.code] || 0;
             if (now - last < 50) {
-                console.log("DROPPED: debounce for", event.code, "last:", last, "now:", now);
-                return;
-            }
-            this.lastKeydownTimestamps[event.code] = now;
-            console.log("KEY PRESSED: ", event.key, "event:", event, "pressedKeys:", Array.from(this.pressedKeys));
-            // Skip if we're shutting down
+            return;
+        }
+        this.lastKeydownTimestamps[event.code] = now;
+        // Skip if we're shutting down
             if (this.isShuttingDown) return;
 
             // Only filter browser-generated repeats, not manual key presses
@@ -1710,7 +2167,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
             // Only enqueue if key is not already pressed
             if (this.pressedKeys.has(event.code)) {
-                console.log("DROPPED: already in pressedKeys", event.code, Array.from(this.pressedKeys));
                 return;
             }
             this.pressedKeys.add(event.code);
@@ -1731,7 +2187,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 // Include the original event for reference if needed
                 originalEvent: event
             };
-            console.log("KEY PUSHED TO QUEUE: ", enqueuedEvent, "pressedKeys after add:", Array.from(this.pressedKeys));
             this.keyEventQueue.push(enqueuedEvent);
             //console.log("QUEUE: ", this.keyEventQueue)
 
@@ -1750,7 +2205,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         }
         
         this.cursorTimer = this.time.addEvent({
-            delay: 500,  // Slower blink for better stability
+            delay: SCENE_CONFIG.ANIMATIONS.CURSOR_BLINK,  // Use config constant
             loop: true,
             callback: () => {
                 // Only blink cursor when not actively typing
@@ -1767,16 +2222,36 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
         // Make input area interactive
         if (this.inputTextBorder) {
+            // Calculate the actual Y position of the input box
+            const padding = 20;
+            const sm = this.scalingManager;
+            const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
+            let yCursor = menuBarHeight + sm.scaleValue(20); // matches relayoutScene
+            yCursor += sm.scaleValue(130); // stats box height
+            yCursor += (this.isMobile ? 50 : 40); // prompt offset
+            yCursor += this.createPromptTextBox(yCursor).boxBottom + sm.scaleValue(20) - yCursor; // prompt box
+            // Now yCursor is the top of the input box
+
+            const inputBoxY = yCursor;
+            const inputBoxHeight = sm.scaleValue(240);
+
             this.inputTextBorder.setInteractive(
                 new Phaser.Geom.Rectangle(
-                    this.cameras.main.centerX - this.uiBoxWidth / 2,
-                    this.cameras.main.centerY - 240 / 2,
+                    sm.centerX() - this.uiBoxWidth / 2,
+                    inputBoxY,
                     this.uiBoxWidth,
-                    240
+                    inputBoxHeight
                 ),
                 Phaser.Geom.Rectangle.Contains
             ).setDepth(20)
             .on('pointerdown', () => {
+                // For desktop, focus the game canvas to ensure keyboard events are received
+                if (this.isDesktop) {
+                    if (this.sys && this.sys.game && this.sys.game.canvas) {
+                        this.sys.game.canvas.focus();
+                    }
+                }
+                // For mobile, focus the hidden input
                 this.focusHiddenInput();
                 this.createInputBoxClickEffect(
                     this.cameras.main.centerX,
@@ -1804,9 +2279,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             this.timerEvent.paused = true;
         }
 
-        // Log for debugging
-        console.log("[FAST TYPING PENALTY] Creating penalty modal");
-
         // Show modal
         const warning = Phaser.Utils.Array.GetRandom
             ? Phaser.Utils.Array.GetRandom(this._warningMessages)
@@ -1815,9 +2287,8 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Modal dimensions
         const width = Math.min(500, this.cameras.main.width * 0.8);
         const height = 180;
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         // On mobile, position modal higher to avoid keyboard
-        const modalTopY = isMobile ? 120 : (this.cameras.main.centerY - height / 2);
+        const modalTopY = this.isMobile ? 120 : (this.cameras.main.centerY - height / 2);
         const x = this.cameras.main.centerX - width / 2;
         const y = modalTopY;
 
@@ -1912,13 +2383,12 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
     // Hidden HTML input for mobile typing (keyboard only, no visible overlay)
     setupHiddenInput() {
         // Only create hidden input for mobile devices
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         // Remove any previous input
         if (this._hiddenInput) {
             document.body.removeChild(this._hiddenInput);
             this._hiddenInput = null;
         }
-        if (!isMobile) {
+        if (!this.isMobile) {
             // On desktop, do not create or use hidden input
             return;
         }
@@ -2019,8 +2489,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
         // Calculate levelModeIndicatorY locally (match logic from createMenuBar)
         let levelModeIndicatorY;
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        if (isMobile) {
+        if (this.isMobile) {
             const titleY = menuBarHeight / 3;
             const titleHeight = titleText.height;
             const bannerHeight = 34;
@@ -2092,8 +2561,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
     }
 
     createMenuBar() {
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        const menuBarHeight = isMobile ? 200 : 100;
+        const menuBarHeight = this.isMobile ? 200 : 120;
         const padding = 50;
         const rightMargin = 40;
         const gap = 20;
@@ -2111,14 +2579,13 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         
         // Mobile: center title and place level|mode below, else original
         let titleText, levelModeIndicatorY;
-        if (isMobile) {
+        if (this.isMobile) {
             // Position title higher in the menu bar
             const titleY = menuBarHeight / 3;
             // Adjust title size: slightly larger on mobile, significantly larger on desktop
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
             const titleFontSize = this.scalingManager
-                ? this.scalingManager.scaleText(isMobile ? 55 : 50)
-                : (isMobile ? 55 : 50);
+                ? this.scalingManager.scaleText(this.isMobile ? 55 : 50)
+                : (this.isMobile ? 55 : 50);
             titleText = this.add.text(
                 this.cameras.main.centerX, titleY,
                 "(NON-SLOP)",
@@ -2138,10 +2605,9 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
         } else {
             // Adjust title size: slightly larger on mobile, significantly larger on desktop
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
             const titleFontSize = this.scalingManager
-                ? this.scalingManager.scaleText(isMobile ? 40 : 80)
-                : (isMobile ? 40 : 80);
+                ? this.scalingManager.scaleText(this.isMobile ? 40 : 80)
+                : (this.isMobile ? 40 : 80);
             titleText = this.add.text(
                 padding, menuBarHeight / 2,
                 "(NON-SLOP)",
@@ -2180,48 +2646,55 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         this.createTimer();
     }
 
-    // Abstract style methods that must be implemented by child classes
+    // Centralized style methods using textStyles.js
     getPromptTextStyle() {
-        throw new Error('getPromptTextStyle must be implemented by child class');
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
     }
 
     getPromptBoxStyle() {
-        throw new Error('getPromptBoxStyle must be implemented by child class');
+        return getBoxStyle('prompt', this.mode || 'basic', this.scalingManager?.uiScale || 1);
     }
 
     getInputBoxStyle() {
-        throw new Error('getInputBoxStyle must be implemented by child class');
+        return getBoxStyle('input', this.mode || 'basic', this.scalingManager?.uiScale || 1);
     }
 
     getInputTextStyle() {
-        throw new Error('getInputTextStyle must be implemented by child class');
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('input', deviceType, this.mode || 'basic', uiScale);
     }
 
     getAutocompleteTextStyle() {
-        throw new Error('getAutocompleteTextStyle must be implemented by child class');
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getAutocompleteTextStyle(deviceType, this.mode || 'basic', uiScale, this.uiBoxWidth);
     }
 
     getMenuBarStyle() {
-        throw new Error('getMenuBarStyle must be implemented by child class');
+        return getMenuBarStyle(this.mode || 'basic', this.scalingManager?.uiScale || 1);
     }
 
-    // Abstract methods that must be implemented by child classes
-    createBackgroundEffect() {
-        throw new Error('createBackgroundEffect must be implemented by child class');
-    }
-    
     createTimer() {
+        // Destroy any existing timer text to prevent duplicates
+        if (this.timerText) {
+            this.timerText.destroy();
+            this.timerText = null;
+        }
+        
         // Create timer text in the upper left corner
         this.timerText = this.add.text(20, this.menuBarHeight + 20, '0:20', {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '40px',
+            fontSize: this.calculateFontSize(14, 24, 2),
             fontStyle: 'bold',
             fill: '#ff0000'
         });
         
         // Don't start the countdown timer right away - wait for first keypress
         // Just initialize the timerValue
-        this.timerValue = 20;
+        this.timerValue = SCENE_CONFIG.TIMER.DEFAULT_VALUE;
     }
     
     updateTimer() {
@@ -2343,12 +2816,20 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 burstScale = 1.5;
             }
 
-            // Add the clock sprite (SVG loaded as 'clock')
-            this.clockSprite = this.add.image(centerX, centerY, 'clock')
-                .setOrigin(0.5)
-                .setScale(initialScale)
-                .setAlpha(0)
-                .setDepth(999);
+        // Add the clock sprite (SVG loaded as 'clock')
+        this.clockSprite = this.add.image(centerX, centerY, 'clock')
+            .setOrigin(0.5)
+            .setAlpha(0)
+            .setDepth(999);
+            
+        // Correct the aspect ratio of the clock SVG
+        const texture = this.textures.get('clock');
+        const frameWidth = texture.frames.__BASE.width;
+        const frameHeight = texture.frames.__BASE.height;
+        
+        // Ensure the aspect ratio is preserved by using uniform scaling
+        const uniformScale = initialScale;
+        this.clockSprite.setScale(uniformScale);
 
             // Flash: fade in and pulse scale
             this.tweens.add({
@@ -2477,10 +2958,9 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             const bannerX = this.cameras.main.centerX - bannerWidth / 2;
             
             // Check if on mobile for proper Y positioning
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
             let bannerY;
             
-            if (isMobile) {
+            if (this.isMobile) {
                 // For mobile, use the same Y position as the levelModeIndicator
                 bannerY = this.levelModeIndicator.y - bannerHeight / 2;
             } else {
@@ -2505,69 +2985,84 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
     // Common utility methods
     // Create and show settings popup with Level, Top K sliders and Mode Toggle
     toggleSettingsPopup() {
-    this.popupJustOpened = true;
+        this.popupJustOpened = true;
         if (this.settingsPopup) {
             // If popup exists, close it
             this.closeSettingsPopup();
             return;
         }
         
-        // Create popup window (dynamic height for mobile)
-        const popupWidth = 400; // Fixed width
-
-        // Use a robust mobile check (Phaser + fallback)
-        const isMobileDevice = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
-
-        // --- Dynamic height calculation for mobile ---
-        let popupHeight;
-        if (isMobileDevice) {
-            // Minimum touch target for each row: 44px
-            const titleHeight = 44;
-            const gap1 = 18;
-            const sliderRowHeight = 44;
-            const gap2 = 18;
-            const toggleRowHeight = 44;
-            const gap3 = 18;
-            const buttonRowHeight = 54; // Confirm button, extra for padding
-            // Add up all rows and gaps
-            popupHeight = titleHeight + gap1 + sliderRowHeight + gap2 + toggleRowHeight + gap3 + buttonRowHeight + 18; // extra bottom padding
-        } else {
-            popupHeight = 230;
-        }
-        const popupX = this.cameras.main.centerX - popupWidth / 2;
-        const popupY = this.cameras.main.centerY - popupHeight / 2;
-
+        // Calculate popup dimensions
+        const { popupWidth, popupHeight, popupX, popupY } = this.calculateSettingsPopupDimensions();
+        
         // Pause the timer when settings popup is opened
         if (this.timerEvent && !this.timerEvent.paused) {
             this.timerEvent.paused = true;
         }
 
         // Create popup container
-        this.settingsPopup = this.add.container(0, 0).setDepth(100);
+        this.settingsPopup = this.add.container(0, 0).setDepth(999);
         
-        // Add semi-transparent background overlay (full screen)
+        // Create overlay
+        this.createSettingsOverlay(popupX, popupY, popupWidth, popupHeight);
+        
+        // Create popup background
+        const popupBg = this.createSettingsBackground(popupX, popupY, popupWidth, popupHeight);
+        this.settingsPopup.add(popupBg);
+        
+        // Create UI elements
+        const { levelSliderHandle, levelLabel } = this.createLevelSlider(popupX, popupY, popupWidth, popupHeight);
+        this.createModeToggle(popupX, popupY, popupWidth, popupHeight);
+        this.createSettingsButtons(popupX, popupY, popupWidth, popupHeight);
+        
+        // Setup drag functionality
+        this.setupSliderDragFunctionality(levelSliderHandle, levelLabel);
+        
+        // Animate popup appearance
+        this.animateSettingsPopupIn();
+    }
+
+    /**
+     * Calculate dimensions for settings popup
+     */
+    calculateSettingsPopupDimensions() {
+        const popupWidth = 400; // Fixed width
+        
+        // Minimum touch target for each row: 44px
+        const titleHeight = 44;
+        const minGap = 12; // Minimum vertical gap between interactive elements
+        const gap1 = Math.max(18, minGap);
+        const sliderRowHeight = 44;
+        const gap2 = Math.max(18, minGap);
+        const toggleRowHeight = 44;
+        const gap3 = Math.max(18, minGap);
+        const buttonRowHeight = 54; // Confirm button, extra for padding
+        
+        // Add up all rows and gaps
+        const popupHeight = titleHeight + gap1 + sliderRowHeight + gap2 + toggleRowHeight + gap3 + buttonRowHeight + 18; // extra bottom padding
+        const popupX = this.cameras.main.centerX - popupWidth / 2;
+        const popupY = this.cameras.main.centerY - popupHeight / 2;
+        
+        return { popupWidth, popupHeight, popupX, popupY };
+    }
+
+    /**
+     * Create the settings overlay
+     */
+    createSettingsOverlay(popupX, popupY, popupWidth, popupHeight) {
         const overlay = this.add.rectangle(
             0, 0,
             this.cameras.main.width,
             this.cameras.main.height,
             0x000000, 0.7
         ).setOrigin(0, 0);
+        
         overlay.setInteractive({ useHandCursor: true })
             .on('pointerdown', (pointer, localX, localY, event) => {
-                // Only close if clicked outside the popup window
-                const popupBounds = new Phaser.Geom.Rectangle(
-                    popupX, popupY, popupWidth, popupHeight
-                );
-                // On mobile, pointer.x/y are relative to the canvas, but localX/localY are relative to the overlay
-                // Use pointer.x/y for desktop, but fallback to localX/localY for mobile if pointer.x/y are 0
-                const px = pointer.x || (localX + 0);
-                const py = pointer.y || (localY + 0);
-                // if (!Phaser.Geom.Rectangle.Contains(popupBounds, px, py)) {
-                //     this.closeSettingsPopup();
-                // }
                 // Always stop propagation to prevent bubbling to other handlers
                 if (event && event.stopPropagation) event.stopPropagation();
             });
+        
         this.settingsPopup.add(overlay);
         
         // Create an interactive rectangle for the popup window
@@ -2577,38 +3072,51 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             popupWidth, 
             popupHeight
         ).setOrigin(0.5);
+        
         popupArea.setInteractive()
             .on('pointerdown', (pointer) => {
                 // Stop event propagation to prevent closing
                 pointer.event.stopPropagation();
             });
-        this.settingsPopup.add(popupArea);
         
-        // Popup background
+        this.settingsPopup.add(popupArea);
+    }
+
+    /**
+     * Create the settings popup background
+     */
+    createSettingsBackground(popupX, popupY, popupWidth, popupHeight) {
         const popupBg = this.add.graphics();
         popupBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
         popupBg.fillRoundedRect(popupX, popupY, popupWidth, popupHeight, 15);
         popupBg.lineStyle(3, this.COLORS_HEX.BOX_OUTLINE, 1);
         popupBg.strokeRoundedRect(popupX, popupY, popupWidth, popupHeight, 15);
-        this.settingsPopup.add(popupBg);
         
-        // --- DYNAMIC VERTICAL LAYOUT FOR MOBILE ---
-        const sliderWidth = 150;
-        const gap = 20;
-
-        // Calculate vertical positions
-        let yCursor = popupY;
-        // Title
+        // Add title
         const titleHeight = 44;
         const title = this.add.text(
             this.cameras.main.centerX,
-            yCursor + titleHeight / 2,
+            popupY + titleHeight / 2,
             'Settings',
             { fontFamily: 'IBM Plex Mono', fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
         ).setOrigin(0.5, 0.5);
         this.settingsPopup.add(title);
-        yCursor += titleHeight + (isMobileDevice ? 18 : 30);
+        
+        return popupBg;
+    }
 
+    /**
+     * Create the level slider
+     */
+    createLevelSlider(popupX, popupY, popupWidth, popupHeight) {
+        const sliderWidth = 150;
+        const gap = 20;
+        const titleHeight = 44;
+        const gap1 = Math.max(18, 12);
+        const sliderRowHeight = 44;
+        
+        let yCursor = popupY + titleHeight + gap1;
+        
         // Level slider row
         const levelLabelX = popupX + 30;
         const levelLabelY = yCursor + 22;
@@ -2621,6 +3129,8 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
         const levelSliderX = levelLabelX + levelLabel.displayWidth + gap;
         const levelSliderY = levelLabelY;
+        
+        // Create slider track
         const levelSlider = this.add.graphics();
         levelSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1);
         levelSlider.fillRect(levelSliderX, levelSliderY - 5, sliderWidth, 10);
@@ -2628,95 +3138,75 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         levelSlider.strokeRect(levelSliderX, levelSliderY - 5, sliderWidth, 10);
         this.settingsPopup.add(levelSlider);
 
-        // Slider handle
+        // Create slider handle
+        const levelSliderHandle = this.createSliderHandle(levelSliderX, levelSliderY, sliderWidth);
+        this.settingsPopup.add(levelSliderHandle);
+        
+        // Setup slider interactions
+        this.setupLevelSliderInteractions(levelSlider, levelSliderHandle, levelLabel, levelSliderX, levelSliderY, sliderWidth);
+        
+        return { levelSliderHandle, levelLabel };
+    }
+
+    /**
+     * Create a slider handle
+     */
+    createSliderHandle(sliderX, sliderY, sliderWidth) {
+        const isMobileDevice = this.isMobile;
         const levelT = (this.levelValue - 1) / 2;
-        const levelSliderMinX = levelSliderX + 5;
-        const levelSliderMaxX = levelSliderX + sliderWidth - 5;
+        const levelSliderMinX = sliderX + 5;
+        const levelSliderMaxX = sliderX + sliderWidth - 5;
         const levelHandleX = Phaser.Math.Linear(levelSliderMinX, levelSliderMaxX, levelT);
+        
         const handleWidth = 44;
         const handleHeight = 44;
         const visualWidth = isMobileDevice ? 24 : 18;
-        const visualHeight = isMobileDevice ? 24 : 28;
+        const visualHeight = isMobileDevice ? 24 : 14;
+        
         const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
             .setOrigin(0.5);
         const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
             .setOrigin(0.5);
-        const levelSliderHandle = this.add.container(levelHandleX, levelSliderY, [hitArea, visibleHandle]);
+        
+        const levelSliderHandle = this.add.container(levelHandleX, sliderY, [hitArea, visibleHandle]);
         levelSliderHandle.setSize(handleWidth, handleHeight);
         levelSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
         this.input.setDraggable(levelSliderHandle);
-        this.settingsPopup.add(levelSliderHandle);
-
+        
         // Add scale-up feedback on touch for mobile
         if (isMobileDevice) {
             levelSliderHandle.on('pointerdown', () => visibleHandle.setScale(1.2));
             levelSliderHandle.on('pointerup', () => visibleHandle.setScale(1));
             levelSliderHandle.on('pointerout', () => visibleHandle.setScale(1));
         }
+        
+        return levelSliderHandle;
+    }
 
-        // Slider handle events (same as before)
+    /**
+     * Setup level slider interactions
+     */
+    setupLevelSliderInteractions(levelSlider, levelSliderHandle, levelLabel, sliderX, sliderY, sliderWidth) {
+        const levelSliderMinX = sliderX + 5;
+        const levelSliderMaxX = sliderX + sliderWidth - 5;
+        const isMobileDevice = this.isMobile;
+        
+        // Handle direct clicks on handle
         levelSliderHandle.on('pointerdown', (pointer) => {
-            let pointerX = pointer.x;
-            pointerX = Phaser.Math.Clamp(pointerX, levelSliderMinX, levelSliderMaxX);
-            levelSliderHandle.x = pointerX;
-            const newLevel = Math.round(Phaser.Math.Linear(1, 3, (pointerX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
-            if (newLevel !== this.levelValue) {
-                this.levelValue = newLevel;
-                levelLabel.setText(`Level: ${this.levelValue}`);
-                this.updatePromptBasedOnLevel();
-                this.updateBackgroundForLevel();
-                this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-                if (this.failsCounter) this.updateProgressFill();
-                this.aiWordCount = 0;
-                this.aiSuggestedWords = [];
-                this.showSuggestions([]);
-                this.clearInputTextBox();
-                if (this.wordCountDisplay) this.updateWordCountDisplay();
-            }
+            this.handleLevelSliderChange(pointer.x, levelSliderMinX, levelSliderMaxX, levelSliderHandle, levelLabel);
         });
 
-        // Slider bar interactive area
+        // Handle clicks on slider track
         const sliderBarHitHeight = isMobileDevice ? 44 : 10;
-        levelSlider.setInteractive(new Phaser.Geom.Rectangle(levelSliderX, levelSliderY - sliderBarHitHeight / 2, sliderWidth, sliderBarHitHeight), Phaser.Geom.Rectangle.Contains)
+        levelSlider.setInteractive(new Phaser.Geom.Rectangle(sliderX, sliderY - sliderBarHitHeight / 2, sliderWidth, sliderBarHitHeight), Phaser.Geom.Rectangle.Contains)
             .on('pointerdown', (pointer) => {
-                let pointerX = pointer.x;
-                pointerX = Phaser.Math.Clamp(pointerX, levelSliderMinX, levelSliderMaxX);
-                levelSliderHandle.x = pointerX;
-                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (pointerX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
-                if (newLevel !== this.levelValue) {
-                    this.levelValue = newLevel;
-                    levelLabel.setText(`Level: ${this.levelValue}`);
-                    this.updatePromptBasedOnLevel();
-                    this.updateBackgroundForLevel();
-                    this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-                    if (this.failsCounter) this.updateProgressFill();
-                    this.aiWordCount = 0;
-                    this.aiSuggestedWords = [];
-                    this.showSuggestions([]);
-                    this.clearInputTextBox();
-                    if (this.wordCountDisplay) this.updateWordCountDisplay();
-                }
-                // Dragging logic
+                this.handleLevelSliderChange(pointer.x, levelSliderMinX, levelSliderMaxX, levelSliderHandle, levelLabel);
+                
+                // Setup drag handling
                 const moveHandler = (movePointer) => {
                     if (!movePointer.isDown) return;
-                    let dragX = movePointer.x;
-                    dragX = Phaser.Math.Clamp(dragX, levelSliderMinX, levelSliderMaxX);
-                    levelSliderHandle.x = dragX;
-                    const dragLevel = Math.round(Phaser.Math.Linear(1, 3, (dragX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
-                    if (dragLevel !== this.levelValue) {
-                        this.levelValue = dragLevel;
-                        levelLabel.setText(`Level: ${this.levelValue}`);
-                        this.updatePromptBasedOnLevel();
-                        this.updateBackgroundForLevel();
-                        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-                        if (this.failsCounter) this.updateProgressFill();
-                        this.aiWordCount = 0;
-                        this.aiSuggestedWords = [];
-                        this.showSuggestions([]);
-                        this.clearInputTextBox();
-                        if (this.wordCountDisplay) this.updateWordCountDisplay();
-                    }
+                    this.handleLevelSliderChange(movePointer.x, levelSliderMinX, levelSliderMaxX, levelSliderHandle, levelLabel);
                 };
                 const upHandler = () => {
                     this.input.off('pointermove', moveHandler);
@@ -2725,9 +3215,50 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 this.input.on('pointermove', moveHandler);
                 this.input.on('pointerup', upHandler);
             });
+    }
 
-        yCursor += (isMobileDevice ? 44 : 36) + (isMobileDevice ? 18 : 20);
+    /**
+     * Handle level slider value changes
+     */
+    handleLevelSliderChange(pointerX, minX, maxX, handle, label) {
+        pointerX = Phaser.Math.Clamp(pointerX, minX, maxX);
+        handle.x = pointerX;
+        const newLevel = Math.round(Phaser.Math.Linear(1, 3, (pointerX - minX) / (maxX - minX)));
+        
+        if (newLevel !== this.levelValue) {
+            this.levelValue = newLevel;
+            label.setText(`Level: ${this.levelValue}`);
+            this.onLevelChange();
+        }
+    }
 
+    /**
+     * Handle level change
+     */
+    onLevelChange() {
+        this.updatePromptBasedOnLevel();
+        this.updateBackgroundForLevel();
+        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
+        if (this.failsCounter) this.updateProgressFill();
+        this.aiWordCount = 0;
+        this.aiSuggestedWords = [];
+        this.showSuggestions([]);
+        this.clearInputTextBox();
+        if (this.wordCountDisplay) this.updateWordCountDisplay();
+    }
+
+    /**
+     * Create the mode toggle
+     */
+    createModeToggle(popupX, popupY, popupWidth, popupHeight) {
+        const gap = 20;
+        const titleHeight = 44;
+        const gap1 = Math.max(18, 12);
+        const sliderRowHeight = 44;
+        const gap2 = Math.max(18, 12);
+        
+        let yCursor = popupY + titleHeight + gap1 + sliderRowHeight + gap2;
+        
         // Mode Toggle row
         const modeToggleLabelX = popupX + 30;
         const modeToggleLabelY = yCursor + 22;
@@ -2741,6 +3272,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Use current pending mode or current actual mode
         const currentToggleMode = this.pendingModeChange || this.mode || 'easy';
         this.currentToggleRef = { toggle: null };
+        
         const toggleCallback = (newMode) => {
             this.pendingModeChange = newMode;
             const currentMode = newMode;
@@ -2755,6 +3287,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             this.currentToggleRef.toggle = newToggle;
             this.settingsPopup.add(newToggle);
         };
+        
         const initialToggle = ToggleFactory.createToggle(
             this,
             currentToggleMode,
@@ -2764,11 +3297,23 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         );
         this.currentToggleRef.toggle = initialToggle;
         this.settingsPopup.add(initialToggle);
+    }
 
-        yCursor += (isMobileDevice ? 44 : 36) + (isMobileDevice ? 18 : 20);
-
+    /**
+     * Create settings buttons (Apply and Close)
+     */
+    createSettingsButtons(popupX, popupY, popupWidth, popupHeight) {
+        const titleHeight = 44;
+        const gap1 = Math.max(18, 12);
+        const sliderRowHeight = 44;
+        const gap2 = Math.max(18, 12);
+        const toggleRowHeight = 44;
+        const gap3 = Math.max(18, 12);
+        
+        let yCursor = popupY + titleHeight + gap1 + sliderRowHeight + gap2 + toggleRowHeight + gap3;
+        
         // Confirm button row
-        const confirmBtnY = yCursor + 27;
+        const confirmBtnY = yCursor + 12; // 12px padding above confirm button
         const confirmBtn = ButtonFactory.createButton(
             this,
             'APPLY',
@@ -2782,15 +3327,9 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             this.cameras.main.centerX,
             confirmBtnY
         );
-        if (isMobileDevice) {
-            confirmBtn.setInteractive(
-                new Phaser.Geom.Rectangle(-22, -22, 44, 44),
-                Phaser.Geom.Rectangle.Contains
-            );
-        }
         this.settingsPopup.add(confirmBtn);
 
-        // Close button (top right, unchanged)
+        // Close button (top right)
         const minTouchSize = 44;
         const closeBtnFontSize = this.scalingManager
             ? Math.max(this.scalingManager.scaleText(28), 28)
@@ -2821,9 +3360,15 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         .on('pointerout', () => closeBtn.setScale(1))
         .on('pointerdown', () => this.closeSettingsPopup());
         this.settingsPopup.add(closeBtn);
+    }
+
+    /**
+     * Setup slider drag functionality
+     */
+    setupSliderDragFunctionality(levelSliderHandle, levelLabel) {
+        const levelSliderMinX = levelSliderHandle.x - 70; // Approximate based on slider width
+        const levelSliderMaxX = levelSliderHandle.x + 70;
         
-        // Slider dragging functionality
-        // Allow handle center to go from bar start+5 to bar end-5
         this.input.on('drag', (pointer, gameObject, dragX) => {
             if (gameObject === levelSliderHandle) {
                 gameObject.x = Phaser.Math.Clamp(dragX, levelSliderMinX, levelSliderMaxX);
@@ -2832,38 +3377,16 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 if (newLevel !== this.levelValue) {
                     this.levelValue = newLevel;
                     levelLabel.setText(`Level: ${this.levelValue}`);
-                    
-                    // Update prompt based on level immediately
-                    this.updatePromptBasedOnLevel();
-                    
-                    // Update the background when level changes
-                    this.updateBackgroundForLevel();
-                    
-                    // Reset score bar to initial value
-                    this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-                    if (this.failsCounter) {
-                        this.updateProgressFill();
-                    }
-                    
-                    // Reset AI word count
-                    this.aiWordCount = 0;
-                    
-                    // Clear AI suggestions
-                    this.aiSuggestedWords = [];
-                    this.showSuggestions([]);
-                    
-                    // Clear input text box
-                    this.clearInputTextBox();
-                    
-                    // Update word count display if it exists
-                    if (this.wordCountDisplay) {
-                        this.updateWordCountDisplay();
-                    }
+                    this.onLevelChange();
                 }
             }
         });
-        
-        // Animate popup appearance
+    }
+
+    /**
+     * Animate settings popup appearance
+     */
+    animateSettingsPopupIn() {
         this.settingsPopup.setScale(0.8);
         this.tweens.add({
             targets: this.settingsPopup,
@@ -2914,21 +3437,21 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
     }
 
     ensureProperLayering() {
-        if (this.promptTextBox) this.promptTextBox.setDepth(5);
-        if (this.promptText) this.promptText.setDepth(6);
+        if (this.promptTextBox) this.promptTextBox.setDepth(102);
+        if (this.promptText) this.promptText.setDepth(103);
         if (this.outputText) this.outputText.setDepth(6);
         if (this.failsCounter) this.failsCounter.setDepth(7);
         if (this.inputTextBorder) this.inputTextBorder.setDepth(20);
         if (this.inputText) this.inputText.setDepth(25);
-        if (this.doneButton) this.doneButton.setDepth(10);
-        if (this.resetButton) this.resetButton.setDepth(10);
-        if (this.feedbackButton) this.feedbackButton.setDepth(10);
-        if (this.settingsButton) this.settingsButton.setDepth(10);
+        if (this.doneButton) this.doneButton.setDepth(110);
+        if (this.resetButton) this.resetButton.setDepth(110);
+        if (this.feedbackButton) this.feedbackButton.setDepth(110);
+        if (this.settingsButton) this.settingsButton.setDepth(110);
         if (this.wordCountDisplay) this.wordCountDisplay.setDepth(55);
         if (this.settingsPopup) this.settingsPopup.setDepth(100);
     }
     
-    createWordCountDisplay() {
+    createWordCountDisplay(customWidth) {
         if (this.wordCountDisplay) {
             this.wordCountDisplay.destroy();
         }
@@ -2936,14 +3459,27 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Create container for word count display
         this.wordCountDisplay = this.add.container(0, 0).setDepth(55);
         
+        // Make sure we have a scaling manager
+        if (!this.scalingManager) {
+            this.scalingManager = new ScalingManager(this);
+        }
+        const sm = this.scalingManager;
+        
         const padding = 20;
-        const boxWidth = 200;
+        // Calculate a more conservative width with fixed margin
+        const fixedRightMargin = 80; // Large fixed margin regardless of scaling
+        // Use the custom width without clamping it
+        const boxWidth = customWidth || Math.min(240, this.cameras.main.width * 0.35);
         const boxHeight = 130; // Increased height to accommodate streak counter
         const cornerRadius = 10;
-        
-        // Position in the upper right corner, mirroring the mode badge position
-        const displayX = this.cameras.main.width - boxWidth - padding;
-        const displayY = this.menuBarHeight + padding;
+
+        // Determine offset below menu bar: 50px for desktop, 60px for mobile
+        const statsBoxOffset = this.isMobile ? 60 : 50;
+
+        // Force absolute positioning with fixed margin - avoid scaling issues
+        // Always ensure at least fixedRightMargin pixels from right edge in actual screen pixels
+        const displayX = this.cameras.main.width - boxWidth - fixedRightMargin;
+        const displayY = this.menuBarHeight + statsBoxOffset;
         
         // Create background
         const background = this.add.graphics();
@@ -2959,7 +3495,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             "WORD STATS", 
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '16px',
+                fontSize: '14px',
                 fontStyle: 'bold',
                 fill: '#ffffff'
             }
@@ -2977,7 +3513,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         this.originalCountText = this.add.text(
             boxWidth - 15, 40, 
             "0", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '16px', fontStyle: 'bold', fill: '#7cfc00' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fontStyle: 'bold', fill: '#7cfc00' }
         ).setOrigin(1, 0.5);
         
         const aiIcon = this.add.circle(20, 65, 6, 0xff3366); // Red color to match the AI counter
@@ -2991,7 +3527,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         this.aiCountText = this.add.text(
             boxWidth - 15, 65, 
             "0", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '16px', fontStyle: 'bold', fill: '#ff3366' }
+            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fontStyle: 'bold', fill: '#ff3366' }
         ).setOrigin(1, 0.5);
         
         // Streak counter (third row)
@@ -3047,16 +3583,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         
         // Position the container
         this.wordCountDisplay.setPosition(displayX, displayY);
-        
-        // Add subtle animation
-        this.tweens.add({
-            targets: this.wordCountDisplay,
-            y: displayY - 3,
-            duration: 2000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.InOut'
-        });
         
         // Store a reference to the streak icon to update its color
         this.streakIcon = streakIcon;
@@ -3207,103 +3733,48 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
     
     // Update cursor and input text display
     updateCursor() {
-        // Performance measurement
-        const startTime = performance.now();
-
-        // Log every call to updateCursor with userInput and stack trace
-        try {
-            // Only log for printable characters to avoid log spam from cursor blink
-            if (this.userInput && this.userInput.length > 0) {
-                // Show a short stack trace for debugging
-                const stack = new Error().stack.split('\n').slice(2, 5).join(' | ');
-                //console.log(`[CURSOR] updateCursor called. userInput="${this.userInput}" (len=${this.userInput.length}) [${stack}]`);
-            }
-        } catch (e) {}
-
         if (this.isShuttingDown) return;
         if (!this.inputText || this.inputText.destroyed) return;
         
-        // Calculate correct text position based on the new layout
-        const padding = 30;
+        // Check if we need to update based on cached values
+        const currentAutocomplete = this.generateAutocomplete();
+        const hasTextChanged = this.userInput !== this._cachedValues.lastUserInput;
+        const hasAutocompleteChanged = currentAutocomplete !== this._cachedValues.lastAutocomplete;
+        const hasCursorChanged = this._lastCursorVisible !== this.cursorVisible;
         
-        // Reset text position to match the current input box position
-        // This ensures text appears in the correct position even after layout changes
-        if (!this._cursorPosInitialized || true) { // Always update position to ensure consistency
-            // Get the current position of our input text box from the calculated layout values
-            const statsBoxWidth = 180;
-            const statsBoxHeight = 130;
-            const statsDisplayY = this.menuBarHeight + padding;
-            const statsBottomEdge = statsDisplayY + statsBoxHeight;
-            
-            // Prompt box is 20px below stats box
-            const promptY = statsBottomEdge + 20;
-            const promptBoxHeight = 80;
-            const promptBottomEdge = promptY + promptBoxHeight;
-            
-            // Input box is 20px below prompt box
-            const textBoxY = promptBottomEdge + 20;
-            
-            if (!this.uiBoxWidth) {
-                this.uiBoxWidth = this.cameras.main.width * (5 / 6);
-            }
-            
-            this.inputText.setPosition(
-                this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
-                textBoxY + padding
-            );
-            
-            this._cursorPosInitialized = true;
+        // Only update if something has actually changed
+        if (!hasTextChanged && !hasAutocompleteChanged && !hasCursorChanged) {
+            return;
         }
         
-        try {
-            // Get autocomplete suggestion
-            let autocompleteSuggestion = '';
-            if (this.aiSuggestedWords?.length > 0 && this.cursorVisible) {
-                autocompleteSuggestion = this.generateAutocomplete();
-            }
-            
-            // On mobile, always use the hidden input's value as the display base if available
-            let displayText;
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-            if (isMobile && this._hiddenInput && typeof this._hiddenInput.value === "string") {
-                displayText = this._hiddenInput.value;
-            } else {
-                displayText = this.userInput;
-            }
-            
-            if (autocompleteSuggestion && this.cursorVisible) {
-                // Add colored suggestion
-                displayText += `[color=#ff0000]${autocompleteSuggestion}[/color]`;
-            } else if (this.cursorVisible) {
-                // Add cursor character
-                displayText += "_";
-            } else {
-                // Add space when cursor is invisible
-                displayText += " ";
-            }
-            
-            // Update text in one operation
-            this.inputText.setText(displayText);
-            this.inputText.setVisible(true);
-            
-            // Clear autocomplete text if it exists (deprecated approach)
-            if (this.autocompleteText) {
-                this.autocompleteText.setText('');
-            }
-        } catch (error) {
-            // Simple fallback with no layout calculation
-            try {
-                const cursor = this.cursorVisible ? "_" : " ";
-                this.inputText.setText(this.userInput + cursor);
-            } catch (e) {
-                // Final fallback - do nothing if even the simple update fails
-            }
+        // Update cached values
+        this._cachedValues.lastUserInput = this.userInput;
+        this._cachedValues.lastAutocomplete = currentAutocomplete;
+        this._lastCursorVisible = this.cursorVisible;
+        
+        // Build display text efficiently
+        let displayText = this.userInput;
+        
+        // On mobile, prefer hidden input value if available
+        if (this.isMobile && this._hiddenInput && typeof this._hiddenInput.value === "string") {
+            displayText = this._hiddenInput.value;
         }
         
-        // Performance logging - only log slow updates
-        const duration = performance.now() - startTime;
-        if (duration > 16) { // Only log if slower than 60fps frame
-            console.log(`Slow cursor update: ${duration.toFixed(2)}ms`);
+        // Append autocomplete or cursor
+        if (currentAutocomplete && this.cursorVisible) {
+            displayText += `[color=#ff0000]${currentAutocomplete}[/color]`;
+        } else if (this.cursorVisible) {
+            displayText += "_";
+        } else {
+            displayText += " ";
+        }
+        
+        // Update text in one operation
+        this.inputText.setText(displayText);
+        
+        // Clear deprecated autocomplete text if it exists
+        if (this.autocompleteText) {
+            this.autocompleteText.setText('');
         }
     }
 
@@ -3314,8 +3785,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Set icon size relative to menu bar height
         let iconSize = Math.round(menuBarHeight * 0.5);
         // Slightly increase icon size for mobile devices
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.innerWidth < 900;
-        if (isMobile) {
+        if (this.isMobile) {
             iconSize = Math.round(menuBarHeight * 0.35); // was 0.25, now slightly larger
         }
         settingsIcon.setDisplaySize(iconSize, iconSize);
@@ -3379,38 +3849,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Set X position with the same padding as buttons have from right side
         const scoreX = this.cameras.main.centerX - this.uiBoxWidth / 2 + buttonPadding;
         const scoreY = inputBoxBottomEdge + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
-    
-        // Background with rounded corners
-        this.failsCounter.fillStyle(0x000000, 0.5);
-        this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-        
-        // Progress fill with rounded corners - reversed color gradation
-        let color;
-        if (this.progressPercentage === 50) {
-            color = DESIGN.UI.PROGRESS_BAR.COLORS.WARNING;
-        } else if (this.progressPercentage < 50) {
-            // Interpolate between red and yellow (red at 0%, yellow at 50%)
-            const t = this.progressPercentage / 50;
-            const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.DANGER & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)));
-            color = (r << 16) | (g << 8) | b;
-        } else {
-            // Interpolate between yellow and green (yellow at 50%, green at 100%)
-            const t = (this.progressPercentage - 50) / 50;
-            const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 16) & 0xFF)));
-            const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 8) & 0xFF)));
-            const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS & 0xFF)));
-            color = (r << 16) | (g << 8) | b;
-        }
-        this.failsCounter.fillStyle(color, 1);
-        this.failsCounter.fillRoundedRect(0, 0, (scoreWidth * this.progressPercentage) / 100, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-        
-        // White outline
-        this.failsCounter.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
-        this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
 
-        
         // Set depth and position
         this.failsCounter.setPosition(scoreX, scoreY).setDepth(50);
         
@@ -3441,6 +3880,9 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 align: 'center'
             }
         ).setOrigin(0.5).setDepth(51);
+
+        // Draw the initial segmented progress bar
+        this.updateProgressFill();
     }
 
     showTooltip(text, x, y) {
@@ -3451,7 +3893,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '16px',
+            fontSize: '14px',
             color: '#ffffff',
             align: 'center'
         });
@@ -3568,74 +4010,9 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             // Get the last word from user input
             const words = this.userInput.trim().split(/\s+/);
             const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, ''); // Remove punctuation
-            
-            // if (lastWord && lastWord.length > 0) {
-            //     // Create a rising word effect
-            //     this.createRisingWordEffect(lastWord);
-            //     
-            //     // Create a particle burst at cursor position
-            //     this.createWordSuccessParticles();
-            //     
-            //     // // Add a small camera flash if streak is building
-            //     // if (this.wordStreak >= 2) {
-            //     //     // Intensity increases with streak
-            //     //     const flashIntensity = Math.min(0.1 + (this.wordStreak * 0.02), 0.3);
-            //     //     const flash = this.add.rectangle(
-            //     //         0, 0, 
-            //     //         this.cameras.main.width, 
-            //     //         this.cameras.main.height,
-            //     //         0x00ff00, // Green
-            //     //         flashIntensity
-            //     //     ).setOrigin(0).setDepth(90);
-            //     //         
-            //     //     this.tweens.add({
-            //     //         targets: flash,
-            //     //         alpha: 0,
-            //     //         duration: 300,
-            //     //         ease: 'Cubic.Out',
-            //     //         onComplete: () => flash.destroy()
-            //     //     });
-            //     // }
-            // }
         } else {
             // AI word - negative effects     
             newPercentage = this.progressPercentage - this.progressIncrement;
-            // this.shakeScreen();
-            // 
-            // // Use the first AI suggestion as our "current word" since that's what would be autocompleted
-            // // (This is the most reliable way to know which AI word was triggered in this context)
-            // let currentWord = "";
-            // 
-            // if (this.aiSuggestedWords && this.aiSuggestedWords.length > 0) {
-            //     // Get the first suggestion from the AI suggestions array
-            //     currentWord = this.aiSuggestedWords[0];
-            // }
-            // 
-            // console.log("AI word used:", currentWord);
-            // 
-            // // Create explosion effect for the AI word
-            // if (currentWord) {
-            //     const inputBoxY = this.cameras.main.centerY - 240 / 2;
-            //     this.createExplosionEffect(currentWord, this.cameras.main.centerX, inputBoxY + 120);
-            //     
-            //     // Add a red flash for AI word
-            //     const flash = this.add.rectangle(
-            //         0, 0, 
-            //         this.cameras.main.width, 
-            //         this.cameras.main.height,
-            //         0xff0000, // Red
-            //         0.15
-            //     ).setOrigin(0).setDepth(90);
-            //     
-            //     this.tweens.add({
-            //         targets: flash,
-            //         alpha: 0,
-            //         duration: 200,
-            //         ease: 'Cubic.Out',
-            //         onComplete: () => flash.destroy()
-            //     });
-            // }
-            // 
             // Update AI word count only
             this.aiWordCount++;
         }
@@ -3649,20 +4026,12 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         newPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
 
         this.progressPercentage = newPercentage;
-
-        // Trigger progress bar effects
-        // if (typeof this.animateProgressBarChange === "function") {
-        //     this.animateProgressBarChange(success ? "increment" : "decrement");
-        // }
         
         if (this.failsText) {
             this.failsText.setText(` `);
         }
         
         this.updateProgressFill();
-        
-        // Emit particles from progress bar when value changes
-        // this.emitProgressBarParticles(success ? "increment" : "decrement");
     }
     
     /**
@@ -4218,7 +4587,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
         const scoreWidth = DESIGN.UI.BUTTON.WIDTH * 2 + DESIGN.UI.BUTTON.SPACING;
         const scoreHeight = DESIGN.UI.BUTTON.HEIGHT;
-        console.log("progress percentage", this.progressPercentage);
 
         const fillPercentage = Phaser.Math.Clamp(this.progressPercentage, 0, 100);
         
@@ -4342,12 +4710,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // White outline for the entire bar - always has rounded corners
         this.failsCounter.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-
-        // if (this.progressPercentage == 100) {
-        //     //this.celebrateSuccess();
-        // } else if (this.progressPercentage == 0) {
-        //     //this.celebrateNeedsWork();
-        // }
     }
 
     showSuggestions(words) {
@@ -4370,24 +4732,18 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const boxHeight = 30;
         const boxSpacing = 10;
         
-        // Calculate position between prompt box and input box
-        const statsBoxWidth = 180;
-        const statsBoxHeight = 130;
-        const statsDisplayY = this.menuBarHeight + padding;
-        const statsBottomEdge = statsDisplayY + statsBoxHeight;
+        // Get the position of the input text box
+        const inputBoxY = this.inputTextBorder ? this.inputTextBorder.y : 0;
         
-        // Prompt box is 20px below stats box
-        const promptY = statsBottomEdge + 20;
-        const promptBoxHeight = 80;
-        const promptBottomEdge = promptY + promptBoxHeight;
-        
-        // Position suggestions 20px ABOVE the prompt box
-        const suggestionsY = promptY - 20 - boxHeight;
+        // Position suggestions directly above the input box at a fixed distance
+        // Using a large enough offset (70px) to ensure visibility
+        const suggestionsOffset = 70;
+        const suggestionsY = inputBoxY - suggestionsOffset - boxHeight;
         
         // Create a single temporary text object to measure widths instead of creating many
         const tempText = this.add.text(0, 0, '', {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '16px'
+            fontSize: '14px'
         });
         
         // Pre-calculate all word widths in one batch
@@ -4444,20 +4800,13 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Clean up the temporary text object
         tempText.destroy();
         
-        // Performance logging for slow updates
+        // Performance tracking
         const duration = performance.now() - startTime;
-        if (duration > 16) { // Only log if slower than one frame at 60fps
-            console.log(`Slow suggestion rendering: ${duration.toFixed(2)}ms`);
-        }
     }
 
     init(data) {
-        console.log("BaseGameScene init called with data:", data);
-        console.log("LlmEngine retrieved from registry: ", this.registry.get('llmEngine'));
-        
         // If this is a reset from DoneScene or FeedbackScene, reset game state but preserve level and topK
         if (data && data.requiresReset) {
-            console.log("Performing state reset from DoneScene/FeedbackScene");
             this.progressPercentage = data.progressPercentage || 50;
             
             // Preserve level and topK if they were passed
@@ -4490,7 +4839,6 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             }
         } else if (data && data.progressPercentage !== undefined) {
             // Normal scene transition
-            console.log("Setting initial progress percentage:", data.progressPercentage);
             this.progressPercentage = data.progressPercentage;
         }
         

@@ -4,6 +4,8 @@ import ButtonFactory from "../utils/ButtonFactory.js";
 import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 import { ScalingManager } from "../config/scaling.js";
+import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
+import { detectDeviceType } from "../config/dimensions.js";
 
 //, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, colors_hex, colors_text, DESIGN.UI.BUTTON.WIDTH
 
@@ -216,21 +218,21 @@ export default class DoneScene extends Phaser.Scene {
         // Define the click handler function - separate from the button setup
         const addClickEffect = (button, callback) => {
             if (!button) return;
-            
-            // Add click listener for particle effect
-            button.setInteractive();
-            
-            // Replace any existing click handlers with a new one that includes particles
-            button.off('pointerdown');
-            button.on('pointerdown', (pointer) => {
+            // Attach click to the hitRect (first child of the button container)
+            const hitRect = button.list && button.list[0] && button.list[0].setInteractive ? button.list[0] : null;
+            if (!hitRect) return;
+
+            // Remove any previous click handlers
+            hitRect.off('pointerdown');
+            hitRect.on('pointerdown', (pointer) => {
                 console.log("Button clicked:", button.name || "unnamed button");
-                
+
                 // Create the particle effect
                 // Use green for "NEXT"/"DONE", red for "feedback"
                 const label = button.list?.find(obj => obj.text)?.text?.toUpperCase?.() || "";
                 const color = (label === "NEXT" || label === "DONE") ? 0x43ea5e : (label.includes("FEEDBACK") ? 0xff1744 : undefined);
                 this.createButtonClickParticles(button.x, button.y, color);
-                
+
                 // Simulate button press animation
                 this.tweens.add({
                     targets: button,
@@ -653,33 +655,15 @@ export default class DoneScene extends Phaser.Scene {
         }
     }
 
-     // Style methods
-     getPromptTextStyle() {
-        return {
-            fontFamily: "IBM Plex Mono",
-            fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
-            color: this.COLORS_TEXT.PRIMARY,
-            align: "center",
-            lineSpacing: 6,
-            shadow: {
-                offsetX: 1,
-                offsetY: 1,
-                color: '#000',
-                blur: 2,
-                fill: true
-            }
-        };
+    // Style methods - now using centralized textStyles.js module
+    getPromptTextStyle() {
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
     }
 
     getPromptBoxStyle() {
-        return {
-            fillColor: this.COLORS_HEX.BOX_FILL,
-            fillAlpha: 0.5,
-            hasOutline: true,
-            outlineWidth: DESIGN.UI.OUTLINE.WIDTH,
-            outlineColor: this.COLORS_HEX.BOX_OUTLINE,
-            cornerRadius: DESIGN.UI.OUTLINE.CORNER_RADIUS
-        };
+        return getBoxStyle('prompt', this.mode || 'basic', this.scalingManager?.uiScale || 1);
     }
    
     init(data) {
@@ -900,7 +884,7 @@ this.feedbackButton = this.createButton(
         const padding = 10;
         const tooltipText = this.add.text(0, 0, text, {
             fontFamily: 'IBM Plex Mono',
-            fontSize: '16px',
+            fontSize: '14px',
             color: '#ffffff',
             align: 'center'
         });

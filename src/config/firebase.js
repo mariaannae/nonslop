@@ -28,9 +28,37 @@ const auth = getAuth(app);
 
 let currentUserId = null;
 
-// Sign in anonymously on load
-signInAnonymously(auth).catch((error) => {
-  console.error("Anonymous auth failed:", error);
+// Sign in anonymously on load with retry logic
+function attemptAnonymousSignIn(maxRetries = 3, delay = 2000) {
+  let attempts = 0;
+  
+  function trySignIn() {
+    attempts++;
+    console.log(`Authentication attempt ${attempts}/${maxRetries}...`);
+    
+    return signInAnonymously(auth).catch((error) => {
+      console.error(`Anonymous auth failed (attempt ${attempts}):`, error);
+      
+      // Handle visibility check error specifically
+      if (error.code === 'auth/visibility-check-was-unavailable') {
+        console.warn("Firebase visibility check unavailable - this is often a temporary issue");
+        
+        if (attempts < maxRetries) {
+          console.log(`Retrying authentication in ${delay/1000} seconds...`);
+          return new Promise(resolve => setTimeout(() => resolve(trySignIn()), delay));
+        }
+      }
+      
+      throw error;
+    });
+  }
+  
+  return trySignIn();
+}
+
+// Start the authentication process with retries
+attemptAnonymousSignIn().catch((error) => {
+  console.error("All authentication attempts failed:", error);
 });
 
 // Listen for authentication state changes
@@ -40,24 +68,35 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// Simple promise to wait for authentication
+// Simple promise to wait for authentication with retry logic
 const authReady = new Promise((resolve, reject) => {
+  let authResolved = false;
+  
   // Set up auth state change listener
   onAuthStateChanged(auth, (user) => {
       if (user) {
           currentUserId = user.uid;
           console.log("Firebase authenticated");
+          authResolved = true;
           resolve(user.uid);
       }
   }, (error) => {
       console.error("Auth state change error:", error);
-      reject(error);
+      if (!authResolved) {
+          reject(error);
+      }
   });
   
-  // Start anonymous sign-in
-  signInAnonymously(auth).catch((error) => {
-      console.error("Anonymous auth failed:", error);
-      reject(error);
+  // Start anonymous sign-in with retries
+  attemptAnonymousSignIn(3, 2000).catch((error) => {
+      console.error("All anonymous auth attempts failed:", error);
+      // If auth hasn't been resolved yet by the onAuthStateChanged handler
+      if (!authResolved) {
+          // Create a fallback user ID to allow the game to continue without Firebase
+          currentUserId = "offline-" + Math.random().toString(36).substring(2, 15);
+          console.warn("Using offline fallback ID:", currentUserId);
+          resolve(currentUserId); // Resolve anyway to prevent game blocking
+      }
   });
 });
 
@@ -107,29 +146,52 @@ function getDateAndTime(timestamp) {
 
 // Function to save interaction - now waits for auth if needed
 async function saveInteraction(interaction, dbName) {
-
-  await authReady
-
-  const userEnv = getUserEnvironmentInfo();
-  const timestamp = Date.now();
-  const { date, time } = getDateAndTime(timestamp);
-
   try {
-      const docRef = await addDoc(collection(db, dbName), {
-          userId: currentUserId || "unknown",
-          userEnvironment: userEnv,
-          timestamp: timestamp,
-          date: date,
-          time: time,
-          timezone: 'utc',
-          interaction: interaction
-      });
+    // Try to wait for auth, but don't block game if it fails
+    try {
+      await Promise.race([
+        authReady,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Auth timeout")), 5000)
+        )
+      ]);
+    } catch (authError) {
+      console.warn("Auth timed out or failed, continuing with offline mode:", authError.message);
+      // Continue anyway - we'll use the fallback ID or "unknown"
+    }
+
+    const userEnv = getUserEnvironmentInfo();
+    const timestamp = Date.now();
+    const { date, time } = getDateAndTime(timestamp);
+
+    // Only try to save to Firebase if we're not in offline mode
+    if (currentUserId && !currentUserId.startsWith("offline-")) {
+      try {
+        const docRef = await addDoc(collection(db, dbName), {
+            userId: currentUserId || "unknown",
+            userEnvironment: userEnv,
+            timestamp: timestamp,
+            date: date,
+            time: time,
+            timezone: 'utc',
+            interaction: interaction
+        });
+      
+        console.log("Firebase document written with ID:", docRef.id);
+        return docRef.id;
+      } catch (e) {
+        console.error("Error adding document to Firebase:", e);
+        // Continue in offline mode
+      }
+    } else {
+      console.log("Skipping Firebase save in offline mode");
+    }
     
-      console.log("Firebase document written with ID:", docRef.id);
-      return docRef.id;
+    // Return a fake ID in offline mode
+    return "offline-" + Math.random().toString(36).substring(2, 15);
   } catch (e) {
-      console.error("Error adding document to Firebase:", e);
-      return null;
+    console.error("Error in saveInteraction:", e);
+    return null;
   }
 }
 

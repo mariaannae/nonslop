@@ -20,16 +20,9 @@ export default class ToggleFactory {
         // Minimum touch target size for mobile
         const minTouchSize = 44;
 
-        // Calculate visual width/height for toggle (proportional scaling)
-        let baseWidth = DESIGN.UI.TOGGLE.WIDTH;
-        let baseHeight = DESIGN.UI.TOGGLE.HEIGHT;
-        let scale = 1;
-        if (scalingManager) {
-            // Use the smaller of X/Y scaling to keep proportions
-            scale = Math.min(scalingManager.scaleX, scalingManager.scaleY);
-        }
-        const toggleWidth = baseWidth * scale;
-        const toggleHeight = baseHeight * scale;
+        // Use fixed sizes for toggle (no scaling, no minTouchSize logic)
+        const toggleWidth = DESIGN.UI.TOGGLE.WIDTH;
+        const toggleHeight = DESIGN.UI.TOGGLE.HEIGHT;
 
         // Create toggle background with color based on mode
         const bgColor = currentMode === 'hard' ? COLORS_HEX.HIGHLIGHT : 0x333333; // Grey for easy mode
@@ -37,11 +30,9 @@ export default class ToggleFactory {
             .setStrokeStyle(2, COLORS_HEX.HIGHLIGHT);
 
         // Make toggle knob diameter double the slider track height (20px in design)
-        const sliderTrackHeight = 10;
-        const knobRadius = scalingManager
-            ? (sliderTrackHeight * 2 * scale) / 2
-            : (sliderTrackHeight * 2) / 2;
-        const toggleCircle = scene.add.circle(0, 0, knobRadius, COLORS_HEX.ACCENT);
+        const knobRadius = 10;
+        const toggleCircle = scene.add.circle(0, 0, knobRadius, COLORS_HEX.ACCENT)
+            .setStrokeStyle(2, 0xffffff, 0.7);
 
         // Without labels, center is simpler
         const centerX = leftX + toggleWidth / 2;

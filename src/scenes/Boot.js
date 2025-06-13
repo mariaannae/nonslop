@@ -52,28 +52,21 @@ export default class Boot extends Phaser.Scene
         registryManager.init(this.registry);
         console.log("Registry Manager initialized in Boot scene");
         
-        console.log("Waiting for fonts to fully load...");
+        console.log("Waiting for all fonts (Google + barcade3d) and Firebase auth to fully load...");
 
-        // ✅ Check if all fonts are ready
-        document.fonts.ready.then(() => {
-            console.log("Google Fonts fully loaded, starting Preloader...");
-            this.scene.start("Preloader"); // ✅ Now safe to start Preloader
-        }).catch(err => {
-            console.error("Error loading fonts:", err);
-            this.scene.start("Preloader"); // Start anyway if there's an error
-        });
-
-        // ✅ Check if Firebase auth is ready
         try {
-            const userId = await waitForAuth();
-            //console.log("Auth complete, userId:", userId);
-            this.scene.start('Preloader');
+            // Wait for both Google fonts and barcade3d to load, and Firebase auth
+            await Promise.all([
+                document.fonts.ready,
+                document.fonts.load('1em barcade3d'),
+                waitForAuth()
+            ]);
+            console.log("All fonts and Firebase auth loaded, starting Preloader...");
+            this.scene.start("Preloader");
         } catch (error) {
-            console.error("Auth failed:", error);
+            console.error("Error loading fonts or auth:", error);
             // Still proceed to preloader
-            this.scene.start('Preloader');
-        };
-    
-
+            this.scene.start("Preloader");
+        }
     }
 }

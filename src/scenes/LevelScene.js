@@ -3,6 +3,8 @@ import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { ScalingManager } from "../config/scaling.js";
 import registryManager from "../services/RegistryManager.js";
+import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
+import { detectDeviceType } from "../config/dimensions.js";
 
 //, , DESIGN.UI.BUTTON.WIDTH
 
@@ -49,18 +51,20 @@ export default class LevelScene extends Phaser.Scene {
         this.addButtonClickEffects();
     }
 
+    // Get tooltip text style using centralized text styles
+    getTooltipTextStyle() {
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('tooltip', deviceType, 'basic', uiScale);
+    }
+
     showTooltip(text, x, y) {
         // Hide any existing tooltips
         this.hideTooltips();
         
         // Create tooltip background
         const padding = 10;
-        const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: '16px',
-            color: '#ffffff',
-            align: 'center'
-        });
+        const tooltipText = this.add.text(0, 0, text, this.getTooltipTextStyle());
         
         const width = tooltipText.width + padding * 2;
         const height = tooltipText.height + padding * 2;
@@ -180,19 +184,30 @@ export default class LevelScene extends Phaser.Scene {
         );
     }
     
+    // Get prompt text style using centralized text styles
+    getPromptTextStyle() {
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('prompt', deviceType, 'basic', uiScale);
+    }
+
+    // Get prompt box style using centralized box styles
+    getPromptBoxStyle() {
+        return getBoxStyle('prompt', 'basic', this.scalingManager?.uiScale || 1);
+    }
+
     createPromptTextBox() {
-        // Use InstructionsScene.js scaling and layout logic for consistency
-        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        // Use device detection from dimensions.js
+        const deviceType = detectDeviceType();
+        const isDesktop = deviceType === 'desktop';
+        const isMobile = deviceType === 'phone';
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        
         this.promptBoxY = 0.07 * this.cameras.main.height;
         this.uiBoxWidth = isDesktop
             ? this.cameras.main.width * (5 / 6) * (2 / 3)
             : this.cameras.main.width * (5 / 6);
         const padding = 40;
-        const fontSize = isDesktop
-            ? 18 * uiScale
-            : 24 * uiScale + (isMobile ? 2 : 0);
 
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
@@ -209,16 +224,18 @@ export default class LevelScene extends Phaser.Scene {
         // Default text to calculate initial size
         const defaultText = "Easy:\nMinor deviations from human norms tolerated. Repeated infractions will be penalized.\n\nHard:\nStrict adherence to human behavioral variance required. Any indication of algorithmic mimicry will trigger corrective measures.\n\nProceed.";
 
+        // Get centralized text style for measuring
+        const measureTextStyle = {
+            ...this.getPromptTextStyle(),
+            wordWrap: { width: this.uiBoxWidth - padding * 2 },
+            align: "left"
+        };
+
         // Pre-calculate height and Y position for the final text
         const tempText = this.add.text(
             0, 0,
             defaultText,
-            {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${fontSize}px`,
-                wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "left"
-            }
+            measureTextStyle
         ).setOrigin(0, 0).setAlpha(0);
         const textHeight = tempText.height + padding * 2;
         tempText.destroy();
@@ -226,38 +243,44 @@ export default class LevelScene extends Phaser.Scene {
         // Start with empty text for typewriter effect, fixed top-left position
         const promptTextX = this.cameras.main.centerX - this.uiBoxWidth / 2 + padding;
         const promptTextY = this.promptBoxY + padding;
+        // Get centralized text style for actual text
+        const promptTextStyle = {
+            ...this.getPromptTextStyle(),
+            wordWrap: { width: this.uiBoxWidth - padding * 2 },
+            align: "left"
+        };
+        
         this.promptText = this.add.text(
             promptTextX,
             promptTextY,
             "",
-            {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${fontSize}px`,
-                color: COLORS_TEXT.PRIMARY,
-                wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "left"
-            }
+            promptTextStyle
         ).setOrigin(0, 0);
 
+        // Get centralized box style
+        const boxStyle = this.getPromptBoxStyle();
+        
         // Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
+        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
 
-        // Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
-        this.promptTextBox.strokeRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2, 
-            this.promptBoxY,
-            this.uiBoxWidth,
-            textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
-        );
+        // Add Outline if style specifies it
+        if (boxStyle.hasOutline) {
+            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.promptTextBox.strokeRoundedRect(
+                this.cameras.main.centerX - this.uiBoxWidth / 2, 
+                this.promptBoxY,
+                this.uiBoxWidth,
+                textHeight,
+                boxStyle.cornerRadius
+            );
+        }
 
         // Ensure Prompt Box Appears Above Other UI Elements
         this.promptTextBox.setDepth(102);
@@ -297,7 +320,7 @@ export default class LevelScene extends Phaser.Scene {
         // Use the same vertical gap logic as InstructionsScene
         const boxY = this.promptBoxY;
         const boxHeight = textHeight;
-        const buttonVerticalGap = isMobile ? 60 * uiScale : 30 * uiScale;
+        const buttonVerticalGap = isMobile ? 40 * uiScale : 30 * uiScale;
         const buttonHeight = this.scalingManager
             ? this.scalingManager.buttonHeight()
             : DESIGN.UI.BUTTON.HEIGHT;

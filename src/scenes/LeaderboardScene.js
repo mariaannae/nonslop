@@ -4,6 +4,8 @@ import ButtonFactory from "../utils/ButtonFactory.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 import { ScalingManager } from "../config/scaling.js";
+import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
+import { detectDeviceType } from "../config/dimensions.js";
 
 export default class LeaderboardScene extends Phaser.Scene {
     constructor() {
@@ -133,21 +135,16 @@ export default class LeaderboardScene extends Phaser.Scene {
         });
     }
 
+    // Get title text style using centralized text styles
+    getTitleTextStyle() {
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        return getTextStyle('menuTitle', deviceType, this.mode || 'basic', uiScale);
+    }
+
     createTitle() {
-        // Create a title for the leaderboard
-        const titleStyle = {
-            fontFamily: 'barcade3d',
-            fontSize: '60px',
-            color: this.COLORS_TEXT.TITLE,
-            align: 'center',
-            shadow: {
-                offsetX: 2,
-                offsetY: 2,
-                color: '#000',
-                blur: 2,
-                fill: true
-            }
-        };
+        // Create a title for the leaderboard using centralized text styles
+        const titleStyle = this.getTitleTextStyle();
 
         this.add.text(
             this.cameras.main.centerX,
@@ -806,7 +803,10 @@ export default class LeaderboardScene extends Phaser.Scene {
                     targets: this.detailsModal,
                     alpha: 0,
                     duration: 200,
-                    onComplete: () => this.detailsModal.destroy()
+                    onComplete: () => {
+                        this.detailsModal.destroy();
+                        overlay.disableInteractive?.();
+                    }
                 });
             });
     }
@@ -969,7 +969,10 @@ export default class LeaderboardScene extends Phaser.Scene {
                     targets: this.confirmDialog,
                     alpha: 0,
                     duration: 200,
-                    onComplete: () => this.confirmDialog.destroy()
+                    onComplete: () => {
+                        this.confirmDialog.destroy();
+                        overlay.disableInteractive?.();
+                    }
                 });
             });
         
