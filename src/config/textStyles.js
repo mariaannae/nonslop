@@ -34,7 +34,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
     const BASE_FONT_SIZES = {
         [DEVICE_TYPES.DESKTOP]: {
             title: 50,
-            menuTitle: 80,
+            menuTitle: 50,
             prompt: 16,
             input: 16,
             output: 16,
@@ -295,7 +295,7 @@ export function getMenuBarStyle(mode = 'basic', uiScale = 1) {
     
     // Base font sizes for each device type
     const TITLE_FONT_SIZES = {
-        [DEVICE_TYPES.DESKTOP]: 80,
+        [DEVICE_TYPES.DESKTOP]: 60,
         [DEVICE_TYPES.TABLET]: 55,
         [DEVICE_TYPES.PHONE]: 40
     };

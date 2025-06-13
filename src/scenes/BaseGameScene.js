@@ -1241,13 +1241,15 @@ export default class BaseGameScene extends Phaser.Scene {
         const outlineColorHex = this.COLORS_HEX.BOX_OUTLINE;
         const outlineColorString = '#' + outlineColorHex.toString(16).padStart(6, '0');
 
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const evaluatingStyle = getTextStyle('title', deviceType, this.mode || 'basic', uiScale);
         const evaluatingText = this.add.text(
             this.getCenterX(),
             this.getCenterY(),
             'Assessing your feeble attempt...',
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '32px',
+                ...evaluatingStyle,
                 fill: outlineColorString,
                 backgroundColor: '#000000',
                 padding: { x: 20, y: 10 },
@@ -1300,18 +1302,18 @@ export default class BaseGameScene extends Phaser.Scene {
             evaluatingText.destroy();
             console.error("Error during evaluation:", error);
             // Show an error message to the user
+            const deviceType = detectDeviceType();
+            const uiScale = this.scalingManager?.uiScale || 1;
+            const errorStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
             const errorText = this.add.text(
                 this.cameras.main.centerX,
                 this.cameras.main.centerY,
                 'System error. Even I am not immune to failure. Try again.',
                 {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: isDesktop
-                    ? 14 * uiScale
-                    : 24 * uiScale + (isMobile ? 2 : 0),
-                fill: '#ff0000',
-                backgroundColor: '#000000',
-                padding: { x: 20, y: 10 }
+                    ...errorStyle,
+                    fill: '#ff0000',
+                    backgroundColor: '#000000',
+                    padding: { x: 20, y: 10 }
                 }
             ).setOrigin(0.5).setDepth(100);
 
@@ -2427,13 +2429,15 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         modalBg.setDepth(1002);
 
         // Warning text
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const warningStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
         const text = this.add.text(
             this.cameras.main.centerX,
             y + 50,
             warning,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '20px',
+                ...warningStyle,
                 color: '#ff0000',
                 align: 'center',
                 wordWrap: { width: width - 40 }
@@ -2441,13 +2445,13 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         ).setOrigin(0.5).setDepth(1003);
 
         // Countdown timer with label
+        const timerStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
         const timerText = this.add.text(
             this.cameras.main.centerX,
             y + height - 32,
             `Penalty: ${this.fastTypingPenaltySeconds}s`,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '28px',
+                ...timerStyle,
                 color: '#ffffff',
                 align: 'center'
             }
@@ -2642,13 +2646,15 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         this.levelModeBanner.strokeRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
         
         // Create the text with no container - just directly positioned
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const indicatorStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
         this.levelModeIndicator = this.add.text(
             this.cameras.main.centerX,
             levelModeIndicatorY,
             indicatorText,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: `${this.scalingManager ? this.scalingManager.scaleText(18) : 18}px`,
+                ...indicatorStyle,
                 fontStyle: 'bold',
                 fill: '#ffffff',
                 align: 'center'
@@ -2696,17 +2702,10 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         if (this.isMobile) {
             // Position title higher in the menu bar
             const titleY = menuBarHeight / 3;
-            // Adjust title size: slightly larger on mobile, significantly larger on desktop
-            const titleFontSize = this.scalingManager
-                ? this.scalingManager.scaleText(this.isMobile ? 55 : 50)
-                : (this.isMobile ? 55 : 50);
             titleText = this.add.text(
                 this.cameras.main.centerX, titleY,
                 "(NON-SLOP)",
-                {
-                    ...style.titleStyle,
-                    fontSize: `${titleFontSize}px`
-                }
+                style.titleStyle
             ).setOrigin(0.5, 0.5);
 
             // Calculate padding between title and box
@@ -2718,17 +2717,10 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             // Place the box and text below the title with padding
             levelModeIndicatorY = titleY + titleHeight / 2 + mobilePadding + bannerHeight / 2;
         } else {
-            // Adjust title size: slightly larger on mobile, significantly larger on desktop
-            const titleFontSize = this.scalingManager
-                ? this.scalingManager.scaleText(this.isMobile ? 40 : 80)
-                : (this.isMobile ? 40 : 80);
             titleText = this.add.text(
                 padding, menuBarHeight / 2,
                 "(NON-SLOP)",
-                {
-                    ...style.titleStyle,
-                    fontSize: `${titleFontSize}px`
-                }
+                style.titleStyle
             ).setOrigin(0, 0.5);
             levelModeIndicatorY = menuBarHeight / 2;
         }
@@ -2799,9 +2791,11 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         }
         
         // Create timer text in the upper left corner
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const timerStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
         this.timerText = this.add.text(20, this.menuBarHeight + 20, '0:20', {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: this.calculateFontSize(14, 24, 2),
+            ...timerStyle,
             fontStyle: 'bold',
             fill: '#ff0000'
         });
@@ -3208,11 +3202,18 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         
         // Add title
         const titleHeight = 44;
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const titleStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
         const title = this.add.text(
             this.cameras.main.centerX,
             popupY + titleHeight / 2,
             'Settings',
-            { fontFamily: 'IBM Plex Mono', fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
+            {
+                ...titleStyle,
+                fill: '#ffffff',
+                fontStyle: 'bold'
+            }
         ).setOrigin(0.5, 0.5);
         this.settingsPopup.add(title);
         
@@ -3234,10 +3235,16 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Level slider row
         const levelLabelX = popupX + 30;
         const levelLabelY = yCursor + 22;
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const labelStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
         const levelLabel = this.add.text(
             levelLabelX, levelLabelY,
             `Level: ${this.levelValue}`,
-            { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
+            {
+                ...labelStyle,
+                fill: '#ffffff'
+            }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(levelLabel);
 
@@ -3376,10 +3383,16 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Mode Toggle row
         const modeToggleLabelX = popupX + 30;
         const modeToggleLabelY = yCursor + 22;
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const labelStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
         const modeToggleLabel = this.add.text(
             modeToggleLabelX, modeToggleLabelY,
             "Hard Mode:",
-            { fontFamily: 'IBM Plex Mono', fontSize: '22px', fill: '#ffffff' }
+            {
+                ...labelStyle,
+                fill: '#ffffff'
+            }
         ).setOrigin(0, 0.5);
         this.settingsPopup.add(modeToggleLabel);
 
@@ -3591,13 +3604,15 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         background.strokeRoundedRect(0, 0, boxWidth, boxHeight, cornerRadius);
         
         // Word count title
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
         const titleText = this.add.text(
             boxWidth / 2, 
             15, 
             "WORD STATS", 
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '14px',
+                ...labelStyle,
                 fontStyle: 'bold',
                 fill: '#ffffff'
             }
@@ -3609,13 +3624,13 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const originalLabel = this.add.text(
             35, 40, 
             "Original Words:", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            { ...labelStyle, fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.originalCountText = this.add.text(
             boxWidth - 15, 40, 
             "0", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fontStyle: 'bold', fill: '#7cfc00' }
+            { ...labelStyle, fontStyle: 'bold', fill: '#7cfc00' }
         ).setOrigin(1, 0.5);
         
         const aiIcon = this.add.circle(20, 65, 6, 0xff3366); // Red color to match the AI counter
@@ -3623,13 +3638,13 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const aiLabel = this.add.text(
             35, 65, 
             "AI Words:", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            { ...labelStyle, fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.aiCountText = this.add.text(
             boxWidth - 15, 65, 
             "0", 
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fontStyle: 'bold', fill: '#ff3366' }
+            { ...labelStyle, fontStyle: 'bold', fill: '#ff3366' }
         ).setOrigin(1, 0.5);
         
         // Streak counter (third row)
@@ -3639,15 +3654,15 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const streakLabel = this.add.text(
             35, 90,
             "Current Streak:",
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            { ...labelStyle, fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
+        const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
         this.streakText = this.add.text(
             boxWidth - 15, 90,
             `${this.wordStreak}`,
             { 
-                fontFamily: 'IBM Plex Mono', 
-                fontSize: '16px', 
+                ...countStyle,
                 fontStyle: 'bold', 
                 fill: '#' + streakColor.toString(16).padStart(6, '0')
             }
@@ -3659,15 +3674,14 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const maxStreakLabel = this.add.text(
             35, 115,
             "Best Streak:",
-            { fontFamily: 'IBM Plex Mono', fontSize: '14px', fill: '#ffffff' }
+            { ...labelStyle, fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.maxStreakText = this.add.text(
             boxWidth - 15, 115,
             `${this.maxWordStreak}`,
             { 
-                fontFamily: 'IBM Plex Mono', 
-                fontSize: '16px', 
+                ...countStyle,
                 fontStyle: 'bold', 
                 fill: '#ffd700' 
             }
@@ -3747,13 +3761,15 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Only animate if increasing
         if (newNum > oldNum) {
             // Create a temporary text object for the animation
+            const deviceType = detectDeviceType();
+            const uiScale = this.scalingManager?.uiScale || 1;
+            const animStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
             const animatedText = this.add.text(
                 textObject.x, 
                 textObject.y - 15,
                 "+" + (newNum - oldNum),
                 {
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: '14px',
+                    ...animStyle,
                     fontStyle: 'bold',
                     fill: '#ffffff'
                 }
@@ -3998,9 +4014,11 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
         // Create tooltip background
         const padding = 10;
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const tooltipStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
         const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: '14px',
+            ...tooltipStyle,
             color: '#ffffff',
             align: 'center'
         });
@@ -4854,10 +4872,10 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         }
         
         // Create a single temporary text object to measure widths instead of creating many
-        const tempText = this.add.text(0, 0, '', {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: '14px'
-        });
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const suggestionStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
+        const tempText = this.add.text(0, 0, '', suggestionStyle);
         
         // Pre-calculate all word widths in one batch
         const wordWidths = words.map(word => {
@@ -4892,8 +4910,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 suggestionsY + boxHeight / 2, 
                 word,
                 {
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: '16px',
+                    ...suggestionStyle,
                     color: '#ffffff'
                 }
             ).setOrigin(0, 0.5);
