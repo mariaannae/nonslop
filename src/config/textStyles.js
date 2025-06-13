@@ -40,8 +40,8 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             output: 16,
             tooltip: 14,
             effect: 18,
-            button: 16,
-            fancyButton: 16
+            button: 18,
+            fancyButton: 18
         },
         [DEVICE_TYPES.TABLET]: {
             title: 50,

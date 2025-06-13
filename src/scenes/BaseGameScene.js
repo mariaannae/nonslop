@@ -83,8 +83,8 @@ const SCENE_CONFIG = {
     LAYOUT: {
         PROMPT_OFFSET_BELOW_STATS: 80,
         MOBILE_PROMPT_OFFSET_BELOW_STATS: 60,
-        INPUT_OFFSET_BELOW_PROMPT: 40,
-        MOBILE_INPUT_OFFSET_BELOW_PROMPT: 80,
+        INPUT_OFFSET_BELOW_PROMPT: 10,
+        MOBILE_INPUT_OFFSET_BELOW_PROMPT: 30,
         BUTTON_VERTICAL_GAP_DESKTOP: 30,
         BUTTON_VERTICAL_GAP_MOBILE: 40,
         BUTTON_HORIZONTAL_OFFSET_DESKTOP: 60,
@@ -130,7 +130,7 @@ const SCENE_CONFIG = {
     // Fast typing penalty
     FAST_TYPING: {
         DEFAULT_PENALTY_SECONDS: 2,
-        DEFAULT_COOLDOWN_MS: 1250,
+        DEFAULT_COOLDOWN_MS: 600,
         MODAL_WIDTH_RATIO: 0.8,
         MODAL_MAX_WIDTH: 500,
         MODAL_HEIGHT: 180,
@@ -194,6 +194,262 @@ export default class BaseGameScene extends Phaser.Scene {
     
     get isDesktop() {
         return this._isDesktop;
+    }
+    
+    /**
+     * Animation Helper Methods
+     * These methods simplify common animation patterns used throughout the game
+     */
+    
+    /**
+     * Fade in animation helper
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Quad.Out'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    fadeIn(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.Out', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            alpha: { from: 0, to: 1 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Fade out animation helper
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Quad.In'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    fadeOut(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.In', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            alpha: { from: 1, to: 0 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Scale pop in animation helper (scale from 0 to 1)
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Back.Out'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    scalePopIn(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Back.Out', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            scale: { from: 0, to: 1 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Scale pop out animation helper (scale from 1 to 0)
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Back.In'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    scalePopOut(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Back.In', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            scale: { from: 1, to: 0 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Combined fade in and scale pop animation
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Quad.Out'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    fadeInScale(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.Out', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            alpha: { from: 0, to: 1 },
+            scale: { from: 0.8, to: 1 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Combined fade out and scale down animation
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Quad.In'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    fadeOutScale(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Quad.In', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            alpha: { from: 1, to: 0 },
+            scale: { from: 1, to: 0.8 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Pulse animation helper (scale up and down repeatedly)
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [scaleAmount=1.1] - Maximum scale during pulse
+     * @param {number} [duration=1000] - Duration of one pulse cycle
+     * @param {number} [repeat=-1] - Number of repeats (-1 for infinite)
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    pulse(targets, scaleAmount = 1.1, duration = 1000, repeat = -1) {
+        return this.tweens.add({
+            targets: targets,
+            scale: { from: 1, to: scaleAmount },
+            duration: duration,
+            yoyo: true,
+            repeat: repeat,
+            ease: 'Sine.InOut'
+        });
+    }
+    
+    /**
+     * Shake animation helper
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [intensity=5] - Shake intensity in pixels
+     * @param {number} [duration=500] - Total duration of shake
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    shake(targets, intensity = 5, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, onComplete = null) {
+        // Store original positions
+        const originalPositions = Array.isArray(targets) 
+            ? targets.map(t => ({ x: t.x, y: t.y }))
+            : { x: targets.x, y: targets.y };
+        
+        return this.tweens.add({
+            targets: targets,
+            x: { 
+                from: function(target, key, value) { return value - intensity; },
+                to: function(target, key, value) { return value + intensity; }
+            },
+            y: { 
+                from: function(target, key, value) { return value - intensity; },
+                to: function(target, key, value) { return value + intensity; }
+            },
+            duration: duration / 10,
+            yoyo: true,
+            repeat: 9,
+            ease: 'Sine.InOut',
+            onComplete: () => {
+                // Restore original positions
+                if (Array.isArray(targets)) {
+                    targets.forEach((target, i) => {
+                        target.x = originalPositions[i].x;
+                        target.y = originalPositions[i].y;
+                    });
+                } else {
+                    targets.x = originalPositions.x;
+                    targets.y = originalPositions.y;
+                }
+                if (onComplete) onComplete();
+            }
+        });
+    }
+    
+    /**
+     * Flash animation helper (quickly fade in and out)
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [flashCount=3] - Number of flashes
+     * @param {number} [duration=500] - Total duration
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    flash(targets, flashCount = 3, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            alpha: { from: 1, to: 0 },
+            duration: duration / (flashCount * 2),
+            yoyo: true,
+            repeat: flashCount - 1,
+            ease: 'Sine.InOut',
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Slide in animation helper
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {string} [direction='left'] - Direction to slide from ('left', 'right', 'top', 'bottom')
+     * @param {number} [distance=100] - Distance to slide
+     * @param {number} [duration=500] - Animation duration
+     * @param {string} [ease='Cubic.Out'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    slideIn(targets, direction = 'left', distance = 100, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Cubic.Out', onComplete = null) {
+        const props = {};
+        
+        switch(direction) {
+            case 'left':
+                props.x = { from: '-=' + distance, to: '+=' + distance };
+                break;
+            case 'right':
+                props.x = { from: '+=' + distance, to: '-=' + distance };
+                break;
+            case 'top':
+                props.y = { from: '-=' + distance, to: '+=' + distance };
+                break;
+            case 'bottom':
+                props.y = { from: '+=' + distance, to: '-=' + distance };
+                break;
+        }
+        
+        props.alpha = { from: 0, to: 1 };
+        props.duration = duration;
+        props.ease = ease;
+        props.onComplete = onComplete;
+        
+        return this.tweens.add({
+            targets: targets,
+            ...props
+        });
+    }
+    
+    /**
+     * Bounce animation helper
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [bounceHeight=20] - Height of bounce in pixels
+     * @param {number} [duration=500] - Animation duration
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    bounce(targets, bounceHeight = 20, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            y: '-=' + bounceHeight,
+            duration: duration / 2,
+            ease: 'Quad.Out',
+            yoyo: true,
+            onComplete: onComplete
+        });
     }
     
     /**
@@ -578,7 +834,7 @@ export default class BaseGameScene extends Phaser.Scene {
         const sm = this.scalingManager;
         
         // Calculate input box position
-        const inputBoxY = promptBoxInfo.boxY + promptBoxInfo.boxHeight + (this.isMobile ? 80 : 40);
+        const inputBoxY = promptBoxInfo.boxY + promptBoxInfo.boxHeight + (this.isMobile ? SCENE_CONFIG.LAYOUT.MOBILE_INPUT_OFFSET_BELOW_PROMPT : SCENE_CONFIG.LAYOUT.INPUT_OFFSET_BELOW_PROMPT);
         const inputBoxX = sm.centerX() - this.uiBoxWidth / 2;
 
         // Create input box graphics
@@ -825,12 +1081,12 @@ export default class BaseGameScene extends Phaser.Scene {
         }
     }
 
-    // Scene transition helper - call this before switching scenes to ensure clean transitions
-    prepareForSceneTransition() {
-        // Set shutdown flag to prevent further updates
-        this.isShuttingDown = true;
-
-        // Stop timers that could cause callbacks after scene change
+    /**
+     * Consolidated cleanup method for resources
+     * @param {boolean} isTransition - Whether this is for a scene transition (vs shutdown)
+     */
+    cleanupResources(isTransition = false) {
+        // Stop all timers
         if (this.cursorTimer) {
             this.cursorTimer.remove();
             this.cursorTimer = null;
@@ -841,7 +1097,6 @@ export default class BaseGameScene extends Phaser.Scene {
             this.activeTimeout = null;
         }
         
-        // Stop the countdown timer
         if (this.timerEvent) {
             this.timerEvent.remove();
             this.timerEvent = null;
@@ -852,108 +1107,79 @@ export default class BaseGameScene extends Phaser.Scene {
             this.tweens.killAll();
         }
         
-        // Clean up input handlers to prevent ghost inputs
-        this.input.keyboard.removeAllListeners();
-        this.input.keyboard.removeAllListeners('keydown');
-        
-        // Reset all visual elements to a stable state
-        this.cursorVisible = false;
-        
-        // Reset user input value
-        this.userInput = '';
-        
-        if (this.inputText) {
-            try {
-                this.inputText.setText('');
-            } catch(e) {
-                // Could not reset input text during transition
-            }
+        // Clean up input handlers
+        if (this.input && this.input.keyboard) {
+            this.input.keyboard.removeAllListeners();
+            this.input.keyboard.removeAllListeners('keydown');
         }
         
+        // Reset cursor state
+        this.cursorVisible = false;
+        
+        // Clean up autocomplete text
         if (this.autocompleteText) {
             try {
                 this.autocompleteText.destroy();
                 this.autocompleteText = null;
             } catch(e) {
-                // Could not destroy autocomplete text during transition
+                // Could not destroy autocomplete text during cleanup
             }
         }
         
         // Clear AI suggestions
         this.aiSuggestedWords = [];
         
-        // Remove suggestion visual elements if they exist
+        // Remove suggestion visual elements
         if (this.suggestionBoxes) {
-            this.suggestionBoxes.forEach(box => box.destroy());
+            this.suggestionBoxes.forEach(box => {
+                if (box && !box.destroyed) {
+                    box.destroy();
+                }
+            });
             this.suggestionBoxes = [];
         }
         
         if (this.suggestionTexts) {
-            this.suggestionTexts.forEach(text => text.destroy());
+            this.suggestionTexts.forEach(text => {
+                if (text && !text.destroyed) {
+                    text.destroy();
+                }
+            });
             this.suggestionTexts = [];
         }
-
-        // Ensure no autocompletion data remains
+        
+        // Clear suggestions display
         this.showSuggestions([]);
         
+        // Additional cleanup for scene transitions
+        if (isTransition) {
+            // Reset user input
+            this.userInput = '';
+            
+            if (this.inputText) {
+                try {
+                    this.inputText.setText('');
+                } catch(e) {
+                    // Could not reset input text during transition
+                }
+            }
+        }
+    }
+
+    // Scene transition helper - call this before switching scenes to ensure clean transitions
+    prepareForSceneTransition() {
+        // Set shutdown flag to prevent further updates
+        this.isShuttingDown = true;
+        
+        // Use consolidated cleanup method
+        this.cleanupResources(true);
     }
 
     shutdown() {
-        // Properly clean up all timers
+        // Use consolidated cleanup method
+        this.cleanupResources(false);
         
-        // Clear any active timeout
-        if (this.activeTimeout) {
-            clearTimeout(this.activeTimeout);
-            this.activeTimeout = null;
-        }
-        
-        // Remove cursor timer
-        if (this.cursorTimer) {
-            this.cursorTimer.remove();
-            this.cursorTimer = null;
-        }
-        
-        // Remove timer
-        if (this.timerEvent) {
-            this.timerEvent.remove();
-            this.timerEvent = null;
-        }
-        
-        // Clear input handlers
-        this.input.keyboard.removeAllListeners('keydown');
-        
-        // Ensure cursor is reset
-        this.cursorVisible = false;
-        
-        // Properly clean up autocomplete text
-        if (this.autocompleteText) {
-            try {
-                this.autocompleteText.destroy();
-                this.autocompleteText = null;
-            } catch(e) {
-                // Could not destroy autocomplete text during shutdown
-            }
-        }
-        
-        // Clear AI suggestions
-        this.aiSuggestedWords = [];
-        
-        // Remove suggestion visual elements if they exist
-        if (this.suggestionBoxes) {
-            this.suggestionBoxes.forEach(box => box.destroy());
-            this.suggestionBoxes = [];
-        }
-        
-        if (this.suggestionTexts) {
-            this.suggestionTexts.forEach(text => text.destroy());
-            this.suggestionTexts = [];
-        }
-        
-        // Clear any pending tweens that might affect scene transitions
-        if (this.tweens) {
-            this.tweens.killAll();
-        }
-        
+        // Call parent shutdown
         super.shutdown();
     }
 
@@ -1018,13 +1244,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 0xffffff,
                 SCENE_CONFIG.EFFECTS.FLASH_ALPHA_DEFAULT
             ).setOrigin(0).setDepth(999);
-            this.tweens.add({
-                targets: flash,
-                alpha: 0,
-                duration: SCENE_CONFIG.ANIMATIONS.FAST,
-                ease: 'Quad.Out',
-                onComplete: () => flash.destroy()
-            });
+            this.fadeOut(flash, SCENE_CONFIG.ANIMATIONS.FAST, 'Quad.Out', () => flash.destroy());
         } else {
             // Default shake for other platforms
             this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.SHAKE_DURATION_DEFAULT, SCENE_CONFIG.EFFECTS.SHAKE_INTENSITY_DEFAULT);
@@ -1071,14 +1291,15 @@ export default class BaseGameScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(100); // Set a high depth value to ensure visibility
         
+            this.fadeOutScale(explosion, SCENE_CONFIG.ANIMATIONS.SLOW + 100, 'Back.easeOut', () => {
+                explosion.destroy();
+            });
             this.tweens.add({
                 targets: explosion,
-                scale: { from: 1, to: 4 }, // How big is the explosion?
-                alpha: { from: 1, to: 0 }, // Fix - proper alpha from 1 to 0
-                angle: { from: 0, to: 360 }, // Rotation
+                scale: { from: 1, to: 4 },
+                angle: { from: 0, to: 360 },
                 duration: SCENE_CONFIG.ANIMATIONS.SLOW + 100,
-                ease: 'Back.easeOut',
-                onComplete: () => explosion.destroy()
+                ease: 'Back.easeOut'
             });
     }
 
@@ -1145,14 +1366,8 @@ export default class BaseGameScene extends Phaser.Scene {
         ).setOrigin(0.5).setDepth(100).setAlpha(0);
 
         // Add pulsing animation
-        this.tweens.add({
-            targets: evaluatingText,
-            alpha: { from: 0, to: 1 },
-            yoyo: true,
-            repeat: -1,
-            duration: SCENE_CONFIG.ANIMATIONS.MEDIUM,
-            ease: 'Sine.InOut'
-        });
+        this.pulse(evaluatingText, 1, SCENE_CONFIG.ANIMATIONS.MEDIUM * 2);
+        this.fadeIn(evaluatingText, SCENE_CONFIG.ANIMATIONS.FAST);
 
         try {
             const output = await this.evaluateText(this.userInput);
@@ -2538,6 +2753,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         ).setOrigin(0.5, 0.5);
         
         // Add a subtle pulse glow effect
+        this.pulse(this.levelModeIndicator, 1, 1500);
         this.tweens.add({
             targets: this.levelModeIndicator,
             alpha: { from: 1, to: 0.8 },
@@ -2552,12 +2768,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         // Save topK values for settings popup
         this.topKValue = this.topKValue || 1;
         
-        this.tweens.add({
-            targets: [menuBar, menuBarBorder, this.levelModeIndicator],
-            alpha: 1,
-            duration: 800,
-            ease: 'Quad.Out'
-        });
+        this.fadeIn([menuBar, menuBarBorder, this.levelModeIndicator], 800);
     }
 
     createMenuBar() {
@@ -3388,12 +3599,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
      */
     animateSettingsPopupIn() {
         this.settingsPopup.setScale(0.8);
-        this.tweens.add({
-            targets: this.settingsPopup,
-            scale: 1,
-            duration: 200,
-            ease: 'Back.Out'
-        });
+        this.scalePopIn(this.settingsPopup, 200);
     }
     
     closeSettingsPopup() {
@@ -3411,26 +3617,19 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         }
 
         // First destroy the popup with animation
-        this.tweens.add({
-            targets: this.settingsPopup,
-            alpha: 0,
-            scale: 0.8,
-            duration: 200,
-            ease: 'Back.In',
-            onComplete: () => {
-                if (this.settingsPopup) {
-                    this.settingsPopup.destroy();
-                    this.settingsPopup = null;
-                    // Remove any event listeners specifically for popup
-                    this.input.off('drag');
-                    
-                    // After popup is destroyed, apply mode change if needed
-                    if (hasModeChange) {
-                        // Short delay to ensure popup is fully gone
-                        this.time.delayedCall(50, () => {
-                            this.onModeToggle(this.pendingModeChange, this.levelValue, this.topKValue);
-                        });
-                    }
+        this.fadeOutScale(this.settingsPopup, 200, 'Back.In', () => {
+            if (this.settingsPopup) {
+                this.settingsPopup.destroy();
+                this.settingsPopup = null;
+                // Remove any event listeners specifically for popup
+                this.input.off('drag');
+                
+                // After popup is destroyed, apply mode change if needed
+                if (hasModeChange) {
+                    // Short delay to ensure popup is fully gone
+                    this.time.delayedCall(50, () => {
+                        this.onModeToggle(this.pendingModeChange, this.levelValue, this.topKValue);
+                    });
                 }
             }
         });
@@ -3661,12 +3860,14 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             this.wordCountDisplay.add(animatedText);
             
             // Animate the temporary text
+            this.fadeIn(animatedText, 200);
             this.tweens.add({
                 targets: animatedText,
                 y: animatedText.y - 15,
-                alpha: { from: 0, to: 1, duration: 200, yoyo: true, hold: 300 },
+                alpha: { from: 1, to: 0 },
                 ease: 'Cubic.Out',
                 duration: 800,
+                delay: 300,
                 onComplete: () => animatedText.destroy()
             });
             
@@ -3925,25 +4126,14 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
 
         // Fade in effect
         container.setAlpha(0);
-        this.tweens.add({
-            targets: container,
-            alpha: 1,
-            duration: 200,
-            ease: 'Quad.easeOut'
-        });
+        this.fadeIn(container, 200, 'Quad.easeOut');
 
         container.setDepth(1000);
     }
     
     hideTooltips() {
         this.tooltips.forEach(tooltip => {
-            this.tweens.add({
-                targets: tooltip,
-                alpha: 0,
-                duration: 200,
-                ease: 'Quad.easeOut',
-                onComplete: () => tooltip.destroy()
-            });
+            this.fadeOut(tooltip, 200, 'Quad.easeOut', () => tooltip.destroy());
         });
         this.tooltips = [];
     }
@@ -4081,14 +4271,13 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             ease: 'Back.Out',
             onComplete: () => {
                 // Fade out
+                this.fadeOut(wordText, 400, 'Cubic.In', () => wordText.destroy());
                 this.tweens.add({
                     targets: wordText,
-                    alpha: 0,
                     y: '-=50',
                     scale: 1.5,
                     duration: 400,
-                    ease: 'Cubic.In',
-                    onComplete: () => wordText.destroy()
+                    ease: 'Cubic.In'
                 });
             }
         });
@@ -4328,10 +4517,12 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 ).setOrigin(0.5, 0.5).setDepth(100);
                 
                 // Animate the celebration text
+                celebrationText.setAlpha(0);
+                this.fadeIn(celebrationText, 200);
                 this.tweens.add({
                     targets: celebrationText,
                     y: celebrationText.y - 50, // Move up from its starting position
-                    alpha: { start: 0, from: 1, to: 0 },
+                    alpha: 0,
                     scale: { from: 0.8, to: 1.2 },
                     duration: 1500,
                     ease: 'Power2',
@@ -4360,13 +4551,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                         0.3
                     ).setOrigin(0).setDepth(99);
                     
-                    this.tweens.add({
-                        targets: flash,
-                        alpha: 0,
-                        duration: 500,
-                        ease: 'Power2',
-                        onComplete: () => flash.destroy()
-                    });
+                    this.fadeOut(flash, 500, 'Power2', () => flash.destroy());
                 }
                 
                 // Only celebrate the highest milestone crossed

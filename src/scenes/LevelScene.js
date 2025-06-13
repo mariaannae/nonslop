@@ -208,6 +208,9 @@ export default class LevelScene extends Phaser.Scene {
             ? this.cameras.main.width * (5 / 6) * (2 / 3)
             : this.cameras.main.width * (5 / 6);
         const padding = 40;
+        const fontSize = isDesktop
+            ? 14 * uiScale
+            : 24 * uiScale + (isMobile ? 2 : 0);
 
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
@@ -240,47 +243,41 @@ export default class LevelScene extends Phaser.Scene {
         const textHeight = tempText.height + padding * 2;
         tempText.destroy();
 
-        // Start with empty text for typewriter effect, fixed top-left position
+        // Start with empty text for typewriter effect, fixed top-left position and left alignment
         const promptTextX = this.cameras.main.centerX - this.uiBoxWidth / 2 + padding;
         const promptTextY = this.promptBoxY + padding;
-        // Get centralized text style for actual text
-        const promptTextStyle = {
-            ...this.getPromptTextStyle(),
-            wordWrap: { width: this.uiBoxWidth - padding * 2 },
-            align: "left"
-        };
-        
         this.promptText = this.add.text(
             promptTextX,
             promptTextY,
             "",
-            promptTextStyle
+            {
+                fontFamily: "IBM Plex Mono",
+                fontSize: `${fontSize}px`,
+                color: COLORS_TEXT.PRIMARY,
+                wordWrap: { width: this.uiBoxWidth - padding * 2 },
+                align: "left"
+            }
         ).setOrigin(0, 0);
 
-        // Get centralized box style
-        const boxStyle = this.getPromptBoxStyle();
-        
-        // Create the Prompt Background Box
-        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+        // Create the Prompt Background Box - matching InstructionsScene exactly
+        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
         this.promptTextBox.fillRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2, 
+            this.cameras.main.centerX - this.uiBoxWidth / 2,
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            boxStyle.cornerRadius
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
         );
 
-        // Add Outline if style specifies it
-        if (boxStyle.hasOutline) {
-            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-            this.promptTextBox.strokeRoundedRect(
-                this.cameras.main.centerX - this.uiBoxWidth / 2, 
-                this.promptBoxY,
-                this.uiBoxWidth,
-                textHeight,
-                boxStyle.cornerRadius
-            );
-        }
+        // Add Outline to Match InstructionsScene
+        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        this.promptTextBox.strokeRoundedRect(
+            this.cameras.main.centerX - this.uiBoxWidth / 2,
+            this.promptBoxY,
+            this.uiBoxWidth,
+            textHeight,
+            DESIGN.UI.OUTLINE.CORNER_RADIUS
+        );
 
         // Ensure Prompt Box Appears Above Other UI Elements
         this.promptTextBox.setDepth(102);
