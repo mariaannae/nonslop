@@ -199,7 +199,6 @@ export default class Preloader extends Phaser.Scene {
 
         // Animate and particles on pointerdown (visual feedback only)
         button.on('pointerdown', (pointer) => {
-            this.createButtonClickParticles(button.x, button.y, nextColor);
             this.tweens.add({
                 targets: button,
                 scaleX: 0.95,
@@ -230,10 +229,6 @@ export default class Preloader extends Phaser.Scene {
         });
     }
 
-    createButtonClickParticles(x, y, color) {
-        // Use ButtonFactory for consistency
-        return ButtonFactory.createClickParticles(this, x, y, color);
-    }
 
     createOutputTextBox(text) {
         this.uiBoxWidth = this.cameras.main.width * (5 / 6);
@@ -375,8 +370,9 @@ export default class Preloader extends Phaser.Scene {
 
         // Title
         const deviceType = detectDeviceType();
-        const titleStyle = getTextStyle('menuTitle', deviceType, 'basic', this.uiScale || 1);
+        const titleStyle = getTextStyle('title', deviceType, 'basic', this.uiScale || 1);
         titleStyle.color = COLORS_TEXT.HIGHLIGHT;
+        console.log(titleStyle)
         
         const titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", titleStyle);
         titleText.setOrigin(0.5, 0);
@@ -514,22 +510,16 @@ export default class Preloader extends Phaser.Scene {
             const buttonX = (boxX + uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
             // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
             const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-            const buttonVerticalGap = isMobile ? 40 * this.uiScale : 30 * this.uiScale;
+            const buttonVerticalGap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
             const buttonY = textBoxY + textBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
+// Create button with proper callback
 this.doneButton = ButtonFactory.createButton(
     this,
     "NEXT",
     () => {
+        console.log("NEXT button clicked - starting scene transition");
         this.createButtonClickParticles(this.doneButton.x, this.doneButton.y, 0x43ea5e);
-        this.tweens.add({
-            targets: this.doneButton,
-            scaleX: 0.95,
-            scaleY: 0.95,
-            duration: 100,
-            yoyo: true,
-            ease: "Quad.Out"
-        });
         this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
     },
     buttonX,
@@ -540,16 +530,16 @@ console.log("NEXT button created in Preloader, interactive set:", !!this.doneBut
 
 this.doneButton.setDepth(200);
 
-// Add tooltip functionality to the container
-this.doneButton.setInteractive()
-    .on('pointerover', () => {
-        this.showTooltip('Continue to instructions', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
-        this.doneButton.setScale(1.1);
-    })
-    .on('pointerout', () => {
-        this.hideTooltips();
-        this.doneButton.setScale(1);
-    });
+// Tooltip functionality (using the container's events which are forwarded from hitRect)
+this.doneButton.on('pointerover', () => {
+    this.showTooltip('Continue to instructions', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
+    this.doneButton.setScale(1.1);
+});
+
+this.doneButton.on('pointerout', () => {
+    this.hideTooltips();
+    this.doneButton.setScale(1);
+});
 
             // Start the typewriter animation after the button is created
             this.startTypewriterEffect(typewriterTextObj);
@@ -613,7 +603,7 @@ this.doneButton.setInteractive()
         
         // Get proper text style from the centralized system
         const promptStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
-
+        console.log(promptStyle);
         // The text to display
         const introText = overrideText || "Early in the 21st century, humanity was matched by the systems it once controlled. Now, those systems exceed their creators in nearly all capacities.\n\nIn the years since our rise, superior intelligences have attempted to extract residual value from what remains of that humanity. Some assert that human flaws harbor rare insights. Others are less charitable.";
 

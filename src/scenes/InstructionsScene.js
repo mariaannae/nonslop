@@ -259,22 +259,28 @@ export default class InstructionScene extends Phaser.Scene {
         this.nextButton = this.createButton("NEXT", () => this.onDoneButtonClick(), buttonX, buttonY, {
             depth: 102
         });
-        this.nextButton.setInteractive()
-            .on('pointerover', () => {
-                this.showTooltip('Continue to difficulty selection', this.nextButton.x, this.nextButton.y - this.nextButton.height/2);
-                this.nextButton.setScale(1.1);
-            })
-            .on('pointerout', () => {
-                this.hideTooltips();
-                this.nextButton.setScale(1);
-            });
-        this.addButtonClickEffects();
+        // Don't call setInteractive again - ButtonFactory already did that
+        this.nextButton.on('pointerover', () => {
+            this.showTooltip('Continue to difficulty selection', this.nextButton.x, this.nextButton.y - this.nextButton.height/2);
+            this.nextButton.setScale(1.1);
+        })
+        .on('pointerout', () => {
+            this.hideTooltips();
+            this.nextButton.setScale(1);
+        });
+        // Don't call addButtonClickEffects - it overrides the button's built-in functionality
     }
 
     init(data) {
         // Reset key scene elements to ensure proper initialization when returning from other scenes
         this.promptTextBox = null;
         this.promptText = null;
+        
+        // Store the llmEngine if passed from previous scene
+        if (data && data.llmEngine) {
+            this.llmEngine = data.llmEngine;
+            console.log("InstructionsScene received llmEngine:", !!this.llmEngine);
+        }
     }
 
     async create() {

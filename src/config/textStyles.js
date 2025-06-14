@@ -6,19 +6,20 @@ import { BASIC_COLORS_HEX, BASIC_COLORS_TEXT, EASY_COLORS_HEX, EASY_COLORS_TEXT,
 // Device-aware font size clamp ranges
 const CLAMP_RANGES = {
     [DEVICE_TYPES.DESKTOP]: {
-        title: { min: 40, max: 80 },
+        title: { min: 40, max: 100 },
         menuTitle: { min: 40, max: 80 },
-        prompt: { min: 12, max: 20 },
-        input: { min: 12, max: 20 },
-        output: { min: 12, max: 20 },
-        tooltip: { min: 12, max: 18 },
-        effect: { min: 12, max: 20 },
+        prompt: { min: 12, max: 18 },
+        input: { min: 12, max: 18 },
+        output: { min: 12, max: 18 },
+        tooltip: { min: 12, max: 16 },
+        effect: { min: 12, max: 28 },
         button: { min: 12, max: 20 },
         fancyButton: { min: 16, max: 20 },
-        transitionText: { min: 20, max: 40 }
+        transitionText: { min: 20, max: 40 },
+        settings: { min: 12, max: 18 }
     },
     [DEVICE_TYPES.TABLET]: {
-        title: { min: 35, max: 70 },
+        title: { min: 35, max: 120 },
         menuTitle: { min: 40, max: 75 },
         prompt: { min: 16, max: 28 },
         input: { min: 16, max: 28 },
@@ -27,10 +28,11 @@ const CLAMP_RANGES = {
         effect: { min: 18, max: 32 },
         button: { min: 16, max: 28 },
         fancyButton: { min: 16, max: 28 },
-        transitionText: { min: 24, max: 48 }
+        transitionText: { min: 24, max: 48 },
+        settings: { min: 14, max: 28 },
     },
     [DEVICE_TYPES.PHONE]: {
-        title: { min: 28, max: 60 },
+        title: { min: 50, max: 300 },
         menuTitle: { min: 28, max: 60 },
         prompt: { min: 18, max: 32 },
         input: { min: 18, max: 32 },
@@ -39,7 +41,8 @@ const CLAMP_RANGES = {
         effect: { min: 20, max: 36 },
         button: { min: 20, max: 36 },
         fancyButton: { min: 20, max: 36 },
-        transitionText: { min: 28, max: 56 }
+        transitionText: { min: 28, max: 56 },
+        settings: { min: 16, max: 28 },
     }
 };
 
@@ -84,16 +87,17 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
     // Base font sizes for each device type
     const BASE_FONT_SIZES = {
         [DEVICE_TYPES.DESKTOP]: {
-            title: 50,
+            title: 70,
             menuTitle: 50,
-            prompt: 16,
-            input: 16,
-            output: 16,
+            prompt: 17,
+            input: 17,
+            output: 17,
             tooltip: 14,
             effect: 18,
             button: 18,
             fancyButton: 18,
-            transitionText: 24
+            transitionText: 24,
+            settings: 14,
         },
         [DEVICE_TYPES.TABLET]: {
             title: 50,
@@ -105,19 +109,21 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             effect: 20,
             button: 18,
             fancyButton: 18,
-            transitionText: 28
+            transitionText: 28,
+            settings: 16
         },
         [DEVICE_TYPES.PHONE]: {
-            title: 40,
+            title: 200,
             menuTitle: 40,
-            prompt: 24,
-            input: 24,
-            output: 24,
+            prompt: 30,
+            input: 30,
+            output: 30,
             tooltip: 18,
-            effect: 24,
-            button: 24,
+            effect: 36,
+            button: 26,
             fancyButton: 24,
-            transitionText: 32
+            transitionText: 32,
+            settings: 26
         }
     };
 
