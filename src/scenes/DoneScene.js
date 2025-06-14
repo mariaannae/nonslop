@@ -231,7 +231,6 @@ export default class DoneScene extends Phaser.Scene {
                 // Use green for "NEXT"/"DONE", red for "feedback"
                 const label = button.list?.find(obj => obj.text)?.text?.toUpperCase?.() || "";
                 const color = (label === "NEXT" || label === "DONE") ? 0x43ea5e : (label.includes("FEEDBACK") ? 0xff1744 : undefined);
-                this.createButtonClickParticles(button.x, button.y, color);
 
                 // Simulate button press animation
                 this.tweens.add({
@@ -256,9 +255,6 @@ export default class DoneScene extends Phaser.Scene {
         addClickEffect(this.feedbackButton, () => this.onFeedbackClick());
     }
       
-    createButtonClickParticles(x, y, color) {
-        return ButtonFactory.createClickParticles(this, x, y, color);
-    }
 
     createBackgroundEffect() {
         let width = this.cameras.main.width;

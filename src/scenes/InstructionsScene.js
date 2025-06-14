@@ -66,40 +66,52 @@ export default class InstructionScene extends Phaser.Scene {
         let width = this.cameras.main.width;
         let height = this.cameras.main.height;
         
-        let gradientTextureKey = 'gradientBackground';
-    
-        if (!this.textures.exists(gradientTextureKey)) {
-            let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
-            let ctx = gradientCanvas.getContext();
-    
-            if (!ctx) {
-                console.error("Failed to get canvas context for background effect.");
-                return;
-            }
-            const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
+        // Check if on mobile device
+        const isMobile = detectDeviceType() === 'phone';
+        
+        if (isMobile) {
+            // Use the same background as Preloader.js for mobile
+            this.background = this.add.image(0, 0, 'preloader-mobile-bg')
+                .setOrigin(0)
+                .setDisplaySize(width, height)
+                .setDepth(-2);
+        } else {
+            // Use gradient background for non-mobile devices
+            let gradientTextureKey = 'gradientBackground';
+        
+            if (!this.textures.exists(gradientTextureKey)) {
+                let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
+                let ctx = gradientCanvas.getContext();
+        
+                if (!ctx) {
+                    console.error("Failed to get canvas context for background effect.");
+                    return;
+                }
+                const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
 
-            let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, hexToString(COLORS_HEX.BACKGROUND_MID));
-            grd.addColorStop(1, hexToString(COLORS_HEX.BACKGROUND));
-    
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, 0, width, height);
-            gradientCanvas.refresh();
+                let grd = ctx.createLinearGradient(0, 0, width, height);
+                grd.addColorStop(0, hexToString(COLORS_HEX.BACKGROUND_MID));
+                grd.addColorStop(1, hexToString(COLORS_HEX.BACKGROUND));
+        
+                ctx.fillStyle = grd;
+                ctx.fillRect(0, 0, width, height);
+                gradientCanvas.refresh();
+            }
+        
+            this.background = this.add.image(0, 0, gradientTextureKey)
+                .setOrigin(0)
+                .setDisplaySize(width, height)
+                .setDepth(-1);
+        
+            this.tweens.add({
+                targets: this.background,
+                alpha: { from: 0.8, to: 1 },
+                duration: 4000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.InOut'
+            });
         }
-    
-        this.background = this.add.image(0, 0, gradientTextureKey)
-            .setOrigin(0)
-            .setDisplaySize(width, height)
-            .setDepth(-1);
-    
-        this.tweens.add({
-            targets: this.background,
-            alpha: { from: 0.8, to: 1 },
-            duration: 4000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.InOut'
-        });
     }  
     
     addButtonClickEffects() {
@@ -111,7 +123,6 @@ export default class InstructionScene extends Phaser.Scene {
             button.setInteractive();
             button.off('pointerdown');
             button.on('pointerdown', (pointer) => {
-                this.createButtonClickParticles(button.x, button.y, nextColor);
                 this.tweens.add({
                     targets: button,
                     scaleX: 0.95,
@@ -127,9 +138,6 @@ export default class InstructionScene extends Phaser.Scene {
         });
     }
 
-    createButtonClickParticles(x, y, color) {
-        return ButtonFactory.createClickParticles(this, x, y, color);
-    }
 
     createButton(label, callback, centerX, centerY, options = {}) {
         // Ensure scalingManager is passed for responsive sizing
@@ -251,7 +259,7 @@ export default class InstructionScene extends Phaser.Scene {
         // Button right edge: 60px (scaled) left of text box right edge
         const buttonX = (boxX + this.uiBoxWidth) - (buttonWidth / 2) - (60 * uiScale);
         // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
-        const buttonVerticalGap = isMobile ? 40 * uiScale : 30 * uiScale;
+        const buttonVerticalGap = isMobile ? 80 * uiScale : 30 * uiScale;
         const buttonY = boxY + textHeight + buttonVerticalGap + (buttonHeight / 2);
 
         console.log("[DEBUG] InstructionsScene button placement", { boxX, boxY, textHeight, buttonWidth, buttonHeight, buttonX, buttonY, uiScale });

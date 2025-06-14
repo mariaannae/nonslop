@@ -21,6 +21,8 @@ export default class Preloader extends Phaser.Scene {
         this.outputTextBox = null;
         this.errorText = null;
         this.tooltips = []; // Array to store active tooltips
+        this.doneButton = null; // Track the NEXT button
+        this.typewriterTimer = null; // Track typewriter timer
     }
 
     showTooltip(text, x, y) {
@@ -75,6 +77,30 @@ export default class Preloader extends Phaser.Scene {
     }
 
     init() {
+        // Reset all instance variables to ensure clean state
+        this.progressBar = null;
+        this.progressBarOutline = null;
+        this.progress = .001;
+        this.llmLoaded = false;
+        this.loadingText = null;
+        this.outputTextBox = null;
+        this.outputText = null;
+        this.doneButton = null;
+        this.typewriterTimer = null;
+        this.typewriterBox = null;
+        this.typewriterText = null;
+        
+        // Clear any existing interactive elements on mobile
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        if (isMobile) {
+            console.log("Mobile detected - clearing input state");
+            // Force clear input plugin state
+            if (this.input) {
+                this.input.removeAllListeners();
+                this.input.clear(true);
+            }
+        }
+        
         this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // Set background color
     }
 
@@ -317,7 +343,60 @@ export default class Preloader extends Phaser.Scene {
 
     onDoneButtonClick() {
         console.log("NEXT button clicked in Preloader, attempting scene transition...");
-        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        // Clean up before transitioning
+        this.cleanupScene();
+        this.scene.start('InstructionsScene', { llmEngine: this.llmEngine });
+    }
+
+    cleanupScene() {
+        console.log("Cleaning up Preloader scene...");
+        
+        // Stop any active tweens
+        this.tweens.killAll();
+        
+        // Remove typewriter timer
+        if (this.typewriterTimer && typeof this.typewriterTimer.remove === "function") {
+            this.typewriterTimer.remove();
+            this.typewriterTimer = null;
+        }
+        
+        // Clean up tooltips
+        this.hideTooltips();
+        
+        // Destroy button properly
+        if (this.doneButton) {
+            this.doneButton.removeAllListeners();
+            this.doneButton.destroy();
+            this.doneButton = null;
+        }
+        
+        // Clean up text elements
+        if (this.outputText) {
+            this.outputText.destroy();
+            this.outputText = null;
+        }
+        if (this.loadingText) {
+            this.loadingText.destroy();
+            this.loadingText = null;
+        }
+        
+        // Clean up graphics
+        if (this.outputTextBox) {
+            this.outputTextBox.destroy();
+            this.outputTextBox = null;
+        }
+        if (this.progressBar) {
+            this.progressBar.destroy();
+            this.progressBar = null;
+        }
+        if (this.progressBarOutline) {
+            this.progressBarOutline.destroy();
+            this.progressBarOutline = null;
+        }
+        if (this.typewriterBox) {
+            this.typewriterBox.destroy();
+            this.typewriterBox = null;
+        }
     }
 
     createBadgeGeneratorButton() {
@@ -519,7 +598,6 @@ this.doneButton = ButtonFactory.createButton(
     "NEXT",
     () => {
         console.log("NEXT button clicked - starting scene transition");
-        this.createButtonClickParticles(this.doneButton.x, this.doneButton.y, 0x43ea5e);
         this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
     },
     buttonX,
@@ -699,6 +777,19 @@ this.doneButton.on('pointerout', () => {
                 }
             }
         });
+    }
+    
+    // Phaser lifecycle method - called when scene is being shut down
+    shutdown() {
+        console.log("Preloader scene shutdown called");
+        this.cleanupScene();
+        
+        // Additional cleanup for Phaser's systems
+        this.events.off(); // Remove all event listeners
+        this.input.off(); // Remove all input listeners
+        
+        // Clear the scene's display list to ensure no stale references
+        this.children.removeAll();
     }
 }
 //onComplete: () => this.scene.start('GameSceneHard', llmEngine)

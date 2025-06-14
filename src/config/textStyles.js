@@ -8,12 +8,12 @@ const CLAMP_RANGES = {
     [DEVICE_TYPES.DESKTOP]: {
         title: { min: 40, max: 100 },
         menuTitle: { min: 40, max: 80 },
-        prompt: { min: 12, max: 18 },
-        input: { min: 12, max: 18 },
-        output: { min: 12, max: 18 },
-        tooltip: { min: 12, max: 16 },
-        effect: { min: 12, max: 28 },
-        button: { min: 12, max: 20 },
+        prompt: { min: 14, max: 18 },
+        input: { min: 14, max: 18 },
+        output: { min: 14, max: 18 },
+        tooltip: { min: 14, max: 16 },
+        effect: { min: 14, max: 28 },
+        button: { min: 14, max: 20 },
         fancyButton: { min: 16, max: 20 },
         transitionText: { min: 20, max: 40 },
         settings: { min: 12, max: 18 }
@@ -34,15 +34,15 @@ const CLAMP_RANGES = {
     [DEVICE_TYPES.PHONE]: {
         title: { min: 50, max: 300 },
         menuTitle: { min: 28, max: 60 },
-        prompt: { min: 18, max: 32 },
-        input: { min: 18, max: 32 },
-        output: { min: 18, max: 32 },
-        tooltip: { min: 16, max: 24 },
-        effect: { min: 20, max: 36 },
-        button: { min: 20, max: 36 },
+        prompt: { min: 24, max: 32 },
+        input: { min: 24, max: 40 },
+        output: { min: 24, max: 40 },
+        tooltip: { min: 20, max: 40 },
+        effect: { min: 226, max: 48 },
+        button: { min: 26, max: 44 },
         fancyButton: { min: 20, max: 36 },
         transitionText: { min: 28, max: 56 },
-        settings: { min: 16, max: 28 },
+        settings: { min: 22, max: 28 },
     }
 };
 

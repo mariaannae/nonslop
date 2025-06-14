@@ -167,11 +167,6 @@ export default class LevelScene extends Phaser.Scene {
             });
         }
     }
-
-    createButtonClickParticles(x, y, color) {
-        return ButtonFactory.createClickParticles(this, x, y, color);
-    }
-
     createButton(label, callback, centerX, centerY, options = {}) {
         // Ensure scalingManager is passed for responsive sizing
         return ButtonFactory.createButton(
