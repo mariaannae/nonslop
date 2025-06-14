@@ -57,6 +57,11 @@ export default async function getLLMEngine() {
       env.allowRemoteModels = true;
       env.remoteURL = 'https://huggingface.co/';
       env.localURL = '';  // Disable local model loading
+      
+      // Silence ONNX Runtime warnings
+      env.onnx = {
+        logLevel: 'error'  // Options: 'verbose', 'info', 'warning', 'error', 'fatal'
+      };
     }
     
     // Load the GPT-2 model for text generation

@@ -507,6 +507,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.keyProcessingComplete = true;
         this.levelValue = 1;
         this.topKValue = 1;
+        this.temperature = 0.8; // Add temperature for randomness control
         this.baseFontSize = 22;
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
@@ -1548,7 +1549,7 @@ export default class BaseGameScene extends Phaser.Scene {
             // Use the engine from registry manager (transformers.js pipeline)
             const output = await llmEngine(trimmedcontext, { 
                 max_new_tokens: 1,
-                temperature: 0.8, // Add some variety to suggestions
+                temperature: this.temperature, // Use configurable temperature
                 do_sample: true
             });
 
@@ -2483,7 +2484,7 @@ export default class BaseGameScene extends Phaser.Scene {
         ).setOrigin(0.5).setDepth(1003);
 
         // Countdown timer with label
-        const timerStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+        const timerStyle = getTextStyle('effects', deviceType, this.mode || 'basic', uiScale);
         const timerText = this.add.text(
             this.cameras.main.centerX,
             y + height - 32,
@@ -3146,17 +3147,17 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create overlay
         this.createSettingsOverlay(popupX, popupY, popupWidth, popupHeight);
         
-        // Create popup background
-        const popupBg = this.createSettingsBackground(popupX, popupY, popupWidth, popupHeight);
-        this.settingsPopup.add(popupBg);
+        // Create popup background (this now handles adding elements in proper order)
+        this.createSettingsBackground(popupX, popupY, popupWidth, popupHeight);
         
         // Create UI elements
         const { levelSliderHandle, levelLabel } = this.createLevelSlider(popupX, popupY, popupWidth, popupHeight);
+        const { tempSliderHandle, tempLabel } = this.createTemperatureSlider(popupX, popupY, popupWidth, popupHeight);
         this.createModeToggle(popupX, popupY, popupWidth, popupHeight);
         this.createSettingsButtons(popupX, popupY, popupWidth, popupHeight);
         
         // Setup drag functionality
-        this.setupSliderDragFunctionality(levelSliderHandle, levelLabel);
+        this.setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel);
         
         // Animate popup appearance
         this.animateSettingsPopupIn();
@@ -3169,17 +3170,19 @@ export default class BaseGameScene extends Phaser.Scene {
         const popupWidth = 400; // Fixed width
         
         // Minimum touch target for each row: 44px
-        const titleHeight = 44;
-        const minGap = 12; // Minimum vertical gap between interactive elements
-        const gap1 = Math.max(18, minGap);
+        const bannerHeight = 54; // Increased for better banner
+        const gap1 = 24; // Increased gap after banner
         const sliderRowHeight = 44;
-        const gap2 = Math.max(18, minGap);
+        const gap2 = 18;
+        const sliderRowHeight2 = 44; // Temperature slider row
+        const gap3 = 18;
         const toggleRowHeight = 44;
-        const gap3 = Math.max(18, minGap);
+        const gap4 = 24; // More gap before button
         const buttonRowHeight = 54; // Confirm button, extra for padding
+        const bottomPadding = 30; // Increased bottom padding
         
-        // Add up all rows and gaps
-        const popupHeight = titleHeight + gap1 + sliderRowHeight + gap2 + toggleRowHeight + gap3 + buttonRowHeight + 18; // extra bottom padding
+        // Add up all rows and gaps (now includes temperature slider)
+        const popupHeight = bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + toggleRowHeight + gap4 + buttonRowHeight + bottomPadding;
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
         
@@ -3232,22 +3235,43 @@ export default class BaseGameScene extends Phaser.Scene {
         popupBg.lineStyle(3, this.COLORS_HEX.BOX_OUTLINE, 1);
         popupBg.strokeRoundedRect(popupX, popupY, popupWidth, popupHeight, 15);
         
-        // Add title
+        // Add popup background to container FIRST with explicit depth
+        popupBg.setDepth(0);
+        this.settingsPopup.add(popupBg);
+        
+        // Create banner background for title
         const titleHeight = 44;
+        const bannerHeight = titleHeight + 10;
+        
+        // Banner graphics with higher depth
+        const bannerBg = this.add.graphics();
+        bannerBg.fillStyle(this.COLORS_HEX.ACCENT, 0.8);
+        bannerBg.fillRoundedRect(popupX, popupY, popupWidth, bannerHeight, {
+            tl: 15, tr: 15, bl: 0, br: 0
+        });
+        bannerBg.lineStyle(2, 0xffffff, 0.5);
+        bannerBg.strokeRoundedRect(popupX, popupY, popupWidth, bannerHeight, {
+            tl: 15, tr: 15, bl: 0, br: 0
+        });
+        bannerBg.setDepth(1);
+        this.settingsPopup.add(bannerBg);
+        
+        // Add title text with proper style and highest depth
         const deviceType = detectDeviceType();
         const uiScale = this.scalingManager?.uiScale || 1;
         const titleStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
         const title = this.add.text(
             this.cameras.main.centerX,
-            popupY + titleHeight / 2,
-            'Settings',
+            popupY + bannerHeight / 2,
+            'SETTINGS',
             {
                 ...titleStyle,
-                fontSize: `${parseInt(titleStyle.fontSize) * 1.2}px`, // Make title slightly larger
+                fontSize: `${parseInt(titleStyle.fontSize) * 1.4}px`, // Make title larger
                 fill: '#ffffff',
                 fontStyle: 'bold'
             }
         ).setOrigin(0.5, 0.5);
+        title.setDepth(2);
         this.settingsPopup.add(title);
         
         return popupBg;
@@ -3259,11 +3283,11 @@ export default class BaseGameScene extends Phaser.Scene {
     createLevelSlider(popupX, popupY, popupWidth, popupHeight) {
         const sliderWidth = 150;
         const gap = 20;
-        const titleHeight = 44;
-        const gap1 = Math.max(18, 12);
+        const bannerHeight = 54; // Updated to match new banner height
+        const gap1 = 24; // Updated gap after banner
         const sliderRowHeight = 44;
         
-        let yCursor = popupY + titleHeight + gap1;
+        let yCursor = popupY + bannerHeight + gap1;
         
         // Level slider row
         const levelLabelX = popupX + 30;
@@ -3276,6 +3300,7 @@ export default class BaseGameScene extends Phaser.Scene {
             `Level: ${this.levelValue}`,
             {
                 ...labelStyle,
+                fontSize: `${parseInt(labelStyle.fontSize)}px`, // Ensure proper size
                 fill: '#ffffff'
             }
         ).setOrigin(0, 0.5);
@@ -3346,28 +3371,28 @@ export default class BaseGameScene extends Phaser.Scene {
         const levelSliderMaxX = sliderX + sliderWidth - 5;
         const isMobileDevice = this.isMobile;
         
-        // Handle direct clicks on handle
-        levelSliderHandle.on('pointerdown', (pointer) => {
-            this.handleLevelSliderChange(pointer.x, levelSliderMinX, levelSliderMaxX, levelSliderHandle, levelLabel);
-        });
-
-        // Handle clicks on slider track
-        const sliderBarHitHeight = isMobileDevice ? 44 : 10;
+        // Store bounds on the handle for drag functionality
+        levelSliderHandle.setData('minX', levelSliderMinX);
+        levelSliderHandle.setData('maxX', levelSliderMaxX);
+        levelSliderHandle.setData('type', 'level');
+        
+        // Handle clicks on slider track (move handle to click position)
+        const sliderBarHitHeight = isMobileDevice ? 44 : 20;
         levelSlider.setInteractive(new Phaser.Geom.Rectangle(sliderX, sliderY - sliderBarHitHeight / 2, sliderWidth, sliderBarHitHeight), Phaser.Geom.Rectangle.Contains)
             .on('pointerdown', (pointer) => {
-                this.handleLevelSliderChange(pointer.x, levelSliderMinX, levelSliderMaxX, levelSliderHandle, levelLabel);
+                // Move handle to click position
+                const clampedX = Phaser.Math.Clamp(pointer.x, levelSliderMinX, levelSliderMaxX);
+                levelSliderHandle.x = clampedX;
+                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (clampedX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
                 
-                // Setup drag handling
-                const moveHandler = (movePointer) => {
-                    if (!movePointer.isDown) return;
-                    this.handleLevelSliderChange(movePointer.x, levelSliderMinX, levelSliderMaxX, levelSliderHandle, levelLabel);
-                };
-                const upHandler = () => {
-                    this.input.off('pointermove', moveHandler);
-                    this.input.off('pointerup', upHandler);
-                };
-                this.input.on('pointermove', moveHandler);
-                this.input.on('pointerup', upHandler);
+                if (newLevel !== this.levelValue) {
+                    this.levelValue = newLevel;
+                    levelLabel.setText(`Level: ${this.levelValue}`);
+                    this.onLevelChange();
+                }
+                
+                // Start dragging from this position
+                this.input.setDraggable(levelSliderHandle, true);
             });
     }
 
@@ -3402,6 +3427,142 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     /**
+     * Create the temperature slider
+     */
+    createTemperatureSlider(popupX, popupY, popupWidth, popupHeight) {
+        const sliderWidth = 150;
+        const gap = 20;
+        const titleHeight = 44;
+        const gap1 = Math.max(18, 12);
+        const sliderRowHeight = 44;
+        const gap2 = Math.max(18, 12);
+        
+        let yCursor = popupY + titleHeight + gap1 + sliderRowHeight + gap2;
+        
+        // Temperature slider row
+        const tempLabelX = popupX + 30;
+        const tempLabelY = yCursor + 22;
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const labelStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
+        const tempLabel = this.add.text(
+            tempLabelX, tempLabelY,
+            `Randomness: `,//${Math.round(this.temperature * 100)}%`,
+            {
+                ...labelStyle,
+                fontSize: `${parseInt(labelStyle.fontSize)}px`, // Ensure proper size
+                fill: '#ffffff'
+            }
+        ).setOrigin(0, 0.5);
+        this.settingsPopup.add(tempLabel);
+
+        const tempSliderX = tempLabelX + tempLabel.displayWidth + gap;
+        const tempSliderY = tempLabelY;
+        
+        // Create slider track
+        const tempSlider = this.add.graphics();
+        tempSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1);
+        tempSlider.fillRect(tempSliderX, tempSliderY - 5, sliderWidth, 10);
+        tempSlider.lineStyle(2, 0xffffff, 0.3);
+        tempSlider.strokeRect(tempSliderX, tempSliderY - 5, sliderWidth, 10);
+        this.settingsPopup.add(tempSlider);
+
+        // Create slider handle (temperature ranges from 0.1 to 1.5)
+        const tempSliderHandle = this.createTemperatureSliderHandle(tempSliderX, tempSliderY, sliderWidth);
+        this.settingsPopup.add(tempSliderHandle);
+        
+        // Setup slider interactions
+        this.setupTemperatureSliderInteractions(tempSlider, tempSliderHandle, tempLabel, tempSliderX, tempSliderY, sliderWidth);
+        
+        return { tempSliderHandle, tempLabel };
+    }
+
+    /**
+     * Create a temperature slider handle
+     */
+    createTemperatureSliderHandle(sliderX, sliderY, sliderWidth) {
+        const isMobileDevice = this.isMobile;
+        // Map temperature (0.1 to 1.5) to slider position (0 to 1)
+        const tempT = (this.temperature - 0.1) / 1.4;
+        const tempSliderMinX = sliderX + 5;
+        const tempSliderMaxX = sliderX + sliderWidth - 5;
+        const tempHandleX = Phaser.Math.Linear(tempSliderMinX, tempSliderMaxX, tempT);
+        
+        const handleWidth = 44;
+        const handleHeight = 44;
+        const visualWidth = isMobileDevice ? 24 : 18;
+        const visualHeight = isMobileDevice ? 24 : 14;
+        
+        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
+            .setStrokeStyle(2, 0xffffff, 0.7)
+            .setOrigin(0.5);
+        const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
+            .setOrigin(0.5);
+        
+        const tempSliderHandle = this.add.container(tempHandleX, sliderY, [hitArea, visibleHandle]);
+        tempSliderHandle.setSize(handleWidth, handleHeight);
+        tempSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
+        this.input.setDraggable(tempSliderHandle);
+        
+        // Add scale-up feedback on touch for mobile
+        if (isMobileDevice) {
+            tempSliderHandle.on('pointerdown', () => visibleHandle.setScale(1.2));
+            tempSliderHandle.on('pointerup', () => visibleHandle.setScale(1));
+            tempSliderHandle.on('pointerout', () => visibleHandle.setScale(1));
+        }
+        
+        return tempSliderHandle;
+    }
+
+    /**
+     * Setup temperature slider interactions
+     */
+    setupTemperatureSliderInteractions(tempSlider, tempSliderHandle, tempLabel, sliderX, sliderY, sliderWidth) {
+        const tempSliderMinX = sliderX + 5;
+        const tempSliderMaxX = sliderX + sliderWidth - 5;
+        const isMobileDevice = this.isMobile;
+        
+        // Store bounds on the handle for drag functionality
+        tempSliderHandle.setData('minX', tempSliderMinX);
+        tempSliderHandle.setData('maxX', tempSliderMaxX);
+        tempSliderHandle.setData('type', 'temperature');
+        
+        // Handle clicks on slider track (move handle to click position)
+        const sliderBarHitHeight = isMobileDevice ? 44 : 20;
+        tempSlider.setInteractive(new Phaser.Geom.Rectangle(sliderX, sliderY - sliderBarHitHeight / 2, sliderWidth, sliderBarHitHeight), Phaser.Geom.Rectangle.Contains)
+            .on('pointerdown', (pointer) => {
+                // Move handle to click position
+                const clampedX = Phaser.Math.Clamp(pointer.x, tempSliderMinX, tempSliderMaxX);
+                tempSliderHandle.x = clampedX;
+                // Map slider position to temperature (0.1 to 1.5)
+                const newTemp = Phaser.Math.Linear(0.1, 1.5, (clampedX - tempSliderMinX) / (tempSliderMaxX - tempSliderMinX));
+                
+                if (Math.abs(newTemp - this.temperature) > 0.01) {
+                    this.temperature = newTemp;
+                    tempLabel.setText(`Randomness: ${Math.round(this.temperature * 100)}%`);
+                }
+                
+                // Start dragging from this position
+                this.input.setDraggable(tempSliderHandle, true);
+            });
+    }
+
+    /**
+     * Handle temperature slider value changes
+     */
+    handleTemperatureSliderChange(pointerX, minX, maxX, handle, label) {
+        pointerX = Phaser.Math.Clamp(pointerX, minX, maxX);
+        handle.x = pointerX;
+        // Map slider position to temperature (0.1 to 1.5)
+        const newTemp = Phaser.Math.Linear(0.1, 1.5, (pointerX - minX) / (maxX - minX));
+        
+        if (Math.abs(newTemp - this.temperature) > 0.01) {
+            this.temperature = newTemp;
+            label.setText(`Randomness: ${Math.round(this.temperature * 100)}%`);
+        }
+    }
+
+    /**
      * Create the mode toggle
      */
     createModeToggle(popupX, popupY, popupWidth, popupHeight) {
@@ -3410,8 +3571,10 @@ export default class BaseGameScene extends Phaser.Scene {
         const gap1 = Math.max(18, 12);
         const sliderRowHeight = 44;
         const gap2 = Math.max(18, 12);
+        const sliderRowHeight2 = 44; // Temperature slider row
+        const gap3 = Math.max(18, 12);
         
-        let yCursor = popupY + titleHeight + gap1 + sliderRowHeight + gap2;
+        let yCursor = popupY + titleHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3;
         
         // Mode Toggle row
         const modeToggleLabelX = popupX + 30;
@@ -3424,6 +3587,7 @@ export default class BaseGameScene extends Phaser.Scene {
             "Hard Mode:",
             {
                 ...labelStyle,
+                fontSize: `${parseInt(labelStyle.fontSize)}px`, // Ensure proper size
                 fill: '#ffffff'
             }
         ).setOrigin(0, 0.5);
@@ -3463,17 +3627,11 @@ export default class BaseGameScene extends Phaser.Scene {
      * Create settings buttons (Apply and Close)
      */
     createSettingsButtons(popupX, popupY, popupWidth, popupHeight) {
-        const titleHeight = 44;
-        const gap1 = Math.max(18, 12);
-        const sliderRowHeight = 44;
-        const gap2 = Math.max(18, 12);
-        const toggleRowHeight = 44;
-        const gap3 = Math.max(18, 12);
+        // Position the APPLY button relative to the bottom of the popup
+        const bottomMargin = 40; // Nice small margin from bottom
+        const buttonHeight = this.scalingManager.buttonHeight();
+        const confirmBtnY = popupY + popupHeight - bottomMargin - buttonHeight/2;
         
-        let yCursor = popupY + titleHeight + gap1 + sliderRowHeight + gap2 + toggleRowHeight + gap3;
-        
-        // Confirm button row
-        const confirmBtnY = yCursor + 12; // 12px padding above confirm button
         const confirmBtn = ButtonFactory.createButton(
             this,
             'APPLY',
@@ -3525,19 +3683,94 @@ export default class BaseGameScene extends Phaser.Scene {
     /**
      * Setup slider drag functionality
      */
-    setupSliderDragFunctionality(levelSliderHandle, levelLabel) {
-        const levelSliderMinX = levelSliderHandle.x - 70; // Approximate based on slider width
-        const levelSliderMaxX = levelSliderHandle.x + 70;
+    setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel) {
+        // Remove any existing drag listeners first to prevent conflicts
+        this.input.off('drag');
+        this.input.off('dragstart');
+        this.input.off('dragend');
         
-        this.input.on('drag', (pointer, gameObject, dragX) => {
-            if (gameObject === levelSliderHandle) {
-                gameObject.x = Phaser.Math.Clamp(dragX, levelSliderMinX, levelSliderMaxX);
-                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (gameObject.x - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
+        // Flag to track if we're currently dragging
+        let isDragging = false;
+        let dragTarget = null;
+        
+        // Add pointer move handler for smooth dragging
+        this.input.on('pointermove', (pointer) => {
+            if (!isDragging || !dragTarget) return;
+            
+            const worldPoint = pointer.positionToCamera(this.cameras.main);
+            
+            if (dragTarget === levelSliderHandle) {
+                const minX = dragTarget.getData('minX');
+                const maxX = dragTarget.getData('maxX');
+                const newX = Phaser.Math.Clamp(worldPoint.x, minX, maxX);
+                dragTarget.x = newX;
+                
+                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (newX - minX) / (maxX - minX)));
                 
                 if (newLevel !== this.levelValue) {
                     this.levelValue = newLevel;
                     levelLabel.setText(`Level: ${this.levelValue}`);
                     this.onLevelChange();
+                }
+            } else if (dragTarget === tempSliderHandle) {
+                const minX = dragTarget.getData('minX');
+                const maxX = dragTarget.getData('maxX');
+                const newX = Phaser.Math.Clamp(worldPoint.x, minX, maxX);
+                dragTarget.x = newX;
+                
+                // Map slider position to temperature (0.1 to 1.5)
+                const newTemp = Phaser.Math.Linear(0.1, 1.5, (newX - minX) / (maxX - minX));
+                
+                if (Math.abs(newTemp - this.temperature) > 0.01) {
+                    this.temperature = newTemp;
+                    tempLabel.setText(`Randomness: ${Math.round(this.temperature * 100)}%`);
+                }
+            }
+        });
+        
+        // Add pointer up handler to stop dragging
+        this.input.on('pointerup', () => {
+            isDragging = false;
+            dragTarget = null;
+        });
+        
+        // Drag start handler
+        this.input.on('dragstart', (pointer, gameObject) => {
+            if (gameObject === levelSliderHandle || gameObject === tempSliderHandle) {
+                isDragging = true;
+                dragTarget = gameObject;
+            }
+        });
+        
+        // Drag end handler
+        this.input.on('dragend', () => {
+            isDragging = false;
+            dragTarget = null;
+        });
+        
+        // Standard drag handler as backup
+        this.input.on('drag', (pointer, gameObject, dragX) => {
+            if (gameObject === levelSliderHandle) {
+                const minX = gameObject.getData('minX');
+                const maxX = gameObject.getData('maxX');
+                gameObject.x = Phaser.Math.Clamp(dragX, minX, maxX);
+                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (gameObject.x - minX) / (maxX - minX)));
+                
+                if (newLevel !== this.levelValue) {
+                    this.levelValue = newLevel;
+                    levelLabel.setText(`Level: ${this.levelValue}`);
+                    this.onLevelChange();
+                }
+            } else if (gameObject === tempSliderHandle) {
+                const minX = gameObject.getData('minX');
+                const maxX = gameObject.getData('maxX');
+                gameObject.x = Phaser.Math.Clamp(dragX, minX, maxX);
+                // Map slider position to temperature (0.1 to 1.5)
+                const newTemp = Phaser.Math.Linear(0.1, 1.5, (gameObject.x - minX) / (maxX - minX));
+                
+                if (Math.abs(newTemp - this.temperature) > 0.01) {
+                    this.temperature = newTemp;
+                    tempLabel.setText(`Randomness: ${Math.round(this.temperature * 100)}%`);
                 }
             }
         });

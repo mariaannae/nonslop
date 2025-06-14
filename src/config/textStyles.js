@@ -3,6 +3,57 @@
 import { DEVICE_TYPES, detectDeviceType } from './dimensions.js';
 import { BASIC_COLORS_HEX, BASIC_COLORS_TEXT, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT, DESIGN } from './design.js';
 
+// Device-aware font size clamp ranges
+const CLAMP_RANGES = {
+    [DEVICE_TYPES.DESKTOP]: {
+        title: { min: 40, max: 80 },
+        menuTitle: { min: 40, max: 80 },
+        prompt: { min: 12, max: 20 },
+        input: { min: 12, max: 20 },
+        output: { min: 12, max: 20 },
+        tooltip: { min: 12, max: 18 },
+        effect: { min: 12, max: 20 },
+        button: { min: 12, max: 20 },
+        fancyButton: { min: 16, max: 20 },
+        transitionText: { min: 20, max: 40 }
+    },
+    [DEVICE_TYPES.TABLET]: {
+        title: { min: 35, max: 70 },
+        menuTitle: { min: 40, max: 75 },
+        prompt: { min: 16, max: 28 },
+        input: { min: 16, max: 28 },
+        output: { min: 16, max: 28 },
+        tooltip: { min: 14, max: 20 },
+        effect: { min: 18, max: 32 },
+        button: { min: 16, max: 28 },
+        fancyButton: { min: 16, max: 28 },
+        transitionText: { min: 24, max: 48 }
+    },
+    [DEVICE_TYPES.PHONE]: {
+        title: { min: 28, max: 60 },
+        menuTitle: { min: 28, max: 60 },
+        prompt: { min: 18, max: 32 },
+        input: { min: 18, max: 32 },
+        output: { min: 18, max: 32 },
+        tooltip: { min: 16, max: 24 },
+        effect: { min: 20, max: 36 },
+        button: { min: 20, max: 36 },
+        fancyButton: { min: 20, max: 36 },
+        transitionText: { min: 28, max: 56 }
+    }
+};
+
+/**
+ * Clamp a value between min and max
+ * @param {number} value - The value to clamp
+ * @param {number} min - Minimum value
+ * @param {number} max - Maximum value
+ * @returns {number} Clamped value
+ */
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
 /**
  * Get text style for specific text type, device type, and game mode
  * @param {string} textType - Type of text (title, input, output, prompt, tooltip, effect)
@@ -75,7 +126,15 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
                          BASE_FONT_SIZES[DEVICE_TYPES.DESKTOP][textType];
     
     // Scale font size based on UI scale
-    const fontSize = baseFontSize * uiScale;
+    const scaledFontSize = baseFontSize * uiScale;
+    
+    // Get clamp range for current device and text type
+    const clampRange = CLAMP_RANGES[deviceType]?.[textType] || 
+                       CLAMP_RANGES[DEVICE_TYPES.DESKTOP]?.[textType] || 
+                       { min: 12, max: 80 }; // Fallback range
+    
+    // Apply clamping to prevent extreme font sizes
+    const fontSize = clamp(scaledFontSize, clampRange.min, clampRange.max);
 
     // Base styles for each text type
     const baseStyles = {
@@ -274,8 +333,19 @@ export function getAutocompleteTextStyle(deviceType = null, mode = 'basic', uiSc
         [DEVICE_TYPES.PHONE]: 24
     };
     
+    // Clamp ranges for autocomplete text
+    const AUTOCOMPLETE_CLAMP_RANGES = {
+        [DEVICE_TYPES.DESKTOP]: { min: 12, max: 20 },
+        [DEVICE_TYPES.TABLET]: { min: 14, max: 24 },
+        [DEVICE_TYPES.PHONE]: { min: 18, max: 32 }
+    };
+    
     const baseFontSize = BASE_FONT_SIZES[deviceType] || BASE_FONT_SIZES[DEVICE_TYPES.DESKTOP];
-    const fontSize = baseFontSize * uiScale;
+    const scaledFontSize = baseFontSize * uiScale;
+    
+    // Get clamp range and apply clamping
+    const clampRange = AUTOCOMPLETE_CLAMP_RANGES[deviceType] || AUTOCOMPLETE_CLAMP_RANGES[DEVICE_TYPES.DESKTOP];
+    const fontSize = clamp(scaledFontSize, clampRange.min, clampRange.max);
     
     // Calculate word wrap width if box width is provided
     const wordWrapConfig = boxWidth > 0 ? { width: (boxWidth - 60) * uiScale } : null;
@@ -323,7 +393,14 @@ export function getMenuBarStyle(mode = 'basic', uiScale = 1) {
         [DEVICE_TYPES.PHONE]: 40
     };
     
-    const titleFontSize = TITLE_FONT_SIZES[deviceType] || TITLE_FONT_SIZES[DEVICE_TYPES.DESKTOP];
+    const baseTitleFontSize = TITLE_FONT_SIZES[deviceType] || TITLE_FONT_SIZES[DEVICE_TYPES.DESKTOP];
+    const scaledTitleFontSize = baseTitleFontSize * uiScale;
+    
+    // Apply clamping to title font size using the menuTitle clamp ranges
+    const titleClampRange = CLAMP_RANGES[deviceType]?.menuTitle || 
+                           CLAMP_RANGES[DEVICE_TYPES.DESKTOP]?.menuTitle || 
+                           { min: 28, max: 80 };
+    const titleFontSize = clamp(scaledTitleFontSize, titleClampRange.min, titleClampRange.max);
     
     return {
         backgroundColor: COLORS_HEX.BACKGROUND || 0x000000,
@@ -333,7 +410,7 @@ export function getMenuBarStyle(mode = 'basic', uiScale = 1) {
         borderWidth: DESIGN.UI.OUTLINE.WIDTH * uiScale,
         titleStyle: {
             fontFamily: 'barcade3d',
-            fontSize: `${titleFontSize * uiScale}px`,
+            fontSize: `${titleFontSize}px`,
             color: COLORS_TEXT.TITLE || COLORS_TEXT.PRIMARY || '#ffffff',
             shadow: {
                 offsetX: mode === 'hard' ? 3 * uiScale : 2 * uiScale,
