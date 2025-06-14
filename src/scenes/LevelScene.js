@@ -202,15 +202,16 @@ export default class LevelScene extends Phaser.Scene {
         const isDesktop = deviceType === 'desktop';
         const isMobile = deviceType === 'phone';
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        this.uiScale = uiScale; // Store for use in tooltip
         
         this.promptBoxY = 0.07 * this.cameras.main.height;
         this.uiBoxWidth = isDesktop
             ? this.cameras.main.width * (5 / 6) * (2 / 3)
             : this.cameras.main.width * (5 / 6);
         const padding = 40;
-        const fontSize = isDesktop
-            ? 14 * uiScale
-            : 24 * uiScale + (isMobile ? 2 : 0);
+        
+        // Get prompt text style from centralized system
+        const promptStyle = this.getPromptTextStyle();
 
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
@@ -251,32 +252,30 @@ export default class LevelScene extends Phaser.Scene {
             promptTextY,
             "",
             {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${fontSize}px`,
-                color: COLORS_TEXT.PRIMARY,
-                wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "left"
+                ...promptStyle,
+                wordWrap: { width: this.uiBoxWidth - padding * 2 }
             }
         ).setOrigin(0, 0);
 
-        // Create the Prompt Background Box - matching InstructionsScene exactly
-        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
+        // Create the Prompt Background Box using centralized box styles
+        const boxStyle = this.getPromptBoxStyle();
+        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2,
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
 
         // Add Outline to Match InstructionsScene
-        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2,
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
 
         // Ensure Prompt Box Appears Above Other UI Elements

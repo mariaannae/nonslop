@@ -8,6 +8,7 @@ import registryManager from "../services/RegistryManager.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle, getAutocompleteTextStyle, getMenuBarStyle } from "../config/textStyles.js";
 import { detectDeviceType } from "../config/dimensions.js";
+import { SuggestionCache } from "../utils/SuggestionCache.js";
 
 /**
  * Configuration constants for BaseGameScene
@@ -185,6 +186,9 @@ export default class BaseGameScene extends Phaser.Scene {
             lastUserInput: null,
             lastAutocomplete: null
         };
+        
+        // Initialize suggestion cache
+        this.suggestionCache = new SuggestionCache(100); // Cache up to 100 suggestion sets
     }
     
     // Getter methods for clean access to cached device type
@@ -314,6 +318,43 @@ export default class BaseGameScene extends Phaser.Scene {
             yoyo: true,
             repeat: repeat,
             ease: 'Sine.InOut'
+        });
+    }
+    
+    /**
+     * Scale pop in animation helper (scale from 0 to 1)
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Back.Out'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    scalePopIn(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Back.Out', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            scale: { from: 0, to: 1 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
+        });
+    }
+    
+    /**
+     * Fade out with scale animation helper
+     * @param {Phaser.GameObjects.GameObject|Array} targets - Target(s) to animate
+     * @param {number} [duration=500] - Animation duration in milliseconds
+     * @param {string} [ease='Back.In'] - Easing function
+     * @param {Function} [onComplete] - Callback when animation completes
+     * @returns {Phaser.Tweens.Tween} The created tween
+     */
+    fadeOutScale(targets, duration = SCENE_CONFIG.ANIMATIONS.MEDIUM, ease = 'Back.In', onComplete = null) {
+        return this.tweens.add({
+            targets: targets,
+            alpha: { from: 1, to: 0 },
+            scale: { from: 1, to: 0.8 },
+            duration: duration,
+            ease: ease,
+            onComplete: onComplete
         });
     }
     
@@ -461,7 +502,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.userInput = '';
         this.inputText = null; 
         this.keyEventQueue = [];
-        // this.keyEventSet = new Set(); // Removed deduplication set, allow repeated keys
+        this.keyEventDeduplicationMap = new Map(); // Track recent keys for deduplication
         this.isProcessingQueuedKeys = false;
         this.keyProcessingComplete = true;
         this.levelValue = 1;
@@ -764,7 +805,9 @@ export default class BaseGameScene extends Phaser.Scene {
         }
 
         // Create input text
-        const inputFontSize = this.calculateFontSize(14, 24, 2);
+        const deviceType = detectDeviceType();
+        const inputStyle = getTextStyle('input', deviceType, this.mode || 'basic', positions.uiScale);
+        const inputFontSize = parseInt(inputStyle.fontSize);
         const textHorizontalPadding = positions.inputPadding;
         const textVerticalPadding = this.isMobile ? positions.inputPadding * 0.6 : positions.inputPadding * 0.7;
         
@@ -1027,27 +1070,16 @@ export default class BaseGameScene extends Phaser.Scene {
         // Clear AI suggestions
         this.aiSuggestedWords = [];
         
-        // Remove suggestion visual elements
-        if (this.suggestionBoxes) {
-            this.suggestionBoxes.forEach(box => {
-                if (box && !box.destroyed) {
-                    box.destroy();
-                }
-            });
-            this.suggestionBoxes = [];
-        }
-        
-        if (this.suggestionTexts) {
-            this.suggestionTexts.forEach(text => {
-                if (text && !text.destroyed) {
-                    text.destroy();
-                }
-            });
-            this.suggestionTexts = [];
-        }
+        // Force cleanup all suggestion visuals
+        this.cleanupAllSuggestions();
         
         // Clear suggestions display
         this.showSuggestions([]);
+        
+        // Clear suggestion cache when transitioning
+        if (isTransition && this.suggestionCache) {
+            this.suggestionCache.clear();
+        }
         
         // Additional cleanup for scene transitions
         if (isTransition) {
@@ -1181,10 +1213,11 @@ export default class BaseGameScene extends Phaser.Scene {
     createExplosionEffect(word, x, y) {
         // Define required variables first
         const uiScale = this.scalingManager ? this.scalingManager.uiScale || 1 : 1;
+        const deviceType = detectDeviceType();
+        const effectStyle = getTextStyle('effect', deviceType, this.mode || 'basic', uiScale);
         
         const explosion = this.add.text(x, y, word, {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${this.calculateFontSize(14, 24, 2)}px`,
+            ...effectStyle,
             fill: '#ff0000', 
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(100); // Set a high depth value to ensure visibility
@@ -1243,7 +1276,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
         const deviceType = detectDeviceType();
         const uiScale = this.scalingManager?.uiScale || 1;
-        const evaluatingStyle = getTextStyle('title', deviceType, this.mode || 'basic', uiScale);
+        const evaluatingStyle = getTextStyle('transitionText', deviceType, this.mode || 'basic', uiScale);
         const evaluatingText = this.add.text(
             this.getCenterX(),
             this.getCenterY(),
@@ -1425,15 +1458,10 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     async generateAISuggestions(userInput) {
+        console.log("DEBUG: generateAISuggestions called with input:", userInput);
         this.isProcessingQueuedKeys = true; // Lock queue processing at start
         // The flag should already be set by the caller, but ensure it's true
         this.isGeneratingAISuggestions = true;
-
-        // Show loading state in suggestions
-        this.showSuggestions(['Loading...']);
-
-        // Force Phaser to render the loading state before continuing (allow at least one frame)
-        await new Promise(resolve => this.time.delayedCall(16, resolve));
 
         // Performance measurement - start
         const startTime = performance.now();
@@ -1452,6 +1480,7 @@ export default class BaseGameScene extends Phaser.Scene {
             }
             // Mark processing as complete - important even for empty input
             this.keyProcessingComplete = true;
+            this.isProcessingQueuedKeys = false;
             return;
         }
     
@@ -1459,8 +1488,38 @@ export default class BaseGameScene extends Phaser.Scene {
         const lastSpaceIndex = userInput.lastIndexOf(' ');
         const lastNewlineIndex = userInput.lastIndexOf('\n');
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
-    
-        // Get the LLM engine from the registry manager - without logging every property
+        const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
+        
+        // Check cache first
+        // const cachedSuggestions = this.suggestionCache.get(this.currentPrompt, context);
+        // if (cachedSuggestions) {
+        //     // Use cached results
+        //     if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
+        //         this.isProcessingQueuedKeys = false;
+        //         return;
+        //     }
+            
+        //     this.aiSuggestedWords = cachedSuggestions;
+        //     this.showSuggestions(cachedSuggestions);
+        //     this.updateCursor();
+            
+        //     // Log cache hit for debugging
+        //     const endTime = performance.now();
+        //     const duration = endTime - startTime;
+        //     if (duration > 10) { // Only log if it took more than 10ms
+        //         console.log(`AI suggestions (cached) completed in ${duration.toFixed(1)}ms`);
+        //     }
+            
+        //     this.isProcessingQueuedKeys = false;
+        //     return;
+        // }
+        
+        // Show loading state only if not cached
+        this.showSuggestions(['Loading...']);
+        
+        // Don't wait for render frame - process immediately
+        
+        // Get the LLM engine from the registry manager
         const llmEngine = registryManager.get('llmEngine');
         
         // Minimal logging - only if there's an issue
@@ -1468,6 +1527,7 @@ export default class BaseGameScene extends Phaser.Scene {
             if (requestId !== this.suggestionRequestId) return;
             // Mark processing as complete even when engine is missing
             this.keyProcessingComplete = true;
+            this.isProcessingQueuedKeys = false;
             
             // Try to recover the engine
             registryManager.attemptEngineRecovery((recoveredEngine) => {
@@ -1479,16 +1539,22 @@ export default class BaseGameScene extends Phaser.Scene {
             return;
         }
     
-        const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
-        const trimmedcontext = "[ENGLISH ONLY] " + this.currentPrompt + ":\n"+ context.trim();
+        // Optimize context - only include last 50 characters of context to reduce token count
+        const optimizedContext = context.length > 50 ? '...' + context.slice(-50) : context;
+        const trimmedcontext = this.currentPrompt + ": " + optimizedContext.trim();
         
         // Add retry logic
         try {
             // Use the engine from registry manager (transformers.js pipeline)
-            const output = await llmEngine(trimmedcontext, { max_new_tokens: 1 });
+            const output = await llmEngine(trimmedcontext, { 
+                max_new_tokens: 1,
+                temperature: 0.8, // Add some variety to suggestions
+                do_sample: true
+            });
 
             // Only process the result if this is the latest request AND input matches current userInput
             if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
+                this.isProcessingQueuedKeys = false;
                 return;
             }
 
@@ -1498,6 +1564,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 if (this.autocompleteText) {
                     this.autocompleteText.setText('');
                 }
+                this.isProcessingQueuedKeys = false;
                 return;
             }
 
@@ -1508,28 +1575,37 @@ export default class BaseGameScene extends Phaser.Scene {
             if (suggestion.startsWith(trimmedcontext)) {
                 suggestion = suggestion.slice(trimmedcontext.length).trim();
             }
+            
             // Split into words, filter, and deduplicate
             let words = suggestion.split(/\s+/)
                 .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "")) // Remove leading/trailing punctuation
-                .filter(word => word && !stopwords.includes(word.toLowerCase()));
+                .filter(word => word && word.length > 1 && !stopwords.includes(word.toLowerCase())); // Filter short words too
 
             // Only keep unique, non-empty words
-            const uniqueSuggestedWords = Array.from(new Set(words)).slice(0, this.topKValue);
+            const uniqueSuggestedWords = Array.from(new Set(words)).slice(0, Math.max(this.topKValue, 3)); // Always show at least 3 suggestions if available
+            console.log("[DEBUG] suggestion: ", suggestion)
+
+            // Cache the results
+            this.suggestionCache.set(this.currentPrompt, context, uniqueSuggestedWords);
 
             this.aiSuggestedWords = uniqueSuggestedWords;
             this.showSuggestions(uniqueSuggestedWords);
             this.updateCursor(); // Ensure UI refreshes with the latest suggestion
+            console.log("[DEBUG] filtered: ", uniqueSuggestedWords)
 
             // Only track performance issues
             const endTime = performance.now();
             const duration = endTime - startTime;
-            } catch (error) {
-                // Error processing suggestion results
-                this.aiSuggestedWords = [];
-                this.showSuggestions([]);
-                if (this.autocompleteText) {
-                    this.autocompleteText.setText('');
-                }
+            console.log(`AI suggestions completed in ${duration.toFixed(1)}ms`);
+            
+        } catch (error) {
+            console.error("Error generating AI suggestions:", error);
+            // Error processing suggestion results
+            this.aiSuggestedWords = [];
+            this.showSuggestions([]);
+            if (this.autocompleteText) {
+                this.autocompleteText.setText('');
+            }
         } finally {
             this.isProcessingQueuedKeys = false; // Unlock queue processing at end
             // Don't reset isGeneratingAISuggestions here - let generateAISuggestionsWithQueue handle it
@@ -1563,114 +1639,71 @@ export default class BaseGameScene extends Phaser.Scene {
         const defaultText = "Your prompt will appear here...";
         let promptString = this.currentPrompt || defaultText;
 
-        const fontSize = this.calculateFontSize(14, 24, 2);
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const promptStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
+        const fontSize = parseInt(promptStyle.fontSize);
 
         let promptTextObj, textHeight, boxHeight, boxStyle, promptY, textCenterY;
+        
+        const effectivePadding = this.isMobile ? mobilePadding : padding;
+        const style = {
+            ...this.getPromptTextStyle(),
+            fontSize: `${fontSize}px`,
+            wordWrap: { width: textBoxWidth - effectivePadding * 2 }
+        };
 
-        if (this.isMobile) {
-            // MOBILE: smaller padding, larger max height, minimum 3 lines
-            const effectivePadding = mobilePadding;
-            const style = {
-                ...this.getPromptTextStyle(),
-                fontSize: `${fontSize}px`,
-                wordWrap: { width: textBoxWidth - effectivePadding * 2 }
-            };
-            // Create a temp text object with 3 lines to measure minimum height
-            const temp3Lines = this.add.rexBBCodeText(
-                0, 0,
-                "A\nB\nC",
-                style
-            );
-            const min3LineHeight = temp3Lines.height;
-            temp3Lines.destroy();
+        // Create text temporarily to measure height
+        promptTextObj = this.add.rexBBCodeText(
+            centerX,
+            0, // Temporary position
+            promptString,
+            style
+        ).setOrigin(0.5, 0.5);
 
-            // Create text temporarily to measure height
-            promptTextObj = this.add.rexBBCodeText(
-                centerX,
-                0, // Temporary position
-                promptString,
-                style
-            ).setOrigin(0.5, 0.5);
+        textHeight = promptTextObj.height;
+        
+        // Dynamic height calculation with sensible min/max values
+        // Minimum height to ensure the box is visible
+        const minHeight = 60;
+        // Calculate box height based on text content
+        boxHeight = Math.max(minHeight, textHeight + effectivePadding * 2);
+        
+        // Optional: Set a reasonable maximum height to prevent extremely tall boxes
+        // You can adjust or remove this if you want unlimited height
+        const maxHeight = this.isMobile ? 400 : 300;
+        boxHeight = Math.min(boxHeight, maxHeight);
+        console.log("boxheight: ", boxHeight);
+        
+        boxStyle = this.getPromptBoxStyle();
+        
+        // yStart is the TOP EDGE of the box
+        promptY = yStart;
+        // Calculate center position for the text
+        textCenterY = promptY + boxHeight / 2;
 
-            textHeight = promptTextObj.height;
-            // Ensure box is at least high enough for 3 lines
-            boxHeight = Math.max(min3LineHeight + effectivePadding * 2, textHeight + effectivePadding * 2, 60);
-            boxHeight = Math.min(boxHeight, 300);
-            boxStyle = this.getPromptBoxStyle();
-            
-            // yStart is the TOP EDGE of the box
-            promptY = yStart;
-            // Calculate center position for the text
-            textCenterY = promptY + boxHeight / 2;
-
-            // Draw the box
-            this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-            this.promptTextBox.fillRoundedRect(
+        // Draw the box
+        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+        this.promptTextBox.fillRoundedRect(
+            centerX - textBoxWidth / 2,
+            promptY,
+            textBoxWidth,
+            boxHeight,
+            boxStyle.cornerRadius
+        );
+        if (boxStyle.hasOutline) {
+            this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.promptTextBox.strokeRoundedRect(
                 centerX - textBoxWidth / 2,
                 promptY,
                 textBoxWidth,
                 boxHeight,
                 boxStyle.cornerRadius
             );
-            if (boxStyle.hasOutline) {
-                this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-                this.promptTextBox.strokeRoundedRect(
-                    centerX - textBoxWidth / 2,
-                    promptY,
-                    textBoxWidth,
-                    boxHeight,
-                    boxStyle.cornerRadius
-                );
-            }
-            // Set text position to center of box
-            promptTextObj.setY(textCenterY);
-        } else {
-            // DESKTOP: larger padding, smaller max height
-            const effectivePadding = padding;
-            const style = {
-                ...this.getPromptTextStyle(),
-                fontSize: `${fontSize}px`,
-                wordWrap: { width: textBoxWidth - effectivePadding * 2 }
-            };
-            
-            // Create text temporarily to measure height
-            promptTextObj = this.add.rexBBCodeText(
-                centerX,
-                0, // Temporary position
-                promptString,
-                style
-            ).setOrigin(0.5, 0.5);
-
-            textHeight = promptTextObj.height;
-            boxHeight = Phaser.Math.Clamp(textHeight + effectivePadding * 2, 60, 220);
-            boxStyle = this.getPromptBoxStyle();
-            
-            // yStart is the TOP EDGE of the box
-            promptY = yStart;
-            // Calculate center position for the text
-            textCenterY = promptY + boxHeight / 2;
-
-            this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-            this.promptTextBox.fillRoundedRect(
-                centerX - textBoxWidth / 2,
-                promptY,
-                textBoxWidth,
-                boxHeight,
-                boxStyle.cornerRadius
-            );
-            if (boxStyle.hasOutline) {
-                this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-                this.promptTextBox.strokeRoundedRect(
-                    centerX - textBoxWidth / 2,
-                    promptY,
-                    textBoxWidth,
-                    boxHeight,
-                    boxStyle.cornerRadius
-                );
-            }
-            // Set text position to center of box
-            promptTextObj.setY(textCenterY);
         }
+        
+        // Set text position to center of box
+        promptTextObj.setY(textCenterY);
 
         this.promptText = promptTextObj;
         this.promptTextBox.setDepth(102);
@@ -1804,6 +1837,7 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Handle space key
     handleSpaceKey(event, done) {
+        console.log("DEBUG: handleSpaceKey called");
         // Record the timestamp of the word boundary
         this._lastWordBoundaryTime = Date.now();
         // Set flag immediately to indicate AI suggestions are being generated
@@ -1981,8 +2015,10 @@ export default class BaseGameScene extends Phaser.Scene {
         }
 
         this.updateCursor();
-        // Block queue until async suggestion generation is fully complete
-        this.generateAISuggestionsWithQueue(done);
+        
+        // For printable characters, we don't need to generate suggestions
+        // This speeds up typing by avoiding unnecessary async operations
+        if (done) done();
     }
 
     // Updated: handleSingleKeyEvent now supports async queueing
@@ -1992,8 +2028,7 @@ export default class BaseGameScene extends Phaser.Scene {
             // Skip if we're shutting down to prevent stray key processing
             if (this.isShuttingDown) { if (done) done(); return; }
 
-            // Mini vibrate on every keystroke for mobile (except ignored keys)
-            const ua = navigator.userAgent || "";
+            // Skip mini vibrate to avoid any delays
             const ignoreKeys = [
                 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock',
                 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5',
@@ -2002,14 +2037,6 @@ export default class BaseGameScene extends Phaser.Scene {
                 'PageUp', 'Delete', 'End', 'PageDown', 'ArrowRight',
                 'ArrowLeft', 'ArrowDown', 'ArrowUp'
             ];
-            if (
-                this.isMobile &&
-                event &&
-                event.key &&
-                !ignoreKeys.includes(event.key)
-            ) {
-                this.miniScreenVibrate && this.miniScreenVibrate();
-            }
 
             // Update lastKeydownTime at the very start for accurate timing
             this._lastKeydownTime = Date.now();
@@ -2068,12 +2095,14 @@ export default class BaseGameScene extends Phaser.Scene {
     
     // Helper for queue-aware async suggestion generation
     generateAISuggestionsWithQueue(done) {
+        console.log("DEBUG: generateAISuggestionsWithQueue called, userInput:", this.userInput);
         // Only generate suggestions if the last character is a space or linebreak
         const currentInput = this.userInput;
         if (
             currentInput &&
             (currentInput.endsWith(' ') || currentInput.endsWith('\n') || currentInput.endsWith('\r'))
         ) {
+            console.log("DEBUG: Input ends with whitespace, calling generateAISuggestions");
             // Call the async suggestion generator and call done when finished
             this.generateAISuggestions(currentInput).then(() => {
                 // Don't clear the flag here - it will be cleared when the next key is pressed
@@ -2190,6 +2219,28 @@ export default class BaseGameScene extends Phaser.Scene {
         this.lastKeyProcessTime = 0;
         this.keyEventQueue = [];
         this.isProcessingQueuedKeys = false;
+        this.keyProcessingComplete = true;
+
+        // Initialize deduplication map
+        if (!this.keyEventDeduplicationMap) {
+            this.keyEventDeduplicationMap = new Map();
+        }
+
+        // Clean up old entries periodically
+        this.time.addEvent({
+            delay: 1000,
+            loop: true,
+            callback: () => {
+                const now = Date.now();
+                const keysToDelete = [];
+                this.keyEventDeduplicationMap.forEach((timestamp, key) => {
+                    if (now - timestamp > 100) { // Remove entries older than 100ms
+                        keysToDelete.push(key);
+                    }
+                });
+                keysToDelete.forEach(key => this.keyEventDeduplicationMap.delete(key));
+            }
+        });
 
         // Create a more efficient debounce utility with a dynamic delay based on input length
         function debounce(func, wait) {
@@ -2223,80 +2274,70 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }, SCENE_CONFIG.DEBOUNCE.SUGGESTIONS); // Use config constant
 
-        // Set-based deduplication: only enqueue keydown if not already pressed
-        this.pressedKeys = new Set();
-        this.lastKeydownTimestamps = {};
-
         this.input.keyboard.on("keydown", (event) => {
-        // Always define now for debounce and event queue logic
-        const now = Date.now();
+            // Always define now for debounce and event queue logic
+            const now = Date.now();
 
-        // Block all input if penalty or lockout is active
-        if (this._fastTypingPenaltyActive || this._fastTypingLockoutActive) {
-            if (typeof event.preventDefault === "function") event.preventDefault();
-            return;
-        }
+            // Block all input if penalty or lockout is active
+            if (this._fastTypingPenaltyActive || this._fastTypingLockoutActive) {
+                if (typeof event.preventDefault === "function") event.preventDefault();
+                return;
+            }
 
             // Only apply penalty logic after the first word (i.e., after a space or newline is present)
             const isFirstWord = !this.userInput || !/[\s\n]/.test(this.userInput);
 
-const isPrintable = event.key && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
-if (!isFirstWord && isPrintable && this._lastWordBoundaryTime > 0) {
-    const now = Date.now();
-    const sinceBoundary = now - this._lastWordBoundaryTime;
-    if (sinceBoundary < this.fastTypingCooldownMs) {
-        this._triggerFastTypingPenalty();
-        this._fastTypingLockoutActive = true;
-        if (typeof event.preventDefault === "function") event.preventDefault();
-        return;
-    }
-}
-
-// Lockout for word boundary keys as well
-if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWordBoundaryTime > 0) {
-    const now = Date.now();
-    const sinceBoundary = now - this._lastWordBoundaryTime;
-    if (sinceBoundary < this.fastTypingCooldownMs) {
-        this._triggerFastTypingPenalty();
-        this._fastTypingLockoutActive = true;
-        if (typeof event.preventDefault === "function") event.preventDefault();
-        return;
-    }
-}
-
-            const last = this.lastKeydownTimestamps[event.code] || 0;
-            if (now - last < 50) {
-            return;
-        }
-        this.lastKeydownTimestamps[event.code] = now;
-        // Skip if we're shutting down
-            if (this.isShuttingDown) return;
-
-            // Only filter browser-generated repeats, not manual key presses
-            if (event.repeat) {
-                return;
+            const isPrintable = event.key && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+            if (!isFirstWord && isPrintable && this._lastWordBoundaryTime > 0) {
+                const now = Date.now();
+                const sinceBoundary = now - this._lastWordBoundaryTime;
+                if (sinceBoundary < this.fastTypingCooldownMs) {
+                    this._triggerFastTypingPenalty();
+                    this._fastTypingLockoutActive = true;
+                    if (typeof event.preventDefault === "function") event.preventDefault();
+                    return;
+                }
             }
+
+            // Lockout for word boundary keys as well
+            if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWordBoundaryTime > 0) {
+                const now = Date.now();
+                const sinceBoundary = now - this._lastWordBoundaryTime;
+                if (sinceBoundary < this.fastTypingCooldownMs) {
+                    this._triggerFastTypingPenalty();
+                    this._fastTypingLockoutActive = true;
+                    if (typeof event.preventDefault === "function") event.preventDefault();
+                    return;
+                }
+            }
+
+            // Skip if we're shutting down
+            if (this.isShuttingDown) return;
 
             // Prevent default browser behavior for Tab key immediately
             if (event.key === "Tab" && typeof event.preventDefault === "function") {
                 event.preventDefault();
             }
 
-            // Only enqueue if key is not already pressed
-            if (this.pressedKeys.has(event.code)) {
-                return;
+            // Create unique key for deduplication
+            const eventKey = `${event.key}_${event.code}_${event.timeStamp}`;
+            
+            // Check for duplicate events (browser repeat or multiple event handlers)
+            const lastEventTime = this.keyEventDeduplicationMap.get(eventKey);
+            if (lastEventTime && (now - lastEventTime) < SCENE_CONFIG.DEBOUNCE.KEY_REPEAT_FILTER) {
+                return; // Skip duplicate event
             }
-            this.pressedKeys.add(event.code);
-
-            // Record this key press
+            
+            // Record this event
+            this.keyEventDeduplicationMap.set(eventKey, now);
             this.lastKeyPressed = event.key;
-            this.lastKeyTime = Date.now();
+            this.lastKeyTime = now;
 
-            // Push event onto the queue with a timestamp for ordering
+            // Queue ALL keys for proper ordering
             const enqueuedEvent = {
                 key: event.key,
                 code: event.code,
-                timestamp: Date.now(),
+                timestamp: now,
                 altKey: event.altKey,
                 ctrlKey: event.ctrlKey,
                 metaKey: event.metaKey,
@@ -2304,16 +2345,11 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
                 // Include the original event for reference if needed
                 originalEvent: event
             };
+            
             this.keyEventQueue.push(enqueuedEvent);
-            //console.log("QUEUE: ", this.keyEventQueue)
 
             // Start processing the queue if not already running
             this.triggerProcessQueue();
-        });
-
-        // On keyup, remove from pressedKeys set
-        this.input.keyboard.on("keyup", (event) => {
-            this.pressedKeys.delete(event.code);
         });
 
         // Set up cursor blinking timer
@@ -2567,14 +2603,8 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
             this.updateProgressFill();
         }
 
-        // Debounced updateCursor to prevent double-letter visual bug on fast mobile typing
-        if (this._pendingMobileCursorTimeout) {
-            clearTimeout(this._pendingMobileCursorTimeout);
-        }
-        this._pendingMobileCursorTimeout = setTimeout(() => {
-            this.updateCursor();
-            this._pendingMobileCursorTimeout = null;
-        }, 30);
+        // Update cursor immediately for mobile
+        this.updateCursor();
     });
 
         // On blur, keep value but do nothing else
@@ -3204,13 +3234,14 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const titleHeight = 44;
         const deviceType = detectDeviceType();
         const uiScale = this.scalingManager?.uiScale || 1;
-        const titleStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
+        const titleStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
         const title = this.add.text(
             this.cameras.main.centerX,
             popupY + titleHeight / 2,
             'Settings',
             {
                 ...titleStyle,
+                fontSize: `${parseInt(titleStyle.fontSize) * 1.2}px`, // Make title slightly larger
                 fill: '#ffffff',
                 fontStyle: 'bold'
             }
@@ -3237,7 +3268,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const levelLabelY = yCursor + 22;
         const deviceType = detectDeviceType();
         const uiScale = this.scalingManager?.uiScale || 1;
-        const labelStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+        const labelStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
         const levelLabel = this.add.text(
             levelLabelX, levelLabelY,
             `Level: ${this.levelValue}`,
@@ -3385,7 +3416,7 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         const modeToggleLabelY = yCursor + 22;
         const deviceType = detectDeviceType();
         const uiScale = this.scalingManager?.uiScale || 1;
-        const labelStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+        const labelStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
         const modeToggleLabel = this.add.text(
             modeToggleLabelX, modeToggleLabelY,
             "Hard Mode:",
@@ -4821,19 +4852,63 @@ if (!isFirstWord && (event.key === " " || event.key === "Enter") && this._lastWo
         this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
     }
 
+    /**
+     * Clean up all suggestion-related visual elements
+     */
+    cleanupAllSuggestions() {
+        // First clean up tracked elements
+        if (this.suggestionBoxes && this.suggestionBoxes.length > 0) {
+            this.suggestionBoxes.forEach(box => {
+                if (box && !box.destroyed) {
+                    box.clear();
+                    box.destroy();
+                }
+            });
+        }
+        if (this.suggestionTexts && this.suggestionTexts.length > 0) {
+            this.suggestionTexts.forEach(text => {
+                if (text && !text.destroyed) {
+                    text.destroy();
+                }
+            });
+        }
+        
+        // Then do a comprehensive cleanup of any remaining suggestion elements
+        if (this.children && this.children.list) {
+            // Create a copy of the list to avoid modification during iteration
+            const childrenToCheck = [...this.children.list];
+            childrenToCheck.forEach(child => {
+                if (child && !child.destroyed) {
+                    // Check for suggestion-related depths (15-16)
+                    if (child.depth >= 15 && child.depth <= 16) {
+                        // Check if it's a graphics or text object
+                        if (child.type === 'Graphics' || child.type === 'Text' || 
+                            child.constructor.name === 'Graphics' || child.constructor.name === 'Text') {
+                            try {
+                                if (child.type === 'Graphics' || child.constructor.name === 'Graphics') {
+                                    child.clear();
+                                }
+                                child.destroy();
+                            } catch (e) {
+                                // Ignore destruction errors
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Reset arrays
+        this.suggestionBoxes = [];
+        this.suggestionTexts = [];
+    }
+
     showSuggestions(words) {
         // Performance optimization - measure time for suggestion rendering
         const startTime = performance.now();
         
-        // Clear previous suggestions
-        if (this.suggestionBoxes) {
-            this.suggestionBoxes.forEach(box => box.destroy());
-        }
-        if (this.suggestionTexts) {
-            this.suggestionTexts.forEach(text => text.destroy());
-        }
-        this.suggestionBoxes = [];
-        this.suggestionTexts = [];
+        // Use the comprehensive cleanup method
+        this.cleanupAllSuggestions();
 
         if (!words || words.length === 0) return;
 

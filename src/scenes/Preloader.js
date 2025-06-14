@@ -376,10 +376,6 @@ export default class Preloader extends Phaser.Scene {
         // Title
         const deviceType = detectDeviceType();
         const titleStyle = getTextStyle('menuTitle', deviceType, 'basic', this.uiScale || 1);
-        // Use a larger scale for the preloader title
-        const titleScaleFactor = deviceType === DEVICE_TYPES.DESKTOP ? 1.5 : 
-                               deviceType === DEVICE_TYPES.TABLET ? 1.8 : 2.5;
-        titleStyle.fontSize = `${parseInt(titleStyle.fontSize) * titleScaleFactor}px`;
         titleStyle.color = COLORS_TEXT.HIGHLIGHT;
         
         const titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", titleStyle);

@@ -130,6 +130,7 @@ const UI = {
 const BASIC = {
   COLORS: {
     BACKGROUND: PALETTE.BACKGROUND.PURPLE_DARKEST,      // Very dark cool purple background (0x0a0c36)
+    BACKGROUND_DARKEST: PALETTE.BACKGROUND.DARKEST,     // Almost black for consistent box fills
     BACKGROUND_LESS_DARK: PALETTE.BACKGROUND.PURPLE_DARKER, // Your chosen cool purple (0x101551)
     BOX_OUTLINE: PALETTE.TEAL.GLOW,              // Cool purple for outlines (0x5a6bc4)
     BOX_FILL: PALETTE.BACKGROUND.DARKEST,               // Keep original box fill

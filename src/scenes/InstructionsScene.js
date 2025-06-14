@@ -2,6 +2,8 @@ import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEX
 import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { ScalingManager } from "../config/scaling.js";
+import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
+import { detectDeviceType } from "../config/dimensions.js";
 
 export default class InstructionScene extends Phaser.Scene {
     constructor() {
@@ -13,18 +15,11 @@ export default class InstructionScene extends Phaser.Scene {
         // Hide any existing tooltips
         this.hideTooltips();
 
-        // Make tooltip text 2px larger on mobile
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-        const tooltipFontSize = isMobile ? 14 : 14;
-
         // Create tooltip background
         const padding = 10;
-        const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${tooltipFontSize}px`,
-            color: '#ffffff',
-            align: 'center'
-        });
+        const deviceType = detectDeviceType();
+        const tooltipStyle = getTextStyle('tooltip', deviceType, 'basic', this.uiScale || 1);
+        const tooltipText = this.add.text(0, 0, text, tooltipStyle);
 
         const width = tooltipText.width + padding * 2;
         const height = tooltipText.height + padding * 2;
@@ -155,16 +150,18 @@ export default class InstructionScene extends Phaser.Scene {
     
     createPromptTextBox() {
         // Use Preloader.js scaling and layout logic for consistency
-        const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const deviceType = detectDeviceType();
+        const isDesktop = deviceType === 'desktop';
+        const isMobile = deviceType === 'phone';
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        this.uiScale = uiScale; // Store for use in tooltip
         this.uiBoxWidth = isDesktop
             ? this.cameras.main.width * (5 / 6) * (2 / 3)
             : this.cameras.main.width * (5 / 6);
         const padding = 40;
-        const fontSize = isDesktop
-            ? 14 * uiScale
-            : 24 * uiScale + (isMobile ? 2 : 0);
+        
+        // Get prompt text style from centralized system
+        const promptStyle = getTextStyle('prompt', deviceType, 'basic', uiScale);
 
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
@@ -186,10 +183,8 @@ export default class InstructionScene extends Phaser.Scene {
             0, 0,
             defaultText,
             {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${fontSize}px`,
-                wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "left"
+                ...promptStyle,
+                wordWrap: { width: this.uiBoxWidth - padding * 2 }
             }
         ).setOrigin(0, 0).setAlpha(0);
         const textHeight = tempText.height + padding * 2;
@@ -206,32 +201,30 @@ export default class InstructionScene extends Phaser.Scene {
             promptTextY,
             "",
             {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${fontSize}px`,
-                color: COLORS_TEXT.PRIMARY,
-                wordWrap: { width: this.uiBoxWidth - padding * 2 },
-                align: "left"
+                ...promptStyle,
+                wordWrap: { width: this.uiBoxWidth - padding * 2 }
             }
         ).setOrigin(0, 0);
 
-        // Create the Prompt Background Box
-        this.promptTextBox.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 1);
+        // Create the Prompt Background Box using centralized box styles
+        const boxStyle = getBoxStyle('prompt', 'basic', uiScale);
+        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2,
             boxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
 
         // Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2,
             boxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
 
         // Ensure Prompt Box Appears Above Other UI Elements

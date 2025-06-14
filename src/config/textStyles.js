@@ -41,7 +41,8 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             tooltip: 14,
             effect: 18,
             button: 18,
-            fancyButton: 18
+            fancyButton: 18,
+            transitionText: 24
         },
         [DEVICE_TYPES.TABLET]: {
             title: 50,
@@ -52,7 +53,8 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             tooltip: 16,
             effect: 20,
             button: 18,
-            fancyButton: 18
+            fancyButton: 18,
+            transitionText: 28
         },
         [DEVICE_TYPES.PHONE]: {
             title: 40,
@@ -63,7 +65,8 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             tooltip: 18,
             effect: 24,
             button: 24,
-            fancyButton: 24
+            fancyButton: 24,
+            transitionText: 32
         }
     };
 
@@ -118,7 +121,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             fontFamily: 'IBM Plex Mono',
             fontSize: `${fontSize}px`,
             fill: COLORS_TEXT.PRIMARY,
-            align: 'center',
+            align: 'left',
             lineSpacing: 6 * uiScale
         },
         input: {
@@ -148,6 +151,26 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             fill: '#ffffff',
             stroke: '#000000',
             strokeThickness: 3
+        },
+        settings: {
+            fontFamily: 'IBM Plex Mono',
+            fontSize: `${fontSize}px`,
+            fill: '#ffffff',
+            align: 'left'
+        },
+        transitionText: {
+            fontFamily: 'VT323',
+            fontSize: `${fontSize}px`,
+            color: COLORS_TEXT.PRIMARY,
+            align: 'center',
+            shadow: {
+                offsetX: 2 * uiScale,
+                offsetY: 2 * uiScale,
+                color: '#000',
+                blur: 4 * uiScale,
+                stroke: true,
+                fill: true
+            }
         }
     };
 
