@@ -1,5 +1,5 @@
 /**
- * Global singleton for transformers.js engine (using Qwen1.5-0.5B-Chat).
+ * Global singleton for transformers.js engine (using GPT-2).
  * Ensures only one context is ever created, even across scene reloads.
  * Usage: import getLLMEngine from './llmEngineSingleton.js'; then await getLLMEngine();
  */
@@ -36,20 +36,31 @@ export default async function getLLMEngine() {
   }
   enginePromise = (async () => {
     let pipeline;
+    let env;
     // Try dynamic import first
     try {
       const mod = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.0/dist/transformers.min.js');
       pipeline = mod.pipeline || (window.transformers && window.transformers.pipeline);
+      env = mod.env || (window.transformers && window.transformers.env);
     } catch (e) {
       // Fallback to script tag
       const transformers = await loadTransformersScript();
       pipeline = transformers.pipeline;
+      env = transformers.env;
     }
     if (!pipeline) {
       throw new Error('Failed to load transformers.js pipeline');
     }
-    // Load the Qwen model for text generation
-    const generator = await pipeline('text-generation', 'Xenova/Qwen1.5-0.5B-Chat');
+    
+    // Configure transformers.js to use remote models from Hugging Face
+    if (env) {
+      env.allowRemoteModels = true;
+      env.remoteURL = 'https://huggingface.co/';
+      env.localURL = '';  // Disable local model loading
+    }
+    
+    // Load the GPT-2 model for text generation
+    const generator = await pipeline('text-generation', 'Xenova/gpt2');
     window.llmEngine = generator;
     return generator;
   })();

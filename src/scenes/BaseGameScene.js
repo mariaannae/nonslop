@@ -131,7 +131,7 @@ const SCENE_CONFIG = {
     // Fast typing penalty
     FAST_TYPING: {
         DEFAULT_PENALTY_SECONDS: 2,
-        DEFAULT_COOLDOWN_MS: 600,
+        DEFAULT_COOLDOWN_MS: 200,
         MODAL_WIDTH_RATIO: 0.8,
         MODAL_MAX_WIDTH: 500,
         MODAL_HEIGHT: 180,
@@ -1999,6 +1999,8 @@ export default class BaseGameScene extends Phaser.Scene {
         this.userInput = this.userInput.slice(0, -1);
         this.updateCursor();
         // Block queue until async suggestion generation is fully complete
+        this.aiSuggestedWords = [];
+        this.showSuggestions("");
         this.generateAISuggestionsWithQueue(done);
     }
 
