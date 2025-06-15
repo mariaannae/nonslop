@@ -63,7 +63,7 @@ export default class LevelScene extends Phaser.Scene {
         this.hideTooltips();
         
         // Create tooltip background
-        const padding = 10;
+        const padding = this.scalingManager ? this.scalingManager.scaleValue(10) : 10;
         const tooltipText = this.add.text(0, 0, text, this.getTooltipTextStyle());
         
         const width = tooltipText.width + padding * 2;
@@ -71,12 +71,14 @@ export default class LevelScene extends Phaser.Scene {
         
         const background = this.add.graphics();
         background.fillStyle(0x000000, 0.8);
-        background.fillRoundedRect(0, 0, width, height, 8);
-        background.lineStyle(1, 0xffffff, 0.3);
-        background.strokeRoundedRect(0, 0, width, height, 8);
+        const cornerRadius = this.scalingManager ? this.scalingManager.scaleValue(8) : 8;
+        background.fillRoundedRect(0, 0, width, height, cornerRadius);
+        background.lineStyle(this.scalingManager ? this.scalingManager.scaleValue(1) : 1, 0xffffff, 0.3);
+        background.strokeRoundedRect(0, 0, width, height, cornerRadius);
         
         // Create container for tooltip
-        const container = this.add.container(x - width/2, y - height - 5, [background, tooltipText]);
+        const yOffset = this.scalingManager ? this.scalingManager.scaleValue(5) : 5;
+        const container = this.add.container(x - width/2, y - height - yOffset, [background, tooltipText]);
         tooltipText.setPosition(padding, padding);
         
         // Add to active tooltips
@@ -87,7 +89,7 @@ export default class LevelScene extends Phaser.Scene {
         this.tweens.add({
             targets: container,
             alpha: 1,
-            duration: 200,
+            duration: this.scalingManager ? this.scalingManager.scaleValue(200) : 200,
             ease: 'Quad.easeOut'
         });
         
@@ -99,7 +101,7 @@ export default class LevelScene extends Phaser.Scene {
             this.tweens.add({
                 targets: tooltip,
                 alpha: 0,
-                duration: 200,
+                duration: this.scalingManager ? this.scalingManager.scaleValue(200) : 200,
                 ease: 'Quad.easeOut',
                 onComplete: () => tooltip.destroy()
             });
@@ -113,40 +115,52 @@ export default class LevelScene extends Phaser.Scene {
         let width = this.cameras.main.width;
         let height = this.cameras.main.height;
         
-        let gradientTextureKey = 'gradientBackground';
-    
-        if (!this.textures.exists(gradientTextureKey)) {
-            let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
-            let ctx = gradientCanvas.getContext();
-    
-            if (!ctx) {
-                console.error("Failed to get canvas context for background effect.");
-                return;
-            }
-            const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
+        // Check if on mobile device - use the same background as Preloader.js
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            // Use the same background as Preloader.js for mobile
+            this.background = this.add.image(0, 0, 'preloader-mobile-bg')
+                .setOrigin(0)
+                .setDisplaySize(width, height)
+                .setDepth(-2);
+        } else {
+            // Desktop gradient background
+            let gradientTextureKey = 'gradientBackground';
+        
+            if (!this.textures.exists(gradientTextureKey)) {
+                let gradientCanvas = this.textures.createCanvas(gradientTextureKey, width, height);
+                let ctx = gradientCanvas.getContext();
+        
+                if (!ctx) {
+                    console.error("Failed to get canvas context for background effect.");
+                    return;
+                }
+                const hexToString = (hex) => '#' + hex.toString(16).padStart(6, '0');
 
-            let grd = ctx.createLinearGradient(0, 0, width, height);
-            grd.addColorStop(0, hexToString(COLORS_HEX.BACKGROUND_MID));
-            grd.addColorStop(1, hexToString(COLORS_HEX.BACKGROUND));
-    
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, 0, width, height);
-            gradientCanvas.refresh();
+                let grd = ctx.createLinearGradient(0, 0, width, height);
+                grd.addColorStop(0, hexToString(COLORS_HEX.BACKGROUND_MID));
+                grd.addColorStop(1, hexToString(COLORS_HEX.BACKGROUND));
+        
+                ctx.fillStyle = grd;
+                ctx.fillRect(0, 0, width, height);
+                gradientCanvas.refresh();
+            }
+        
+            this.background = this.add.image(0, 0, gradientTextureKey)
+                .setOrigin(0)
+                .setDisplaySize(width, height)
+                .setDepth(-1);
+        
+            this.tweens.add({
+                targets: this.background,
+                alpha: { from: 0.8, to: 1 },
+                duration: this.scalingManager ? this.scalingManager.scaleValue(4000) : 4000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.InOut'
+            });
         }
-    
-        this.background = this.add.image(0, 0, gradientTextureKey)
-            .setOrigin(0)
-            .setDisplaySize(width, height)
-            .setDepth(-1);
-    
-        this.tweens.add({
-            targets: this.background,
-            alpha: { from: 0.8, to: 1 },
-            duration: 4000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.InOut'
-        });
     }
     
     addButtonClickEffects() {
@@ -182,7 +196,7 @@ export default class LevelScene extends Phaser.Scene {
     // Get prompt text style using centralized text styles
     getPromptTextStyle() {
         const deviceType = detectDeviceType();
-        const uiScale = this.scalingManager?.uiScale || 1;
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
         return getTextStyle('prompt', deviceType, 'basic', uiScale);
     }
 
@@ -199,11 +213,14 @@ export default class LevelScene extends Phaser.Scene {
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
         this.uiScale = uiScale; // Store for use in tooltip
         
-        this.promptBoxY = 0.07 * this.cameras.main.height;
+        // Set prompt box Y position based on device type (desktop or mobile)
+        this.promptBoxY = isDesktop 
+            ? 0.07 * this.cameras.main.height  // Current position for desktop
+            : 0.15 * this.cameras.main.height; // New position for mobile
         this.uiBoxWidth = isDesktop
             ? this.cameras.main.width * (5 / 6) * (2 / 3)
             : this.cameras.main.width * (5 / 6);
-        const padding = 40;
+        const padding = this.scalingManager ? this.scalingManager.scaleValue(40) : 40;
         
         // Get prompt text style from centralized system
         const promptStyle = this.getPromptTextStyle();
@@ -280,7 +297,7 @@ export default class LevelScene extends Phaser.Scene {
         // Typewriter effect
         const chars = defaultText.split("");
         let i = 0;
-        const typeSpeed = 8;
+        const typeSpeed = this.scalingManager ? this.scalingManager.scaleValue(8) : 8;
         this.time.addEvent({
             delay: typeSpeed,
             repeat: chars.length - 1,
@@ -311,7 +328,7 @@ export default class LevelScene extends Phaser.Scene {
         // Use the same vertical gap logic as InstructionsScene
         const boxY = this.promptBoxY;
         const boxHeight = textHeight;
-        const buttonVerticalGap = isMobile ? 40 * uiScale : 30 * uiScale;
+        const buttonVerticalGap = isMobile ? 80 * uiScale : 30 * uiScale;
         const buttonHeight = this.scalingManager
             ? this.scalingManager.buttonHeight()
             : DESIGN.UI.BUTTON.HEIGHT;
@@ -426,16 +443,22 @@ export default class LevelScene extends Phaser.Scene {
     // Helper methods for user feedback
     showLoadingMessage() {
         // Create a loading message for the user
+        const paddingX = this.scalingManager ? this.scalingManager.scaleValue(20) : 20;
+        const paddingY = this.scalingManager ? this.scalingManager.scaleValue(10) : 10;
+        
+        // Get text style from centralized system
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const textStyle = getTextStyle('prompt', deviceType, 'basic', uiScale);
+        
         this.loadingText = this.add.text(
             this.cameras.main.centerX,
             this.cameras.main.centerY,
             'Loading game engine...',
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
-                fill: '#ffffff',
+                ...textStyle,
                 backgroundColor: '#000000',
-                padding: { x: 20, y: 10 }
+                padding: { x: paddingX, y: paddingY }
             }
         ).setOrigin(0.5).setDepth(1000);
     }
@@ -450,16 +473,23 @@ export default class LevelScene extends Phaser.Scene {
         this.hideLoadingMessage();
         
         // Show error message
+        const paddingX = this.scalingManager ? this.scalingManager.scaleValue(20) : 20;
+        const paddingY = this.scalingManager ? this.scalingManager.scaleValue(10) : 10;
+        
+        // Get text style from centralized system
+        const deviceType = detectDeviceType();
+        const uiScale = this.scalingManager?.uiScale || 1;
+        const textStyle = getTextStyle('prompt', deviceType, 'basic', uiScale);
+        
         const errorText = this.add.text(
             this.cameras.main.centerX,
             this.cameras.main.centerY,
             'Could not initialize game engine.\nPlease reload the page.',
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
-                fill: '#ff0000',
+                ...textStyle,
+                fill: '#ff0000', // Override the color for error
                 backgroundColor: '#000000',
-                padding: { x: 20, y: 10 },
+                padding: { x: paddingX, y: paddingY },
                 align: 'center'
             }
         ).setOrigin(0.5).setDepth(1000);

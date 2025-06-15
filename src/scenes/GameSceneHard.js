@@ -48,8 +48,7 @@ export default class GameSceneHard extends BaseGameScene {
 
     // Enhanced method to show feedback when a word is blocked
     showBlockFeedback(blockedWord) {
-        // Delete the AI word from the user's input
-        this.deleteAIWord(blockedWord);
+        // Note: The word has already been deleted in BaseGameScene before this is called
         
         // Create warning text with dramatic styling - 10% smaller with newline
         const blockedText = this.add.text(

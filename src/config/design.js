@@ -110,7 +110,7 @@ const UI = {
   },
   TOGGLE: {
     WIDTH: 40,
-    HEIGHT: 12
+    HEIGHT: isMobileDevice() ? 20 : 12
   },
   PROGRESS_BAR: {
     INITIAL: 50,

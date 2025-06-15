@@ -15,7 +15,7 @@ const CLAMP_RANGES = {
         effect: { min: 14, max: 28 },
         button: { min: 14, max: 20 },
         fancyButton: { min: 16, max: 20 },
-        transitionText: { min: 20, max: 40 },
+        transitionText: { min: 30, max: 50 },
         settings: { min: 12, max: 18 }
     },
     [DEVICE_TYPES.TABLET]: {
@@ -41,7 +41,7 @@ const CLAMP_RANGES = {
         effect: { min: 226, max: 48 },
         button: { min: 26, max: 44 },
         fancyButton: { min: 20, max: 36 },
-        transitionText: { min: 28, max: 56 },
+        transitionText: { min: 36, max: 60 },
         settings: { min: 22, max: 28 },
     }
 };
@@ -122,7 +122,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             effect: 36,
             button: 26,
             fancyButton: 24,
-            transitionText: 32,
+            transitionText: 36,
             settings: 26
         }
     };
