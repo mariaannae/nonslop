@@ -3,7 +3,8 @@ import { saveInteraction } from "../config/firebase.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import ToggleFactory from "../utils/ToggleFactory.js";
 import SceneTransitionManager from "../utils/SceneTransitionManager.js";
-import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT } from "../config/design.js";
+import { DESIGN, BASIC_COLORS_HEX, BASIC_COLORS_TEXT, EASY_COLORS_HEX, EASY_COLORS_TEXT, HARD_COLORS_HEX, HARD_COLORS_TEXT, THEMES } from "../config/design.js";
+import { createBackground } from "../backgrounds/createBackground.js";
 import registryManager from "../services/RegistryManager.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle, getAutocompleteTextStyle, getMenuBarStyle } from "../config/textStyles.js";
@@ -31,12 +32,12 @@ const SCENE_CONFIG = {
     BOX_DIMENSIONS: {
         STATS_HEIGHT: 130,
         INPUT_HEIGHT: 180,
-        MOBILE_INPUT_HEIGHT: 170,
+        MOBILE_INPUT_HEIGHT: 340,
         PROMPT_MIN_HEIGHT: 60,
         PROMPT_MAX_HEIGHT_DESKTOP: 220,
         PROMPT_MAX_HEIGHT_MOBILE: 300,
-        STATS_MAX_WIDTH_DESKTOP: 200,
-        STATS_MAX_WIDTH_MOBILE: 220,
+        STATS_MAX_WIDTH_DESKTOP: 360,
+        STATS_MAX_WIDTH_MOBILE: 600,
         SUGGESTION_HEIGHT: 30,
         SUGGESTION_SPACING: 10
     },
@@ -145,12 +146,30 @@ export default class BaseGameScene extends Phaser.Scene {
      * @param {object} config
      * @param {number} [config.fastTypingThresholdMs=10] - Minimum ms between keystrokes before penalty triggers
      */
-    constructor(config) {
+    constructor(config = { key: 'BaseGameScene' }) {
+        // Ensure config is an object with at least a key
+        if (typeof config === 'string') {
+            config = { key: config };
+        } else if (!config || typeof config !== 'object') {
+            config = { key: 'BaseGameScene' };
+        }
+        
+        // Ensure the config has a key
+        if (!config.key) {
+            config.key = 'BaseGameScene';
+        }
+        
         super(config);
+        
+        // Initialize mode to a default value - it will be properly set in init()
+        this.mode = 'easy';
         
         // Cache device type once to avoid repeated regex tests
         this._isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
         this._isDesktop = !this._isMobile;
+        
+        // Track if calculateUIPositions has been called
+        this._calculateUIPositionsCalled = false;
         
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
@@ -391,6 +410,353 @@ export default class BaseGameScene extends Phaser.Scene {
         return this.isMobile ? SCENE_CONFIG.PADDING.STANDARD : SCENE_CONFIG.PADDING.LARGE;
     }
     
+    /**
+     * Update mode-specific styles dynamically based on current mode
+     */
+    updateModeStyles() {
+        // Select appropriate color scheme based on mode
+        switch(this.mode) {
+            case 'hard':
+                this.COLORS_HEX = HARD_COLORS_HEX;
+                this.COLORS_TEXT = HARD_COLORS_TEXT;
+                break;
+            case 'easy':
+                this.COLORS_HEX = EASY_COLORS_HEX;
+                this.COLORS_TEXT = EASY_COLORS_TEXT;
+                break;
+            default: // 'basic' mode
+                this.COLORS_HEX = BASIC_COLORS_HEX;
+                this.COLORS_TEXT = BASIC_COLORS_TEXT;
+                break;
+        }
+        
+        // Update design properties
+        this.design = DESIGN.UI;
+        this.OUTLINE_WIDTH = DESIGN.UI.OUTLINE.WIDTH;
+        this.CORNER_RADIUS = DESIGN.UI.OUTLINE.CORNER_RADIUS;
+        this.PROGRESS_BAR = DESIGN.UI.PROGRESS_BAR;
+    }
+    
+    /**
+     * HARD MODE SPECIFIC METHODS
+     * Methods for handling AI word blocking and visual feedback in hard mode
+     */
+    
+    /**
+     * Delete AI word from user input (hard mode)
+     * @param {string} blockedWord - The word to delete
+     */
+    deleteAIWord(blockedWord) {
+        if (!this.userInput || !blockedWord) return;
+
+        // Check if the original input ended with a space
+        const endsWithSpace = /\s$/.test(this.userInput);
+
+        // Find the last word in the user input
+        const words = this.userInput.trim().split(/\s+/);
+        const lastWordIndex = words.length - 1;
+
+        if (lastWordIndex >= 0) {
+            const lastWord = words[lastWordIndex];
+            // Check if the last word matches the blocked word (case insensitive)
+            if (lastWord.toLowerCase() === blockedWord.toLowerCase()) {
+                // Remove the last word from the input
+                words.pop();
+                // Reconstruct the user input without the blocked word
+                this.userInput = words.join(' ');
+                // Only add a space if the original input ended with a space and there is still content
+                if (this.userInput.length > 0 && endsWithSpace) {
+                    this.userInput += ' ';
+                }
+                // Update the display
+                this.updateCursor();
+            }
+        }
+    }
+    
+    /**
+     * Show feedback when a word is blocked (hard mode)
+     * @param {string} blockedWord - The word that was blocked
+     */
+    showBlockFeedback(blockedWord) {
+        // Note: The word has already been deleted in BaseGameScene before this is called
+        
+        // Create warning text with dramatic styling - 10% smaller with newline
+        const blockedText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY - 100,
+            `AI WORD DETECTED:\n"${blockedWord}"`,
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '25px', // Reduced from 28px
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                stroke: '#ff0000',
+                strokeThickness: 5, // Slightly reduced from 6
+                padding: { x: 15, y: 10 },
+                align: 'center'
+            }
+        ).setOrigin(0.5).setDepth(101).setAlpha(0);
+        
+        // Calculate the necessary width and height for the hexagon background with some padding
+        const width = blockedText.width + 80; // Add padding
+        const height = width; // Make height same as width for a balanced hexagon
+        
+        // Create a hexagonal background
+        const hexBg = this.add.graphics();
+        hexBg.fillStyle(0x800000, 0.8);
+        hexBg.lineStyle(4, 0xff0000, 1);
+        
+        // Create a simple hexagon that's wide enough for the text
+        const centerX = this.cameras.main.centerX;
+        const centerY = this.cameras.main.centerY - 100;
+        
+        // Draw a regular octagon (stop sign shape)
+        hexBg.beginPath();
+        
+        // Calculate radius based on the width needed for text (10% smaller overall)
+        const radius = width / 1.8 * 0.9; // Reduced by 10% to make the whole thing smaller
+        
+        // Draw octagon with 8 equal sides (like a stop sign)
+        for (let i = 0; i < 8; i++) {
+            // Start at 22.5 degrees to get flat top like a stop sign
+            const angle = (i * 45 + 22.5) * Math.PI / 180;
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+            
+            if (i === 0) {
+                hexBg.moveTo(x, y);
+            } else {
+                hexBg.lineTo(x, y);
+            }
+        }
+        // Back to start
+        hexBg.closePath();
+        
+        hexBg.fill();
+        hexBg.stroke();
+        hexBg.setDepth(100).setAlpha(0);
+        
+        // Add subtext - position in lower part of octagon
+        const subText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY - 100 + (radius * 0.4), // Position in lower section of octagon
+            "SECURITY VIOLATION - CONTENT PURGED",
+            {
+                fontFamily: 'IBM Plex Mono',
+                fontSize: '16px', // Reduced from 18px to match overall size reduction
+                fontStyle: 'bold',
+                fill: '#ff5555',
+                stroke: '#000000',
+                strokeThickness: 2 // Reduced from 3
+            }
+        ).setOrigin(0.5).setDepth(101).setAlpha(0);
+        
+        // Animate all elements together - fade in quickly
+        this.tweens.add({
+            targets: [hexBg, blockedText, subText],
+            alpha: 1,
+            duration: 200,
+            ease: 'Sine.easeOut',
+            onComplete: () => {
+                // Add shake effect to text
+                this.tweens.add({
+                    targets: [blockedText, subText],
+                    x: { from: blockedText.x - 5, to: blockedText.x + 5 },
+                    duration: 50,
+                    yoyo: true,
+                    repeat: 4,
+                    ease: 'Sine.easeInOut'
+                });
+                
+                // Glitch effect on the blocked word
+                this.glitchText(blockedText);
+                
+                // Pulse the hexagon
+                this.tweens.add({
+                    targets: hexBg,
+                    scaleX: { from: 1, to: 1.05 },
+                    scaleY: { from: 1, to: 1.05 },
+                    duration: 400,
+                    yoyo: true,
+                    repeat: 2
+                });
+                
+                // Hold visible with subtle pulsing on the text
+                this.tweens.add({
+                    targets: blockedText,
+                    scaleX: { from: 1, to: 1.05 },
+                    scaleY: { from: 1, to: 1.05 },
+                    duration: 400,
+                    yoyo: true,
+                    repeat: 2,
+                    onComplete: () => {
+                        // Exit animation - fade out all elements
+                        this.tweens.add({
+                            targets: [hexBg, blockedText, subText],
+                            alpha: 0,
+                            duration: 300,
+                            ease: 'Sine.easeIn',
+                            onComplete: () => {
+                                hexBg.destroy();
+                                blockedText.destroy();
+                                subText.destroy();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+        
+        // Create dramatic screen effects
+        this.createBlockedWordScreenEffects(blockedWord);
+    }
+    
+    /**
+     * Helper method to create glitch text effect
+     * @param {Phaser.GameObjects.Text} textObject - The text object to glitch
+     */
+    glitchText(textObject) {
+        // Store original text
+        const originalText = textObject.text;
+        let glitchCount = 0;
+        
+        // Create glitch interval
+        const glitchInterval = this.time.addEvent({
+            delay: 100,
+            callback: () => {
+                glitchCount++;
+                
+                // After several glitches, stop the effect
+                if (glitchCount > 10) {
+                    glitchInterval.remove();
+                    textObject.setText(originalText);
+                    return;
+                }
+                
+                // Skip some frames for more random effect
+                if (Math.random() > 0.5) {
+                    return;
+                }
+                
+                // Generate glitched text by replacing some characters
+                let glitchedText = '';
+                for (let i = 0; i < originalText.length; i++) {
+                    if (Math.random() > 0.8) {
+                        // Replace with a random character
+                        const chars = "!@#$%^&*<>0123456789";
+                        glitchedText += chars.charAt(Math.floor(Math.random() * chars.length));
+                    } else {
+                        glitchedText += originalText.charAt(i);
+                    }
+                }
+                
+                // Apply glitched text
+                textObject.setText(glitchedText);
+                
+                // Restore original after a short delay
+                this.time.delayedCall(50, () => {
+                    if (textObject.active) {
+                        textObject.setText(originalText);
+                    }
+                });
+            },
+            repeat: 10
+        });
+    }
+    
+    /**
+     * Method to create screen effects when words are blocked
+     * @param {string} blockedWord - The word that was blocked
+     */
+    createBlockedWordScreenEffects(blockedWord) {
+        // Create intense screen flash effect with multiple colors
+        const flashColors = [0xff0000, 0xff00ff, 0xaa00aa];
+        
+        flashColors.forEach((color, index) => {
+            const delay = index * 100;
+            const flash = this.add.rectangle(
+                0, 0, 
+                this.sys.game.canvas.width, 
+                this.cameras.main.height,
+                color, 0.3
+            ).setOrigin(0).setDepth(90).setAlpha(0);
+            
+            this.tweens.add({
+                targets: flash,
+                alpha: { from: 0, to: 0.3 },
+                duration: 100,
+                delay: delay,
+                yoyo: true,
+                onComplete: () => flash.destroy()
+            });
+        });
+        
+        // Create electric zap effect from the input box to show word deletion
+        const inputBoxY = this.cameras.main.centerY;
+        const zapLines = 8;
+        
+        for (let i = 0; i < zapLines; i++) {
+            const zapLine = this.add.graphics().setDepth(95);
+            const lineWidth = Math.random() * 2 + 1;
+            const segments = Math.floor(Math.random() * 3) + 3;
+            
+            zapLine.lineStyle(lineWidth, 0xff00ff);
+            
+            // Draw a jagged line from the input box center outward
+            const startX = this.cameras.main.centerX;
+            const startY = inputBoxY;
+            let currentX = startX;
+            let currentY = startY;
+            
+            zapLine.beginPath();
+            zapLine.moveTo(currentX, currentY);
+            
+            for (let j = 0; j < segments; j++) {
+                const angle = (Math.random() * Math.PI / 2) - Math.PI / 4 + (i * Math.PI / 4);
+                const length = Math.random() * 80 + 40;
+                
+                currentX += Math.cos(angle) * length;
+                currentY += Math.sin(angle) * length;
+                
+                zapLine.lineTo(currentX, currentY);
+            }
+            
+            zapLine.strokePath();
+            
+            // Create particles at the end of each zap line
+            const particles = this.add.particles(currentX, currentY, 'ball', {
+                lifespan: 300,
+                speed: { min: 50, max: 150 },
+                scale: { start: 0.2, end: 0 },
+                quantity: 5,
+                emitting: false,
+                tint: 0xff00ff
+            }).setDepth(96);
+            
+            particles.explode(10);
+            
+            // Animate the zap line
+            this.tweens.add({
+                targets: zapLine,
+                alpha: { from: 1, to: 0 },
+                duration: 200,
+                delay: i * 50,
+                onComplete: () => {
+                    zapLine.destroy();
+                    // Destroy particles after they're done
+                    this.time.delayedCall(300, () => particles.destroy());
+                }
+            });
+        }
+        
+        // Add camera shake effect
+        this.cameras.main.shake(250, 0.01);
+        
+        // Create explosion effect centered on where the word would have been
+        this.createExplosionEffect(blockedWord, this.cameras.main.centerX, inputBoxY);
+    }
+    
 
     /**
      * Reset all relevant game state for a fresh scene start or mode transition.
@@ -461,13 +827,8 @@ export default class BaseGameScene extends Phaser.Scene {
         this.bubbleTweens = [];
         this.isCleaningUp = false;
         this.modeIndicator = null;
-        // Only set style/config properties if not already set by child scene
-        if (this.COLORS_HEX === undefined) this.COLORS_HEX = COLORS_HEX;
-        if (this.COLORS_TEXT === undefined) this.COLORS_TEXT = COLORS_TEXT;
-        if (this.design === undefined) this.design = DESIGN.UI;
-        if (this.OUTLINE_WIDTH === undefined) this.OUTLINE_WIDTH = DESIGN.UI.OUTLINE.WIDTH;
-        if (this.CORNER_RADIUS === undefined) this.CORNER_RADIUS = DESIGN.UI.OUTLINE.CORNER_RADIUS;
-        if (this.PROGRESS_BAR === undefined) this.PROGRESS_BAR = DESIGN.UI.PROGRESS_BAR;
+        // Update style properties based on mode
+        this.updateModeStyles();
         this._fastTypingLockoutActive = false;
         // Add more as needed for full reset
     }
@@ -503,6 +864,18 @@ export default class BaseGameScene extends Phaser.Scene {
      * @param {boolean} isPortrait
      */
     relayoutScene(width, height, isPortrait) {
+        console.log("[DEBUG] BaseGameScene.relayoutScene START - isMobile:", this.isMobile);
+        console.log("[DEBUG] relayoutScene called with width:", width, "height:", height);
+        console.log("[DEBUG] Current scene key:", this.scene.key);
+        console.log("[DEBUG] typeof this.calculateUIPositions:", typeof this.calculateUIPositions);
+        console.log("[DEBUG] _calculateUIPositionsCalled:", this._calculateUIPositionsCalled);
+        
+        // Initialize scaling manager if not exists
+        if (!this.scalingManager) {
+            this.scalingManager = new ScalingManager(this);
+            console.log("[DEBUG] ScalingManager created in relayoutScene");
+        }
+        
         // Ensure scalingManager is up to date
         if (this.scalingManager) {
             this.scalingManager.updateScaleRatios();
@@ -511,23 +884,36 @@ export default class BaseGameScene extends Phaser.Scene {
         // Step 1: Destroy existing UI elements
         this.destroyExistingUI();
 
-        // Step 2: Calculate UI positions
-        const positions = this.calculateUIPositions(width, height);
+        // Step 2: Calculate UI positions - THIS IS THE KEY CALL
+        console.log("[DEBUG] About to call calculateUIPositions");
+        console.log("[DEBUG] this.calculateUIPositions exists?", !!this.calculateUIPositions);
+        
+        try {
+            const positions = this.calculateUIPositions(width, height);
+            this._calculateUIPositionsCalled = true;
+            console.log("[DEBUG] calculateUIPositions returned:", positions);
+            console.log("[DEBUG] positions.statsBoxWidth:", positions.statsBoxWidth);
 
-        // Step 3: Create prompt section
-        const promptBoxInfo = this.createPromptSection(positions.promptY);
+            // Step 3: Create prompt section
+            const promptBoxInfo = this.createPromptSection(positions.promptY);
 
-        // Step 4: Create input section
-        this.createInputSection(positions, promptBoxInfo);
+            // Step 4: Create input section
+            this.createInputSection(positions, promptBoxInfo);
 
-        // Step 5: Create button section
-        this.createButtonSection(positions);
+            // Step 5: Create button section
+            this.createButtonSection(positions);
 
-        // Step 6: Create stats display
-        this.createStatsDisplay(positions.statsBoxWidth, positions.statsX, positions.statsY);
+            // Step 6: Create stats display
+            this.createStatsDisplay(positions.statsBoxWidth, positions.statsX, positions.statsY);
 
-        // Step 7: Final setup
-        this.finalizeLayout();
+            // Step 7: Final setup
+            this.finalizeLayout();
+            
+            console.log("[DEBUG] BaseGameScene.relayoutScene COMPLETE");
+        } catch (error) {
+            console.error("[DEBUG] Error in relayoutScene:", error);
+            console.error("[DEBUG] Error stack:", error.stack);
+        }
     }
 
     /**
@@ -585,13 +971,95 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     /**
+     * Create method to ensure proper initialization
+     */
+    create(data) {
+        console.log("[DEBUG] BaseGameScene create() START");
+        console.log("[DEBUG] this.isMobile:", this.isMobile);
+        console.log("[DEBUG] Scene key:", this.scene.key);
+        
+        // Initialize scaling manager early
+        if (!this.scalingManager) {
+            this.scalingManager = new ScalingManager(this);
+            console.log("[DEBUG] ScalingManager created in BaseGameScene.create()");
+        }
+        
+        // Create menu bar BEFORE any layout calculations
+        // This ensures menuBarHeight is set for calculateUIPositions
+        console.log("[DEBUG] Creating menu bar in BaseGameScene...");
+        this.createMenuBar();
+        console.log("[DEBUG] Menu bar created, menuBarHeight:", this.menuBarHeight);
+        
+        // Now that there are no child scenes, call relayoutScene directly to build the UI
+        this.relayoutScene(this.sys.game.canvas.width, this.cameras.main.height, this.sys.game.config.orientation === Phaser.Scale.PORTRAIT);
+        // Force background creation here for debugging
+        this.updateBackgroundForLevel();
+        console.log("[DEBUG] BaseGameScene.create() COMPLETED - relayoutScene and updateBackgroundForLevel called");
+    }
+    
+    /**
+     * Force calculate UI positions directly
+     */
+    forceCalculateUIPositions() {
+        console.log("[DEBUG] forceCalculateUIPositions called");
+        try {
+            const width = this.sys.game.canvas.width;
+            const height = this.cameras.main.height;
+            const positions = this.calculateUIPositions(width, height);
+            this._calculateUIPositionsCalled = true;
+            console.log("[DEBUG] forceCalculateUIPositions - positions calculated:", positions);
+            
+            // If we got valid positions, try to create the UI
+            if (positions && positions.statsBoxWidth > 0) {
+                console.log("[DEBUG] Creating UI elements with forced positions");
+                
+                // Destroy existing UI first
+                this.destroyExistingUI();
+                
+                // Create UI elements
+                const promptBoxInfo = this.createPromptSection(positions.promptY);
+                this.createInputSection(positions, promptBoxInfo);
+                this.createButtonSection(positions);
+                this.createStatsDisplay(positions.statsBoxWidth, positions.statsX, positions.statsY);
+                this.finalizeLayout();
+            }
+        } catch (error) {
+            console.error("[DEBUG] Error in forceCalculateUIPositions:", error);
+            console.error("[DEBUG] Error stack:", error.stack);
+        }
+    }
+
+    /**
      * Calculate all UI element positions based on screen dimensions
      * @returns {object} Object containing all calculated positions and dimensions
      */
     calculateUIPositions(width, height) {
+        console.log("[DEBUG] calculateUIPositions called with width:", width, "height:", height, "isMobile:", this.isMobile);
+        
+        
+        // Force log to ensure this is actually being called
+        if (this.isMobile) {
+            console.log("[DEBUG] MOBILE: calculateUIPositions IS BEING CALLED!");
+            console.log("[DEBUG] MOBILE: menuBarHeight:", this.menuBarHeight);
+            console.log("[DEBUG] MOBILE: scalingManager exists:", !!this.scalingManager);
+        }
+        
         // Ensure scalingManager is initialized
         if (!this.scalingManager) {
             this.scalingManager = new ScalingManager(this);
+            console.log("[DEBUG] ScalingManager created in calculateUIPositions");
+            // For mobile, ensure the scaling manager has time to properly initialize
+            if (this.isMobile) {
+                // Force update base dimensions after creation
+                this.scalingManager.updateBaseDimensions();
+                console.log("[DEBUG] MOBILE: updateBaseDimensions called");
+            }
+        }
+        
+        // Force update scale ratios to ensure proper scaling on mobile
+        this.scalingManager.updateScaleRatios();
+        if (this.isMobile) {
+            console.log("[DEBUG] MOBILE: updateScaleRatios called, uiScale:", this.scalingManager.uiScale);
         }
         
         const sm = this.scalingManager;
@@ -599,10 +1067,67 @@ export default class BaseGameScene extends Phaser.Scene {
         const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
         const uiScale = sm.uiScale || 1;
 
-        // Stats box calculations
-        const fixedRightMargin = this.isMobile ? 35 : 30;
-        const maxStatsWidth = this.isMobile ? 220 : 200;
-        const statsBoxWidth = Math.min(maxStatsWidth, Math.floor(width * (this.isMobile ? 0.35 : 0.2)));
+        // Calculate stats box width based on content - do this BEFORE calculating position
+        const deviceType = detectDeviceType();
+        const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
+        const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+
+        // Labels with maximum expected values
+        const labels = [
+            { text: "Original Words:", value: "999" },
+            { text: "AI Words:", value: "999" },
+            { text: "Current Streak:", value: "999" },
+            { text: "Best Streak:", value: "999" }
+        ];
+
+        // Create temporary text objects to measure
+        const tempTexts = [];
+        const titleTemp = this.add.text(0, 0, "WORD STATS", { ...labelStyle, fontStyle: 'bold', fill: '#ffffff' });
+        tempTexts.push(titleTemp);
+
+        let maxLabelWidth = 0;
+        labels.forEach(({ text, value }) => {
+            const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
+            const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
+            const iconSpace = sm.scaleValue(35);
+            const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
+            const rowWidth = iconSpace + labelTemp.width + valueTemp.width + scaledPadding;
+            maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
+            tempTexts.push(labelTemp, valueTemp);
+        });
+
+        // Clean up temporary text objects
+        tempTexts.forEach(text => text.destroy());
+
+        // Calculate final stats box width with all constraints
+        const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
+        const minBoxWidth = sm.scaleValue(this.isMobile ? 300 : 180); // Increased mobile minimum to 300
+        const fixedRightMargin = sm.scaleValue(this.isMobile ? 35 : 30);
+        
+        const contentBoxWidth = Math.max(minBoxWidth, maxLabelWidth + scaledPadding * 2);
+        const configMax = sm.scaleValue(this.isMobile ? 
+            SCENE_CONFIG.BOX_DIMENSIONS.STATS_MAX_WIDTH_MOBILE : 
+            SCENE_CONFIG.BOX_DIMENSIONS.STATS_MAX_WIDTH_DESKTOP);
+        
+        // For mobile, ensure we have a reasonable minimum width
+        let statsBoxWidth;
+        if (this.isMobile) {
+            // Mobile: Use the larger of content width or a generous minimum
+            statsBoxWidth = Math.max(contentBoxWidth, minBoxWidth); // Use consistent minBoxWidth
+            // Apply maximum constraint
+            statsBoxWidth = Math.min(statsBoxWidth, configMax);
+        } else {
+            // Desktop: Use standard calculation
+            statsBoxWidth = Math.max(contentBoxWidth, minBoxWidth);
+            statsBoxWidth = Math.min(statsBoxWidth, configMax);
+        }
+        
+        console.log("[DEBUG] calculateUIPositions - Mobile:", this.isMobile);
+        console.log("[DEBUG] statsBoxWidth:", statsBoxWidth);
+        console.log("[DEBUG] contentBoxWidth:", contentBoxWidth);
+        console.log("[DEBUG] configMax:", configMax);
+
+        // Now calculate position based on the actual final width
         const statsBoxHeight = sm.scaleValue(130);
         const statsX = width - statsBoxWidth - fixedRightMargin;
         const statsY = menuBarHeight + padding;
@@ -621,10 +1146,10 @@ export default class BaseGameScene extends Phaser.Scene {
 
         // Input box calculations
         this.uiBoxWidth = !this.isMobile
-            ? this.cameras.main.width * (5 / 6) * (2 / 3)
-            : this.cameras.main.width * (5 / 6);
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
+            : this.sys.game.canvas.width * (5 / 6);
         const inputPadding = this.isMobile ? sm.scaleValue(24) : sm.scaleValue(28);
-        const inputBoxHeight = this.isMobile ? sm.scaleValue(170) : sm.scaleValue(180);
+        const inputBoxHeight = this.isMobile ? sm.scaleValue(SCENE_CONFIG.BOX_DIMENSIONS.MOBILE_INPUT_HEIGHT) : sm.scaleValue(SCENE_CONFIG.BOX_DIMENSIONS.INPUT_HEIGHT);
 
         // Button calculations
         const buttonWidth = this.scalingManager.buttonWidth();
@@ -708,22 +1233,35 @@ export default class BaseGameScene extends Phaser.Scene {
             ).setDepth(20);
         }
 
-        // Create input text
-        const textHorizontalPadding = positions.inputPadding;
-        const textVerticalPadding = this.isMobile ? positions.inputPadding * 0.6 : positions.inputPadding * 0.7;
+        // Create input text with consistent padding for mobile
+        const textHorizontalPadding = this.isMobile ? 20 : positions.inputPadding;
+        const textVerticalPadding = this.isMobile ? 20 * 0.7 : positions.inputPadding * 0.7;
         
         // Get input text style from textStyles.js (same approach as prompt text)
         const inputTextStyle = this.getInputTextStyle();
         
-        this.inputText = this.add.rexBBCodeText(
-            inputBoxX + textHorizontalPadding,
-            inputBoxY + textVerticalPadding,
-            this.userInput || "_",
-            {
-                ...inputTextStyle,
-                wordWrap: { width: this.uiBoxWidth - textHorizontalPadding * 2 }
-            }
-        ).setOrigin(0, 0).setVisible(true).setDepth(25);
+if (typeof this.add.rexBBCodeText === "function") {
+    this.inputText = this.add.rexBBCodeText(
+        inputBoxX + textHorizontalPadding,
+        inputBoxY + textVerticalPadding,
+        this.userInput || "_",
+        {
+            ...inputTextStyle,
+            wordWrap: { width: this.uiBoxWidth - textHorizontalPadding * 2 }
+        }
+    ).setOrigin(0, 0).setVisible(true).setDepth(25);
+} else {
+    console.error("[REX_BBCODE] rexBBCodeText plugin is not available in this scene context. Falling back to add.text.");
+    this.inputText = this.add.text(
+        inputBoxX + textHorizontalPadding,
+        inputBoxY + textVerticalPadding,
+        this.userInput || "_",
+        {
+            ...inputTextStyle,
+            wordWrap: { width: this.uiBoxWidth - textHorizontalPadding * 2 }
+        }
+    ).setOrigin(0, 0).setVisible(true).setDepth(25);
+}
 
         // Store input box position for button placement and suggestion positioning
         this.inputBoxY = inputBoxY;
@@ -764,7 +1302,7 @@ export default class BaseGameScene extends Phaser.Scene {
         let feedbackButtonX = sm.scaleValue(30) + positions.buttonWidth / 2;
         let feedbackButtonY = this.cameras.main.height - positions.buttonHeight / 2 - sm.scaleValue(30);
         feedbackButtonX = Phaser.Math.Clamp(feedbackButtonX, positions.buttonWidth / 2, 
-                                           this.cameras.main.width - positions.buttonWidth / 2);
+                                           this.sys.game.canvas.width - positions.buttonWidth / 2);
         feedbackButtonY = Phaser.Math.Clamp(feedbackButtonY, positions.buttonHeight / 2, 
                                            this.cameras.main.height - positions.buttonHeight / 2);
 
@@ -784,12 +1322,92 @@ export default class BaseGameScene extends Phaser.Scene {
      * @param {number} statsY - Y position
      */
     createStatsDisplay(statsBoxWidth, statsX, statsY) {
+        // Initialize scaling manager if not exists
+        if (!this.scalingManager) {
+            this.scalingManager = new ScalingManager(this);
+            console.log("[DEBUG] ScalingManager created in createStatsDisplay");
+        }
+        const sm = this.scalingManager;
+        
+        // On mobile, always calculate dimensions to ensure proper width
+        if (this.isMobile || !statsBoxWidth || statsBoxWidth <= 0 || !statsX || !statsY) {
+            console.log("[DEBUG] createStatsDisplay: Calculating dimensions, isMobile:", this.isMobile);
+            
+            // If positions weren't provided or are invalid, calculate them now
+            if (!statsBoxWidth || statsBoxWidth <= 0) {
+                // Calculate stats box width directly here for mobile
+                const deviceType = detectDeviceType();
+                const uiScale = sm.uiScale || 1;
+                const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
+                const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+                const padding = sm.scaleValue(20);
+                
+                // Labels with maximum expected values
+                const labels = [
+                    { text: "Original Words:", value: "999" },
+                    { text: "AI Words:", value: "999" },
+                    { text: "Current Streak:", value: "999" },
+                    { text: "Best Streak:", value: "999" }
+                ];
+                
+                // Create temporary text objects to measure
+                const tempTexts = [];
+                const titleTemp = this.add.text(0, 0, "WORD STATS", { ...labelStyle, fontStyle: 'bold', fill: '#ffffff' });
+                tempTexts.push(titleTemp);
+                
+                let maxLabelWidth = 0;
+                labels.forEach(({ text, value }) => {
+                    const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
+                    const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
+                    const iconSpace = sm.scaleValue(35);
+                    const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
+                    const rowWidth = iconSpace + labelTemp.width + valueTemp.width + scaledPadding;
+                    maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
+                    tempTexts.push(labelTemp, valueTemp);
+                });
+                
+                // Clean up temporary text objects
+                tempTexts.forEach(text => text.destroy());
+                
+                // Calculate final stats box width
+                const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
+                const minBoxWidth = sm.scaleValue(this.isMobile ? 300 : 180); // Consistent mobile minimum of 300
+                const contentBoxWidth = Math.max(minBoxWidth, maxLabelWidth + scaledPadding * 2);
+                const configMax = sm.scaleValue(this.isMobile ? 600 : 360);
+                
+                // For mobile, ensure we use the minimum width as the baseline
+                if (this.isMobile) {
+                    // Always use at least the minimum width of 300 scaled
+                    statsBoxWidth = Math.max(minBoxWidth, contentBoxWidth);
+                } else {
+                    statsBoxWidth = Math.max(minBoxWidth, contentBoxWidth);
+                }
+                statsBoxWidth = Math.min(statsBoxWidth, configMax);
+                console.log("[DEBUG] Calculated statsBoxWidth:", statsBoxWidth);
+            }
+            
+            // Calculate position if not provided
+            if (!statsX || !statsY) {
+                const menuBarHeight = this.menuBarHeight || sm.scaleValue(this.isMobile ? 200 : 120);
+                const padding = sm.scaleValue(20);
+                const fixedRightMargin = sm.scaleValue(this.isMobile ? 35 : 30);
+                
+                statsX = this.sys.game.canvas.width - statsBoxWidth - fixedRightMargin;
+                statsY = menuBarHeight + padding;
+                console.log("[DEBUG] Calculated position:", statsX, statsY);
+            }
+        }
+        
+        // Pass the calculated or provided width to createWordCountDisplay
         this.createWordCountDisplay(statsBoxWidth);
-        this.wordCountDisplay.setPosition(statsX, statsY);
+        
+        // Now position the word count display using the calculated positions
+        if (this.wordCountDisplay) {
+            this.wordCountDisplay.setPosition(statsX, statsY);
+        }
 
         // Position timer text if it exists
         if (this.timerText) {
-            const sm = this.scalingManager;
             const menuBarHeight = this.menuBarHeight || sm.scaleValue(100);
             this.timerText.setPosition(sm.scaleValue(20), menuBarHeight + sm.scaleValue(20));
         }
@@ -881,7 +1499,8 @@ export default class BaseGameScene extends Phaser.Scene {
         // Detect mobile device - skip fancy transitions for mobile
         
         // Determine target scene
-        const targetScene = mode === 'hard' ? 'GameSceneHard' : 'GameSceneEasy';
+        // Use BaseGameScene with mode parameter instead of separate scenes
+        const targetScene = 'BaseGameScene';
         
         // For mobile devices, use direct scene transition without effects
         if (this.isMobile) {
@@ -1072,7 +1691,7 @@ export default class BaseGameScene extends Phaser.Scene {
             // Quick white flash overlay for extra feedback
             const flash = this.add.rectangle(
                 0, 0,
-                this.cameras.main.width,
+                this.sys.game.canvas.width,
                 this.cameras.main.height,
                 0xffffff,
                 SCENE_CONFIG.EFFECTS.FLASH_ALPHA_DEFAULT
@@ -1097,7 +1716,7 @@ export default class BaseGameScene extends Phaser.Scene {
             // if (isIOS) {
             //     const flash = this.add.rectangle(
             //         0, 0,
-            //         this.cameras.main.width,
+            //         this.sys.game.canvas.width,
             //         this.cameras.main.height,
             //         0xffffff,
             //         0.07
@@ -1501,8 +2120,8 @@ export default class BaseGameScene extends Phaser.Scene {
         const mobilePadding = this.getStandardPadding();
         const centerX = this.cameras.main.centerX;
         const textBoxWidth = !this.isMobile
-            ? this.cameras.main.width * (5 / 6) * (2 / 3)
-            : this.cameras.main.width * (5 / 6);
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
+            : this.sys.game.canvas.width * (5 / 6);
 
         if (this.promptTextBox) {
             this.promptTextBox.clear();
@@ -1524,8 +2143,8 @@ export default class BaseGameScene extends Phaser.Scene {
 
         let promptTextObj, textHeight, boxHeight, boxStyle, promptY, textCenterY;
         
-        // Use minimal padding for mobile
-        const effectivePadding = this.isMobile ? 8 : padding; // Reduced mobile padding from mobilePadding to 8
+        // Use consistent and more generous padding for mobile
+        const effectivePadding = this.isMobile ? 20 : padding; // Increased mobile padding for better readability
         const style = {
             ...promptStyle,
             wordWrap: { width: textBoxWidth - effectivePadding * 2 }
@@ -1611,16 +2230,57 @@ export default class BaseGameScene extends Phaser.Scene {
 
     createInputTextBox() {
         const sm = this.scalingManager;
-        const padding = SCENE_CONFIG.PADDING.LARGE;
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        // Set padding separately for mobile vs desktop, and always scale
+        const padding = this.isMobile ? sm.scaleValue(28) : sm.scaleValue(20);
+
+        // Calculate stats box width based on content, always scaled
+        // Use the same logic as createWordCountDisplay for consistency
+        // Create temporary text objects to measure content width
+        const deviceType = detectDeviceType();
+        const uiScale = sm.uiScale || 1;
+        const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
+        const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+
+        // Labels with maximum expected values
+        const labels = [
+            { text: "Original Words:", value: "999" },
+            { text: "AI Words:", value: "999" },
+            { text: "Current Streak:", value: "999" },
+            { text: "Best Streak:", value: "999" }
+        ];
+
+        // Create temporary text objects to measure
+        const tempTexts = [];
+        const titleTemp = this.add.text(0, 0, "WORD STATS", { ...labelStyle, fontStyle: 'bold', fill: '#ffffff' });
+        tempTexts.push(titleTemp);
+
+        let maxLabelWidth = 0;
+        labels.forEach(({ text, value }) => {
+            const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
+            const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
+            const iconSpace = sm.scaleValue(35);
+            const rowWidth = iconSpace + labelTemp.width + valueTemp.width + padding;
+            maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
+            tempTexts.push(labelTemp, valueTemp);
+        });
+
+        // Clean up temporary text objects
+        tempTexts.forEach(text => text.destroy());
+
+        // Calculate stats box width: content width + scaled padding, min/max enforced
+        const minBoxWidth = sm.scaleValue(this.isMobile ? 300 : 180); // Consistent mobile minimum of 300
+        const customWidth = Math.max(maxLabelWidth + padding * 2, minBoxWidth);
+
+        // Use this width for layout below
+        this.uiBoxWidth = customWidth;
+
         const textBoxHeight = SCENE_CONFIG.BOX_DIMENSIONS.INPUT_HEIGHT;
-        
+
         // Calculate position below Word Stats panel and prompt box
-        const statsBoxWidth = 180;
         const statsBoxHeight = sm.scaleValue(130);
-        const statsDisplayY = this.menuBarHeight + sm.scaleValue(padding);
+        const statsDisplayY = this.menuBarHeight + padding;
         const statsBottomEdge = statsDisplayY + statsBoxHeight;
-        
+
         // Use configuration constants for offsets WITH SCALING
         const promptOffset = this.isMobile 
             ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_PROMPT_OFFSET_BELOW_STATS)
@@ -1628,30 +2288,29 @@ export default class BaseGameScene extends Phaser.Scene {
         const promptY = statsBottomEdge + promptOffset;
         const promptBoxHeight = sm.scaleValue(80);
         const promptBottomEdge = promptY + promptBoxHeight;
-        
+
         // Use configuration constants for input offset WITH SCALING
         const inputOffset = this.isMobile 
             ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_INPUT_OFFSET_BELOW_PROMPT)
             : sm.scaleValue(SCENE_CONFIG.LAYOUT.INPUT_OFFSET_BELOW_PROMPT);
         const textBoxY = promptBottomEdge + inputOffset;
-        
+
         // Clear any existing elements first
         if (this.inputTextBorder) {
             this.inputTextBorder.destroy();
             this.inputTextBorder = null;
         }
-        
+
         if (this.inputText) {
             this.inputText.destroy();
             this.inputText = null;
         }
-        
-        // We'll still clean up the autocompleteText if it exists, but we won't create a new one
+
         if (this.autocompleteText) {
             this.autocompleteText.destroy();
             this.autocompleteText = null;
         }
-        
+
         // Create a fresh border
         const boxStyle = this.getInputBoxStyle();
         this.inputTextBorder = this.add.graphics();
@@ -1663,7 +2322,7 @@ export default class BaseGameScene extends Phaser.Scene {
             textBoxHeight,
             boxStyle.cornerRadius
         ).setDepth(19);
-        
+
         if (boxStyle.hasOutline) {
             this.inputTextBorder.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
             this.inputTextBorder.strokeRoundedRect(
@@ -1681,24 +2340,23 @@ export default class BaseGameScene extends Phaser.Scene {
             ...inputTextStyle,
             wordWrap: { width: this.uiBoxWidth - padding * 2 }
         };
-        
-        // Create with simple initial content to ensure proper initialization
+
+        // Use scaled padding for text position
         this.inputText = this.add.rexBBCodeText(
             this.cameras.main.centerX - this.uiBoxWidth / 2 + padding,
             textBoxY + padding,
             "_",
             textStyle
         ).setOrigin(0, 0);
-        
+
         // Ensure visibility and proper depth
         this.inputText.setVisible(true).setDepth(25);
-        
+
         // Reset user input
         this.userInput = '';
-        
+
         // Force an immediate cursor update to ensure text is visible
         this.cursorVisible = true;
-      
 
         this.updateCursor();
 
@@ -1722,6 +2380,13 @@ export default class BaseGameScene extends Phaser.Scene {
     // Handle space key
     handleSpaceKey(event, done) {
         console.log("DEBUG: handleSpaceKey called");
+        
+        // Skip if we're processing mobile input to avoid double spaces
+        if (this.isMobile && this._processingMobileInput) {
+            if (done) done();
+            return;
+        }
+        
         // Record the timestamp of the word boundary
         this._lastWordBoundaryTime = Date.now();
         // Set flag immediately to indicate AI suggestions are being generated
@@ -1791,7 +2456,10 @@ export default class BaseGameScene extends Phaser.Scene {
             this.timerText.setText('0:20');
         }
         
-        this.userInput += " ";
+        // Only add space if not on mobile (mobile handles this through the hidden input)
+        if (!this.isMobile) {
+            this.userInput += " ";
+        }
         // Sync the hidden input after adding space
         if (this._hiddenInput) {
             this._hiddenInput.value = this.userInput;
@@ -1855,6 +2523,12 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Handle Enter key
     handleEnterKey(event, done) {
+        // Skip if we're processing mobile input
+        if (this.isMobile && this._processingMobileInput) {
+            if (done) done();
+            return;
+        }
+        
         // Record the timestamp of the word boundary
         this._lastWordBoundaryTime = Date.now();
         // Set flag immediately to indicate AI suggestions are being generated
@@ -1893,7 +2567,10 @@ export default class BaseGameScene extends Phaser.Scene {
             this.timerText.setText('0:20');
         }
         
-        this.userInput += "\n";
+        // Only add newline if not on mobile (mobile handles this through the hidden input)
+        if (!this.isMobile) {
+            this.userInput += "\n";
+        }
         this.updateCursor();
         // Block queue until async suggestion generation is fully complete
         this.generateAISuggestionsWithQueue(done);
@@ -1901,6 +2578,12 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Handle Backspace key
     handleBackspaceKey(event, done) {
+        // Skip if we're processing mobile input
+        if (this.isMobile && this._processingMobileInput) {
+            if (done) done();
+            return;
+        }
+        
         this.userInput = this.userInput.slice(0, -1);
         this.updateCursor();
         // Block queue until async suggestion generation is fully complete
@@ -1911,6 +2594,12 @@ export default class BaseGameScene extends Phaser.Scene {
 
     // Handle printable characters
     handlePrintableCharacter(event, done) {
+        // Skip if we're processing mobile input
+        if (this.isMobile && this._processingMobileInput) {
+            if (done) done();
+            return;
+        }
+        
         this.userInput += event.key;
 
         // Reset timer when a period is typed
@@ -2181,7 +2870,10 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         }, SCENE_CONFIG.DEBOUNCE.SUGGESTIONS); // Use config constant
 
-        this.input.keyboard.on("keydown", (event) => {
+        // Only set up keyboard listeners for desktop
+        // Mobile input is handled entirely through the hidden input element
+        if (!this.isMobile) {
+            this.input.keyboard.on("keydown", (event) => {
             // Always define now for debounce and event queue logic
             const now = Date.now();
 
@@ -2255,9 +2947,10 @@ export default class BaseGameScene extends Phaser.Scene {
             
             this.keyEventQueue.push(enqueuedEvent);
 
-            // Start processing the queue if not already running
-            this.triggerProcessQueue();
-        });
+                // Start processing the queue if not already running
+                this.triggerProcessQueue();
+            });
+        }
 
         // Set up cursor blinking timer
         if (this.cursorTimer) {
@@ -2348,7 +3041,7 @@ export default class BaseGameScene extends Phaser.Scene {
             : this._warningMessages[Math.floor(Math.random() * this._warningMessages.length)];
 
         // Modal dimensions
-        const width = Math.min(500, this.cameras.main.width * 0.8);
+        const width = Math.min(500, this.sys.game.canvas.width * 0.8);
         const height = 180;
         // On mobile, position modal higher to avoid keyboard
         const modalTopY = this.isMobile ? 120 : (this.cameras.main.centerY - height / 2);
@@ -2358,7 +3051,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Overlay
         const overlay = this.add.rectangle(
             0, 0,
-            this.cameras.main.width,
+            this.sys.game.canvas.width,
             this.cameras.main.height,
             0x000000, 0.7
         ).setOrigin(0, 0).setDepth(1001);
@@ -2472,8 +3165,13 @@ export default class BaseGameScene extends Phaser.Scene {
         input.style.height = '1px';
         input.value = this.userInput;
 
-    // Sync input to Phaser text and autocomplete
-    input.addEventListener('input', () => {
+        // Flag to prevent double processing
+        this._processingMobileInput = false;
+
+        // Sync input to Phaser text and autocomplete
+        input.addEventListener('input', () => {
+            // Set flag to indicate we're processing mobile input
+            this._processingMobileInput = true;
         const previousInput = this.userInput;
         this.userInput = input.value;
 
@@ -2547,9 +3245,14 @@ export default class BaseGameScene extends Phaser.Scene {
             this.updateProgressFill();
         }
 
-        // Update cursor immediately for mobile
-        this.updateCursor();
-    });
+            // Update cursor immediately for mobile
+            this.updateCursor();
+            
+            // Clear the flag after a short delay
+            setTimeout(() => {
+                this._processingMobileInput = false;
+            }, 50);
+        });
 
         // On blur, keep value but do nothing else
         input.addEventListener('blur', () => {
@@ -2574,7 +3277,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelValue = this.levelValue || 1;
 
         // Add Settings button to menu bar using SVG
-        const settingsButtonX = this.cameras.main.width - padding - 40;
+        const settingsButtonX = this.sys.game.canvas.width - padding - 40;
         const settingsButtonY = menuBarHeight / 2;
 
         this.createSettingsButton(settingsButtonX, settingsButtonY, menuBarHeight);
@@ -2608,8 +3311,8 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelModeBanner = this.add.graphics();
         
         // Banner color based on mode
-        const bannerColor = COLORS_HEX.ACCENT //this.mode === 'hard' ? 0xff0066 : 0x8800ff;
-        const glowColor = COLORS_HEX.ACCENT//this.mode === 'hard' ? 0xff3366 : 0x9933ff;
+        const bannerColor = this.COLORS_HEX.ACCENT //this.mode === 'hard' ? 0xff0066 : 0x8800ff;
+        const glowColor = this.COLORS_HEX.ACCENT//this.mode === 'hard' ? 0xff3366 : 0x9933ff;
         
         // Draw banner with glow effect
         this.levelModeBanner.fillStyle(glowColor, 0.3);
@@ -2665,11 +3368,11 @@ export default class BaseGameScene extends Phaser.Scene {
         
         this.menuBar = this.add.graphics();
         this.menuBar.fillStyle(style.backgroundColor, 1);
-        this.menuBar.fillRect(0, 0, this.cameras.main.width, menuBarHeight);
+        this.menuBar.fillRect(0, 0, this.sys.game.canvas.width, menuBarHeight);
         
         const menuBarBorder = this.add.graphics();
         menuBarBorder.fillStyle(style.borderColor, 1);
-        menuBarBorder.fillRect(0, menuBarHeight - style.borderWidth, this.cameras.main.width, style.borderWidth);
+        menuBarBorder.fillRect(0, menuBarHeight - style.borderWidth, this.sys.game.canvas.width, style.borderWidth);
         
         // Mobile: center title and place level|mode below, else original
         let titleText, levelModeIndicatorY;
@@ -2719,7 +3422,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         const menuBarShadow = this.add.graphics();
         menuBarShadow.fillStyle(0x000000, 0.3);
-        menuBarShadow.fillRect(0, menuBarHeight, this.cameras.main.width, 10);
+        menuBarShadow.fillRect(0, menuBarHeight, this.sys.game.canvas.width, 10);
         menuBarShadow.setDepth(this.menuBar.depth - 1);
         
         // Create the timer after menu bar is set up
@@ -3051,8 +3754,8 @@ export default class BaseGameScene extends Phaser.Scene {
                 bannerY = this.menuBarHeight / 2 - bannerHeight / 2;
             }
             
-            const bannerColor = COLORS_HEX.ACCENT;
-            const glowColor = COLORS_HEX.ACCENT;
+            const bannerColor = this.COLORS_HEX.ACCENT;
+            const glowColor = this.COLORS_HEX.ACCENT;
             
             this.levelModeBanner.clear();
             this.levelModeBanner.fillStyle(glowColor, 0.3);
@@ -3109,25 +3812,23 @@ export default class BaseGameScene extends Phaser.Scene {
      * Calculate dimensions for settings popup
      */
     calculateSettingsPopupDimensions() {
-        const popupWidth = 400; // Fixed width
-        
-        // Minimum touch target for each row: 44px
-        const bannerHeight = 54; // Match what's used in createLevelSlider
-        const gap1 = 24; // Match what's used in createLevelSlider
-        const sliderRowHeight = 44;
-        const gap2 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP; // Use config constant
-        const sliderRowHeight2 = 44; // Temperature slider row
-        const gap3 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP; // Use config constant
-        const toggleRowHeight = 44;
-        const gap4 = 15; // More gap before button
-        const buttonRowHeight = 54; // Confirm button, extra for padding
-        const bottomPadding = 30; // Increased bottom padding
-        
-        // Add up all rows and gaps (now includes temperature slider)
+        const sm = this.scalingManager || new ScalingManager(this);
+        const popupWidth = sm.scaleValue(400);
+        const bannerHeight = sm.scaleValue(54);
+        const gap1 = sm.scaleValue(24);
+        const sliderRowHeight = sm.scaleValue(44);
+        const gap2 = sm.scaleValue(SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+        const sliderRowHeight2 = sm.scaleValue(44);
+        const gap3 = sm.scaleValue(SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+        const toggleRowHeight = sm.scaleValue(44);
+        const gap4 = sm.scaleValue(15);
+        const buttonRowHeight = sm.scaleValue(54);
+        const bottomPadding = sm.scaleValue(30);
+
         const popupHeight = bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + toggleRowHeight + gap4 + buttonRowHeight + bottomPadding;
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
-        
+
         return { popupWidth, popupHeight, popupX, popupY };
     }
 
@@ -3137,7 +3838,7 @@ export default class BaseGameScene extends Phaser.Scene {
     createSettingsOverlay(popupX, popupY, popupWidth, popupHeight) {
         const overlay = this.add.rectangle(
             0, 0,
-            this.cameras.main.width,
+            this.sys.game.canvas.width,
             this.cameras.main.height,
             0x000000, 0.7
         ).setOrigin(0, 0);
@@ -3223,17 +3924,18 @@ export default class BaseGameScene extends Phaser.Scene {
      * Create the level slider
      */
     createLevelSlider(popupX, popupY, popupWidth, popupHeight) {
-        const sliderWidth = 150;
-        const gap = 20;
-        const bannerHeight = 54; // Updated to match new banner height
-        const gap1 = 24; // Updated gap after banner
-        const sliderRowHeight = 44;
-        
+        const sm = this.scalingManager || new ScalingManager(this);
+        const sliderWidth = sm.scaleValue(150);
+        const gap = sm.scaleValue(20);
+        const bannerHeight = sm.scaleValue(54);
+        const gap1 = sm.scaleValue(24);
+        const sliderRowHeight = sm.scaleValue(44);
+
         let yCursor = popupY + bannerHeight + gap1;
-        
+
         // Level slider row
-        const levelLabelX = popupX + 30;
-        const levelLabelY = yCursor + 22;
+        const levelLabelX = popupX + sm.scaleValue(30);
+        const levelLabelY = yCursor + sm.scaleValue(22);
         const deviceType = detectDeviceType();
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
         const labelStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
@@ -3250,13 +3952,21 @@ export default class BaseGameScene extends Phaser.Scene {
 
         const levelSliderX = levelLabelX + levelLabel.displayWidth + gap;
         const levelSliderY = levelLabelY;
-        
+
         // Create slider track
         const isMobileDevice = this.isMobile;
-        const sliderTrackHeight = isMobileDevice ? 20 : 12; // Match toggle height
+        const sliderTrackHeight = isMobileDevice ? sm.scaleValue(20) : sm.scaleValue(12);
         const levelSlider = this.add.graphics();
-        levelSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1);
+        // Draw the full track (background)
+        levelSlider.fillStyle(0x444444, 1);
         levelSlider.fillRect(levelSliderX, levelSliderY - sliderTrackHeight / 2, sliderWidth, sliderTrackHeight);
+        // Draw the filled portion up to the handle
+        const levelT = (this.levelValue - 1) / 2;
+        const fillWidth = sliderWidth * levelT;
+        if (fillWidth > 0) {
+            levelSlider.fillStyle(this.COLORS_HEX.HIGHLIGHT, 1);
+            levelSlider.fillRect(levelSliderX, levelSliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+        }
         levelSlider.lineStyle(2, 0xffffff, 0.3);
         levelSlider.strokeRect(levelSliderX, levelSliderY - sliderTrackHeight / 2, sliderWidth, sliderTrackHeight);
         this.settingsPopup.add(levelSlider);
@@ -3264,10 +3974,10 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create slider handle
         const levelSliderHandle = this.createSliderHandle(levelSliderX, levelSliderY, sliderWidth);
         this.settingsPopup.add(levelSliderHandle);
-        
+
         // Setup slider interactions
         this.setupLevelSliderInteractions(levelSlider, levelSliderHandle, levelLabel, levelSliderX, levelSliderY, sliderWidth);
-        
+
         return { levelSliderHandle, levelLabel };
     }
 
@@ -3275,33 +3985,34 @@ export default class BaseGameScene extends Phaser.Scene {
      * Create a slider handle
      */
     createSliderHandle(sliderX, sliderY, sliderWidth) {
+        const sm = this.scalingManager || new ScalingManager(this);
         const isMobileDevice = this.isMobile;
         const levelT = (this.levelValue - 1) / 2;
-        const levelSliderMinX = sliderX + 5;
-        const levelSliderMaxX = sliderX + sliderWidth - 5;
+        const levelSliderMinX = sliderX + sm.scaleValue(5);
+        const levelSliderMaxX = sliderX + sliderWidth - sm.scaleValue(5);
         const levelHandleX = Phaser.Math.Linear(levelSliderMinX, levelSliderMaxX, levelT);
-        
-        const handleWidth = 44;
-        const handleHeight = 44;
-        const visualWidth = isMobileDevice ? 24 : 18;
-        const visualHeight = isMobileDevice ? 24 : 14;
-        
-        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
+
+        const handleWidth = sm.scaleValue(44);
+        const handleHeight = sm.scaleValue(44);
+        const visualWidth = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(18);
+        const visualHeight = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(14);
+
+        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, this.COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
             .setOrigin(0.5);
         const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
             .setOrigin(0.5);
-        
+
         const levelSliderHandle = this.add.container(levelHandleX, sliderY, [hitArea, visibleHandle]);
         levelSliderHandle.setSize(handleWidth, handleHeight);
         levelSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
-        
+
         // Make the handle draggable immediately
         this.input.setDraggable(levelSliderHandle);
-        
+
         // Remove scale feedback to prevent size changes during drag
         // Visual feedback is already provided by the handle's interactive state
-        
+
         return levelSliderHandle;
     }
 
@@ -3411,18 +4122,19 @@ export default class BaseGameScene extends Phaser.Scene {
      * Create the temperature slider
      */
     createTemperatureSlider(popupX, popupY, popupWidth, popupHeight) {
-        const sliderWidth = 150;
-        const gap = 20;
-        const bannerHeight = 54; // Match what's used in createLevelSlider
-        const gap1 = 24; // Match what's used in createLevelSlider
-        const sliderRowHeight = 44;
-        const gap2 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP; // Use config constant
-        
+        const sm = this.scalingManager || new ScalingManager(this);
+        const sliderWidth = sm.scaleValue(150);
+        const gap = sm.scaleValue(20);
+        const bannerHeight = sm.scaleValue(54);
+        const gap1 = sm.scaleValue(24);
+        const sliderRowHeight = sm.scaleValue(44);
+        const gap2 = sm.scaleValue(SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+
         let yCursor = popupY + bannerHeight + gap1 + sliderRowHeight + gap2;
-        
+
         // Temperature slider row
-        const tempLabelX = popupX + 30;
-        const tempLabelY = yCursor + 22;
+        const tempLabelX = popupX + sm.scaleValue(30);
+        const tempLabelY = yCursor + sm.scaleValue(22);
         const deviceType = detectDeviceType();
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
         const labelStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
@@ -3439,13 +4151,21 @@ export default class BaseGameScene extends Phaser.Scene {
 
         const tempSliderX = tempLabelX + tempLabel.displayWidth + gap;
         const tempSliderY = tempLabelY;
-        
+
         // Create slider track
         const isMobileDevice = this.isMobile;
-        const sliderTrackHeight = isMobileDevice ? 20 : 12; // Match toggle height
+        const sliderTrackHeight = isMobileDevice ? sm.scaleValue(20) : sm.scaleValue(12);
         const tempSlider = this.add.graphics();
-        tempSlider.fillStyle(COLORS_HEX.HIGHLIGHT, 1);
+        // Draw the full track (background)
+        tempSlider.fillStyle(0x444444, 1);
         tempSlider.fillRect(tempSliderX, tempSliderY - sliderTrackHeight / 2, sliderWidth, sliderTrackHeight);
+        // Draw the filled portion up to the handle
+        const tempT = (this.temperature - 0.1) / 1.4;
+        const tempFillWidth = sliderWidth * tempT;
+        if (tempFillWidth > 0) {
+            tempSlider.fillStyle(this.COLORS_HEX.HIGHLIGHT, 1);
+            tempSlider.fillRect(tempSliderX, tempSliderY - sliderTrackHeight / 2, tempFillWidth, sliderTrackHeight);
+        }
         tempSlider.lineStyle(2, 0xffffff, 0.3);
         tempSlider.strokeRect(tempSliderX, tempSliderY - sliderTrackHeight / 2, sliderWidth, sliderTrackHeight);
         this.settingsPopup.add(tempSlider);
@@ -3453,10 +4173,10 @@ export default class BaseGameScene extends Phaser.Scene {
         // Create slider handle (temperature ranges from 0.1 to 1.5)
         const tempSliderHandle = this.createTemperatureSliderHandle(tempSliderX, tempSliderY, sliderWidth);
         this.settingsPopup.add(tempSliderHandle);
-        
+
         // Setup slider interactions
         this.setupTemperatureSliderInteractions(tempSlider, tempSliderHandle, tempLabel, tempSliderX, tempSliderY, sliderWidth);
-        
+
         return { tempSliderHandle, tempLabel };
     }
 
@@ -3464,34 +4184,35 @@ export default class BaseGameScene extends Phaser.Scene {
      * Create a temperature slider handle
      */
     createTemperatureSliderHandle(sliderX, sliderY, sliderWidth) {
+        const sm = this.scalingManager || new ScalingManager(this);
         const isMobileDevice = this.isMobile;
         // Map temperature (0.1 to 1.5) to slider position (0 to 1)
         const tempT = (this.temperature - 0.1) / 1.4;
-        const tempSliderMinX = sliderX + 5;
-        const tempSliderMaxX = sliderX + sliderWidth - 5;
+        const tempSliderMinX = sliderX + sm.scaleValue(5);
+        const tempSliderMaxX = sliderX + sliderWidth - sm.scaleValue(5);
         const tempHandleX = Phaser.Math.Linear(tempSliderMinX, tempSliderMaxX, tempT);
-        
-        const handleWidth = 44;
-        const handleHeight = 44;
-        const visualWidth = isMobileDevice ? 24 : 18;
-        const visualHeight = isMobileDevice ? 24 : 14;
-        
-        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, COLORS_HEX.ACCENT, 1)
+
+        const handleWidth = sm.scaleValue(44);
+        const handleHeight = sm.scaleValue(44);
+        const visualWidth = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(18);
+        const visualHeight = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(14);
+
+        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, this.COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
             .setOrigin(0.5);
         const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
             .setOrigin(0.5);
-        
+
         const tempSliderHandle = this.add.container(tempHandleX, sliderY, [hitArea, visibleHandle]);
         tempSliderHandle.setSize(handleWidth, handleHeight);
         tempSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
-        
+
         // Make the handle draggable immediately
         this.input.setDraggable(tempSliderHandle);
-        
+
         // Remove scale feedback to prevent size changes during drag
         // Visual feedback is already provided by the handle's interactive state
-        
+
         return tempSliderHandle;
     }
 
@@ -3951,24 +4672,142 @@ export default class BaseGameScene extends Phaser.Scene {
         // Make sure we have a scaling manager
         if (!this.scalingManager) {
             this.scalingManager = new ScalingManager(this);
+            console.log("[DEBUG] ScalingManager created in createWordCountDisplay");
         }
         const sm = this.scalingManager;
         
-        const padding = 20;
-        // Calculate a more conservative width with fixed margin
-        const fixedRightMargin = 80; // Large fixed margin regardless of scaling
-        // Use the custom width without clamping it
-        const boxWidth = customWidth || Math.min(240, this.cameras.main.width * 0.35);
-        const boxHeight = 130; // Increased height to accommodate streak counter
-        const cornerRadius = 10;
+        // Force update scale ratios on mobile to ensure proper scaling
+        if (this.isMobile) {
+            console.log("[DEBUG] Mobile detected in createWordCountDisplay, updating scale ratios");
+            sm.updateBaseDimensions();
+            sm.updateScaleRatios();
+            
+            // If no customWidth provided on mobile, calculate it here
+            if (!customWidth || customWidth <= 0) {
+                console.log("[DEBUG] Mobile: No customWidth provided, calculating directly");
+                
+                // Replicate the width calculation from calculateUIPositions
+                const deviceType = detectDeviceType();
+                const uiScale = sm.uiScale || 1;
+                const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
+                const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+                const padding = sm.scaleValue(20);
 
-        // Determine offset below menu bar: 50px for desktop, 60px for mobile
-        const statsBoxOffset = this.isMobile ? 60 : 50;
+                // Labels with maximum expected values
+                const labels = [
+                    { text: "Original Words:", value: "999" },
+                    { text: "AI Words:", value: "999" },
+                    { text: "Current Streak:", value: "999" },
+                    { text: "Best Streak:", value: "999" }
+                ];
 
-        // Force absolute positioning with fixed margin - avoid scaling issues
-        // Always ensure at least fixedRightMargin pixels from right edge in actual screen pixels
-        const displayX = this.cameras.main.width - boxWidth - fixedRightMargin;
-        const displayY = this.menuBarHeight + statsBoxOffset;
+                // Create temporary text objects to measure
+                const tempTexts = [];
+                const titleTemp = this.add.text(0, 0, "WORD STATS", { ...labelStyle, fontStyle: 'bold', fill: '#ffffff' });
+                tempTexts.push(titleTemp);
+
+                let maxLabelWidth = 0;
+                labels.forEach(({ text, value }) => {
+                    const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
+                    const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
+                    const iconSpace = sm.scaleValue(35);
+                    const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
+                    const rowWidth = iconSpace + labelTemp.width + valueTemp.width + scaledPadding;
+                    maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
+                    tempTexts.push(labelTemp, valueTemp);
+                });
+
+                // Clean up temporary text objects
+                tempTexts.forEach(text => text.destroy());
+
+                // Calculate final stats box width with all constraints
+                const minBoxWidth = sm.scaleValue(this.isMobile ? 300 : 180); // Consistent mobile minimum of 300
+                const fixedRightMargin = sm.scaleValue(this.isMobile ? 35 : 30);
+                const contentBoxWidth = Math.max(minBoxWidth, maxLabelWidth + padding * 2);
+                const configMax = sm.scaleValue(this.isMobile ? 
+                    SCENE_CONFIG.BOX_DIMENSIONS.STATS_MAX_WIDTH_MOBILE : 
+                    SCENE_CONFIG.BOX_DIMENSIONS.STATS_MAX_WIDTH_DESKTOP);
+                
+                // For mobile, ensure we use a reasonable minimum width
+                if (this.isMobile) {
+                    // Use a more generous minimum for mobile
+                    customWidth = Math.max(contentBoxWidth, sm.scaleValue(250));
+                } else {
+                    customWidth = Math.max(contentBoxWidth, minBoxWidth);
+                }
+                customWidth = Math.min(customWidth, configMax);
+                
+                console.log("[DEBUG] Mobile: Calculated customWidth:", customWidth);
+                console.log("[DEBUG] Mobile: contentBoxWidth:", contentBoxWidth, "minBoxWidth:", minBoxWidth);
+            }
+        }
+        
+        // Scale all dimensions consistently
+        const padding = sm.scaleValue(20);
+        const boxHeight = sm.scaleValue(130); // Scaled height
+        const cornerRadius = sm.scaleValue(10);
+
+        // Use customWidth if provided (from calculateUIPositions)
+        // This ensures we use the properly calculated width that accounts for all mobile constraints
+        let boxWidth;
+        if (customWidth !== undefined && customWidth > 0) {
+            // Use the width calculated in calculateUIPositions
+            boxWidth = customWidth;
+        } else {
+            // Fallback calculation if no width provided
+            // Get text styles for measuring
+            const deviceType = detectDeviceType();
+            const uiScale = this.scalingManager?.uiScale || 1;
+            const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
+            const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+
+            // Create temporary text objects to measure actual content width
+            const tempTexts = [];
+            
+            // Title
+            const titleTemp = this.add.text(0, 0, "WORD STATS", {
+                ...labelStyle,
+                fontStyle: 'bold',
+                fill: '#ffffff'
+            });
+            tempTexts.push(titleTemp);
+            
+            // Labels with maximum expected values
+            const labels = [
+                { text: "Original Words:", value: "999" },
+                { text: "AI Words:", value: "999" },
+                { text: "Current Streak:", value: "999" },
+                { text: "Best Streak:", value: "999" }
+            ];
+            
+            let maxLabelWidth = 0;
+            labels.forEach(({ text, value }) => {
+                const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
+                const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
+                
+                // Calculate total width needed for this row (icon + label + value + spacing)
+                const iconSpace = sm.scaleValue(35); // Scale icon space
+                const rowWidth = iconSpace + labelTemp.width + valueTemp.width + padding;
+                maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
+                
+                tempTexts.push(labelTemp, valueTemp);
+            });
+            
+            // Clean up temporary text objects
+            tempTexts.forEach(text => text.destroy());
+            
+            // Calculate width with proper constraints
+            const scaledRightMargin = sm.scaleValue(this.isMobile ? 
+                SCENE_CONFIG.PADDING.MOBILE_STATS_RIGHT_MARGIN : 
+                SCENE_CONFIG.PADDING.STATS_RIGHT_MARGIN);
+            const minBoxWidth = sm.scaleValue(this.isMobile ? 300 : 180); // Consistent mobile minimum of 300
+            const maxBoxWidth = this.sys.game.canvas.width - scaledRightMargin * 2;
+            const contentBoxWidth = Math.max(minBoxWidth, maxLabelWidth + padding * 2);
+            const configMax = sm.scaleValue(this.isMobile ? SCENE_CONFIG.BOX_DIMENSIONS.STATS_MAX_WIDTH_MOBILE : SCENE_CONFIG.BOX_DIMENSIONS.STATS_MAX_WIDTH_DESKTOP);
+            
+            boxWidth = Math.max(contentBoxWidth, minBoxWidth);
+            boxWidth = Math.min(boxWidth, maxBoxWidth, configMax);
+        }
         
         // Create background
         const background = this.add.graphics();
@@ -3978,9 +4817,12 @@ export default class BaseGameScene extends Phaser.Scene {
         background.strokeRoundedRect(0, 0, boxWidth, boxHeight, cornerRadius);
         
         // Word count title
+        // Get text styles again for the title (they were only in temporary scope above)
         const deviceType = detectDeviceType();
         const uiScale = this.scalingManager?.uiScale || 1;
         const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
+        const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+        
         const titleText = this.add.text(
             boxWidth / 2, 
             15, 
@@ -3992,48 +4834,60 @@ export default class BaseGameScene extends Phaser.Scene {
             }
         ).setOrigin(0.5);
         
+        // Scale all positions consistently
+        const iconX = sm.scaleValue(20);
+        const labelX = sm.scaleValue(35);
+        const valueRightPadding = sm.scaleValue(15);
+        const iconRadius = sm.scaleValue(6);
+        
+        // Scaled Y positions
+        const titleY = sm.scaleValue(15);
+        const row1Y = sm.scaleValue(40);
+        const row2Y = sm.scaleValue(65);
+        const row3Y = sm.scaleValue(90);
+        const row4Y = sm.scaleValue(115);
+        
         // Create icons for different word types
-        const originalIcon = this.add.circle(20, 40, 6, this.design.PROGRESS_BAR.COLORS.SUCCESS);
+        const originalIcon = this.add.circle(iconX, row1Y, iconRadius, this.design.PROGRESS_BAR.COLORS.SUCCESS);
         originalIcon.setFillStyle(this.design.PROGRESS_BAR.COLORS.SUCCESS); // Ensure proper fill style
         const originalLabel = this.add.text(
-            35, 40, 
+            labelX, row1Y, 
             "Original Words:", 
             { ...labelStyle, fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
-        this.originalCountText = this.add.text(
-            boxWidth - 15, 40, 
-            "0", 
-            { ...labelStyle, fontStyle: 'bold', fill: '#7cfc00' }
-        ).setOrigin(1, 0.5);
-        
-        const aiIcon = this.add.circle(20, 65, 6, 0xff3366); // Red color to match the AI counter
-        aiIcon.setFillStyle(0xff3366); // Ensure proper fill style
-        const aiLabel = this.add.text(
-            35, 65, 
-            "AI Words:", 
-            { ...labelStyle, fill: '#ffffff' }
-        ).setOrigin(0, 0.5);
-        
-        this.aiCountText = this.add.text(
-            boxWidth - 15, 65, 
-            "0", 
-            { ...labelStyle, fontStyle: 'bold', fill: '#ff3366' }
-        ).setOrigin(1, 0.5);
+this.originalCountText = this.add.text(
+    boxWidth - valueRightPadding, row1Y, 
+    "0", 
+    { ...countStyle, fontStyle: 'bold', fill: '#7cfc00' }
+).setOrigin(1, 0.5);
+
+const aiIcon = this.add.circle(iconX, row2Y, iconRadius, 0xff3366); // Red color to match the AI counter
+aiIcon.setFillStyle(0xff3366); // Ensure proper fill style
+const aiLabel = this.add.text(
+    labelX, row2Y, 
+    "AI Words:", 
+    { ...labelStyle, fill: '#ffffff' }
+).setOrigin(0, 0.5);
+
+this.aiCountText = this.add.text(
+    boxWidth - valueRightPadding, row2Y, 
+    "0", 
+    { ...countStyle, fontStyle: 'bold', fill: '#ff3366' }
+).setOrigin(1, 0.5);
         
         // Streak counter (third row)
         const streakColor = this.getStreakColor(this.wordStreak);
-        const streakIcon = this.add.circle(20, 90, 6, streakColor);
+        const streakIcon = this.add.circle(iconX, row3Y, iconRadius, streakColor);
         streakIcon.setFillStyle(streakColor); // Ensure proper fill style
         const streakLabel = this.add.text(
-            35, 90,
+            labelX, row3Y,
             "Current Streak:",
             { ...labelStyle, fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
-        const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
         this.streakText = this.add.text(
-            boxWidth - 15, 90,
+            boxWidth - valueRightPadding, row3Y,
             `${this.wordStreak}`,
             { 
                 ...countStyle,
@@ -4043,16 +4897,16 @@ export default class BaseGameScene extends Phaser.Scene {
         ).setOrigin(1, 0.5);
         
         // Max streak (fourth row)
-        const maxStreakIcon = this.add.circle(20, 115, 6, 0xffd700); // Gold color for max streak
+        const maxStreakIcon = this.add.circle(iconX, row4Y, iconRadius, 0xffd700); // Gold color for max streak
         maxStreakIcon.setFillStyle(0xffd700); // Ensure proper fill style
         const maxStreakLabel = this.add.text(
-            35, 115,
+            labelX, row4Y,
             "Best Streak:",
             { ...labelStyle, fill: '#ffffff' }
         ).setOrigin(0, 0.5);
         
         this.maxStreakText = this.add.text(
-            boxWidth - 15, 115,
+            boxWidth - valueRightPadding, row4Y,
             `${this.maxWordStreak}`,
             { 
                 ...countStyle,
@@ -4071,8 +4925,7 @@ export default class BaseGameScene extends Phaser.Scene {
             maxStreakIcon, maxStreakLabel, this.maxStreakText
         ]);
         
-        // Position the container
-        this.wordCountDisplay.setPosition(displayX, displayY);
+        // Don't set position here - let createStatsDisplay handle positioning
         
         // Store a reference to the streak icon to update its color
         this.streakIcon = streakIcon;
@@ -4415,7 +5268,7 @@ export default class BaseGameScene extends Phaser.Scene {
         let tooltipY = y - height - 5;
 
         // Clamp X so tooltip stays within screen horizontally
-        tooltipX = Math.max(0, Math.min(tooltipX, this.cameras.main.width - width));
+        tooltipX = Math.max(0, Math.min(tooltipX, this.sys.game.canvas.width - width));
         // Clamp Y so tooltip stays within screen vertically
         tooltipY = Math.max(0, Math.min(tooltipY, this.cameras.main.height - height));
 
@@ -4795,7 +5648,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 
                 // Position celebration text at the top-right near the word stats panel
                 const padding = 20;
-                const displayX = this.cameras.main.width - 180 - padding; // Same as word stats x position
+                const displayX = this.sys.game.canvas.width - 180 - padding; // Same as word stats x position
                 
                 // Get text style from textStyles.js
                 const deviceType = detectDeviceType();
@@ -4853,7 +5706,7 @@ export default class BaseGameScene extends Phaser.Scene {
                     const flashColor = milestone >= 15 ? 0xffd700 : 0xff8c00;
                     const flash = this.add.rectangle(
                         0, 0,
-                        this.cameras.main.width,
+                        this.sys.game.canvas.width,
                         this.cameras.main.height,
                         flashColor,
                         0.3
@@ -4977,7 +5830,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Screen flash with green
         const flash = this.add.rectangle(
             0, 0,
-            this.cameras.main.width,
+            this.sys.game.canvas.width,
             this.cameras.main.height,
             0x7cfc00, // Green
             0.2
@@ -5062,7 +5915,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Screen flash with red
         const flash = this.add.rectangle(
             0, 0,
-            this.cameras.main.width,
+            this.sys.game.canvas.width,
             this.cameras.main.height,
             DESIGN.UI.PROGRESS_BAR.COLORS.DANGER, // Red color
             0.2
@@ -5092,7 +5945,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Background with rounded corners
         this.failsCounter.fillStyle(0x000000, 0.5);
         if (this.progressPercentage > 0) {
-            this.failsCounter.fillStyle(COLORS_HEX.BACKGROUND, 0.5);
+            this.failsCounter.fillStyle(this.COLORS_HEX.BACKGROUND, 0.5);
         }
         
         this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
@@ -5369,6 +6222,13 @@ export default class BaseGameScene extends Phaser.Scene {
     }
 
     init(data) {
+        // Set the mode from data if provided (e.g., from LevelScene)
+        if (data && data.mode) {
+            this.mode = data.mode;
+            // Update mode-specific styles when mode is set
+            this.updateModeStyles();
+        }
+        
         // If this is a reset from DoneScene or FeedbackScene, reset game state but preserve level and topK
         if (data && data.requiresReset) {
             this.progressPercentage = data.progressPercentage || 50;
@@ -5417,5 +6277,41 @@ export default class BaseGameScene extends Phaser.Scene {
             clearTimeout(this.activeTimeout);
             this.activeTimeout = null;
         }
+    }
+    
+    /**
+     * Update background based on current level and streak
+     */
+    updateBackgroundForLevel() {
+        // Clean up existing background elements first
+        if (this.background) {
+            this.background.destroy();
+        }
+        // DEBUG: Log background config and canvas size
+        const bgConfig = THEMES[this.mode]?.background;
+        const w = this.sys.game.config.width || this.cameras.main.width;
+        const h = this.sys.game.config.height || this.cameras.main.height;
+        console.log("[DEBUG] updateBackgroundForLevel: mode=", this.mode, "level=", this.levelValue, "streak=", this.wordStreak, "bgConfig=", bgConfig, "canvas size:", w, h);
+        if (!w || !h || w < 10 || h < 10) {
+            console.warn("[DEBUG] Background creation delayed: invalid canvas size", w, h);
+            this.time.delayedCall(50, () => this.updateBackgroundForLevel());
+            return;
+        }
+        // Create new background based on level and mode with streak effects
+        this.background = createBackground(this, bgConfig, this.levelValue, this.wordStreak || 0);
+    }
+    
+    /**
+     * Handle feedback button click
+     */
+    onFeedbackClick() {
+        // Transition to feedback scene
+        this.scene.start('FeedbackScene', {
+            levelValue: this.levelValue,
+            topKValue: this.topKValue,
+            mode: this.mode,
+            prompt: this.currentPrompt,
+            progressPercentage: this.progressPercentage
+        });
     }
 }

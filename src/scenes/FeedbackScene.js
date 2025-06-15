@@ -97,12 +97,8 @@ export default class FeedbackScene extends Phaser.Scene {
         };
 
         this.time.delayedCall(50, () => {
-            if (this.mode === "easy") {
-                this.scene.start('GameSceneEasy', resetData);
-            }
-            else if (this.mode === "hard") {
-                this.scene.start('GameSceneHard', resetData);
-            }
+            // Use unified BaseGameScene with mode parameter
+            this.scene.start('BaseGameScene', { ...resetData, mode: this.mode });
         });
     }
 
@@ -275,7 +271,7 @@ export default class FeedbackScene extends Phaser.Scene {
     createPromptTextBox() {
         this.promptBoxY = 110;
     
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         const padding = 40;
     
         // Clear existing prompt box graphics if it exists
@@ -443,7 +439,7 @@ export default class FeedbackScene extends Phaser.Scene {
         createBackground(this, backgroundConfig, this.levelValue);
 
         // Input Box Creation
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         this.createInputTextBox();
         this.createPromptTextBox();
 

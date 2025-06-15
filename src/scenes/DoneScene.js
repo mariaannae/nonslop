@@ -257,7 +257,7 @@ export default class DoneScene extends Phaser.Scene {
       
 
     createBackgroundEffect() {
-        let width = this.cameras.main.width;
+        let width = this.sys.game.canvas.width;
         let height = this.cameras.main.height;
         
         let gradientTextureKey = 'gradientBackground';
@@ -483,8 +483,8 @@ export default class DoneScene extends Phaser.Scene {
             await SceneTransitionManager.prepareTransition(this);
             
             // Use glitch transition for error cases
-            const targetScene = this.mode === "easy" ? 'GameSceneEasy' : 'GameSceneHard';
-            SceneTransitionManager.glitchTransition(this, targetScene, resetData, 600, '#ff0000', 5);
+            // Use unified BaseGameScene with mode parameter
+            SceneTransitionManager.glitchTransition(this, 'BaseGameScene', { ...resetData, mode: this.mode }, 600, '#ff0000', 5);
         }
     }
 
@@ -563,7 +563,7 @@ export default class DoneScene extends Phaser.Scene {
     createPromptTextBox() {
         this.promptBoxY = 130;
     
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         const padding = 30;
     
         // Clear existing prompt box graphics if it exists
@@ -724,7 +724,7 @@ export default class DoneScene extends Phaser.Scene {
         pattern.refresh();
         
         // Add pattern as background
-        const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, patternKey)
+        const bg = this.add.tileSprite(0, 0, this.sys.game.canvas.width, this.cameras.main.height, patternKey)
           .setOrigin(0)
           .setDepth(-2);
           
@@ -782,7 +782,7 @@ export default class DoneScene extends Phaser.Scene {
         }
 
         // Input Box Creation
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
 
         // Create prompt first so we can position input box relative to it
         this.createPromptTextBox();
@@ -925,7 +925,7 @@ createLowScoreWarning() {
       const warningOverlay = this.add.rectangle(
         this.cameras.main.centerX,
         this.cameras.main.centerY,
-        this.cameras.main.width,
+        this.sys.game.canvas.width,
         this.cameras.main.height,
         0xFF0000, // Red
         0.2
@@ -1009,7 +1009,7 @@ createLowScoreWarning() {
   }
   
   createScreenCorruptionEffect() {
-    const width = this.cameras.main.width;
+    const width = this.sys.game.canvas.width;
     const height = this.cameras.main.height;
     
     // Create screen distortion lines
@@ -1155,7 +1155,7 @@ createLowScoreWarning() {
       const warningOverlay = this.add.rectangle(
         this.cameras.main.centerX,
         this.cameras.main.centerY,
-        this.cameras.main.width,
+        this.sys.game.canvas.width,
         this.cameras.main.height,
         EASY_COLORS_HEX.WARNING, // Amber
         0.1
@@ -1327,7 +1327,7 @@ createLowScoreWarning() {
   createMatrixRainEffect() {
     const drops = [];
     const fontSize = 14;
-    const columns = Math.floor(this.cameras.main.width / fontSize);
+    const columns = Math.floor(this.sys.game.canvas.width / fontSize);
     
     // Create text objects for each column
     for (let i = 0; i < columns; i++) {

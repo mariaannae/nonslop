@@ -112,7 +112,7 @@ export default class LevelScene extends Phaser.Scene {
 
     
     createBackgroundEffect() {
-        let width = this.cameras.main.width;
+        let width = this.sys.game.canvas.width;
         let height = this.cameras.main.height;
         
         // Check if on mobile device - use the same background as Preloader.js
@@ -218,8 +218,8 @@ export default class LevelScene extends Phaser.Scene {
             ? 0.07 * this.cameras.main.height  // Current position for desktop
             : 0.15 * this.cameras.main.height; // New position for mobile
         this.uiBoxWidth = isDesktop
-            ? this.cameras.main.width * (5 / 6) * (2 / 3)
-            : this.cameras.main.width * (5 / 6);
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
+            : this.sys.game.canvas.width * (5 / 6);
         const padding = this.scalingManager ? this.scalingManager.scaleValue(40) : 40;
         
         // Get prompt text style from centralized system
@@ -337,7 +337,7 @@ export default class LevelScene extends Phaser.Scene {
         // Use 1.2 * button width spacing for desktop, else original
         const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
         const buttonWidth = this.scalingManager
-            ? this.scalingManager.buttonWidth(this.cameras.main.width)
+            ? this.scalingManager.buttonWidth(this.sys.game.canvas.width)
             : DESIGN.UI.BUTTON.WIDTH;
         const buttonOffset = isDesktop ? 1.2 * buttonWidth : DESIGN.UI.BUTTON.WIDTH * 0.85;
 
@@ -393,12 +393,8 @@ export default class LevelScene extends Phaser.Scene {
             // Use direct scene transition to avoid freezing
 
             console.log(`Mobile detected: Starting GameScene in ${difficulty} mode with direct transition...`);
-            if (difficulty === "hard") {
-                this.scene.start('GameSceneHard', { });
-            }
-            else if (difficulty === "easy") {
-                this.scene.start('GameSceneEasy', { });
-            }
+            // Use unified BaseGameScene with mode parameter
+            this.scene.start('BaseGameScene', { mode: difficulty });
             return;
         }
         
@@ -432,12 +428,8 @@ export default class LevelScene extends Phaser.Scene {
     // Helper method to transition to game scene
     proceedToGameScene(difficulty) {
         console.log(`Starting GameScene in ${difficulty} mode...`);
-        if (difficulty === "hard") {
-            this.scene.start('GameSceneHard', { });
-        }
-        else if (difficulty === "easy") {
-            this.scene.start('GameSceneEasy', { });
-        }
+        // Use unified BaseGameScene with mode parameter
+        this.scene.start('BaseGameScene', { mode: difficulty });
     }
 
     // Helper methods for user feedback
@@ -503,7 +495,7 @@ export default class LevelScene extends Phaser.Scene {
 
         this.createBackgroundEffect();
 
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         this.createPromptTextBox();
 
         // Play buttons will be shown after typewriter effect in createPromptTextBox

@@ -16,12 +16,12 @@ const PALETTE = {
     PURPLE_DARK: 0x1a1f6c,       // Medium dark cool purple
     PURPLE_MID: 0x242987,        // Cool purple mid
     PURPLE_LIGHT: 0x2e33a2,      // Lighter cool purple
-    // Serene colors for GameSceneEasy
+    // Serene colors for Easy mode
     EASY_DARKEST: 0x001620,    // Deep ocean blue
     EASY_DARKER: 0x002435,     // Midnight ocean
     EASY_DARK: 0x003450,       // Ocean blue
     EASY_MID: 0x004565,        // Teal blue
-    // Intense colors for GameSceneHard
+    // Intense colors for Hard mode
     HARD_DARKEST: 0x200025,    // Deep magenta
     HARD_DARKER: 0x400045,     // Rich magenta
     HARD_DARK: 0x600065,       // Vibrant magenta

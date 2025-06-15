@@ -63,7 +63,7 @@ export default class InstructionScene extends Phaser.Scene {
     }
     
     createBackgroundEffect() {
-        let width = this.cameras.main.width;
+        let width = this.sys.game.canvas.width;
         let height = this.cameras.main.height;
         
         // Check if on mobile device
@@ -164,8 +164,8 @@ export default class InstructionScene extends Phaser.Scene {
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
         this.uiScale = uiScale; // Store for use in tooltip
         this.uiBoxWidth = isDesktop
-            ? this.cameras.main.width * (5 / 6) * (2 / 3)
-            : this.cameras.main.width * (5 / 6);
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
+            : this.sys.game.canvas.width * (5 / 6);
         const padding = 40;
         
         // Get prompt text style from centralized system
@@ -299,7 +299,7 @@ export default class InstructionScene extends Phaser.Scene {
 
         this.createBackgroundEffect();
 
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         this.createPromptTextBox();
 
         this.inputActive = false;

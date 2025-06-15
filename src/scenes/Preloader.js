@@ -14,7 +14,7 @@ export default class Preloader extends Phaser.Scene {
         super('Preloader');
         this.progressBar = null;
         this.playButtons = null;
-        this.progress = .001; // Track progress state
+        this.progress = .05; // Track progress state
         this.llmLoaded = false;
         this.loadingText = null;
         this.stopWords = [];
@@ -80,7 +80,7 @@ export default class Preloader extends Phaser.Scene {
         // Reset all instance variables to ensure clean state
         this.progressBar = null;
         this.progressBarOutline = null;
-        this.progress = .001;
+        this.progress = .05;
         this.llmLoaded = false;
         this.loadingText = null;
         this.outputTextBox = null;
@@ -90,15 +90,20 @@ export default class Preloader extends Phaser.Scene {
         this.typewriterBox = null;
         this.typewriterText = null;
         
-        // Clear any existing interactive elements on mobile
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-        if (isMobile) {
-            console.log("Mobile detected - clearing input state");
-            // Force clear input plugin state
-            if (this.input) {
-                this.input.removeAllListeners();
-                this.input.clear(true);
-            }
+        // Clear input state for ALL devices to prevent cached button issues
+        console.log("Clearing input state to prevent cached button issues");
+        // Force clear input plugin state
+        if (this.input) {
+            this.input.removeAllListeners();
+            this.input.clear(true);
+            // Reset input manager state
+            this.input.enabled = true;
+            this.input.manager.queue = [];
+        }
+        
+        // Clear any active tweens from previous scene instances
+        if (this.tweens) {
+            this.tweens.killAll();
         }
         
         this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // Set background color
@@ -177,7 +182,7 @@ export default class Preloader extends Phaser.Scene {
     }
 
     createBackgroundEffect() {
-        let width = this.cameras.main.width;
+        let width = this.sys.game.canvas.width;
         let height = this.cameras.main.height;
         
         let gradientTextureKey = 'gradientBackground';
@@ -257,7 +262,7 @@ export default class Preloader extends Phaser.Scene {
 
 
     createOutputTextBox(text) {
-        this.uiBoxWidth = this.cameras.main.width * (5 / 6);
+        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         const outputBoxWidth = this.uiBoxWidth;
         const padding = 30;
         
@@ -345,7 +350,7 @@ export default class Preloader extends Phaser.Scene {
         console.log("NEXT button clicked in Preloader, attempting scene transition...");
         // Clean up before transitioning
         this.cleanupScene();
-        this.scene.start('InstructionsScene', { llmEngine: this.llmEngine });
+        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
     }
 
     cleanupScene() {
@@ -404,7 +409,7 @@ export default class Preloader extends Phaser.Scene {
              this,
              "GENERATE BADGES",
              () => this.scene.start('BadgeGenerator'),
-             this.cameras.main.width - 150,
+             this.sys.game.canvas.width - 150,
              50,
              { depth: 102 }
          );
@@ -424,7 +429,7 @@ export default class Preloader extends Phaser.Scene {
         // Use global UI scale for all elements
         this.uiScale = this.registry.get && this.registry.get('uiScale') || 1;
 
-        const screenWidth = this.cameras.main.width;
+        const screenWidth = this.sys.game.canvas.width;
         const screenHeight = this.cameras.main.height;
         const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
 
@@ -432,7 +437,7 @@ export default class Preloader extends Phaser.Scene {
         if (isMobile) {
             this.background = this.add.image(0, 0, 'preloader-mobile-bg')
                 .setOrigin(0)
-                .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
+                .setDisplaySize(this.sys.game.canvas.width, this.cameras.main.height)
                 .setDepth(-2);
         } else {
             this.createBackgroundEffect();
@@ -580,11 +585,11 @@ export default class Preloader extends Phaser.Scene {
             const buttonWidth = this.scalingManager.buttonWidth();
             // Get the text box's left and right edges
             const boxX = this.cameras.main.centerX - ((isDesktop
-                ? this.cameras.main.width * (5 / 6) * (2 / 3)
-                : this.cameras.main.width * (5 / 6)) / 2);
+                ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
+                : this.sys.game.canvas.width * (5 / 6)) / 2);
             const uiBoxWidth = isDesktop
-                ? this.cameras.main.width * (5 / 6) * (2 / 3)
-                : this.cameras.main.width * (5 / 6);
+                ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
+                : this.sys.game.canvas.width * (5 / 6);
             // Button right edge: 40px (scaled) left of text box right edge
             const buttonX = (boxX + uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
             // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
@@ -675,8 +680,8 @@ this.doneButton.on('pointerout', () => {
         const deviceType = detectDeviceType();
         const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
         const uiBoxWidth = isDesktop
-            ? this.cameras.main.width * (5 / 6) * (2 / 3)
-            : this.cameras.main.width * (5 / 6);
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
+            : this.sys.game.canvas.width * (5 / 6);
         const padding = 40;
         
         // Get proper text style from the centralized system
@@ -792,4 +797,4 @@ this.doneButton.on('pointerout', () => {
         this.children.removeAll();
     }
 }
-//onComplete: () => this.scene.start('GameSceneHard', llmEngine)
+//onComplete: () => this.scene.start('BaseGameScene', { mode: 'hard' })

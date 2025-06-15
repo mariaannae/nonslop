@@ -33,10 +33,9 @@ window.onunhandledrejection = function(event) {
 
 //import Phaser from 'phaser';
 
-import GameSceneHard from "./scenes/GameSceneHard.js";
+import BaseGameScene from "./scenes/BaseGameScene.js";
 import Boot from "./scenes/Boot.js";
 import Preloader from "./scenes/Preloader.js";
-import GameSceneEasy from "./scenes/GameSceneEasy.js";
 import FeedbackScene from "./scenes/FeedbackScene.js";
 import InstructionScene from "./scenes/InstructionsScene.js";  
 import LevelScene from "./scenes/LevelScene.js";
@@ -60,8 +59,7 @@ const config = {
         Preloader, 
         InstructionScene, 
         LevelScene, 
-        GameSceneHard, 
-        GameSceneEasy, 
+        BaseGameScene, 
         DoneScene, 
         FeedbackScene, 
         LeaderboardScene, 

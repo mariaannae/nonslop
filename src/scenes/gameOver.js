@@ -53,8 +53,8 @@ export default class gameOver extends Phaser.Scene {
             align: 'center',
             stroke: '#000',
             strokeThickness: 4,
-            fixedWidth: this.cameras.main.width * 0.8,
-            wordWrap: { width: this.cameras.main.width * 0.8 }
+            fixedWidth: this.sys.game.canvas.width * 0.8,
+            wordWrap: { width: this.sys.game.canvas.width * 0.8 }
         };
         this.toastText = this.add.text(
             this.cameras.main.centerX,
@@ -114,8 +114,8 @@ export default class gameOver extends Phaser.Scene {
                     blur: isMobile ? this.scalingManager.scaleValue(8) : 8,
                     fill: true
                 },
-                fixedWidth: isMobile ? this.cameras.main.width * 0.9 : undefined,
-                wordWrap: isMobile ? { width: this.cameras.main.width * 0.9 } : undefined
+                fixedWidth: isMobile ? this.sys.game.canvas.width * 0.9 : undefined,
+                wordWrap: isMobile ? { width: this.sys.game.canvas.width * 0.9 } : undefined
             }
         ).setOrigin(0.5);
 
@@ -132,8 +132,8 @@ export default class gameOver extends Phaser.Scene {
                 fontSize: isMobile ? `${this.scalingManager.scaleText(32)}px` : '32px',
                 color: this.COLORS_TEXT.PRIMARY,
                 align: 'center',
-                fixedWidth: isMobile ? this.cameras.main.width * 0.9 : undefined,
-                wordWrap: isMobile ? { width: this.cameras.main.width * 0.9 } : undefined
+                fixedWidth: isMobile ? this.sys.game.canvas.width * 0.9 : undefined,
+                wordWrap: isMobile ? { width: this.sys.game.canvas.width * 0.9 } : undefined
             }
         ).setOrigin(0.5);
 
@@ -148,7 +148,7 @@ export default class gameOver extends Phaser.Scene {
         const badge = this.add.image(0, 0, badgeKey).setOrigin(0.5);
 
         // Set uniform badge height (reduce by 20px from original)
-        const maxBadgeWidth = isMobile ? this.cameras.main.width * 0.6 : undefined;
+        const maxBadgeWidth = isMobile ? this.sys.game.canvas.width * 0.6 : undefined;
         const maxBadgeHeight = isMobile ? this.cameras.main.height * 0.25 : undefined;
         const ORIGINAL_BADGE_HEIGHT = badge.displayHeight;
         let BADGE_TARGET_HEIGHT = isMobile ? this.scalingManager.scaleValue(ORIGINAL_BADGE_HEIGHT - 100) : (ORIGINAL_BADGE_HEIGHT - 100);
@@ -311,8 +311,8 @@ const saveBadgeButton = ButtonFactory.createButton(
                 fontSize: isMobile ? `${this.scalingManager.scaleText(26)}px` : '26px',
                 color: this.COLORS_TEXT.PRIMARY,
                 align: 'center',
-                fixedWidth: isMobile ? this.cameras.main.width * 0.9 : undefined,
-                wordWrap: isMobile ? { width: this.cameras.main.width * 0.9 } : undefined
+                fixedWidth: isMobile ? this.sys.game.canvas.width * 0.9 : undefined,
+                wordWrap: isMobile ? { width: this.sys.game.canvas.width * 0.9 } : undefined
             }
         ).setOrigin(0.5);
 
@@ -407,7 +407,7 @@ const saveBadgeButton = ButtonFactory.createButton(
 
         // Pop effect (delayed so width is correct)
         this.time.delayedCall(10, () => {
-            const screenWidth = this.cameras.main.width;
+            const screenWidth = this.sys.game.canvas.width;
             const targetWidth = (7 / 8) * screenWidth;
             const baseWidth = winText.width;
             const targetScale = (targetWidth / baseWidth) * scaleFactor;

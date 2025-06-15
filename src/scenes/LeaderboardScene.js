@@ -35,7 +35,7 @@ export default class LeaderboardScene extends Phaser.Scene {
     async create() {
 
         window._leaderboardScene = this;
-        console.log("Camera size:", this.cameras.main.width, this.cameras.main.height);
+        console.log("Camera size:", this.sys.game.canvas.width, this.cameras.main.height);
         console.log("Window size:", window.innerWidth, window.innerHeight);
         try {
             // Initialize scaling manager for responsive UI
@@ -97,7 +97,7 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
 
     createBackgroundEffect() {
-        let width = this.cameras.main.width;
+        let width = this.sys.game.canvas.width;
         let height = this.cameras.main.height;
         
         let gradientTextureKey = 'gradientLeaderboardBackground';
@@ -324,7 +324,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         const startY = 200;
         const spacing = 45;
-        const width = this.cameras.main.width * 0.8;
+        const width = this.sys.game.canvas.width * 0.8;
         
         // Create table header
         this.createTableHeader(startY, width);
@@ -639,7 +639,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.detailsModal.destroy();
         }
         
-        const width = this.cameras.main.width * 0.7;
+        const width = this.sys.game.canvas.width * 0.7;
         // Start with a minimum height - will adjust based on content
         let minHeight = this.cameras.main.height * 0.6;
         const x = this.cameras.main.centerX - width / 2;
@@ -651,7 +651,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Add dark overlay
         const overlay = this.add.rectangle(
             0, 0,
-            this.cameras.main.width,
+            this.sys.game.canvas.width,
             this.cameras.main.height,
             0x000000, 0.7
         ).setOrigin(0);
@@ -873,7 +873,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Add dark overlay
         const overlay = this.add.rectangle(
             0, 0,
-            this.cameras.main.width,
+            this.sys.game.canvas.width,
             this.cameras.main.height,
             0x000000, 0.7
         ).setOrigin(0);
@@ -1075,7 +1075,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             buttonX = window.innerWidth / 2;
             buttonY = window.innerHeight - mobilePadding;
         } else {
-            buttonX = this.cameras.main.width / 2;
+            buttonX = this.sys.game.canvas.width / 2;
             buttonY = isMobile
                 ? this.cameras.main.height - mobilePadding
                 : this.cameras.main.height - desktopPadding;
@@ -1138,10 +1138,9 @@ export default class LeaderboardScene extends Phaser.Scene {
         if (this.levelValue >= 4){
             this.scene.start('GameOverScene', { ...resetData, mode: this.mode, levelValue: this.levelValue, score: this.score });
         }
-
-        else if (this.mode == 'easy')
-            this.scene.start('GameSceneEasy', resetData);
-        else
-            this.scene.start('GameSceneHard', resetData);
+        else {
+            // Use unified BaseGameScene with mode parameter
+            this.scene.start('BaseGameScene', { ...resetData, mode: this.mode });
+        }
     }
 }

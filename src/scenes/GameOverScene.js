@@ -51,7 +51,7 @@ export default class GameOverScene extends Phaser.Scene {
 
     // Subtitle: move up a little (reduce gap)
     const subtitleY = titleText.y + titleText.height + ((isMobile ? 8 : 16) * this.uiScale);
-    const subtitleWidth = isMobile ? this.cameras.main.width * 0.85 : undefined;
+    const subtitleWidth = isMobile ? this.sys.game.canvas.width * 0.85 : undefined;
     const subtitleText = this.add.text(
       this.cameras.main.centerX,
       subtitleY,

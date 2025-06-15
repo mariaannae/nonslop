@@ -107,7 +107,7 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     createInputField() {
-        const width = this.cameras.main.width * 0.6;
+        const width = this.sys.game.canvas.width * 0.6;
         const height = 60;
         const x = this.cameras.main.centerX - width / 2;
         const y = this.cameras.main.centerY - 50;
@@ -390,7 +390,7 @@ export default class UsernameScene extends Phaser.Scene {
         this.createStarTexture();
 
         // Create particle emitters for celebration
-        const width = this.cameras.main.width;
+        const width = this.sys.game.canvas.width;
         const height = this.cameras.main.height;
 
         // Define color palettes for different modes

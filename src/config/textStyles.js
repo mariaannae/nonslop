@@ -8,15 +8,15 @@ const CLAMP_RANGES = {
     [DEVICE_TYPES.DESKTOP]: {
         title: { min: 40, max: 100 },
         menuTitle: { min: 40, max: 80 },
-        prompt: { min: 14, max: 18 },
-        input: { min: 14, max: 18 },
-        output: { min: 14, max: 18 },
-        tooltip: { min: 14, max: 16 },
+        prompt: { min: 14, max: 20 },
+        input: { min: 14, max: 20 },
+        output: { min: 14, max: 20 },
+        tooltip: { min: 14, max: 18 },
         effect: { min: 14, max: 28 },
         button: { min: 14, max: 20 },
         fancyButton: { min: 16, max: 20 },
         transitionText: { min: 30, max: 50 },
-        settings: { min: 12, max: 18 }
+        settings: { min: 12, max: 20 }
     },
     [DEVICE_TYPES.TABLET]: {
         title: { min: 35, max: 120 },
@@ -89,15 +89,15 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
         [DEVICE_TYPES.DESKTOP]: {
             title: 70,
             menuTitle: 50,
-            prompt: 17,
-            input: 17,
-            output: 17,
-            tooltip: 14,
-            effect: 18,
-            button: 18,
+            prompt: 18,
+            input: 18,
+            output: 18,
+            tooltip: 16,
+            effect: 20,
+            button: 20,
             fancyButton: 18,
             transitionText: 24,
-            settings: 14,
+            settings: 18,
         },
         [DEVICE_TYPES.TABLET]: {
             title: 50,
@@ -115,9 +115,9 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
         [DEVICE_TYPES.PHONE]: {
             title: 200,
             menuTitle: 40,
-            prompt: 30,
-            input: 30,
-            output: 30,
+            prompt: 28,
+            input: 28,
+            output: 28,
             tooltip: 18,
             effect: 36,
             button: 26,
@@ -291,7 +291,7 @@ export function getBoxStyle(boxType, mode = 'basic', uiScale = 1) {
     const baseStyles = {
         prompt: {
             fillColor: COLORS_HEX.BACKGROUND_DARKEST || COLORS_HEX.BACKGROUND || 0x000000,
-            fillAlpha: mode === 'hard' ? 0.5 : 0.8,
+            fillAlpha: 0.8, // Always visible
             hasOutline: true,
             outlineWidth: outline.WIDTH,
             outlineColor: COLORS_HEX.BOX_OUTLINE || COLORS_HEX.ACCENT || 0xffffff,
