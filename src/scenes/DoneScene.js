@@ -387,6 +387,7 @@ export default class DoneScene extends Phaser.Scene {
             score: this.totalScore,
             mode: this.mode,
             level: originalLevelValue, // Use the original level value, not the updated one
+            temperature: this.temperature,
             failCount: this.failCount,
             totalWordCount: this.totalWordCount,
             originalWordCount: this.originalWordCount || (this.totalWordCount - this.failCount),
@@ -464,6 +465,7 @@ export default class DoneScene extends Phaser.Scene {
                     {
                         mode: this.mode,
                         levelValue: this.levelValue, // Pass updated levelValue
+                        temperature: this.temperature,
                         score: this.totalScore
                     },
                     transitionContext,
@@ -675,13 +677,14 @@ export default class DoneScene extends Phaser.Scene {
         this.levelValue = data.levelValue || null;
         this.userInput = data.userInput || '';
         this.topKValue = data.topKValue || null;
+        this.temperature = data.temperature || 0.2;
         this.evaluation = data.outputText || null;
         this.failCount = data.failCount || 0;
         this.totalWordCount = data.totalWordCount || 0;
         this.prompt = data.prompt;
         this.score = data.score || null;
         //this.wordCount = data.wordCount || 0;
-        console.log("DoneScene initialized with mode:", this.mode, "levelValue:", this.levelValue, "topKValue:", this.topKValue, "score:", this.score);
+        console.log("DoneScene initialized with mode:", this.mode, "levelValue:", this.levelValue, "topKValue:", this.topKValue, "temperature:", this.temperature, "score:", this.score);
 
         if (this.mode === "easy") {
             this.COLORS_HEX = EASY_COLORS_HEX;

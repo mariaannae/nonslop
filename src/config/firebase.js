@@ -288,6 +288,7 @@ async function saveHighScore(scoreData) {
       score: scoreData.score || 0,
       mode: scoreData.mode || "easy",
       level: scoreData.level || 1,
+      temperature: scoreData.temperature || 0.2,
       prompt: scoreData.prompt || "",
       timestamp: timestamp,
       date: date,

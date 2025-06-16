@@ -1835,6 +1835,7 @@ if (typeof this.add.rexBBCodeText === "function") {
                 mode: this.mode,
                 levelValue: this.levelValue,
                 topKValue: this.topKValue,
+                temperature: this.temperature,
                 userInput: this.userInput,
                 outputText: output,
                 prompt: this.currentPrompt,
@@ -1969,6 +1970,7 @@ if (typeof this.add.rexBBCodeText === "function") {
             aiEvaluation: finalOutput,
             topKValue: this.topKValue,
             levelValue: this.levelValue,
+            temperature: this.temperature,
             failCount: this.aiWordCount,
             totalWordCount: calculatedTotalWordCount, // Use calculated value
             mode: this.mode,
@@ -3991,40 +3993,45 @@ if (typeof this.add.rexBBCodeText === "function") {
         const levelSliderMaxX = sliderX + sliderWidth - sm.scaleValue(5);
         const levelHandleX = Phaser.Math.Linear(levelSliderMinX, levelSliderMaxX, levelT);
 
-        // Increased hit area for desktop for better usability
-        const handleWidth = isMobileDevice ? sm.scaleValue(44) : sm.scaleValue(60);
-        const handleHeight = isMobileDevice ? sm.scaleValue(44) : sm.scaleValue(60);
-        const visualWidth = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(18);
-        const visualHeight = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(14);
-        const sliderTrackHeight = isMobileDevice ? sm.scaleValue(20) : sm.scaleValue(12);
-
-        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, BASIC_COLORS_HEX.ACCENT, 1)
-            .setStrokeStyle(2, 0xffffff, 0.7)
-            .setOrigin(0.5);
-        const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
-            .setOrigin(0.5);
-
-        const levelSliderHandle = this.add.container(levelHandleX, sliderY, [hitArea, visibleHandle]);
-        levelSliderHandle.setSize(handleWidth, handleHeight);
+        // Create a simple sprite for the handle
+        const handleSize = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(20);
         
-        // Make the handle interactive with drag enabled
-        levelSliderHandle.setInteractive({ 
+        // Create a circle sprite using graphics texture
+        const graphics = this.make.graphics({ x: 0, y: 0 }, false);
+        graphics.fillStyle(BASIC_COLORS_HEX.ACCENT, 1);
+        graphics.fillCircle(handleSize/2, handleSize/2, handleSize/2);
+        graphics.lineStyle(2, 0xffffff, 1);
+        graphics.strokeCircle(handleSize/2, handleSize/2, handleSize/2);
+        graphics.generateTexture('sliderHandle', handleSize, handleSize);
+        graphics.destroy();
+        
+        // Create the sprite from the generated texture
+        const handle = this.add.sprite(levelHandleX, sliderY, 'sliderHandle');
+        handle.setDepth(3);
+        
+        // Set up interactive and draggable
+        const hitArea = isMobileDevice ? 44 : 60; // Larger hit area
+        handle.setInteractive({ 
+            hitArea: new Phaser.Geom.Circle(handleSize/2, handleSize/2, hitArea/2), 
+            hitAreaCallback: Phaser.Geom.Circle.Contains,
             draggable: true,
-            hitArea: new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight),
-            hitAreaCallback: Phaser.Geom.Rectangle.Contains
+            useHandCursor: true
         });
 
-        // Add cursor change on hover
-        levelSliderHandle.on('pointerover', () => {
-            this.input.setDefaultCursor('pointer');
+        // Visual feedback
+        handle.on('pointerover', () => {
+            handle.setScale(1.2);
+            handle.setTint(0xffff00); // Yellow tint on hover
         });
-        levelSliderHandle.on('pointerout', () => {
-            if (!levelSliderHandle.getData('isDragging')) {
-                this.input.setDefaultCursor('default');
+        
+        handle.on('pointerout', () => {
+            if (!handle.getData('isDragging')) {
+                handle.setScale(1);
+                handle.clearTint();
             }
         });
 
-        return levelSliderHandle;
+        return handle;
     }
 
     /**
@@ -4237,30 +4244,45 @@ if (typeof this.add.rexBBCodeText === "function") {
         const tempSliderMaxX = sliderX + sliderWidth - sm.scaleValue(5);
         const tempHandleX = Phaser.Math.Linear(tempSliderMinX, tempSliderMaxX, tempT);
 
-        const handleWidth = sm.scaleValue(44);
-        const handleHeight = sm.scaleValue(44);
-        const visualWidth = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(18);
-        const visualHeight = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(14);
-
-        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, BASIC_COLORS_HEX.ACCENT, 1)
-            .setStrokeStyle(2, 0xffffff, 0.7)
-            .setOrigin(0.5);
-        const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
-            .setOrigin(0.5);
-
-        const tempSliderHandle = this.add.container(tempHandleX, sliderY, [hitArea, visibleHandle]);
-        tempSliderHandle.setSize(handleWidth, handleHeight);
-        tempSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
-
-        // Add cursor change on hover
-        tempSliderHandle.on('pointerover', () => {
-            this.input.setDefaultCursor('pointer');
+        // Create a simple sprite for the handle
+        const handleSize = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(20);
+        
+        // Create a circle sprite using graphics texture
+        const graphics = this.make.graphics({ x: 0, y: 0 }, false);
+        graphics.fillStyle(BASIC_COLORS_HEX.ACCENT, 1);
+        graphics.fillCircle(handleSize/2, handleSize/2, handleSize/2);
+        graphics.lineStyle(2, 0xffffff, 1);
+        graphics.strokeCircle(handleSize/2, handleSize/2, handleSize/2);
+        graphics.generateTexture('tempSliderHandle', handleSize, handleSize);
+        graphics.destroy();
+        
+        // Create the sprite from the generated texture
+        const handle = this.add.sprite(tempHandleX, sliderY, 'tempSliderHandle');
+        handle.setDepth(3);
+        
+        // Set up interactive and draggable
+        const hitArea = isMobileDevice ? 44 : 60; // Larger hit area
+        handle.setInteractive({ 
+            hitArea: new Phaser.Geom.Circle(handleSize/2, handleSize/2, hitArea/2), 
+            hitAreaCallback: Phaser.Geom.Circle.Contains,
+            draggable: true,
+            useHandCursor: true
         });
-        tempSliderHandle.on('pointerout', () => {
-            this.input.setDefaultCursor('default');
+
+        // Visual feedback
+        handle.on('pointerover', () => {
+            handle.setScale(1.2);
+            handle.setTint(0xffff00); // Yellow tint on hover
+        });
+        
+        handle.on('pointerout', () => {
+            if (!handle.getData('isDragging')) {
+                handle.setScale(1);
+                handle.clearTint();
+            }
         });
 
-        return tempSliderHandle;
+        return handle;
     }
 
     /**
@@ -4515,86 +4537,64 @@ if (typeof this.add.rexBBCodeText === "function") {
             this._sliderCleanup = null;
         }
         
-        // Setup drag for level slider handle using Phaser's drag events
-        scene.input.setDraggable(levelSliderHandle);
-        
-        levelSliderHandle.on('dragstart', function(pointer) {
-            this.setData('isDragging', true);
-            const visibleHandle = this.list[1];
-            if (visibleHandle) {
-                visibleHandle.setScale(1.2);
-            }
-            scene.input.setDefaultCursor('grab');
-        });
-        
-        levelSliderHandle.on('drag', function(pointer, dragX, dragY) {
-            const minX = this.getData('minX');
-            const maxX = this.getData('maxX');
+        // Simple drag setup function
+        const setupSliderDrag = (handle, isLevel) => {
+            // Ensure the handle is draggable
+            scene.input.setDraggable(handle);
             
-            // Constrain to horizontal movement within bounds
-            const newX = Phaser.Math.Clamp(dragX, minX, maxX);
-            this.x = newX;
+            // Store initial data
+            handle.setData('isDragging', false);
             
-            // Update the level value
-            const newLevel = Math.round(Phaser.Math.Linear(1, 3, (newX - minX) / (maxX - minX)));
-            if (newLevel !== scene.levelValue) {
-                scene.levelValue = newLevel;
-                levelLabel.setText(`Level: ${scene.levelValue}`);
-                scene.onLevelChange();
-            }
+            // Single drag event handler - this is the primary way Phaser handles dragging
+            handle.on('drag', function(pointer, dragX, dragY) {
+                const minX = this.getData('minX');
+                const maxX = this.getData('maxX');
+                
+                // Constrain to horizontal movement within bounds
+                const newX = Phaser.Math.Clamp(dragX, minX, maxX);
+                this.x = newX;
+                
+                if (isLevel) {
+                    // Update the level value
+                    const newLevel = Math.round(Phaser.Math.Linear(1, 3, (newX - minX) / (maxX - minX)));
+                    if (newLevel !== scene.levelValue) {
+                        scene.levelValue = newLevel;
+                        levelLabel.setText(`Level: ${scene.levelValue}`);
+                        scene.onLevelChange();
+                    }
+                } else {
+                    // Update the temperature value
+                    const newTemp = Phaser.Math.Linear(0.1, 1.5, (newX - minX) / (maxX - minX));
+                    if (Math.abs(newTemp - scene.temperature) > 0.01) {
+                        scene.temperature = newTemp;
+                        tempLabel.setText(`Randomness: `);
+                    }
+                }
+                
+                // Update the slider fill
+                scene.updateSliderFill(this);
+            });
             
-            // Update the slider fill
-            scene.updateSliderFill(this);
-        });
-        
-        levelSliderHandle.on('dragend', function(pointer) {
-            this.setData('isDragging', false);
-            const visibleHandle = this.list[1];
-            if (visibleHandle) {
-                visibleHandle.setScale(1);
-            }
-            scene.input.setDefaultCursor('default');
-        });
-        
-        // Setup drag for temperature slider handle
-        scene.input.setDraggable(tempSliderHandle);
-        
-        tempSliderHandle.on('dragstart', function(pointer) {
-            this.setData('isDragging', true);
-            const visibleHandle = this.list[1];
-            if (visibleHandle) {
-                visibleHandle.setScale(1.2);
-            }
-            scene.input.setDefaultCursor('grab');
-        });
-        
-        tempSliderHandle.on('drag', function(pointer, dragX, dragY) {
-            const minX = this.getData('minX');
-            const maxX = this.getData('maxX');
+            // Visual feedback on drag start
+            handle.on('dragstart', function(pointer) {
+                this.setData('isDragging', true);
+                this.setScale(1.2);
+                this.setTint(0xffff00);
+                scene.input.setDefaultCursor('grabbing');
+            });
             
-            // Constrain to horizontal movement within bounds
-            const newX = Phaser.Math.Clamp(dragX, minX, maxX);
-            this.x = newX;
-            
-            // Update the temperature value
-            const newTemp = Phaser.Math.Linear(0.1, 1.5, (newX - minX) / (maxX - minX));
-            if (Math.abs(newTemp - scene.temperature) > 0.01) {
-                scene.temperature = newTemp;
-                tempLabel.setText(`Randomness: `);
-            }
-            
-            // Update the slider fill
-            scene.updateSliderFill(this);
-        });
+            // Reset visual feedback on drag end
+            handle.on('dragend', function(pointer) {
+                this.setData('isDragging', false);
+                this.setScale(1);
+                this.clearTint();
+                scene.input.setDefaultCursor('default');
+            });
+        };
         
-        tempSliderHandle.on('dragend', function(pointer) {
-            this.setData('isDragging', false);
-            const visibleHandle = this.list[1];
-            if (visibleHandle) {
-                visibleHandle.setScale(1);
-            }
-            scene.input.setDefaultCursor('default');
-        });
+        // Setup both sliders
+        setupSliderDrag(levelSliderHandle, true);
+        setupSliderDrag(tempSliderHandle, false);
         
         // Store cleanup function
         this._sliderCleanup = () => {
