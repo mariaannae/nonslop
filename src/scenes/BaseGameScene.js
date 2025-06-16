@@ -9,7 +9,7 @@ import registryManager from "../services/RegistryManager.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle, getAutocompleteTextStyle, getMenuBarStyle } from "../config/textStyles.js";
 import { detectDeviceType } from "../config/dimensions.js";
-import { SuggestionCache } from "../utils/SuggestionCache.js";
+
 
 /**
  * Configuration constants for BaseGameScene
@@ -105,6 +105,7 @@ const SCENE_CONFIG = {
         TITLE_HEIGHT: 44,
         MIN_GAP: 12,
         STANDARD_GAP: 30,  // Increased from 18
+        MOBILE_GAP: 70,    // Much larger gap for mobile to prevent accidental touches
         SLIDER_ROW_HEIGHT: 44,
         TOGGLE_ROW_HEIGHT: 44,
         BUTTON_ROW_HEIGHT: 54,
@@ -196,18 +197,7 @@ export default class BaseGameScene extends Phaser.Scene {
         // Initialize scaling manager for responsive UI
         this.scalingManager = null;
         
-        // Cache for frequently accessed values
-        this._cachedValues = {
-            centerX: null,
-            centerY: null,
-            menuBarHeight: null,
-            uiScale: null,
-            lastUserInput: null,
-            lastAutocomplete: null
-        };
-        
-        // Initialize suggestion cache
-        this.suggestionCache = new SuggestionCache(100); // Cache up to 100 suggestion sets
+
     }
     
     // Getter methods for clean access to cached device type
@@ -830,6 +820,12 @@ export default class BaseGameScene extends Phaser.Scene {
         // Update style properties based on mode
         this.updateModeStyles();
         this._fastTypingLockoutActive = false;
+        // Initialize cached values for updateCursor optimization
+        this._cachedValues = {
+            lastUserInput: '',
+            lastAutocomplete: ''
+        };
+        this._lastCursorVisible = null;
         // Add more as needed for full reset
     }
 
@@ -845,11 +841,7 @@ export default class BaseGameScene extends Phaser.Scene {
             this.scalingManager.updateScaleRatios();
         }
         
-        // Invalidate cached values when screen size changes
-        this._cachedValues.centerX = null;
-        this._cachedValues.centerY = null;
-        this._cachedValues.menuBarHeight = null;
-        this._cachedValues.uiScale = null;
+
         
         // Call relayoutScene for child-specific layout logic
         if (typeof this.relayoutScene === "function") {
@@ -1610,10 +1602,7 @@ if (typeof this.add.rexBBCodeText === "function") {
         // Clear suggestions display
         this.showSuggestions([]);
         
-        // Clear suggestion cache when transitioning
-        if (isTransition && this.suggestionCache) {
-            this.suggestionCache.clear();
-        }
+
         
         // Additional cleanup for scene transitions
         if (isTransition) {
@@ -3829,9 +3818,10 @@ if (typeof this.add.rexBBCodeText === "function") {
         const bannerHeight = sm.scaleValue(54);
         const gap1 = sm.scaleValue(24);
         const sliderRowHeight = sm.scaleValue(44);
-        const gap2 = sm.scaleValue(SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+        // Use mobile gap for mobile devices
+        const gap2 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
         const sliderRowHeight2 = sm.scaleValue(44);
-        const gap3 = sm.scaleValue(SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+        const gap3 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
         const toggleRowHeight = sm.scaleValue(44);
         const gap4 = sm.scaleValue(15);
         const buttonRowHeight = sm.scaleValue(54);
@@ -3848,6 +3838,7 @@ if (typeof this.add.rexBBCodeText === "function") {
      * Create the settings overlay
      */
     createSettingsOverlay(popupX, popupY, popupWidth, popupHeight) {
+        // Create a full-screen overlay for visual dimming only - NOT interactive
         const overlay = this.add.rectangle(
             0, 0,
             this.sys.game.canvas.width,
@@ -3855,29 +3846,24 @@ if (typeof this.add.rexBBCodeText === "function") {
             0x000000, 0.7
         ).setOrigin(0, 0);
         
-        overlay.setInteractive({ useHandCursor: true })
-            .on('pointerdown', (pointer, localX, localY, event) => {
-                // Always stop propagation to prevent bubbling to other handlers
-                if (event && event.stopPropagation) event.stopPropagation();
-            });
+        // IMPORTANT: Add overlay BEFORE any interactive elements so it's behind them
+        this.settingsPopup.addAt(overlay, 0);
         
-        this.settingsPopup.add(overlay);
+        // Add a single global pointer down handler at the scene level
+        // This will only close the popup if the click is outside the popup bounds
+        const pointerDownHandler = (pointer) => {
+            // Check if click is outside the popup area
+            if (pointer.x < popupX || pointer.x > popupX + popupWidth ||
+                pointer.y < popupY || pointer.y > popupY + popupHeight) {
+                this.closeSettingsPopup();
+            }
+        };
         
-        // Create an interactive rectangle for the popup window
-        const popupArea = this.add.rectangle(
-            popupX + popupWidth/2, 
-            popupY + popupHeight/2,
-            popupWidth, 
-            popupHeight
-        ).setOrigin(0.5);
+        // Add the handler to the scene's input
+        this.input.on('pointerdown', pointerDownHandler);
         
-        popupArea.setInteractive()
-            .on('pointerdown', (pointer) => {
-                // Stop event propagation to prevent closing
-                pointer.event.stopPropagation();
-            });
-        
-        this.settingsPopup.add(popupArea);
+        // Store the handler so we can remove it when closing
+        this._settingsOverlayHandler = pointerDownHandler;
     }
 
     /**
@@ -4005,8 +3991,9 @@ if (typeof this.add.rexBBCodeText === "function") {
         const levelSliderMaxX = sliderX + sliderWidth - sm.scaleValue(5);
         const levelHandleX = Phaser.Math.Linear(levelSliderMinX, levelSliderMaxX, levelT);
 
-        const handleWidth = sm.scaleValue(44);
-        const handleHeight = sm.scaleValue(44);
+        // Increased hit area for desktop for better usability
+        const handleWidth = isMobileDevice ? sm.scaleValue(44) : sm.scaleValue(60);
+        const handleHeight = isMobileDevice ? sm.scaleValue(44) : sm.scaleValue(60);
         const visualWidth = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(18);
         const visualHeight = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(14);
         const sliderTrackHeight = isMobileDevice ? sm.scaleValue(20) : sm.scaleValue(12);
@@ -4019,13 +4006,23 @@ if (typeof this.add.rexBBCodeText === "function") {
 
         const levelSliderHandle = this.add.container(levelHandleX, sliderY, [hitArea, visibleHandle]);
         levelSliderHandle.setSize(handleWidth, handleHeight);
-        levelSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
+        
+        // Make the handle interactive with drag enabled
+        levelSliderHandle.setInteractive({ 
+            draggable: true,
+            hitArea: new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight),
+            hitAreaCallback: Phaser.Geom.Rectangle.Contains
+        });
 
-        // Make the handle draggable immediately
-        this.input.setDraggable(levelSliderHandle);
-
-        // Remove scale feedback to prevent size changes during drag
-        // Visual feedback is already provided by the handle's interactive state
+        // Add cursor change on hover
+        levelSliderHandle.on('pointerover', () => {
+            this.input.setDefaultCursor('pointer');
+        });
+        levelSliderHandle.on('pointerout', () => {
+            if (!levelSliderHandle.getData('isDragging')) {
+                this.input.setDefaultCursor('default');
+            }
+        });
 
         return levelSliderHandle;
     }
@@ -4066,9 +4063,7 @@ if (typeof this.add.rexBBCodeText === "function") {
                     this.onLevelChange();
                 }
                 
-                // Start dragging from this position
-                this.input.setDraggable(levelSliderHandle, true);
-                
+                // For desktop, handle is already draggable, no need to set again
                 // For mobile, simulate a drag start to enable immediate dragging
                 if (isMobileDevice) {
                     levelSliderHandle.emit('pointerdown', pointer);
@@ -4103,8 +4098,8 @@ if (typeof this.add.rexBBCodeText === "function") {
         const fillWidth = handle.x - sliderX;
         if (fillWidth > 0) {
             // Use the same color as the mode toggle
-            sliderTrack.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
-            sliderTrack.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+            levelSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+            levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
         }
             
             // Draw the outline
@@ -4257,11 +4252,13 @@ if (typeof this.add.rexBBCodeText === "function") {
         tempSliderHandle.setSize(handleWidth, handleHeight);
         tempSliderHandle.setInteractive(new Phaser.Geom.Rectangle(-handleWidth/2, -handleHeight/2, handleWidth, handleHeight), Phaser.Geom.Rectangle.Contains);
 
-        // Make the handle draggable immediately
-        this.input.setDraggable(tempSliderHandle);
-
-        // Remove scale feedback to prevent size changes during drag
-        // Visual feedback is already provided by the handle's interactive state
+        // Add cursor change on hover
+        tempSliderHandle.on('pointerover', () => {
+            this.input.setDefaultCursor('pointer');
+        });
+        tempSliderHandle.on('pointerout', () => {
+            this.input.setDefaultCursor('default');
+        });
 
         return tempSliderHandle;
     }
@@ -4302,9 +4299,7 @@ if (typeof this.add.rexBBCodeText === "function") {
                     tempLabel.setText(`Randomness: `);//${Math.round(this.temperature * 100)}%`);
                 }
                 
-                // Start dragging from this position
-                this.input.setDraggable(tempSliderHandle, true);
-                
+                // For desktop, handle is already draggable, no need to set again
                 // For mobile, simulate a drag start to enable immediate dragging
                 if (isMobileDevice) {
                     tempSliderHandle.emit('pointerdown', pointer);
@@ -4512,309 +4507,101 @@ if (typeof this.add.rexBBCodeText === "function") {
     }
     
     setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel) {
-        // Store references to avoid closure issues
         const scene = this;
         
-        // Make handles explicitly draggable
-        this.input.setDraggable([levelSliderHandle, tempSliderHandle]);
-        
-        // Enable drag for touch events
-        if (this.isMobile) {
-            // Ensure touch events are properly handled
-            this.input.addPointer(2); // Support at least 3 touch points (default + 2 extra)
+        // Clean up any existing handlers
+        if (this._sliderCleanup) {
+            this._sliderCleanup();
+            this._sliderCleanup = null;
         }
         
-        // Create drag handlers that are specific to the settings popup
-        const dragStartHandler = (pointer, gameObject) => {
-            // Only handle our slider handles
-            if (gameObject === levelSliderHandle || gameObject === tempSliderHandle) {
-                gameObject.setData('isDragging', true);
-                gameObject.setData('dragStartX', gameObject.x);
-                
-                // Visual feedback
-                const visibleHandle = gameObject.list[1]; // The visible rectangle
-                if (visibleHandle) {
-                    visibleHandle.setScale(1.2);
-                }
-                
-                // Stop any momentum scrolling on mobile
-                if (pointer.event && pointer.event.preventDefault) {
-                    pointer.event.preventDefault();
-                }
-            }
-        };
+        // Setup drag for level slider handle using Phaser's drag events
+        scene.input.setDraggable(levelSliderHandle);
         
-        const dragHandler = (pointer, gameObject, dragX, dragY) => {
-            // Only handle our slider handles
-            if (gameObject === levelSliderHandle) {
-                const minX = gameObject.getData('minX');
-                const maxX = gameObject.getData('maxX');
-                const clampedX = Phaser.Math.Clamp(dragX, minX, maxX);
-                gameObject.x = clampedX;
-                
-                // Update the fill for the level slider track
-                const levelSlider = gameObject.getData('sliderTrack');
-                if (levelSlider) {
-                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
-                    const sliderX = gameObject.getData('sliderX');
-                    const sliderY = gameObject.y;
-                    
-                    // Clear previous fill
-                    levelSlider.clear();
-                    
-                    // Draw the background track
-                    levelSlider.fillStyle(0x444444, 1);
-                    levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                    
-                    // Draw the filled portion up to the handle position
-                    const fillWidth = clampedX - sliderX;
-                    if (fillWidth > 0) {
-                        levelSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
-                        levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
-                    }
-                    
-                    // Draw the outline
-                    levelSlider.lineStyle(2, 0xffffff, 0.3);
-                    levelSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                }
-                
-                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (clampedX - minX) / (maxX - minX)));
-                
-                if (newLevel !== scene.levelValue) {
-                    scene.levelValue = newLevel;
-                    levelLabel.setText(`Level: ${scene.levelValue}`);
-                    scene.onLevelChange();
-                }
-            } else if (gameObject === tempSliderHandle) {
-                const minX = gameObject.getData('minX');
-                const maxX = gameObject.getData('maxX');
-                const clampedX = Phaser.Math.Clamp(dragX, minX, maxX);
-                gameObject.x = clampedX;
-                
-                // Update the fill for the temperature slider track
-                const tempSlider = gameObject.getData('sliderTrack');
-                if (tempSlider) {
-                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
-                    const sliderX = gameObject.getData('sliderX');
-                    const sliderY = gameObject.y;
-                    
-                    // Clear previous fill
-                    tempSlider.clear();
-                    
-                    // Draw the background track
-                    tempSlider.fillStyle(0x444444, 1);
-                    tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                    
-                    // Draw the filled portion up to the handle position
-                    const fillWidth = clampedX - sliderX;
-                    if (fillWidth > 0) {
-                        tempSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1); // Always use BASIC_COLORS_HEX.HIGHLIGHT
-                        tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
-                    }
-                    
-                    // Draw the outline
-                    tempSlider.lineStyle(2, 0xffffff, 0.3);
-                    tempSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                }
-                
-                // Map slider position to temperature (0.1 to 1.5)
-                const newTemp = Phaser.Math.Linear(0.1, 1.5, (clampedX - minX) / (maxX - minX));
-                
-                if (Math.abs(newTemp - scene.temperature) > 0.01) {
-                    scene.temperature = newTemp;
-                    tempLabel.setText(`Randomness: `);
-                }
-            }
-        };
-        
-        const dragEndHandler = (pointer, gameObject) => {
-            // Only handle our slider handles
-            if (gameObject === levelSliderHandle || gameObject === tempSliderHandle) {
-                gameObject.setData('isDragging', false);
-                
-                // Reset visual feedback
-                const visibleHandle = gameObject.list[1]; // The visible rectangle
-                if (visibleHandle) {
-                    visibleHandle.setScale(1);
-                }
-            }
-        };
-        
-        // Store handlers so we can remove them later
-        this._settingsDragHandlers = {
-            dragstart: dragStartHandler,
-            drag: dragHandler,
-            dragend: dragEndHandler
-        };
-        
-        // Add the handlers
-        this.input.on('dragstart', dragStartHandler);
-        this.input.on('drag', dragHandler);
-        this.input.on('dragend', dragEndHandler);
-        
-        // Add pointer move handler for better mobile responsiveness
-        const pointerMoveHandler = (pointer) => {
-            // Check if either handle is being dragged
-            if (levelSliderHandle.getData('isDragging')) {
-                const minX = levelSliderHandle.getData('minX');
-                const maxX = levelSliderHandle.getData('maxX');
-                const clampedX = Phaser.Math.Clamp(pointer.x, minX, maxX);
-                
-                // Manually update position if drag isn't working properly
-                levelSliderHandle.x = clampedX;
-                
-                // Update the fill for the level slider track
-                const levelSlider = levelSliderHandle.getData('sliderTrack');
-                if (levelSlider) {
-                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
-                    const sliderX = levelSliderHandle.getData('sliderX');
-                    const sliderY = levelSliderHandle.y;
-                    
-                    // Clear previous fill
-                    levelSlider.clear();
-                    
-                    // Draw the background track
-                    levelSlider.fillStyle(0x444444, 1);
-                    levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                    
-                    // Draw the filled portion up to the handle position
-                    const fillWidth = clampedX - sliderX;
-                    if (fillWidth > 0) {
-                        levelSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
-                        levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
-                    }
-                    
-                    // Draw the outline
-                    levelSlider.lineStyle(2, 0xffffff, 0.3);
-                    levelSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                }
-                
-                const newLevel = Math.round(Phaser.Math.Linear(1, 3, (clampedX - minX) / (maxX - minX)));
-                if (newLevel !== scene.levelValue) {
-                    scene.levelValue = newLevel;
-                    levelLabel.setText(`Level: ${scene.levelValue}`);
-                    scene.onLevelChange();
-                }
-            } else if (tempSliderHandle.getData('isDragging')) {
-                const minX = tempSliderHandle.getData('minX');
-                const maxX = tempSliderHandle.getData('maxX');
-                const clampedX = Phaser.Math.Clamp(pointer.x, minX, maxX);
-                
-                // Manually update position if drag isn't working properly
-                tempSliderHandle.x = clampedX;
-                
-                // Update the fill for the temperature slider track
-                const tempSlider = tempSliderHandle.getData('sliderTrack');
-                if (tempSlider) {
-                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
-                    const sliderX = tempSliderHandle.getData('sliderX');
-                    const sliderY = tempSliderHandle.y;
-                    
-                    // Clear previous fill
-                    tempSlider.clear();
-                    
-                    // Draw the background track
-                    tempSlider.fillStyle(0x444444, 1);
-                    tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                    
-                    // Draw the filled portion up to the handle position
-                    const fillWidth = clampedX - sliderX;
-                    if (fillWidth > 0) {
-                        tempSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
-                        tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
-                    }
-                    
-                    // Draw the outline
-                    tempSlider.lineStyle(2, 0xffffff, 0.3);
-                    tempSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
-                }
-                
-                const newTemp = Phaser.Math.Linear(0.1, 1.5, (clampedX - minX) / (maxX - minX));
-                if (Math.abs(newTemp - scene.temperature) > 0.01) {
-                    scene.temperature = newTemp;
-                    tempLabel.setText(`Randomness: `);
-                }
-            }
-        };
-        
-        // Store the pointer move handler
-        this._settingsPointerMoveHandler = pointerMoveHandler;
-        this.input.on('pointermove', pointerMoveHandler);
-        
-        // Add pointerdown handlers to the handles for immediate feedback
-        levelSliderHandle.on('pointerdown', function(pointer) {
+        levelSliderHandle.on('dragstart', function(pointer) {
             this.setData('isDragging', true);
-            this.setData('dragStartX', this.x);
-            
-            // Visual feedback
             const visibleHandle = this.list[1];
             if (visibleHandle) {
                 visibleHandle.setScale(1.2);
             }
-            
-            // Ensure the handle becomes draggable on touch
-            if (pointer.event && pointer.event.preventDefault) {
-                pointer.event.preventDefault();
-            }
+            scene.input.setDefaultCursor('grab');
         });
         
-        levelSliderHandle.on('pointerup', function() {
-            this.setData('isDragging', false);
+        levelSliderHandle.on('drag', function(pointer, dragX, dragY) {
+            const minX = this.getData('minX');
+            const maxX = this.getData('maxX');
             
-            // Reset visual feedback
+            // Constrain to horizontal movement within bounds
+            const newX = Phaser.Math.Clamp(dragX, minX, maxX);
+            this.x = newX;
+            
+            // Update the level value
+            const newLevel = Math.round(Phaser.Math.Linear(1, 3, (newX - minX) / (maxX - minX)));
+            if (newLevel !== scene.levelValue) {
+                scene.levelValue = newLevel;
+                levelLabel.setText(`Level: ${scene.levelValue}`);
+                scene.onLevelChange();
+            }
+            
+            // Update the slider fill
+            scene.updateSliderFill(this);
+        });
+        
+        levelSliderHandle.on('dragend', function(pointer) {
+            this.setData('isDragging', false);
             const visibleHandle = this.list[1];
             if (visibleHandle) {
                 visibleHandle.setScale(1);
             }
+            scene.input.setDefaultCursor('default');
         });
         
-        // Handle pointer out to stop dragging if pointer leaves the handle
-        levelSliderHandle.on('pointerout', function() {
-            if (this.getData('isDragging')) {
-                this.setData('isDragging', false);
-                const visibleHandle = this.list[1];
-                if (visibleHandle) {
-                    visibleHandle.setScale(1);
-                }
-            }
-        });
+        // Setup drag for temperature slider handle
+        scene.input.setDraggable(tempSliderHandle);
         
-        tempSliderHandle.on('pointerdown', function(pointer) {
+        tempSliderHandle.on('dragstart', function(pointer) {
             this.setData('isDragging', true);
-            this.setData('dragStartX', this.x);
-            
-            // Visual feedback
             const visibleHandle = this.list[1];
             if (visibleHandle) {
                 visibleHandle.setScale(1.2);
             }
-            
-            // Ensure the handle becomes draggable on touch
-            if (pointer.event && pointer.event.preventDefault) {
-                pointer.event.preventDefault();
-            }
+            scene.input.setDefaultCursor('grab');
         });
         
-        tempSliderHandle.on('pointerup', function() {
-            this.setData('isDragging', false);
+        tempSliderHandle.on('drag', function(pointer, dragX, dragY) {
+            const minX = this.getData('minX');
+            const maxX = this.getData('maxX');
             
-            // Reset visual feedback
+            // Constrain to horizontal movement within bounds
+            const newX = Phaser.Math.Clamp(dragX, minX, maxX);
+            this.x = newX;
+            
+            // Update the temperature value
+            const newTemp = Phaser.Math.Linear(0.1, 1.5, (newX - minX) / (maxX - minX));
+            if (Math.abs(newTemp - scene.temperature) > 0.01) {
+                scene.temperature = newTemp;
+                tempLabel.setText(`Randomness: `);
+            }
+            
+            // Update the slider fill
+            scene.updateSliderFill(this);
+        });
+        
+        tempSliderHandle.on('dragend', function(pointer) {
+            this.setData('isDragging', false);
             const visibleHandle = this.list[1];
             if (visibleHandle) {
                 visibleHandle.setScale(1);
             }
+            scene.input.setDefaultCursor('default');
         });
         
-        // Handle pointer out to stop dragging if pointer leaves the handle
-        tempSliderHandle.on('pointerout', function() {
-            if (this.getData('isDragging')) {
-                this.setData('isDragging', false);
-                const visibleHandle = this.list[1];
-                if (visibleHandle) {
-                    visibleHandle.setScale(1);
-                }
-            }
-        });
+        // Store cleanup function
+        this._sliderCleanup = () => {
+            // Remove all listeners from handles
+            levelSliderHandle.removeAllListeners();
+            tempSliderHandle.removeAllListeners();
+        };
     }
 
     /**
@@ -4839,6 +4626,12 @@ if (typeof this.add.rexBBCodeText === "function") {
             this.timerEvent.paused = false;
         }
         
+        // Clean up slider drag functionality
+        if (this._sliderCleanup) {
+            this._sliderCleanup();
+            this._sliderCleanup = null;
+        }
+        
         // Clean up drag event listeners
         if (this._settingsDragHandlers) {
             this.input.off('dragstart', this._settingsDragHandlers.dragstart);
@@ -4851,6 +4644,12 @@ if (typeof this.add.rexBBCodeText === "function") {
         if (this._settingsPointerMoveHandler) {
             this.input.off('pointermove', this._settingsPointerMoveHandler);
             this._settingsPointerMoveHandler = null;
+        }
+
+        // Clean up the overlay handler - IMPORTANT
+        if (this._settingsOverlayHandler) {
+            this.input.off('pointerdown', this._settingsOverlayHandler);
+            this._settingsOverlayHandler = null;
         }
 
         // First destroy the popup with animation
@@ -5316,6 +5115,14 @@ this.aiCountText = this.add.text(
     updateCursor() {
         if (this.isShuttingDown) return;
         if (!this.inputText || this.inputText.destroyed) return;
+        
+        // Initialize cached values if not already initialized
+        if (!this._cachedValues) {
+            this._cachedValues = {
+                lastUserInput: '',
+                lastAutocomplete: ''
+            };
+        }
         
         // Check if we need to update based on cached values
         const currentAutocomplete = this.generateAutocomplete();
