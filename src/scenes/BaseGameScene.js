@@ -772,7 +772,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.keyProcessingComplete = true;
         this.levelValue = 1;
         this.topKValue = 1;
-        this.temperature = 0.8; // Add temperature for randomness control
+        this.temperature = 0.2; // Add temperature for randomness control
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
         this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
@@ -1089,9 +1089,15 @@ export default class BaseGameScene extends Phaser.Scene {
         labels.forEach(({ text, value }) => {
             const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
             const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
-            const iconSpace = sm.scaleValue(35);
-            const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
-            const rowWidth = iconSpace + labelTemp.width + valueTemp.width + scaledPadding;
+            
+            // Calculate actual positions and spacing
+            const labelX = sm.scaleValue(35);
+            const valueRightPadding = sm.scaleValue(15);
+            const minGapBetweenLabelAndValue = sm.scaleValue(this.isMobile ? 50 : 30); // More generous gap for mobile
+            
+            // Since values are right-aligned, we need:
+            // labelX + labelWidth + gap + valueWidth + rightPadding
+            const rowWidth = labelX + labelTemp.width + minGapBetweenLabelAndValue + valueTemp.width + valueRightPadding;
             maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
             tempTexts.push(labelTemp, valueTemp);
         });
@@ -1359,9 +1365,15 @@ if (typeof this.add.rexBBCodeText === "function") {
                 labels.forEach(({ text, value }) => {
                     const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
                     const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
-                    const iconSpace = sm.scaleValue(35);
-                    const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
-                    const rowWidth = iconSpace + labelTemp.width + valueTemp.width + scaledPadding;
+                    
+                    // Calculate actual positions and spacing
+                    const labelX = sm.scaleValue(35);
+                    const valueRightPadding = sm.scaleValue(15);
+                    const minGapBetweenLabelAndValue = sm.scaleValue(this.isMobile ? 50 : 30); // More generous gap for mobile
+                    
+                    // Since values are right-aligned, we need:
+                    // labelX + labelWidth + gap + valueWidth + rightPadding
+                    const rowWidth = labelX + labelTemp.width + minGapBetweenLabelAndValue + valueTemp.width + valueRightPadding;
                     maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
                     tempTexts.push(labelTemp, valueTemp);
                 });
@@ -3964,7 +3976,8 @@ if (typeof this.add.rexBBCodeText === "function") {
         const levelT = (this.levelValue - 1) / 2;
         const fillWidth = sliderWidth * levelT;
         if (fillWidth > 0) {
-            levelSlider.fillStyle(this.COLORS_HEX.HIGHLIGHT, 1);
+            // Use the same color as the mode toggle (BASIC_COLORS_HEX.HIGHLIGHT)
+            levelSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
             levelSlider.fillRect(levelSliderX, levelSliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
         }
         levelSlider.lineStyle(2, 0xffffff, 0.3);
@@ -3996,8 +4009,9 @@ if (typeof this.add.rexBBCodeText === "function") {
         const handleHeight = sm.scaleValue(44);
         const visualWidth = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(18);
         const visualHeight = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(14);
+        const sliderTrackHeight = isMobileDevice ? sm.scaleValue(20) : sm.scaleValue(12);
 
-        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, this.COLORS_HEX.ACCENT, 1)
+        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, BASIC_COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
             .setOrigin(0.5);
         const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
@@ -4023,11 +4037,16 @@ if (typeof this.add.rexBBCodeText === "function") {
         const levelSliderMinX = sliderX + 5;
         const levelSliderMaxX = sliderX + sliderWidth - 5;
         const isMobileDevice = this.isMobile;
+        const sliderTrackHeight = isMobileDevice ? this.scalingManager.scaleValue(20) : this.scalingManager.scaleValue(12);
         
-        // Store bounds on the handle for drag functionality
+        // Store bounds and references on the handle for drag functionality
         levelSliderHandle.setData('minX', levelSliderMinX);
         levelSliderHandle.setData('maxX', levelSliderMaxX);
         levelSliderHandle.setData('type', 'level');
+        levelSliderHandle.setData('sliderTrack', levelSlider);
+        levelSliderHandle.setData('sliderX', sliderX);
+        levelSliderHandle.setData('sliderWidth', sliderWidth);
+        levelSliderHandle.setData('sliderTrackHeight', sliderTrackHeight);
         
         // Handle clicks on slider track (move handle to click position)
         const sliderBarHitHeight = isMobileDevice ? 44 : 20;
@@ -4037,6 +4056,9 @@ if (typeof this.add.rexBBCodeText === "function") {
                 const clampedX = Phaser.Math.Clamp(pointer.x, levelSliderMinX, levelSliderMaxX);
                 levelSliderHandle.x = clampedX;
                 const newLevel = Math.round(Phaser.Math.Linear(1, 3, (clampedX - levelSliderMinX) / (levelSliderMaxX - levelSliderMinX)));
+                
+                // Update the fill for the level slider track
+                this.updateSliderFill(levelSliderHandle);
                 
                 if (newLevel !== this.levelValue) {
                     this.levelValue = newLevel;
@@ -4062,6 +4084,33 @@ if (typeof this.add.rexBBCodeText === "function") {
         pointerX = Phaser.Math.Clamp(pointerX, minX, maxX);
         handle.x = pointerX;
         const newLevel = Math.round(Phaser.Math.Linear(1, 3, (pointerX - minX) / (maxX - minX)));
+        
+        // Update the fill for the level slider track
+        const levelSlider = handle.getData('sliderTrack');
+        if (levelSlider) {
+            const sliderTrackHeight = this.isMobile ? this.scalingManager.scaleValue(20) : this.scalingManager.scaleValue(12);
+            const sliderX = handle.getData('sliderX');
+            const sliderY = handle.y;
+            
+            // Clear previous fill
+            levelSlider.clear();
+            
+            // Draw the background track
+            levelSlider.fillStyle(0x444444, 1);
+            levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+            
+        // Draw the filled portion up to the handle position
+        const fillWidth = handle.x - sliderX;
+        if (fillWidth > 0) {
+            // Use the same color as the mode toggle
+            sliderTrack.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+            sliderTrack.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+        }
+            
+            // Draw the outline
+            levelSlider.lineStyle(2, 0xffffff, 0.3);
+            levelSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+        }
         
         if (newLevel !== this.levelValue) {
             this.levelValue = newLevel;
@@ -4163,7 +4212,8 @@ if (typeof this.add.rexBBCodeText === "function") {
         const tempT = (this.temperature - 0.1) / 1.4;
         const tempFillWidth = sliderWidth * tempT;
         if (tempFillWidth > 0) {
-            tempSlider.fillStyle(this.COLORS_HEX.HIGHLIGHT, 1);
+            // Use the same color as the mode toggle (BASIC_COLORS_HEX.HIGHLIGHT)
+            tempSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
             tempSlider.fillRect(tempSliderX, tempSliderY - sliderTrackHeight / 2, tempFillWidth, sliderTrackHeight);
         }
         tempSlider.lineStyle(2, 0xffffff, 0.3);
@@ -4197,7 +4247,7 @@ if (typeof this.add.rexBBCodeText === "function") {
         const visualWidth = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(18);
         const visualHeight = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(14);
 
-        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, this.COLORS_HEX.ACCENT, 1)
+        const visibleHandle = this.add.rectangle(0, 0, visualWidth, visualHeight, BASIC_COLORS_HEX.ACCENT, 1)
             .setStrokeStyle(2, 0xffffff, 0.7)
             .setOrigin(0.5);
         const hitArea = this.add.rectangle(0, 0, handleWidth, handleHeight, 0x000000, 0)
@@ -4223,11 +4273,16 @@ if (typeof this.add.rexBBCodeText === "function") {
         const tempSliderMinX = sliderX + 5;
         const tempSliderMaxX = sliderX + sliderWidth - 5;
         const isMobileDevice = this.isMobile;
+        const sliderTrackHeight = isMobileDevice ? this.scalingManager.scaleValue(20) : this.scalingManager.scaleValue(12);
         
-        // Store bounds on the handle for drag functionality
+        // Store bounds and references on the handle for drag functionality
         tempSliderHandle.setData('minX', tempSliderMinX);
         tempSliderHandle.setData('maxX', tempSliderMaxX);
         tempSliderHandle.setData('type', 'temperature');
+        tempSliderHandle.setData('sliderTrack', tempSlider);
+        tempSliderHandle.setData('sliderX', sliderX);
+        tempSliderHandle.setData('sliderWidth', sliderWidth);
+        tempSliderHandle.setData('sliderTrackHeight', sliderTrackHeight);
         
         // Handle clicks on slider track (move handle to click position)
         const sliderBarHitHeight = isMobileDevice ? 44 : 20;
@@ -4238,6 +4293,9 @@ if (typeof this.add.rexBBCodeText === "function") {
                 tempSliderHandle.x = clampedX;
                 // Map slider position to temperature (0.1 to 1.5)
                 const newTemp = Phaser.Math.Linear(0.1, 1.5, (clampedX - tempSliderMinX) / (tempSliderMaxX - tempSliderMinX));
+                
+                // Update the fill for the temperature slider track
+                this.updateSliderFill(tempSliderHandle);
                 
                 if (Math.abs(newTemp - this.temperature) > 0.01) {
                     this.temperature = newTemp;
@@ -4263,6 +4321,33 @@ if (typeof this.add.rexBBCodeText === "function") {
         handle.x = pointerX;
         // Map slider position to temperature (0.1 to 1.5)
         const newTemp = Phaser.Math.Linear(0.1, 1.5, (pointerX - minX) / (maxX - minX));
+        
+        // Update the fill for the temperature slider track
+        const tempSlider = handle.getData('sliderTrack');
+        if (tempSlider) {
+            const sliderTrackHeight = this.isMobile ? this.scalingManager.scaleValue(20) : this.scalingManager.scaleValue(12);
+            const sliderX = handle.getData('sliderX');
+            const sliderY = handle.y;
+            
+            // Clear previous fill
+            tempSlider.clear();
+            
+            // Draw the background track
+            tempSlider.fillStyle(0x444444, 1);
+            tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+            
+                    // Draw the filled portion up to the handle position
+                    const fillWidth = handle.x - sliderX;
+                    if (fillWidth > 0) {
+                        // Use the same color as the mode toggle
+                        tempSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+                        tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+                    }
+            
+            // Draw the outline
+            tempSlider.lineStyle(2, 0xffffff, 0.3);
+            tempSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+        }
         
         if (Math.abs(newTemp - this.temperature) > 0.01) {
             this.temperature = newTemp;
@@ -4391,6 +4476,41 @@ if (typeof this.add.rexBBCodeText === "function") {
     /**
      * Setup slider drag functionality
      */
+    /**
+     * Updates the fill for a slider track
+     * @param {Phaser.GameObjects.GameObject} handle - The slider handle
+     */
+    updateSliderFill(handle) {
+        const sliderTrack = handle.getData('sliderTrack');
+        if (!sliderTrack) return;
+        
+        const minX = handle.getData('minX');
+        const maxX = handle.getData('maxX');
+        const sliderX = handle.getData('sliderX');
+        const sliderY = handle.y;
+        const sliderTrackHeight = handle.getData('sliderTrackHeight') || 
+            (this.isMobile ? this.scalingManager.scaleValue(20) : this.scalingManager.scaleValue(12));
+        
+        // Clear previous fill
+        sliderTrack.clear();
+        
+        // Draw the background track
+        sliderTrack.fillStyle(0x444444, 1);
+        sliderTrack.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+        
+        // Draw the filled portion up to the handle position
+        const fillWidth = handle.x - sliderX;
+        if (fillWidth > 0) {
+            // Use the same color as the mode toggle
+            sliderTrack.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+            sliderTrack.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+        }
+        
+        // Draw the outline
+        sliderTrack.lineStyle(2, 0xffffff, 0.3);
+        sliderTrack.strokeRoundedRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+    }
+    
     setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel) {
         // Store references to avoid closure issues
         const scene = this;
@@ -4432,6 +4552,32 @@ if (typeof this.add.rexBBCodeText === "function") {
                 const clampedX = Phaser.Math.Clamp(dragX, minX, maxX);
                 gameObject.x = clampedX;
                 
+                // Update the fill for the level slider track
+                const levelSlider = gameObject.getData('sliderTrack');
+                if (levelSlider) {
+                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
+                    const sliderX = gameObject.getData('sliderX');
+                    const sliderY = gameObject.y;
+                    
+                    // Clear previous fill
+                    levelSlider.clear();
+                    
+                    // Draw the background track
+                    levelSlider.fillStyle(0x444444, 1);
+                    levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                    
+                    // Draw the filled portion up to the handle position
+                    const fillWidth = clampedX - sliderX;
+                    if (fillWidth > 0) {
+                        levelSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+                        levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+                    }
+                    
+                    // Draw the outline
+                    levelSlider.lineStyle(2, 0xffffff, 0.3);
+                    levelSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                }
+                
                 const newLevel = Math.round(Phaser.Math.Linear(1, 3, (clampedX - minX) / (maxX - minX)));
                 
                 if (newLevel !== scene.levelValue) {
@@ -4444,6 +4590,32 @@ if (typeof this.add.rexBBCodeText === "function") {
                 const maxX = gameObject.getData('maxX');
                 const clampedX = Phaser.Math.Clamp(dragX, minX, maxX);
                 gameObject.x = clampedX;
+                
+                // Update the fill for the temperature slider track
+                const tempSlider = gameObject.getData('sliderTrack');
+                if (tempSlider) {
+                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
+                    const sliderX = gameObject.getData('sliderX');
+                    const sliderY = gameObject.y;
+                    
+                    // Clear previous fill
+                    tempSlider.clear();
+                    
+                    // Draw the background track
+                    tempSlider.fillStyle(0x444444, 1);
+                    tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                    
+                    // Draw the filled portion up to the handle position
+                    const fillWidth = clampedX - sliderX;
+                    if (fillWidth > 0) {
+                        tempSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1); // Always use BASIC_COLORS_HEX.HIGHLIGHT
+                        tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+                    }
+                    
+                    // Draw the outline
+                    tempSlider.lineStyle(2, 0xffffff, 0.3);
+                    tempSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                }
                 
                 // Map slider position to temperature (0.1 to 1.5)
                 const newTemp = Phaser.Math.Linear(0.1, 1.5, (clampedX - minX) / (maxX - minX));
@@ -4491,6 +4663,32 @@ if (typeof this.add.rexBBCodeText === "function") {
                 // Manually update position if drag isn't working properly
                 levelSliderHandle.x = clampedX;
                 
+                // Update the fill for the level slider track
+                const levelSlider = levelSliderHandle.getData('sliderTrack');
+                if (levelSlider) {
+                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
+                    const sliderX = levelSliderHandle.getData('sliderX');
+                    const sliderY = levelSliderHandle.y;
+                    
+                    // Clear previous fill
+                    levelSlider.clear();
+                    
+                    // Draw the background track
+                    levelSlider.fillStyle(0x444444, 1);
+                    levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                    
+                    // Draw the filled portion up to the handle position
+                    const fillWidth = clampedX - sliderX;
+                    if (fillWidth > 0) {
+                        levelSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+                        levelSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+                    }
+                    
+                    // Draw the outline
+                    levelSlider.lineStyle(2, 0xffffff, 0.3);
+                    levelSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                }
+                
                 const newLevel = Math.round(Phaser.Math.Linear(1, 3, (clampedX - minX) / (maxX - minX)));
                 if (newLevel !== scene.levelValue) {
                     scene.levelValue = newLevel;
@@ -4504,6 +4702,32 @@ if (typeof this.add.rexBBCodeText === "function") {
                 
                 // Manually update position if drag isn't working properly
                 tempSliderHandle.x = clampedX;
+                
+                // Update the fill for the temperature slider track
+                const tempSlider = tempSliderHandle.getData('sliderTrack');
+                if (tempSlider) {
+                    const sliderTrackHeight = scene.isMobile ? scene.scalingManager.scaleValue(20) : scene.scalingManager.scaleValue(12);
+                    const sliderX = tempSliderHandle.getData('sliderX');
+                    const sliderY = tempSliderHandle.y;
+                    
+                    // Clear previous fill
+                    tempSlider.clear();
+                    
+                    // Draw the background track
+                    tempSlider.fillStyle(0x444444, 1);
+                    tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                    
+                    // Draw the filled portion up to the handle position
+                    const fillWidth = clampedX - sliderX;
+                    if (fillWidth > 0) {
+                        tempSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+                        tempSlider.fillRect(sliderX, sliderY - sliderTrackHeight / 2, fillWidth, sliderTrackHeight);
+                    }
+                    
+                    // Draw the outline
+                    tempSlider.lineStyle(2, 0xffffff, 0.3);
+                    tempSlider.strokeRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
+                }
                 
                 const newTemp = Phaser.Math.Linear(0.1, 1.5, (clampedX - minX) / (maxX - minX));
                 if (Math.abs(newTemp - scene.temperature) > 0.01) {
@@ -4710,9 +4934,14 @@ if (typeof this.add.rexBBCodeText === "function") {
                 labels.forEach(({ text, value }) => {
                     const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
                     const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
-                    const iconSpace = sm.scaleValue(35);
-                    const scaledPadding = sm.scaleValue(this.isMobile ? 28 : 20);
-                    const rowWidth = iconSpace + labelTemp.width + valueTemp.width + scaledPadding;
+                    
+                    // Calculate actual positions and spacing
+                    const labelX = sm.scaleValue(35);
+                    const valueRightPadding = sm.scaleValue(15);
+                    const minGapBetweenLabelAndValue = sm.scaleValue(this.isMobile ? 50 : 30); // More generous gap for mobile
+                    
+                    // Total width needed for the content
+                    const rowWidth = labelX + labelTemp.width + minGapBetweenLabelAndValue + valueTemp.width + valueRightPadding;
                     maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
                     tempTexts.push(labelTemp, valueTemp);
                 });
@@ -4785,9 +5014,14 @@ if (typeof this.add.rexBBCodeText === "function") {
                 const labelTemp = this.add.text(0, 0, text, { ...labelStyle, fill: '#ffffff' });
                 const valueTemp = this.add.text(0, 0, value, { ...countStyle, fontStyle: 'bold' });
                 
-                // Calculate total width needed for this row (icon + label + value + spacing)
-                const iconSpace = sm.scaleValue(35); // Scale icon space
-                const rowWidth = iconSpace + labelTemp.width + valueTemp.width + padding;
+                // Calculate actual positions and spacing - match calculateUIPositions
+                const labelX = sm.scaleValue(35);
+                const valueRightPadding = sm.scaleValue(15);
+                const minGapBetweenLabelAndValue = sm.scaleValue(30); // Generous gap between label and value
+                
+                // Since values are right-aligned, we need:
+                // labelX + labelWidth + gap + valueWidth + rightPadding
+                const rowWidth = labelX + labelTemp.width + minGapBetweenLabelAndValue + valueTemp.width + valueRightPadding;
                 maxLabelWidth = Math.max(maxLabelWidth, rowWidth);
                 
                 tempTexts.push(labelTemp, valueTemp);
