@@ -763,6 +763,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelValue = 1;
         this.topKValue = 1;
         this.temperature = 0.2; // Add temperature for randomness control
+        this.isShuttingDown = false; // CRITICAL: Reset shutdown flag
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
         this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
@@ -987,6 +988,51 @@ export default class BaseGameScene extends Phaser.Scene {
         // Force background creation here for debugging
         this.updateBackgroundForLevel();
         console.log("[DEBUG] BaseGameScene.create() COMPLETED - relayoutScene and updateBackgroundForLevel called");
+        
+        // Ensure input handlers are set up after UI is created
+        // This is crucial for mode switching to work properly
+        this.time.delayedCall(100, () => {
+            console.log("[DEBUG] Delayed input handler setup - inputText exists:", !!this.inputText);
+            console.log("[DEBUG] isShuttingDown:", this.isShuttingDown);
+            console.log("[DEBUG] isMobile:", this.isMobile);
+            
+            // Reset the shutdown flag again to be absolutely sure
+            this.isShuttingDown = false;
+            
+            // Always set up input handlers if inputText exists
+            if (this.inputText) {
+                this.setupInputHandlers();
+                console.log("[DEBUG] Input handlers set up after mode switch");
+                
+                // For mobile, ensure hidden input is properly set up
+                if (this.isMobile && !this._hiddenInput) {
+                    console.log("[DEBUG] Mobile detected but no hidden input, setting up now");
+                    this.setupHiddenInput();
+                }
+                
+                // Force focus on desktop to ensure keyboard events are received
+                if (this.isDesktop && this.sys && this.sys.game && this.sys.game.canvas) {
+                    this.sys.game.canvas.focus();
+                }
+            } else {
+                console.log("[DEBUG] ERROR: inputText not found, cannot set up input handlers!");
+                // Try again after another delay
+                this.time.delayedCall(200, () => {
+                    console.log("[DEBUG] Retry: inputText exists:", !!this.inputText);
+                    // Reset shutdown flag on retry too
+                    this.isShuttingDown = false;
+                    if (this.inputText) {
+                        this.setupInputHandlers();
+                        console.log("[DEBUG] Input handlers set up on retry");
+                        
+                        // Force focus on desktop
+                        if (this.isDesktop && this.sys && this.sys.game && this.sys.game.canvas) {
+                            this.sys.game.canvas.focus();
+                        }
+                    }
+                });
+            }
+        });
     }
     
     /**
@@ -1441,10 +1487,7 @@ if (typeof this.add.rexBBCodeText === "function") {
             this.updateCursor();
         }
 
-        // Setup input handlers
-        if (this.setupInputHandlers) {
-            this.setupInputHandlers();
-        }
+        // Don't setup input handlers here - let create() handle it with proper timing
     }
 
     update() {
@@ -1496,6 +1539,18 @@ if (typeof this.add.rexBBCodeText === "function") {
         if (this.autocompleteText) {
             this.autocompleteText.setText('');
         }
+        
+        // Clear user input before transition
+        this.userInput = '';
+        if (this.inputText) {
+            this.inputText.setText('_');
+        }
+        
+        // Clear the hidden input for mobile
+        if (this._hiddenInput) {
+            this._hiddenInput.value = '';
+        }
+        
         // Update the indicator before transition
         this.mode = mode; // Set the mode temporarily for the indicator update
         this.updateLevelModeIndicator();
@@ -1623,6 +1678,22 @@ if (typeof this.add.rexBBCodeText === "function") {
     prepareForSceneTransition() {
         // Set shutdown flag to prevent further updates
         this.isShuttingDown = true;
+        
+        // Clean up hidden input before transition
+        if (this._hiddenInput) {
+            if (this._hiddenInputHandler) {
+                this._hiddenInput.removeEventListener('input', this._hiddenInputHandler);
+                this._hiddenInputHandler = null;
+            }
+            if (this._hiddenInputBlurHandler) {
+                this._hiddenInput.removeEventListener('blur', this._hiddenInputBlurHandler);
+                this._hiddenInputBlurHandler = null;
+            }
+            if (document.body.contains(this._hiddenInput)) {
+                document.body.removeChild(this._hiddenInput);
+            }
+            this._hiddenInput = null;
+        }
         
         // Use consolidated cleanup method
         this.cleanupResources(true);
@@ -2085,8 +2156,6 @@ if (typeof this.add.rexBBCodeText === "function") {
             const uniqueSuggestedWords = Array.from(new Set(words)).slice(0, Math.max(this.topKValue, 1)); 
             console.log("[DEBUG] suggestion: ", suggestion)
 
-            // Cache the results
-            this.suggestionCache.set(this.currentPrompt, context, uniqueSuggestedWords);
 
             this.aiSuggestedWords = uniqueSuggestedWords;
             this.showSuggestions(uniqueSuggestedWords);
@@ -3146,6 +3215,15 @@ if (typeof this.add.rexBBCodeText === "function") {
         // Only create hidden input for mobile devices
         // Remove any previous input
         if (this._hiddenInput) {
+            // Clean up existing event listeners
+            if (this._hiddenInputHandler) {
+                this._hiddenInput.removeEventListener('input', this._hiddenInputHandler);
+                this._hiddenInputHandler = null;
+            }
+            if (this._hiddenInputBlurHandler) {
+                this._hiddenInput.removeEventListener('blur', this._hiddenInputBlurHandler);
+                this._hiddenInputBlurHandler = null;
+            }
             document.body.removeChild(this._hiddenInput);
             this._hiddenInput = null;
         }
@@ -3171,82 +3249,82 @@ if (typeof this.add.rexBBCodeText === "function") {
         // Flag to prevent double processing
         this._processingMobileInput = false;
 
-        // Sync input to Phaser text and autocomplete
-        input.addEventListener('input', () => {
+        // Store input handler as a property so it can be removed later
+        this._hiddenInputHandler = () => {
             // Set flag to indicate we're processing mobile input
             this._processingMobileInput = true;
-        const previousInput = this.userInput;
-        this.userInput = input.value;
+            const previousInput = this.userInput;
+            this.userInput = input.value;
 
-        // Only generate suggestions if the last character is a space or newline
-        const lastChar = this.userInput.slice(-1);
-        if (lastChar === ' ' || lastChar === '\n' || lastChar === '\r') {
-            this.generateAISuggestionsWithQueue(() => {});
-        }
+            // Only generate suggestions if the last character is a space or newline
+            const lastChar = this.userInput.slice(-1);
+            if (lastChar === ' ' || lastChar === '\n' || lastChar === '\r') {
+                this.generateAISuggestionsWithQueue(() => {});
+            }
 
-        // For mobile, we'll handle word checking in the input handler
-        // but NOT trigger the visual effects to prevent duplication
-        if (lastChar === ' ' || lastChar === '\n') {
-            let isAIWord = false; // Declare isAIWord in the outer scope
-            
-            const words = this.userInput.trim().split(/\s+/);
-            if (words.length > 0) {
-                // Get the last word and clean it
-                let lastWord = words[words.length - 1];
-                // Store original word for feedback
-                const originalLastWord = lastWord;
-                // Remove punctuation for comparison
-                lastWord = lastWord.replace(/[.,!?;:]$/, '');
-                const lastWordLower = lastWord.toLowerCase();
+            // For mobile, we'll handle word checking in the input handler
+            // but NOT trigger the visual effects to prevent duplication
+            if (lastChar === ' ' || lastChar === '\n') {
+                let isAIWord = false; // Declare isAIWord in the outer scope
                 
-                // Check if it's an AI word
-                isAIWord = this.aiSuggestedWords && 
-                    Array.isArray(this.aiSuggestedWords) &&
-                    this.aiSuggestedWords.some(word => word && word.toLowerCase() === lastWordLower);
-                
-                if (isAIWord) {
-                    // In hard mode, delete the AI word from input
-                    if (this.mode === 'hard') {
-                        // Remove the last word from the array
-                        words.pop();
-                        // Reconstruct the input without the AI word
-                        this.userInput = words.join(' ');
-                        // Only add space if there are remaining words
-                        if (this.userInput.length > 0) {
-                            if (lastChar === ' ') {
-                                this.userInput += ' ';
-                            } else if (lastChar === '\n') {
-                                this.userInput += '\n';
+                const words = this.userInput.trim().split(/\s+/);
+                if (words.length > 0) {
+                    // Get the last word and clean it
+                    let lastWord = words[words.length - 1];
+                    // Store original word for feedback
+                    const originalLastWord = lastWord;
+                    // Remove punctuation for comparison
+                    lastWord = lastWord.replace(/[.,!?;:]$/, '');
+                    const lastWordLower = lastWord.toLowerCase();
+                    
+                    // Check if it's an AI word
+                    isAIWord = this.aiSuggestedWords && 
+                        Array.isArray(this.aiSuggestedWords) &&
+                        this.aiSuggestedWords.some(word => word && word.toLowerCase() === lastWordLower);
+                    
+                    if (isAIWord) {
+                        // In hard mode, delete the AI word from input
+                        if (this.mode === 'hard') {
+                            // Remove the last word from the array
+                            words.pop();
+                            // Reconstruct the input without the AI word
+                            this.userInput = words.join(' ');
+                            // Only add space if there are remaining words
+                            if (this.userInput.length > 0) {
+                                if (lastChar === ' ') {
+                                    this.userInput += ' ';
+                                } else if (lastChar === '\n') {
+                                    this.userInput += '\n';
+                                }
                             }
+                            // Update the hidden input value to match
+                            input.value = this.userInput;
+                            // Move cursor to end
+                            input.setSelectionRange(input.value.length, input.value.length);
+                            // Show feedback if the method exists
+                            if (typeof this.showBlockFeedback === 'function') {
+                                this.showBlockFeedback(lastWord);
+                            }
+                        } else {
+                            // Easy mode - just increment counter
+                            this.aiWordCount++;
                         }
-                        // Update the hidden input value to match
-                        input.value = this.userInput;
-                        // Move cursor to end
-                        input.setSelectionRange(input.value.length, input.value.length);
-                        // Show feedback if the method exists
-                        if (typeof this.showBlockFeedback === 'function') {
-                            this.showBlockFeedback(lastWord);
-                        }
-                    } else {
-                        // Easy mode - just increment counter
-                        this.aiWordCount++;
                     }
                 }
+                
+                // Update progress percentage
+                const oldPercentage = this.progressPercentage;
+                let newPercentage = isAIWord 
+                    ? this.progressPercentage - this.progressIncrement 
+                    : this.progressPercentage + this.progressIncrement;
+                
+                this.progressPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
+                
+                // Update UI elements without animations
+                this.updateWordCountDisplay();
+                this.updateStreakCounter(!isAIWord);
+                this.updateProgressFill();
             }
-            
-            // Update progress percentage
-            const oldPercentage = this.progressPercentage;
-            let newPercentage = isAIWord 
-                ? this.progressPercentage - this.progressIncrement 
-                : this.progressPercentage + this.progressIncrement;
-            
-            this.progressPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
-            
-            // Update UI elements without animations
-            this.updateWordCountDisplay();
-            this.updateStreakCounter(!isAIWord);
-            this.updateProgressFill();
-        }
 
             // Update cursor immediately for mobile
             this.updateCursor();
@@ -3255,12 +3333,16 @@ if (typeof this.add.rexBBCodeText === "function") {
             setTimeout(() => {
                 this._processingMobileInput = false;
             }, 50);
-        });
+        };
 
-        // On blur, keep value but do nothing else
-        input.addEventListener('blur', () => {
+        // Store blur handler as a property
+        this._hiddenInputBlurHandler = () => {
             this.updateCursor();
-        });
+        };
+
+        // Add event listeners
+        input.addEventListener('input', this._hiddenInputHandler);
+        input.addEventListener('blur', this._hiddenInputBlurHandler);
 
         document.body.appendChild(input);
         this._hiddenInput = input;
@@ -6263,11 +6345,18 @@ this.aiCountText = this.add.text(
     }
 
     init(data) {
+        // CRITICAL: Reset the shutdown flag when the scene starts
+        // This was the bug - the flag remained true after mode switching
+        this.isShuttingDown = false;
+        
         // Set the mode from data if provided (e.g., from LevelScene)
         if (data && data.mode) {
             this.mode = data.mode;
             // Update mode-specific styles when mode is set
             this.updateModeStyles();
+            
+            // Force a complete reset of game state when switching modes
+            this.resetGameState();
         }
         
         // If this is a reset from DoneScene or FeedbackScene, reset game state but preserve level and topK
@@ -6317,6 +6406,24 @@ this.aiCountText = this.add.text(
         if (this.activeTimeout) {
             clearTimeout(this.activeTimeout);
             this.activeTimeout = null;
+        }
+        
+        // Clean up any existing hidden input element
+        if (this._hiddenInput) {
+            // Only remove event listeners if they exist
+            if (this._hiddenInputHandler) {
+                this._hiddenInput.removeEventListener('input', this._hiddenInputHandler);
+                this._hiddenInputHandler = null;
+            }
+            if (this._hiddenInputBlurHandler) {
+                this._hiddenInput.removeEventListener('blur', this._hiddenInputBlurHandler);
+                this._hiddenInputBlurHandler = null;
+            }
+            // Remove the element from DOM
+            if (document.body.contains(this._hiddenInput)) {
+                document.body.removeChild(this._hiddenInput);
+            }
+            this._hiddenInput = null;
         }
     }
     
