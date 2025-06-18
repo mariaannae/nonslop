@@ -97,7 +97,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             output: 18,
             tooltip: 16,
             effect: 20,
-            timer: 30,  // 1.5x effect
+            timer: 50,  
             button: 20,
             fancyButton: 18,
             transitionText: 24,
@@ -111,7 +111,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             output: 18,
             tooltip: 16,
             effect: 20,
-            timer: 30,  // 1.5x effect
+            timer: 50,  // 1.5x effect
             button: 18,
             fancyButton: 18,
             transitionText: 28,
@@ -125,7 +125,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             output: 28,
             tooltip: 18,
             effect: 36,
-            timer: 54,  // 1.5x effect
+            timer: 70,  // 1.5x effect
             button: 26,
             fancyButton: 24,
             transitionText: 36,

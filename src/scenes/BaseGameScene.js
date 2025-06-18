@@ -1799,35 +1799,118 @@ if (typeof this.add.rexBBCodeText === "function") {
     }
 
     shakeScreen() {
-        // Robust haptic/visual feedback for mobile, especially iOS
+        // Enhanced haptic/visual feedback for mobile
         const ua = navigator.userAgent || "";
         const isIOS = /iphone|ipad|ipod/i.test(ua);
-        const canVibrate = "vibrate" in navigator;
+        const isAndroid = /android/i.test(ua);
+        // More robust vibration check - must be a function, not just a property
+        const canVibrate = typeof navigator.vibrate === 'function';
 
+        // Log haptic feedback attempt for debugging
+        console.log("[HAPTIC] Device info:", {
+            isMobile: this.isMobile,
+            isIOS: isIOS,
+            isAndroid: isAndroid,
+            canVibrate: canVibrate,
+            vibrateType: typeof navigator.vibrate,
+            vibrateExists: 'vibrate' in navigator
+        });
+
+        // Attempt haptic feedback only on devices that truly support it (excludes iOS)
         if (this.isMobile && canVibrate && !isIOS) {
             try {
-                navigator.vibrate(100);
+                // Use a more noticeable vibration pattern
+                // Pattern: vibrate 50ms, pause 30ms, vibrate 100ms
+                const vibrationPattern = [50, 30, 100];
+                
+                // Some browsers require user interaction before allowing vibration
+                // Try both single value and pattern
+                const vibrationResult = navigator.vibrate(vibrationPattern) || navigator.vibrate(150);
+                
+                console.log("[HAPTIC] Vibration attempted, result:", vibrationResult);
+                
+                // Add visual feedback to confirm haptic was attempted
+                if (vibrationResult) {
+                    // Small visual pulse to confirm haptic feedback
+                    const hapticIndicator = this.add.circle(
+                        this.cameras.main.width - 30,
+                        30,
+                        10,
+                        0x00ff00,
+                        0.8
+                    ).setDepth(1000);
+                    
+                    this.tweens.add({
+                        targets: hapticIndicator,
+                        scale: { from: 1, to: 2 },
+                        alpha: { from: 0.8, to: 0 },
+                        duration: 300,
+                        ease: 'Quad.Out',
+                        onComplete: () => hapticIndicator.destroy()
+                    });
+                }
             } catch (e) {
-                // Ignore vibration errors
+                console.error("[HAPTIC] Vibration error:", e);
             }
+        } else if (isIOS) {
+            console.log("[HAPTIC] iOS detected - vibration not supported in Safari");
         }
 
-        // On iOS, use a stronger/longer shake and a quick flash for feedback
+        // Visual feedback for all devices
         if (isIOS) {
-            this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.SHAKE_DURATION_IOS, SCENE_CONFIG.EFFECTS.SHAKE_INTENSITY_IOS); // More intense shake
-            // Quick white flash overlay for extra feedback
+            // iOS: Stronger/longer shake with flash
+            this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.SHAKE_DURATION_IOS, SCENE_CONFIG.EFFECTS.SHAKE_INTENSITY_IOS);
+            
+            // Enhanced flash effect for iOS
             const flash = this.add.rectangle(
                 0, 0,
                 this.sys.game.canvas.width,
                 this.cameras.main.height,
                 0xffffff,
+                SCENE_CONFIG.EFFECTS.FLASH_ALPHA_DEFAULT * 1.5 // Stronger flash
+            ).setOrigin(0).setDepth(999);
+            
+            this.fadeOut(flash, SCENE_CONFIG.ANIMATIONS.FAST, 'Quad.Out', () => flash.destroy());
+            
+            // Additional red border flash for iOS
+            const borderFlash = this.add.graphics();
+            borderFlash.lineStyle(8, 0xff0000, 0.8);
+            borderFlash.strokeRect(4, 4, this.sys.game.canvas.width - 8, this.cameras.main.height - 8);
+            borderFlash.setDepth(998);
+            
+            this.fadeOut(borderFlash, SCENE_CONFIG.ANIMATIONS.FAST * 1.5, 'Quad.Out', () => borderFlash.destroy());
+        } else if (isAndroid) {
+            // Android: Standard shake with enhanced visual feedback
+            this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.SHAKE_DURATION_DEFAULT, SCENE_CONFIG.EFFECTS.SHAKE_INTENSITY_DEFAULT);
+            
+            // Red tint flash for Android
+            const flash = this.add.rectangle(
+                0, 0,
+                this.sys.game.canvas.width,
+                this.cameras.main.height,
+                0xff0000,
                 SCENE_CONFIG.EFFECTS.FLASH_ALPHA_DEFAULT
             ).setOrigin(0).setDepth(999);
+            
             this.fadeOut(flash, SCENE_CONFIG.ANIMATIONS.FAST, 'Quad.Out', () => flash.destroy());
         } else {
-            // Default shake for other platforms
+            // Desktop/other: Standard shake
             this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.SHAKE_DURATION_DEFAULT, SCENE_CONFIG.EFFECTS.SHAKE_INTENSITY_DEFAULT);
         }
+
+        // Add a subtle screen border pulse for all devices
+        const borderPulse = this.add.graphics();
+        borderPulse.lineStyle(4, 0xff3366, 0);
+        borderPulse.strokeRect(2, 2, this.sys.game.canvas.width - 4, this.cameras.main.height - 4);
+        borderPulse.setDepth(997);
+        
+        this.tweens.add({
+            targets: borderPulse,
+            alpha: { from: 0, to: 0.8 },
+            duration: 150,
+            yoyo: true,
+            onComplete: () => borderPulse.destroy()
+        });
     }
 
     /**
@@ -1836,27 +1919,113 @@ if (typeof this.add.rexBBCodeText === "function") {
     miniScreenVibrate() {
         const ua = navigator.userAgent || "";
         const isIOS = /iphone|ipad|ipod/i.test(ua);
+        // More robust vibration check - must be a function, not just a property
+        const canVibrate = typeof navigator.vibrate === 'function';
+        
         if (this.isMobile) {
             // Subtle, very short shake (40ms, low intensity)
-            this.cameras.main.shake(40, 0.005);
-            // Optionally, on iOS, a quick flash for extra feedback (comment out if too much)
-            // if (isIOS) {
-            //     const flash = this.add.rectangle(
-            //         0, 0,
-            //         this.sys.game.canvas.width,
-            //         this.cameras.main.height,
-            //         0xffffff,
-            //         0.07
-            //     ).setOrigin(0).setDepth(998);
-            //     this.tweens.add({
-            //         targets: flash,
-            //         alpha: 0,
-            //         duration: 40,
-            //         ease: 'Quad.Out',
-            //         onComplete: () => flash.destroy()
-            //     });
-            // }
+            this.cameras.main.shake(SCENE_CONFIG.ANIMATIONS.MINI_SHAKE_DURATION, SCENE_CONFIG.EFFECTS.MINI_SHAKE_INTENSITY);
+            
+            // Try haptic feedback for each keystroke (excluding iOS)
+            if (canVibrate && !isIOS) {
+                try {
+                    // Very short vibration for keystroke feedback
+                    navigator.vibrate(10);
+                } catch (e) {
+                    // Ignore vibration errors
+                }
+            }
         }
+    }
+
+    /**
+     * Test haptic feedback functionality with different patterns
+     * Can be called from console or bound to a test button
+     */
+    testHapticFeedback() {
+        const ua = navigator.userAgent || "";
+        const isIOS = /iphone|ipad|ipod/i.test(ua);
+        const isAndroid = /android/i.test(ua);
+        // Use the same robust check as other methods
+        const canVibrate = typeof navigator.vibrate === 'function';
+        
+        console.log("[HAPTIC TEST] Starting haptic feedback test...");
+        console.log("[HAPTIC TEST] Device info:", {
+            isMobile: this.isMobile,
+            isIOS: isIOS,
+            isAndroid: isAndroid,
+            canVibrate: canVibrate,
+            vibrateType: typeof navigator.vibrate,
+            vibrateExists: 'vibrate' in navigator,
+            userAgent: ua
+        });
+        
+        if (!canVibrate || isIOS) {
+            if (isIOS) {
+                console.log("[HAPTIC TEST] iOS detected - Vibration API not supported in Safari");
+            } else {
+                console.log("[HAPTIC TEST] Vibration API not supported on this device");
+            }
+            // Silently return without showing any error message to the user
+            return false;
+        }
+        
+        // Test patterns
+        const testPatterns = [
+            { name: "Single short", pattern: 50 },
+            { name: "Single medium", pattern: 100 },
+            { name: "Single long", pattern: 200 },
+            { name: "Double tap", pattern: [50, 50, 50] },
+            { name: "Triple tap", pattern: [50, 30, 50, 30, 50] },
+            { name: "SOS pattern", pattern: [100, 50, 100, 50, 100, 200, 300, 50, 300, 50, 300, 200, 100, 50, 100, 50, 100] }
+        ];
+        
+        let currentTest = 0;
+        
+        const runNextTest = () => {
+            if (currentTest >= testPatterns.length) {
+                console.log("[HAPTIC TEST] All tests completed");
+                return;
+            }
+            
+            const test = testPatterns[currentTest];
+            console.log(`[HAPTIC TEST] Testing pattern: ${test.name}`);
+            
+            try {
+                const result = navigator.vibrate(test.pattern);
+                console.log(`[HAPTIC TEST] Pattern "${test.name}" result:`, result);
+                
+                // Visual feedback
+                const feedbackText = this.add.text(
+                    this.cameras.main.centerX,
+                    this.cameras.main.centerY - 100,
+                    `Testing: ${test.name}`,
+                    {
+                        fontFamily: 'Arial',
+                        fontSize: '24px',
+                        color: '#00ff00',
+                        backgroundColor: '#000000',
+                        padding: { x: 20, y: 10 }
+                    }
+                ).setOrigin(0.5).setDepth(1000);
+                
+                this.time.delayedCall(1000, () => {
+                    feedbackText.destroy();
+                    currentTest++;
+                    this.time.delayedCall(500, runNextTest);
+                });
+                
+            } catch (e) {
+                console.error(`[HAPTIC TEST] Error with pattern "${test.name}":`, e);
+                currentTest++;
+                this.time.delayedCall(100, runNextTest);
+            }
+        };
+        
+        // Start the test sequence
+        runNextTest();
+        
+        return true;
     }
 
     createExplosionEffect(word, x, y) {
@@ -2939,7 +3108,14 @@ if (typeof this.add.rexBBCodeText === "function") {
     }
 
 
-    setupInputHandlers() {       
+    setupInputHandlers() {      
+        this.input.keyboard.on('keydown-H', () => {
+            console.log("[HAPTIC TEST] Manual test triggered");
+            this.testHapticFeedback();
+        });
+        
+
+
         // First make sure we have a basic text displayed
         if (this.inputText) {
             // Force update with initial cursor state

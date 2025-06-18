@@ -632,7 +632,7 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     const overlayColor = mode === "easy" ? EASY_COLORS_HEX.BACKGROUND : HARD_COLORS_HEX.BACKGROUND;
     const baseOpacity = 0.9; // Reduced base opacity for better visibility
     // More noticeable reduction per streak intensity level
-    const opacityReduction = streakIntensity * 0.10; // Much larger reduction per intensity level
+    const opacityReduction = streakIntensity * 0.05; // Much larger reduction per intensity level
     const overlayOpacity = Math.max(0.1, baseOpacity - opacityReduction); // Keep minimum opacity at 0.1
     console.log("baseOpacity: ", baseOpacity);
     console.log("opacityReduction: ", opacityReduction);
