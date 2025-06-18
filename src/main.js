@@ -102,7 +102,7 @@ const config = {
         pixelArt: false,
         antialias: true,
         powerPreference: isMobile ? 'default' : 'high-performance',
-        transparent: false,
+        transparent: true,  // Allow background images to show through
         // Better rendering for desktop
         mipmapFilter: 'LINEAR',
         roundPixels: false,

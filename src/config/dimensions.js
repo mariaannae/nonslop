@@ -10,10 +10,30 @@ export function isMobileDevice() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    return (
-        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(ua) ||
-        (touchPoints && Math.min(width, height) < 768)
-    );
+    // More comprehensive mobile detection
+    const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
+    const hasTouch = touchPoints > 0 || 'ontouchstart' in window;
+    const isSmallScreen = width <= 900 || height <= 600;
+    
+    // Consider it mobile if:
+    // 1. Has mobile user agent OR
+    // 2. Has touch capability AND small screen OR
+    // 3. Explicitly mobile/tablet in UA
+    const result = isMobileUA || (hasTouch && isSmallScreen);
+    
+    // Debug logging
+    console.log('[MOBILE DETECTION]', {
+        ua: ua.substring(0, 50) + '...',
+        isMobileUA,
+        hasTouch,
+        touchPoints,
+        width,
+        height,
+        isSmallScreen,
+        result
+    });
+    
+    return result;
 }
 
 /**

@@ -5,7 +5,7 @@ import getLLMEngine from "../services/llmEngineSingleton.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
-import { DEVICE_TYPES, detectDeviceType } from "../config/dimensions.js";
+import { DEVICE_TYPES, detectDeviceType, isMobileDevice } from "../config/dimensions.js";
 
 // Fix: Define missing constants for output box rendering
 
@@ -106,7 +106,11 @@ export default class Preloader extends Phaser.Scene {
             this.tweens.killAll();
         }
         
-        this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // Set background color
+        // Don't set camera background color on mobile - let background images show through
+        const isMobile = isMobileDevice();
+        if (!isMobile) {
+            this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // Set background color only on desktop
+        }
     }
 
     preload() {
@@ -116,9 +120,16 @@ export default class Preloader extends Phaser.Scene {
         //this.load.image('bg', 'bg.png');
         this.load.image('clock', 'clock.svg', { preserveAspectRatio: true });
 
-        // Load mobile background image for preloader
+        // Load mobile background images
         this.load.setPath('assets/backgrounds');
         this.load.image('preloader-mobile-bg', 'background_0.png');
+        
+        // Load game backgrounds for mobile (easy and hard modes, levels 1-3)
+        for (let level = 1; level <= 3; level++) {
+            this.load.image(`easy_lvl_${level}`, `easy_lvl_${level}.png`);
+            this.load.image(`hard_lvl_${level}`, `hard_lvl_${level}.png`);
+        }
+        
         this.load.setPath('assets');
         this.load.image('gh-qr-code', 'gh-qr-code.png');
         this.load.image('settings', 'settings.png');
@@ -431,7 +442,7 @@ export default class Preloader extends Phaser.Scene {
 
         const screenWidth = this.sys.game.canvas.width;
         const screenHeight = this.cameras.main.height;
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const isMobile = isMobileDevice();
 
         // === Background ===
         if (isMobile) {
@@ -593,8 +604,7 @@ export default class Preloader extends Phaser.Scene {
             // Button right edge: 40px (scaled) left of text box right edge
             const buttonX = (boxX + uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
             // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
-            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
-            const buttonVerticalGap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
+            const buttonVerticalGap = isMobileDevice() ? 80 * this.uiScale : 30 * this.uiScale;
             const buttonY = textBoxY + textBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
 // Create button with proper callback

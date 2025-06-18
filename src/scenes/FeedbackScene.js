@@ -4,7 +4,7 @@ import ButtonFactory from "../utils/ButtonFactory.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
-import { detectDeviceType } from "../config/dimensions.js";
+import { detectDeviceType, DEVICE_TYPES } from "../config/dimensions.js";
 
 // DESIGN.UI.OUTLINE.WIDTH, DESIGN.UI.OUTLINE.CORNER_RADIUS, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, DESIGN.UI.BUTTON.WIDTH
 
@@ -115,7 +115,12 @@ export default class FeedbackScene extends Phaser.Scene {
     }
     
     createInputTextBox() {    
-        const textBoxWidth = this.uiBoxWidth;
+        // Use responsive box width matching Preloader's approach
+        const deviceType = detectDeviceType();
+        const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
+        const textBoxWidth = isDesktop
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)  // Narrower on desktop
+            : this.sys.game.canvas.width * (5 / 6);           // Full width on mobile
         const textBoxHeight = 240;
         const padding = 30;
     
@@ -271,7 +276,12 @@ export default class FeedbackScene extends Phaser.Scene {
     createPromptTextBox() {
         this.promptBoxY = 110;
     
-        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
+        // Use responsive box width matching Preloader's approach
+        const deviceType = detectDeviceType();
+        const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
+        const uiBoxWidth = isDesktop
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)  // Narrower on desktop
+            : this.sys.game.canvas.width * (5 / 6);           // Full width on mobile
         const padding = 40;
     
         // Clear existing prompt box graphics if it exists
@@ -292,7 +302,7 @@ export default class FeedbackScene extends Phaser.Scene {
         // Use centralized text style for prompt text
         const textStyle = {
             ...this.getPromptTextStyle(),
-            wordWrap: { width: this.uiBoxWidth - padding * 2 },
+            wordWrap: { width: uiBoxWidth - padding * 2 },
             align: "center"
         };
         
@@ -312,9 +322,9 @@ export default class FeedbackScene extends Phaser.Scene {
         // ✅ Create the Prompt Background Box
         this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
-            this.cameras.main.centerX - this.uiBoxWidth / 2, 
+            this.cameras.main.centerX - uiBoxWidth / 2, 
             this.promptBoxY,
-            this.uiBoxWidth,
+            uiBoxWidth,
             textHeight,
             boxStyle.cornerRadius
         );
@@ -323,9 +333,9 @@ export default class FeedbackScene extends Phaser.Scene {
         if (boxStyle.hasOutline) {
             this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
             this.promptTextBox.strokeRoundedRect(
-                this.cameras.main.centerX - this.uiBoxWidth / 2, 
+                this.cameras.main.centerX - uiBoxWidth / 2, 
                 this.promptBoxY,
-                this.uiBoxWidth,
+                uiBoxWidth,
                 textHeight,
                 boxStyle.cornerRadius
             );
@@ -439,7 +449,6 @@ export default class FeedbackScene extends Phaser.Scene {
         createBackground(this, backgroundConfig, this.levelValue);
 
         // Input Box Creation
-        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         this.createInputTextBox();
         this.createPromptTextBox();
 
@@ -448,9 +457,16 @@ export default class FeedbackScene extends Phaser.Scene {
         this.inputText.setDepth(101).setAlpha(1).setVisible(true);
 
         // Button positioning correctly relative to input box
+        // Use responsive box width matching the input box
+        const deviceType = detectDeviceType();
+        const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
+        const inputBoxWidth = isDesktop
+            ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)  // Narrower on desktop
+            : this.sys.game.canvas.width * (5 / 6);           // Full width on mobile
+        
         const inputBoxX = this.cameras.main.centerX;
         const inputBoxY = this.cameras.main.centerY;
-        const buttonCenterX = inputBoxX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
+        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
         const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
         const buttonCenterY = inputBoxY + 170 + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP; // 170 = half height of input box (340/2), configurable gap below
 

@@ -13,6 +13,7 @@ const CLAMP_RANGES = {
         output: { min: 14, max: 20 },
         tooltip: { min: 14, max: 18 },
         effect: { min: 14, max: 28 },
+        timer: { min: 21, max: 42 },  // 1.5x effect
         button: { min: 14, max: 20 },
         fancyButton: { min: 16, max: 20 },
         transitionText: { min: 30, max: 50 },
@@ -26,6 +27,7 @@ const CLAMP_RANGES = {
         output: { min: 16, max: 28 },
         tooltip: { min: 14, max: 20 },
         effect: { min: 18, max: 32 },
+        timer: { min: 27, max: 48 },  // 1.5x effect
         button: { min: 16, max: 28 },
         fancyButton: { min: 16, max: 28 },
         transitionText: { min: 24, max: 48 },
@@ -38,7 +40,8 @@ const CLAMP_RANGES = {
         input: { min: 24, max: 40 },
         output: { min: 24, max: 40 },
         tooltip: { min: 20, max: 40 },
-        effect: { min: 226, max: 48 },
+        effect: { min: 26, max: 48 },
+        timer: { min: 39, max: 72 },  // 1.5x effect
         button: { min: 26, max: 44 },
         fancyButton: { min: 20, max: 36 },
         transitionText: { min: 36, max: 60 },
@@ -94,6 +97,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             output: 18,
             tooltip: 16,
             effect: 20,
+            timer: 30,  // 1.5x effect
             button: 20,
             fancyButton: 18,
             transitionText: 24,
@@ -107,6 +111,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             output: 18,
             tooltip: 16,
             effect: 20,
+            timer: 30,  // 1.5x effect
             button: 18,
             fancyButton: 18,
             transitionText: 28,
@@ -120,6 +125,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             output: 28,
             tooltip: 18,
             effect: 36,
+            timer: 54,  // 1.5x effect
             button: 26,
             fancyButton: 24,
             transitionText: 36,
@@ -210,6 +216,14 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
             align: 'center'
         },
         effect: {
+            fontFamily: 'IBM Plex Mono',
+            fontSize: `${fontSize}px`,
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3
+        },
+        timer: {
             fontFamily: 'IBM Plex Mono',
             fontSize: `${fontSize}px`,
             fontStyle: 'bold',

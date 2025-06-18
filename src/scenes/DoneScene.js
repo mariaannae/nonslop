@@ -31,7 +31,7 @@ export default class DoneScene extends Phaser.Scene {
     }
 
     createOutputTextBox() {
-        const outputBoxWidth = this.uiBoxWidth - 30;
+        const outputBoxWidth = this.uiBoxWidth;
         const padding = 30;
 
         // Use stored input box position
@@ -137,40 +137,137 @@ export default class DoneScene extends Phaser.Scene {
         });
     }
 
-    // User's scroll event: attaches wheel event to scene input, scrolls outputText (not container)
+    // Enhanced scroll event that supports both desktop (wheel) and mobile (touch)
     addScrollEvent() {
-        // Remove any existing event
-        if (this.scrollWheelEvent) {
-            this.input.off('wheel', this.scrollWheelEvent);
-        }
-
-        // Define the scroll event handler
-        this.scrollWheelEvent = (pointer, gameObjects, deltaX, deltaY) => {
-            if (!this.outputText || !this.outputBoxInfo) return;
-
+        // Initialize scroll position
+        if (typeof this._outputTextScrollY !== "number") this._outputTextScrollY = 0;
+        
+        // Check if we can scroll
+        const canScroll = () => {
+            if (!this.outputText || !this.outputBoxInfo) return false;
             const textHeight = this.outputText.height;
             const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
-
-            if (textHeight <= boxHeight) return;
-
-            // Calculate min and max scroll positions
-            const minScroll = 0;
+            return textHeight > boxHeight;
+        };
+        
+        // Common scroll function used by both wheel and touch
+        const scrollContent = (deltaY) => {
+            if (!canScroll()) return;
+            
+            const textHeight = this.outputText.height;
+            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
             const maxScroll = textHeight - boxHeight;
-
-            // Store current scroll position (default 0)
-            if (typeof this._outputTextScrollY !== "number") this._outputTextScrollY = 0;
-
-            // Apply scroll movement (negative deltaY means scroll down)
+            
+            // Apply scroll movement
             this._outputTextScrollY = Phaser.Math.Clamp(
-                this._outputTextScrollY + deltaY * 0.5,
+                this._outputTextScrollY + deltaY,
                 0,
                 maxScroll
             );
             this.outputText.y = -this._outputTextScrollY;
+            
+            // Update scroll indicator visibility
+            if (this.scrollIndicator) {
+                const isAtBottom = this._outputTextScrollY >= maxScroll - 5;
+                this.scrollIndicator.setVisible(!isAtBottom);
+            }
         };
-
-        // Add the event listener
+        
+        // DESKTOP: Mouse wheel scrolling
+        if (this.scrollWheelEvent) {
+            this.input.off('wheel', this.scrollWheelEvent);
+        }
+        
+        this.scrollWheelEvent = (pointer, gameObjects, deltaX, deltaY) => {
+            scrollContent(deltaY * 0.5);
+        };
+        
         this.input.on('wheel', this.scrollWheelEvent);
+        
+        // MOBILE: Touch scrolling
+        // Make the output box area interactive for touch
+        const hitArea = new Phaser.Geom.Rectangle(
+            this.cameras.main.centerX - this.uiBoxWidth / 2,
+            this.outputBoxInfo.y,
+            this.uiBoxWidth,
+            this.outputBoxInfo.height
+        );
+        
+        // Create an invisible interactive zone for touch
+        const touchZone = this.add.zone(
+            this.cameras.main.centerX,
+            this.outputBoxInfo.y + this.outputBoxInfo.height / 2,
+            this.uiBoxWidth,
+            this.outputBoxInfo.height
+        ).setInteractive().setDepth(11);
+        
+        // Touch scrolling variables
+        let startY = 0;
+        let lastY = 0;
+        let isDragging = false;
+        let velocity = 0;
+        let lastTime = 0;
+        
+        // Start touch
+        touchZone.on('pointerdown', (pointer) => {
+            if (!canScroll()) return;
+            startY = pointer.y;
+            lastY = pointer.y;
+            isDragging = true;
+            velocity = 0;
+            lastTime = pointer.event.timeStamp;
+            
+            // Stop any momentum scrolling
+            if (this.momentumTween) {
+                this.momentumTween.stop();
+            }
+        });
+        
+        // Move touch
+        this.input.on('pointermove', (pointer) => {
+            if (!isDragging || !canScroll()) return;
+            
+            const currentTime = pointer.event.timeStamp;
+            const deltaTime = currentTime - lastTime;
+            const deltaY = lastY - pointer.y;
+            
+            // Calculate velocity for momentum
+            if (deltaTime > 0) {
+                velocity = deltaY / deltaTime * 16; // Convert to per-frame velocity
+            }
+            
+            scrollContent(deltaY);
+            lastY = pointer.y;
+            lastTime = currentTime;
+        });
+        
+        // End touch - add momentum
+        this.input.on('pointerup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            // Add momentum scrolling if velocity is significant
+            if (Math.abs(velocity) > 0.5) {
+                this.momentumTween = this.tweens.add({
+                    targets: { v: velocity },
+                    v: 0,
+                    duration: 1000,
+                    ease: 'Quad.Out',
+                    onUpdate: (tween) => {
+                        const v = tween.getValue();
+                        scrollContent(v);
+                    }
+                });
+            }
+        });
+        
+        // Clean up on scene shutdown
+        this.events.once('shutdown', () => {
+            touchZone.destroy();
+            if (this.momentumTween) {
+                this.momentumTween.stop();
+            }
+        });
     }
 
     // User's scroll indicator: text label at bottom of output box
@@ -179,12 +276,19 @@ export default class DoneScene extends Phaser.Scene {
         if (this.scrollIndicator) {
             this.scrollIndicator.destroy();
         }
+        
+        // Detect if mobile device
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+                         (typeof window !== 'undefined' && window.innerWidth <= 900);
+        
+        // Choose appropriate text based on device
+        const scrollText = isMobile ? "▼ Swipe to scroll ▼" : "▼ Scroll for more ▼";
 
         // Create scroll indicator
         this.scrollIndicator = this.add.text(
             this.cameras.main.centerX,
             this.outputBoxInfo.y + this.outputBoxInfo.height - 15,
-            "▼ Scroll for more ▼",
+            scrollText,
             {
                 fontFamily: 'IBM Plex Mono',
                 fontSize: '16px',
@@ -205,6 +309,32 @@ export default class DoneScene extends Phaser.Scene {
             yoyo: true,
             repeat: -1
         });
+        
+        // Add visual feedback for mobile - create swipe hint animation
+        if (isMobile) {
+            // Create a finger icon that shows swipe gesture
+            const swipeHint = this.add.text(
+                this.cameras.main.centerX,
+                this.outputBoxInfo.y + this.outputBoxInfo.height / 2,
+                '👆',
+                {
+                    fontSize: '40px'
+                }
+            ).setOrigin(0.5, 0.5)
+             .setDepth(12)
+             .setAlpha(0);
+            
+            // Animate the swipe hint
+            this.tweens.add({
+                targets: swipeHint,
+                y: '-=60',
+                alpha: { from: 0, to: 0.6 },
+                duration: 1000,
+                ease: 'Quad.Out',
+                yoyo: true,
+                onComplete: () => swipeHint.destroy()
+            });
+        }
     }
 
 

@@ -64,31 +64,8 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.hideLoadingIndicator();
             this.displayScores();
 
-            // --- Position DONE button below leaderboard ---
-            // Find the bottom Y of the leaderboard (last entry or table header)
-            let leaderboardBottomY = 0;
-            if (this.leaderboardEntries && this.leaderboardEntries.length > 0) {
-                // Get the last entry's container
-                const lastEntry = this.leaderboardEntries[this.leaderboardEntries.length - 1].container;
-                leaderboardBottomY = lastEntry.y;
-                // Add the height of the entry (assume 40 as in createScoreEntry)
-                leaderboardBottomY += 40;
-            } else if (this.tableHeader) {
-                // If no entries, use table header
-                leaderboardBottomY = 200 + 40; // startY + boxHeight
-            } else {
-                leaderboardBottomY = this.cameras.main.centerY;
-            }
-
-            // Create the button at the correct position
+            // Create the button at a fixed position from the bottom
             const button = this.createBackButton();
-
-            // Wait for button to be rendered to get its height
-            this.time.delayedCall(0, () => {
-                // Center horizontally, position so top edge is 60px below leaderboard
-                button.x = this.cameras.main.centerX;
-                button.y = leaderboardBottomY + 60 + (button.height ? button.height / 2 : 32);
-            });
         } catch (error) {
             console.error("[LeaderboardScene] ERROR during create:", error);
             this.hideLoadingIndicator();
@@ -147,8 +124,8 @@ export default class LeaderboardScene extends Phaser.Scene {
         const titleStyle = this.getTitleTextStyle();
 
         this.add.text(
-            this.cameras.main.centerX,
-            70,
+            this.scalingManager.centerX(),
+            this.scalingManager.heightPercent(7), // 7% from top
             '(LEADERBOARD)',
             titleStyle
         ).setOrigin(0.5);
@@ -156,25 +133,40 @@ export default class LeaderboardScene extends Phaser.Scene {
 
     createModeToggle() {
         // Create a container for the toggle and labels
-        this.modeToggleContainer = this.add.container(this.cameras.main.centerX, 140);
+        this.modeToggleContainer = this.add.container(
+            this.scalingManager.centerX(), 
+            this.scalingManager.heightPercent(14) // 14% from top
+        );
+        
+        // Get text style for settings/labels
+        const deviceType = detectDeviceType();
+        const labelStyle = getTextStyle('settings', deviceType, this.mode, this.scalingManager.scale);
         
         // Add labels for the toggle
-        const easyLabel = this.add.text(-50, 0, "EASY", {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
-            color: this.mode === 'easy' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
-            fontStyle: 'bold'
-        }).setOrigin(1, 0.5);
+        const easyLabel = this.add.text(
+            -50 * this.scalingManager.scale, 
+            0, 
+            "EASY", 
+            {
+                ...labelStyle,
+                color: this.mode === 'easy' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
+                fontStyle: 'bold'
+            }
+        ).setOrigin(1, 0.5);
         
-        const hardLabel = this.add.text(50, 0, "HARD", {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
-            color: this.mode === 'hard' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
-            fontStyle: 'bold'
-        }).setOrigin(0, 0.5);
+        const hardLabel = this.add.text(
+            50 * this.scalingManager.scale, 
+            0, 
+            "HARD", 
+            {
+                ...labelStyle,
+                color: this.mode === 'hard' ? this.COLORS_TEXT.HIGHLIGHT : '#ffffff',
+                fontStyle: 'bold'
+            }
+        ).setOrigin(0, 0.5);
         
         // Create the toggle switch
-        const toggleLeftX = -20; // Position relative to center
+        const toggleLeftX = -20 * this.scalingManager.scale; // Position relative to center, scaled
         this.modeToggle = ToggleFactory.createToggle(
             this,
             this.mode,
@@ -257,13 +249,15 @@ export default class LeaderboardScene extends Phaser.Scene {
 
     showLoadingIndicator() {
         this.isLoading = true;
+        const deviceType = detectDeviceType();
+        const textStyle = getTextStyle('prompt', deviceType, this.mode, this.scalingManager.scale);
+        
         this.loadingText = this.add.text(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY,
+            this.scalingManager.centerX(),
+            this.scalingManager.centerY(),
             'Loading scores...',
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
+                ...textStyle,
                 color: '#ffffff'
             }
         ).setOrigin(0.5);
@@ -322,22 +316,36 @@ export default class LeaderboardScene extends Phaser.Scene {
     displayScores() {
         this.clearScoreDisplay();
         
-        const startY = 200;
-        const spacing = 45;
+        // Calculate available height for the leaderboard
+        const buttonHeight = 64; // Estimated button height
+        const bottomMargin = 20;
+        const availableHeight = this.cameras.main.height - bottomMargin - buttonHeight;
+        
+        const startY = this.scalingManager.heightPercent(21); // 21% from top
+        const headerHeight = 35 * this.scalingManager.scale;
+        
+        // Calculate spacing based on number of scores and available space
+        const maxScores = Math.min(this.scores.length, 10);
+        const contentHeight = availableHeight - startY - headerHeight;
+        const baseSpacing = 35 * this.scalingManager.scale;
+        const spacing = maxScores > 0 ? Math.min(baseSpacing, contentHeight / (maxScores + 1)) : baseSpacing;
+        
         const width = this.sys.game.canvas.width * 0.8;
         
         // Create table header
-        this.createTableHeader(startY, width);
+        this.createTableHeader(startY, width, headerHeight);
         
         
         if (this.scores.length === 0) {
+            const deviceType = detectDeviceType();
+            const textStyle = getTextStyle('prompt', deviceType, this.mode, this.scalingManager.scale);
+            
             this.noScoresText = this.add.text(
-                this.cameras.main.centerX,
-                startY + 100,
+                this.scalingManager.centerX(),
+                startY + 80 * this.scalingManager.scale,
                 'No scores yet. Be the first!',
                 {
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: '24px',
+                    ...textStyle,
                     color: '#ffffff'
                 }
             ).setOrigin(0.5);
@@ -346,7 +354,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Create a container for each score entry with a staggered appearance
         this.scores.forEach((score, index) => {
-            const y = startY + spacing * (index + 1);
+            const y = startY + headerHeight + spacing * (index + 1);
             
             // Calculate the medal color (gold, silver, bronze for top 3)
             let medalColor;
@@ -356,7 +364,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             else medalColor = 0x444444;                   // Dark gray for the rest
             
             // Create the entry container
-            const container = this.createScoreEntry(index + 1, score, y, width, medalColor);
+            const container = this.createScoreEntry(index + 1, score, y, width, medalColor, spacing - 5); // Pass row height
             
             // Add entry animation
             container.setAlpha(0);
@@ -373,9 +381,8 @@ export default class LeaderboardScene extends Phaser.Scene {
         });
     }
 
-    createTableHeader(y, width) {
+    createTableHeader(y, width, boxHeight = 35) {
         const padding = 20;
-        const boxHeight = 40;
 
         // Create a rounded rectangle for the header background
         const headerGraphics = this.add.graphics();
@@ -397,9 +404,10 @@ export default class LeaderboardScene extends Phaser.Scene {
         );
 
         // Create column headers
+        const deviceType = detectDeviceType();
+        const baseHeaderStyle = getTextStyle('settings', deviceType, this.mode, this.scalingManager.scale);
         const headerStyle = {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: '18px',
+            ...baseHeaderStyle,
             color: '#ffffff',
             fontStyle: 'bold'
         };
@@ -450,9 +458,8 @@ export default class LeaderboardScene extends Phaser.Scene {
         ]);
     }
 
-    createScoreEntry(rank, score, y, width, medalColor) {
+    createScoreEntry(rank, score, y, width, medalColor, boxHeight = 30) {
         const padding = 20;
-        const boxHeight = 40;
         
         // Create container to hold all the elements
         const container = this.add.container(0, y);
@@ -486,34 +493,39 @@ export default class LeaderboardScene extends Phaser.Scene {
         const date = new Date(score.timestamp);
         const formattedDate = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
         
+        // Get text styles for score entries
+        const deviceType = detectDeviceType();
+        const entryStyle = getTextStyle('settings', deviceType, this.mode, this.scalingManager.scale);
+        const smallEntryStyle = getTextStyle('tooltip', deviceType, this.mode, this.scalingManager.scale);
+        
         // Add rank with medal
         const rankText = this.add.text(
             this.cameras.main.centerX - width / 2 + padding + 10,
             boxHeight / 2,
             `${rank}`,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
+                ...entryStyle,
                 color: '#ffffff',
                 fontStyle: 'bold'
             }
         ).setOrigin(0, 0.5);
         container.add(rankText);
         
-        // Add medal icon for top 3
+        // Add medal icon for top 3 (smaller)
         if (rank <= 3) {
             const medalIcon = this.add.graphics();
             medalIcon.fillStyle(medalColor, 1);
+            const medalRadius = 6 * this.scalingManager.scale;
             medalIcon.fillCircle(
                 this.cameras.main.centerX - width / 2 + padding + 30, 
                 boxHeight / 2,
-                8
+                medalRadius
             );
             medalIcon.lineStyle(1, 0xffffff, 0.8);
             medalIcon.strokeCircle(
                 this.cameras.main.centerX - width / 2 + padding + 30,
                 boxHeight / 2,
-                8
+                medalRadius
             );
             container.add(medalIcon);
         }
@@ -524,8 +536,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             score.username || "Anonymous Player",
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
+                ...entryStyle,
                 color: '#ffffff'
             }
         ).setOrigin(0, 0.5);
@@ -539,8 +550,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             `${levelValue}`,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
+                ...entryStyle,
                 color: levelColor,
                 fontStyle: 'bold'
             }
@@ -553,8 +563,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             `${score.score}`,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
+                ...entryStyle,
                 color: '#ffffff',
                 fontStyle: 'bold'
             }
@@ -567,8 +576,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             boxHeight / 2,
             formattedDate,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '16px',
+                ...smallEntryStyle,
                 color: '#cccccc'
             }
         ).setOrigin(1, 0.5);
@@ -660,13 +668,15 @@ export default class LeaderboardScene extends Phaser.Scene {
         let modalBg;
         
         // Add title
+        const deviceType = detectDeviceType();
+        const modalTitleStyle = getTextStyle('prompt', deviceType, this.mode, this.scalingManager.scale);
+        
         const titleText = this.add.text(
-            this.cameras.main.centerX,
-            y + 30,
+            this.scalingManager.centerX(),
+            y + 30 * this.scalingManager.scale,
             'Score Details',
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '28px',
+                ...modalTitleStyle,
                 color: '#ffffff',
                 fontStyle: 'bold'
             }
@@ -697,11 +707,12 @@ export default class LeaderboardScene extends Phaser.Scene {
         const detailsContainer = this.add.container(0, 0);
         let currentY = y + 100;
         
+        const detailTextStyle = getTextStyle('settings', deviceType, this.mode, this.scalingManager.scale);
+        
         details.forEach((detail) => {
             // Configure text style with word wrap for value text
             const textStyle = {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
+                ...detailTextStyle,
                 color: detail.customColor || '#ffffff',
                 fontStyle: 'bold',
                 wordWrap: { width: textWrapWidth, useAdvancedWrap: true }
@@ -723,12 +734,11 @@ export default class LeaderboardScene extends Phaser.Scene {
             
             // Create label text
             const labelText = this.add.text(
-                x + 50,
+                x + 50 * this.scalingManager.scale,
                 labelY,
                 detail.label,
                 {
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: '18px',
+                    ...detailTextStyle,
                     color: '#cccccc'
                 }
             ).setOrigin(0, 0); // Top-left aligned to match valueText
@@ -772,8 +782,8 @@ export default class LeaderboardScene extends Phaser.Scene {
                     onComplete: () => this.detailsModal.destroy()
                 });
             },
-            this.cameras.main.centerX,
-            y + totalHeight - 40 // Position from the bottom of the new calculated height
+            this.scalingManager.centerX(),
+            y + totalHeight - 40 * this.scalingManager.scale // Position from the bottom of the new calculated height
         );
         
         // Add elements to modal container
@@ -824,9 +834,11 @@ export default class LeaderboardScene extends Phaser.Scene {
         tooltipBg.fillStyle(0x000000, 0.8);
         
         // Create text
+        const deviceType = detectDeviceType();
+        const tooltipStyle = getTextStyle('tooltip', deviceType, this.mode, this.scalingManager.scale);
+        
         const tooltipText = this.add.text(0, 0, text, {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: '14px',
+            ...tooltipStyle,
             color: '#ffffff',
             align: 'center'
         }).setOrigin(0.5);
@@ -891,25 +903,27 @@ export default class LeaderboardScene extends Phaser.Scene {
         dialogBg.strokeRoundedRect(x, y, dialogWidth, dialogHeight, 16);
         
         // Add title and message
+        const deviceType = detectDeviceType();
+        const dialogTitleStyle = getTextStyle('prompt', deviceType, this.mode, this.scalingManager.scale);
+        const dialogMessageStyle = getTextStyle('settings', deviceType, this.mode, this.scalingManager.scale);
+        
         const titleText = this.add.text(
-            this.cameras.main.centerX,
-            y + 40,
+            this.scalingManager.centerX(),
+            y + 40 * this.scalingManager.scale,
             'Confirm Cleanup',
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
+                ...dialogTitleStyle,
                 color: '#ffffff',
                 fontStyle: 'bold'
             }
         ).setOrigin(0.5);
         
         const messageText = this.add.text(
-            this.cameras.main.centerX,
-            y + 80,
+            this.scalingManager.centerX(),
+            y + 80 * this.scalingManager.scale,
             'This will permanently delete scores that are\nnot in the top 10. Continue?',
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '16px',
+                ...dialogMessageStyle,
                 color: '#ffffff',
                 align: 'center'
             }
@@ -926,8 +940,8 @@ export default class LeaderboardScene extends Phaser.Scene {
                     onComplete: () => this.confirmDialog.destroy()
                 });
             },
-            this.cameras.main.centerX - 80,
-            y + dialogHeight - 40
+            this.scalingManager.centerX() - 80 * this.scalingManager.scale,
+            y + dialogHeight - 40 * this.scalingManager.scale
         );
         
         const confirmButton = this.createButton(
@@ -958,8 +972,8 @@ export default class LeaderboardScene extends Phaser.Scene {
                     this.showErrorMessage("Failed to clean up scores");
                 }
             },
-            this.cameras.main.centerX + 80,
-            y + dialogHeight - 40
+            this.scalingManager.centerX() + 80 * this.scalingManager.scale,
+            y + dialogHeight - 40 * this.scalingManager.scale
         );
         
         // Make overlay interactive to close on click outside
@@ -1009,13 +1023,15 @@ export default class LeaderboardScene extends Phaser.Scene {
     showNotification(message, color) {
         // Create notification toast
         const padding = 20;
+        const deviceType = detectDeviceType();
+        const toastStyle = getTextStyle('settings', deviceType, this.mode, this.scalingManager.scale);
+        
         const toastText = this.add.text(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY,
+            this.scalingManager.centerX(),
+            this.scalingManager.centerY(),
             message,
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '18px',
+                ...toastStyle,
                 color: '#ffffff',
                 fontStyle: 'bold'
             }
@@ -1027,8 +1043,8 @@ export default class LeaderboardScene extends Phaser.Scene {
         const toastBg = this.add.graphics();
         toastBg.fillStyle(color, 0.9);
         toastBg.fillRoundedRect(
-            this.cameras.main.centerX - width / 2,
-            this.cameras.main.centerY - height / 2,
+            this.scalingManager.centerX() - width / 2,
+            this.scalingManager.centerY() - height / 2,
             width,
             height,
             10
@@ -1039,12 +1055,12 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Animate toast
         toast.setAlpha(0);
-        toast.setY(this.cameras.main.centerY + 50);
+        toast.setY(this.scalingManager.centerY() + 50 * this.scalingManager.scale);
         
         this.tweens.add({
             targets: toast,
             alpha: 1,
-            y: this.cameras.main.centerY,
+            y: this.scalingManager.centerY(),
             duration: 300,
             ease: 'Back.Out',
             onComplete: () => {
@@ -1053,7 +1069,7 @@ export default class LeaderboardScene extends Phaser.Scene {
                     this.tweens.add({
                         targets: toast,
                         alpha: 0,
-                        y: this.cameras.main.centerY - 50,
+                        y: this.scalingManager.centerY() - 50 * this.scalingManager.scale,
                         duration: 300,
                         ease: 'Back.In',
                         onComplete: () => toast.destroy()
@@ -1064,22 +1080,12 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
     
     createBackButton() {
-        // Detect if device is mobile (Phaser or window.innerWidth)
-        const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS || window.innerWidth <= 600;
-        const mobilePadding = 32;
-        const desktopPadding = 60;
-
-        // Use window.innerWidth/innerHeight for mobile button placement if camera is much larger than window
-        let buttonX, buttonY;
-        if (isMobile && (this.cameras.main.height > window.innerHeight * 1.2)) {
-            buttonX = window.innerWidth / 2;
-            buttonY = window.innerHeight - mobilePadding;
-        } else {
-            buttonX = this.sys.game.canvas.width / 2;
-            buttonY = isMobile
-                ? this.cameras.main.height - mobilePadding
-                : this.cameras.main.height - desktopPadding;
-        }
+        // Fixed position from bottom with 20px margin
+        const bottomMargin = 20;
+        const buttonHeight = 64; // Estimated button height
+        
+        const buttonX = this.cameras.main.centerX;
+        const buttonY = this.cameras.main.height - bottomMargin - buttonHeight / 2;
 
         const button = this.createButton(
             "DONE",
@@ -1088,23 +1094,11 @@ export default class LeaderboardScene extends Phaser.Scene {
             buttonY
         );
 
-        // On mobile, optionally increase button size or set higher depth
-        if (isMobile) {
-            button.setScale(1.15);
-            button.setDepth(9999); // Ensure above all overlays
-            if (button.setScrollFactor) {
-                button.setScrollFactor(0);
-            }
-        }
+        // Ensure button is above everything
+        button.setDepth(9999);
+        
         // Debug: log button position and visibility
-        console.log("[LeaderboardScene] DONE button position:", button.x, button.y, "visible:", button.visible);
-
-        // Add hover effect (desktop only)
-        if (!isMobile) {
-            button.setInteractive()
-                .on('pointerover', () => button.setScale(1.1))
-                .on('pointerout', () => button.setScale(1));
-        }
+        console.log("[LeaderboardScene] DONE button position:", button.x, button.y, "canvas height:", this.cameras.main.height);
 
         return button;
     }

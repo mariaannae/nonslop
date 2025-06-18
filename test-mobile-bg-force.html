@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mobile Background Test - Force Mobile</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    
+    <!-- Override navigator to simulate mobile -->
+    <script>
+        // Store original values
+        const originalUA = navigator.userAgent;
+        const originalMaxTouchPoints = navigator.maxTouchPoints;
+        
+        // Override navigator properties to simulate mobile
+        Object.defineProperty(navigator, 'userAgent', {
+            get: function() { return 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'; }
+        });
+        
+        Object.defineProperty(navigator, 'maxTouchPoints', {
+            get: function() { return 5; }
+        });
+        
+        // Add touch event support
+        window.ontouchstart = function() {};
+        
+        console.log('Simulating mobile environment:');
+        console.log('User Agent:', navigator.userAgent);
+        console.log('Max Touch Points:', navigator.maxTouchPoints);
+        console.log('Has ontouchstart:', 'ontouchstart' in window);
+    </script>
+    
+    <script src="phaser.js"></script>
+    <script type="module">
+        import { getOptimalDimensions } from './src/config/dimensions.js';
+        
+        // Test mobile detection
+        const dimensions = getOptimalDimensions();
+        console.log('Optimal dimensions:', dimensions);
+        
+        // Simple test scene
+        class TestScene extends Phaser.Scene {
+            constructor() {
+                super({ key: 'TestScene' });
+            }
+            
+            preload() {
+                this.load.setPath('assets/backgrounds');
+                this.load.image('easy_lvl_1', 'easy_lvl_1.png');
+            }
+            
+            create() {
+                console.log('Scene created, canvas size:', this.sys.game.canvas.width, 'x', this.sys.game.canvas.height);
+                console.log('Camera size:', this.cameras.main.width, 'x', this.cameras.main.height);
+                
+                // Clear camera background color
+                this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
+                
+                // Test if we can load and display the background
+                const bg = this.add.image(
+                    this.cameras.main.centerX,
+                    this.cameras.main.centerY,
+                    'easy_lvl_1'
+                );
+                
+                // Scale to cover
+                const scaleX = this.cameras.main.width / bg.width;
+                const scaleY = this.cameras.main.height / bg.height;
+                const scale = Math.max(scaleX, scaleY) * 1.1;
+                bg.setScale(scale);
+                
+                console.log('Background created:', {
+                    position: `${bg.x}, ${bg.y}`,
+                    scale: bg.scale,
+                    visible: bg.visible,
+                    texture: bg.texture.key
+                });
+                
+                // Add some text to confirm scene is running
+                this.add.text(
+                    this.cameras.main.centerX,
+                    50,
+                    'Mobile Background Test\nForced Mobile Mode',
+                    {
+                        fontSize: '24px',
+                        color: '#ffffff',
+                        stroke: '#000000',
+                        strokeThickness: 4,
+                        align: 'center'
+                    }
+                ).setOrigin(0.5);
+            }
+        }
+        
+        // Create game
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            width: dimensions.width,
+            height: dimensions.height,
+            scale: {
+                mode: dimensions.mode,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            },
+            scene: TestScene
+        };
+        
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+</html>

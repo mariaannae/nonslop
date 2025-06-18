@@ -8,7 +8,7 @@ import { createBackground } from "../backgrounds/createBackground.js";
 import registryManager from "../services/RegistryManager.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle, getAutocompleteTextStyle, getMenuBarStyle } from "../config/textStyles.js";
-import { detectDeviceType } from "../config/dimensions.js";
+import { detectDeviceType, isMobileDevice } from "../config/dimensions.js";
 
 
 /**
@@ -62,7 +62,7 @@ const SCENE_CONFIG = {
     // Timer configuration
     TIMER: {
         DEFAULT_VALUE: 20,
-        UPDATE_INTERVAL: 1000
+        UPDATE_INTERVAL: 1000 //ms
     },
     
     // Visual effects
@@ -132,8 +132,8 @@ const SCENE_CONFIG = {
     
     // Fast typing penalty
     FAST_TYPING: {
-        DEFAULT_PENALTY_SECONDS: 2,
-        DEFAULT_COOLDOWN_MS: 200,
+        DEFAULT_PENALTY_SECONDS: 3,
+        DEFAULT_COOLDOWN_MS: 150,
         MODAL_WIDTH_RATIO: 0.8,
         MODAL_MAX_WIDTH: 500,
         MODAL_HEIGHT: 180,
@@ -165,9 +165,9 @@ export default class BaseGameScene extends Phaser.Scene {
         // Initialize mode to a default value - it will be properly set in init()
         this.mode = 'easy';
         
-        // Cache device type once to avoid repeated regex tests
-        this._isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || window.screen.width < 900;
-        this._isDesktop = !this._isMobile;
+        // Don't cache device type in constructor - evaluate it in create()
+        this._isMobile = null;
+        this._isDesktop = null;
         
         // Track if calculateUIPositions has been called
         this._calculateUIPositionsCalled = false;
@@ -200,12 +200,20 @@ export default class BaseGameScene extends Phaser.Scene {
 
     }
     
-    // Getter methods for clean access to cached device type
+    // Getter methods for device type - evaluate on demand if not set
     get isMobile() {
+        if (this._isMobile === null) {
+            this._isMobile = isMobileDevice();
+            this._isDesktop = !this._isMobile;
+        }
         return this._isMobile;
     }
     
     get isDesktop() {
+        if (this._isDesktop === null) {
+            this._isMobile = isMobileDevice();
+            this._isDesktop = !this._isMobile;
+        }
         return this._isDesktop;
     }
     
@@ -486,7 +494,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 padding: { x: 15, y: 10 },
                 align: 'center'
             }
-        ).setOrigin(0.5).setDepth(101).setAlpha(0);
+        ).setOrigin(0.5).setDepth(2001).setAlpha(0);
         
         // Calculate the necessary width and height for the hexagon background with some padding
         const width = blockedText.width + 80; // Add padding
@@ -525,7 +533,7 @@ export default class BaseGameScene extends Phaser.Scene {
         
         hexBg.fill();
         hexBg.stroke();
-        hexBg.setDepth(100).setAlpha(0);
+        hexBg.setDepth(2000).setAlpha(0);
         
         // Add subtext - position in lower part of octagon
         const subText = this.add.text(
@@ -540,7 +548,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 stroke: '#000000',
                 strokeThickness: 2 // Reduced from 3
             }
-        ).setOrigin(0.5).setDepth(101).setAlpha(0);
+        ).setOrigin(0.5).setDepth(2001).setAlpha(0);
         
         // Animate all elements together - fade in quickly
         this.tweens.add({
@@ -967,7 +975,12 @@ export default class BaseGameScene extends Phaser.Scene {
      * Create method to ensure proper initialization
      */
     create(data) {
+        // Re-evaluate device type now that the scene is ready
+        this._isMobile = isMobileDevice();
+        this._isDesktop = !this._isMobile;
+        
         console.log("[DEBUG] BaseGameScene create() START");
+        console.log("[DEBUG] window.innerWidth:", window.innerWidth);
         console.log("[DEBUG] this.isMobile:", this.isMobile);
         console.log("[DEBUG] Scene key:", this.scene.key);
         
@@ -983,11 +996,53 @@ export default class BaseGameScene extends Phaser.Scene {
         this.createMenuBar();
         console.log("[DEBUG] Menu bar created, menuBarHeight:", this.menuBarHeight);
         
+        // Clear camera background color for mobile to allow background images to show through
+        if (this.isMobile) {
+            this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
+            console.log("[DEBUG] Mobile: Cleared camera background color");
+        }
+        
         // Now that there are no child scenes, call relayoutScene directly to build the UI
         this.relayoutScene(this.sys.game.canvas.width, this.cameras.main.height, this.sys.game.config.orientation === Phaser.Scale.PORTRAIT);
         // Force background creation here for debugging
-        this.updateBackgroundForLevel();
+        console.log("[DEBUG] About to call updateBackgroundForLevel");
+        console.log("[DEBUG] typeof this.updateBackgroundForLevel:", typeof this.updateBackgroundForLevel);
+        console.log("[DEBUG] this.updateBackgroundForLevel exists:", !!this.updateBackgroundForLevel);
+        try {
+            this.updateBackgroundForLevel();
+            console.log("[DEBUG] updateBackgroundForLevel call completed successfully");
+        } catch (error) {
+            console.error("[DEBUG] Error calling updateBackgroundForLevel:", error);
+            console.error("[DEBUG] Error stack:", error.stack);
+        }
         console.log("[DEBUG] BaseGameScene.create() COMPLETED - relayoutScene and updateBackgroundForLevel called");
+        
+        // Debug: Log everything in the display list
+        console.log("[BG-DEBUG] === DISPLAY LIST AFTER CREATE ===");
+        console.log("[BG-DEBUG] Total children:", this.children.list.length);
+        this.children.list.forEach((child, index) => {
+            console.log(`[BG-DEBUG] ${index}:`, {
+                type: child.type,
+                texture: child.texture ? child.texture.key : 'N/A',
+                depth: child.depth,
+                position: `(${child.x}, ${child.y})`,
+                size: child.width ? `${child.width}x${child.height}` : 'N/A',
+                visible: child.visible,
+                alpha: child.alpha
+            });
+        });
+        
+        // Check if background exists and is visible
+        if (this.background) {
+            console.log("[BG-DEBUG] Background object exists:", {
+                inDisplayList: this.children.list.includes(this.background),
+                depth: this.background.depth,
+                visible: this.background.visible,
+                alpha: this.background.alpha
+            });
+        } else {
+            console.error("[BG-DEBUG] ERROR: this.background is null!");
+        }
         
         // Ensure input handlers are set up after UI is created
         // This is crucial for mode switching to work properly
@@ -2504,6 +2559,8 @@ if (typeof this.add.rexBBCodeText === "function") {
                                         if (this._hiddenInput) {
                                             this._hiddenInput.value = this.userInput;
                                         }
+                                        // Update fail counter to reset streak
+                                        this.updateFailsCounter(false);
                                     } else {
                                         // Easy mode - just update counter and shake
                                         this.updateFailsCounter(false);
@@ -2618,13 +2675,26 @@ if (typeof this.add.rexBBCodeText === "function") {
                         Array.isArray(this.aiSuggestedWords) &&
                         this.aiSuggestedWords.some(word => word && word.toLowerCase && word.toLowerCase() === lastWordLower);
                     if (isAIWord) {
-                        this.updateFailsCounter(false);
-                        // Call shakeScreen for mobile when an AI word is detected
-                        this.shakeScreen();
-                        
-                        // Call showBlockFeedback in hard mode
-                        if (this.mode === 'hard' && typeof this.showBlockFeedback === 'function') {
-                            this.showBlockFeedback(lastWord);
+                        // In hard mode, delete the AI word immediately
+                        if (this.mode === 'hard') {
+                            // Delete the word before showing feedback
+                            if (typeof this.deleteAIWord === 'function') {
+                                this.deleteAIWord(lastWord);
+                            }
+                            // Show feedback after deletion
+                            if (typeof this.showBlockFeedback === 'function') {
+                                this.showBlockFeedback(lastWord);
+                            }
+                            // Sync the hidden input after deletion
+                            if (this._hiddenInput) {
+                                this._hiddenInput.value = this.userInput;
+                            }
+                            // Update fail counter to reset streak
+                            this.updateFailsCounter(false);
+                        } else {
+                            // Easy mode - just update counter and shake
+                            this.updateFailsCounter(false);
+                            this.shakeScreen();
                         }
                     } else {
                         this.updateFailsCounter(true);
@@ -3556,7 +3626,8 @@ if (typeof this.add.rexBBCodeText === "function") {
         // Create timer text in the upper left corner
         const deviceType = detectDeviceType();
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
-        const timerStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
+        const timerStyle = getTextStyle('timer', deviceType, this.mode || 'basic', uiScale);
+        console.log("timerStyle: ", timerStyle);
         this.timerText = this.add.text(20, this.menuBarHeight + 20, '0:20', {
             ...timerStyle,
             fontStyle: 'bold',
@@ -5478,6 +5549,9 @@ this.aiCountText = this.add.text(
             // Get the last word from user input
             const words = this.userInput.trim().split(/\s+/);
             const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, ''); // Remove punctuation
+            
+            // Create particle effects for successful word entry
+            this.createWordSuccessParticles();
         } else {
             // AI word - negative effects     
             newPercentage = this.progressPercentage - this.progressIncrement;
@@ -5567,41 +5641,94 @@ this.aiCountText = this.add.text(
      * Create particle burst for successful word entry
      */
     createWordSuccessParticles() {
-        // Determine input position for the effect origin
-        const inputBoxY = this.cameras.main.centerY - 240 / 2;
-        const inputBoxHeight = 240;
-        const inputBoxCenterY = inputBoxY + inputBoxHeight / 2;
+        // Calculate cursor position based on current text
+        let cursorX, cursorY;
+        
+        if (this.inputText && this.inputText.x && this.inputText.y) {
+            // Get the input text style properties
+            const fontSize = parseInt(this.inputText.style.fontSize);
+            const lineHeight = fontSize * 1.2;
+            const padding = this.isMobile ? 20 : 28; // Match the padding from createInputSection
+            
+            // Calculate how many lines the text spans
+            const textWidth = this.inputBoxWidth - padding * 2; // Available width for text
+            
+            // Create a temporary text object with word wrap to measure properly
+            const tempText = this.add.text(0, 0, this.userInput, {
+                fontFamily: this.inputText.style.fontFamily,
+                fontSize: this.inputText.style.fontSize,
+                fontStyle: this.inputText.style.fontStyle || 'normal',
+                wordWrap: { width: textWidth }
+            });
+            
+            // Get the number of lines
+            const lines = tempText.getWrappedText(this.userInput);
+            const currentLineIndex = lines.length - 1; // We're at the end of the text
+            
+            // Get the text on the current (last) line
+            const currentLineText = lines[currentLineIndex] || '';
+            
+            // Measure just the current line's width
+            tempText.setText(currentLineText);
+            const currentLineWidth = tempText.width;
+            
+            // Calculate cursor X position (at the end of the current line)
+            cursorX = this.inputText.x + currentLineWidth;
+            
+            // Calculate cursor Y position (accounting for line number)
+            // Start from the top of the first line and add line height for each line
+            cursorY = this.inputText.y + (currentLineIndex * lineHeight) + lineHeight / 2;
+            
+            // Clean up temporary text
+            tempText.destroy();
+            
+            // Clamp cursor position to stay within input box bounds
+            const inputBoxRight = this.inputBoxX + this.inputBoxWidth - padding;
+            cursorX = Math.min(cursorX, inputBoxRight);
+            
+            // Also clamp Y position to stay within input box
+            const inputBoxBottom = this.inputBoxY + this.inputBoxHeight - padding;
+            cursorY = Math.min(cursorY, inputBoxBottom - lineHeight / 2);
+        } else {
+            // Fallback to center if inputText is not available
+            cursorX = this.cameras.main.centerX;
+            cursorY = this.inputBoxY + this.inputBoxHeight / 2;
+        }
         
         // Calculate a dynamic color based on streak
         let colors;
-        if (this.wordStreak >= 10) {
-            // Gold particles for high streaks
-            colors = [0xffd700, 0xffcc00, 0xffaa00, 0xff8800];
+        if (this.wordStreak >= 20) {
+            // Mostly green with hint of white for high streaks
+            colors = [0x00ff00, 0x22ff22, 0x44ff44, 0xeeffee];
+        } else if (this.wordStreak >= 15) {
+            // More white, transitioning to green
+            colors = [0xffffff, 0xeeffff, 0xddffdd, 0xaaffaa];
+        } else if (this.wordStreak >= 10) {
+            // Mostly white with hints of teal and green
+            colors = [0xffffff, 0xf0ffff, 0xe0ffff, 0xd0ffd0];
         } else if (this.wordStreak >= 5) {
-            // Orange particles for medium streaks
-            colors = [0xff8c00, 0xff7700, 0xff6600, 0xff5500];
-        } else if (this.wordStreak >= 3) {
-            // Green particles for small streaks
-            colors = [0x00ff00, 0x33ff33, 0x66ff66, 0x99ff99];
+            // White with more teal
+            colors = [0xeeffff, 0xccffff, 0xaaffff, 0xffffff];
         } else {
-            // Blue particles for no streak
-            colors = [0x4169e1, 0x5a7de1, 0x6a95e1, 0x7aaae1];
+            // Mostly teal with a bit of white for low/no streak
+            colors = [0x20e3e3, 0x40e3e3, 0x60e3e3, 0xf0ffff];
         }
         
-        // Create particles
-        for (let i = 0; i < 15 + Math.min(this.wordStreak * 2, 30); i++) {
-            const size = Phaser.Math.Between(3, 6);
+        // Create more particles but much smaller
+        const particleCount = 20 + Math.min(this.wordStreak * 2, 45);
+        for (let i = 0; i < particleCount; i++) {
+            const size = Phaser.Math.Between(2, 6); // Double the size (2-6 pixels)
             const color = colors[Phaser.Math.Between(0, colors.length - 1)];
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            const speed = Phaser.Math.FloatBetween(100, 200);
+            const speed = Phaser.Math.FloatBetween(200, 400); // Double the speed for larger explosion area
             
             const particle = this.add.circle(
-                this.cameras.main.centerX,
-                inputBoxCenterY,
+                cursorX,
+                cursorY,
                 size,
                 color,
-                0.8
-            ).setDepth(95);
+                0.9 // Slightly transparent
+            ).setDepth(500);
             
             // Calculate velocity
             const vx = Math.cos(angle) * speed;
@@ -5612,15 +5739,32 @@ this.aiCountText = this.add.text(
                 targets: particle,
                 x: particle.x + vx,
                 y: particle.y + vy,
-                alpha: 0,
-                scale: { from: 1, to: 0 },
-                duration: Phaser.Math.Between(600, 1000),
+                alpha: { from: 0.9, to: 0 },
+                scale: { from: 1, to: 0.5 }, // Scale down for subtle effect
+                duration: Phaser.Math.Between(600, 1500),
                 ease: 'Cubic.Out',
                 onComplete: () => particle.destroy()
             });
         }
         
+        // Add a subtle flash effect at the cursor position
+        const flash = this.add.circle(
+            cursorX,
+            cursorY,
+            30, // Double the flash size
+            colors[0],
+            0.4
+        ).setDepth(499);
         
+        // Animate the flash
+        this.tweens.add({
+            targets: flash,
+            scale: { from: 0.5, to: 4 }, // Double the scale animation range
+            alpha: { from: 0.4, to: 0 },
+            duration: 300,
+            ease: 'Expo.Out',
+            onComplete: () => flash.destroy()
+        });
     }
 
     // Visual effects for progress bar: scale pop, color flash, shake
@@ -5743,6 +5887,12 @@ this.aiCountText = this.add.text(
                 });
                 this.background.flares = null;
             }
+            
+            // Clean up mobile overlay if it exists
+            if (this.background.overlay) {
+                this.background.overlay.destroy();
+                this.background.overlay = null;
+            }
         }
     }
     
@@ -5785,32 +5935,46 @@ this.aiCountText = this.add.text(
                     text,
                     {
                         ...effectStyle,
+                        fontSize: '28px', // Larger font size
                         fontStyle: 'bold',
-                        fill: '#ffffff',
-                        stroke: '#000000',
-                        strokeThickness: 4,
+                        fill: '#ffff00', // Bright yellow for better visibility
+                        stroke: '#ff0000', // Red stroke for contrast
+                        strokeThickness: 6, // Thicker stroke
                         shadow: {
-                            offsetX: 2,
-                            offsetY: 2,
+                            offsetX: 3,
+                            offsetY: 3,
                             color: '#000000',
-                            blur: 5,
+                            blur: 8,
                             stroke: true,
                             fill: true
                         }
                     }
-                ).setOrigin(0.5, 0.5).setDepth(100);
+                ).setOrigin(0.5, 0.5).setDepth(1000); // Much higher depth
                 
-                // Animate the celebration text
+                // Animate the celebration text with proper visibility
                 celebrationText.setAlpha(0);
-                this.fadeIn(celebrationText, 200);
+                celebrationText.setScale(0.5);
+                
+                // First fade in and scale up
                 this.tweens.add({
                     targets: celebrationText,
-                    y: celebrationText.y - 50, // Move up from its starting position
-                    alpha: 0,
-                    scale: { from: 0.8, to: 1.2 },
-                    duration: 1500,
-                    ease: 'Power2',
-                    onComplete: () => celebrationText.destroy()
+                    alpha: 1,
+                    scale: 1,
+                    duration: 300,
+                    ease: 'Back.Out',
+                    onComplete: () => {
+                        // Then animate up and fade out after a delay
+                        this.tweens.add({
+                            targets: celebrationText,
+                            y: celebrationText.y - 80,
+                            alpha: 0,
+                            scale: 1.5,
+                            duration: 1200,
+                            delay: 500, // Keep visible for 500ms
+                            ease: 'Power2.In',
+                            onComplete: () => celebrationText.destroy()
+                        });
+                    }
                 });
                 
                 // Highlight the word stats panel for a moment
@@ -5822,20 +5986,6 @@ this.aiCountText = this.add.text(
                         repeat: 2,
                         ease: 'Sine.InOut'
                     });
-                }
-                
-                // Screen flash for big milestones
-                if (milestone >= 10) {
-                    const flashColor = milestone >= 15 ? 0xffd700 : 0xff8c00;
-                    const flash = this.add.rectangle(
-                        0, 0,
-                        this.sys.game.canvas.width,
-                        this.cameras.main.height,
-                        flashColor,
-                        0.3
-                    ).setOrigin(0).setDepth(99);
-                    
-                    this.fadeOut(flash, 500, 'Power2', () => flash.destroy());
                 }
                 
                 // Only celebrate the highest milestone crossed
@@ -6344,6 +6494,23 @@ this.aiCountText = this.add.text(
         const duration = performance.now() - startTime;
     }
 
+    preload() {
+        // Ensure mobile background images are loaded
+        // This is a backup in case they weren't loaded in Preloader
+        const isMobileCheck = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+                             (typeof window !== 'undefined' && window.innerWidth <= 900);
+        
+        if (isMobileCheck) {
+            console.log("[MOBILE BG] Preloading mobile backgrounds in BaseGameScene");
+            this.load.setPath('assets/backgrounds');
+            for (let level = 1; level <= 3; level++) {
+                this.load.image(`easy_lvl_${level}`, `easy_lvl_${level}.png`);
+                this.load.image(`hard_lvl_${level}`, `hard_lvl_${level}.png`);
+            }
+            this.load.setPath('assets');
+        }
+    }
+    
     init(data) {
         // CRITICAL: Reset the shutdown flag when the scene starts
         // This was the bug - the flag remained true after mode switching
@@ -6358,6 +6525,9 @@ this.aiCountText = this.add.text(
             // Force a complete reset of game state when switching modes
             this.resetGameState();
         }
+        
+        // Don't set a camera background color - let the background images show through
+        // this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // REMOVED - was covering mobile backgrounds
         
         // If this is a reset from DoneScene or FeedbackScene, reset game state but preserve level and topK
         if (data && data.requiresReset) {
@@ -6431,22 +6601,99 @@ this.aiCountText = this.add.text(
      * Update background based on current level and streak
      */
     updateBackgroundForLevel() {
+        console.log("[MOBILE BG DEBUG] updateBackgroundForLevel called");
+        console.log("[MOBILE BG DEBUG] Current scene:", this.scene.key);
+        console.log("[MOBILE BG DEBUG] Mode:", this.mode);
+        console.log("[MOBILE BG DEBUG] Level:", this.levelValue);
+        
         // Clean up existing background elements first
         if (this.background) {
+            console.log("[MOBILE BG DEBUG] Destroying existing background");
+            
+            // IMPORTANT: Clean up the overlay BEFORE destroying the background
+            // This prevents overlays from stacking on mobile
+            if (this.background.overlay) {
+                console.log("[MOBILE BG DEBUG] Destroying existing overlay");
+                this.background.overlay.destroy();
+                this.background.overlay = null;
+            }
+            
+            // Also clean up any tint overlay if it exists
+            if (this.background.tintOverlay) {
+                console.log("[MOBILE BG DEBUG] Destroying existing tint overlay");
+                this.background.tintOverlay.destroy();
+                this.background.tintOverlay = null;
+            }
+            
+            // Clean up any other streak-related visuals
+            this.cleanupStreakVisuals();
+            
             this.background.destroy();
         }
+        
         // DEBUG: Log background config and canvas size
         const bgConfig = THEMES[this.mode]?.background;
         const w = this.sys.game.config.width || this.cameras.main.width;
         const h = this.sys.game.config.height || this.cameras.main.height;
-        console.log("[DEBUG] updateBackgroundForLevel: mode=", this.mode, "level=", this.levelValue, "streak=", this.wordStreak, "bgConfig=", bgConfig, "canvas size:", w, h);
+        console.log("[MOBILE BG DEBUG] bgConfig:", bgConfig);
+        console.log("[MOBILE BG DEBUG] Canvas size:", w, "x", h);
+        console.log("[MOBILE BG DEBUG] isMobile:", this.isMobile);
+        console.log("[MOBILE BG DEBUG] navigator.userAgent:", navigator.userAgent);
+        console.log("[MOBILE BG DEBUG] window.innerWidth:", window.innerWidth);
+        
+        if (!bgConfig) {
+            console.error("[MOBILE BG DEBUG] No background config found for mode:", this.mode);
+            return;
+        }
+        
         if (!w || !h || w < 10 || h < 10) {
-            console.warn("[DEBUG] Background creation delayed: invalid canvas size", w, h);
+            console.warn("[MOBILE BG DEBUG] Background creation delayed: invalid canvas size", w, h);
             this.time.delayedCall(50, () => this.updateBackgroundForLevel());
             return;
         }
+        
         // Create new background based on level and mode with streak effects
-        this.background = createBackground(this, bgConfig, this.levelValue, this.wordStreak || 0);
+        console.log("[MOBILE BG DEBUG] Calling createBackground...");
+        console.log("[MOBILE BG DEBUG] About to call createBackground with:", {
+            scene: this,
+            bgConfig: bgConfig,
+            levelValue: this.levelValue,
+            wordStreak: this.wordStreak || 0
+        });
+        
+        try {
+            console.log("[MOBILE BG DEBUG] About to import createBackground...");
+            // Make sure createBackground is imported
+            if (typeof createBackground === 'undefined') {
+                console.error("[MOBILE BG DEBUG] ERROR: createBackground is undefined!");
+                console.error("[MOBILE BG DEBUG] Check import statement at top of file");
+                return;
+            }
+            console.log("[MOBILE BG DEBUG] createBackground function exists, calling it now...");
+            createBackground(this, bgConfig, this.levelValue, this.wordStreak || 0);
+            console.log("[MOBILE BG DEBUG] createBackground call completed");
+        } catch (error) {
+            console.error("[MOBILE BG DEBUG] Error calling createBackground:", error);
+            console.error("[MOBILE BG DEBUG] Error stack:", error.stack);
+            console.error("[MOBILE BG DEBUG] Error message:", error.message);
+        }
+        
+        // Check if background was created
+        if (this.background) {
+            console.log("[MOBILE BG DEBUG] Background created successfully!");
+            console.log("[MOBILE BG DEBUG] Background properties:", {
+                x: this.background.x,
+                y: this.background.y,
+                width: this.background.width,
+                height: this.background.height,
+                depth: this.background.depth,
+                visible: this.background.visible,
+                alpha: this.background.alpha,
+                texture: this.background.texture ? this.background.texture.key : 'N/A'
+            });
+        } else {
+            console.error("[MOBILE BG DEBUG] Background was NOT created!");
+        }
     }
     
     /**

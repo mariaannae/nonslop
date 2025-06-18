@@ -4,6 +4,9 @@
  * Call createBackground(scene, backgroundConfig, levelValue)
  */
 
+import { isMobileDevice } from '../config/dimensions.js';
+import { EASY_COLORS_HEX, HARD_COLORS_HEX } from '../config/design.js';
+
 // Helper: Convert hex to CSS string
 function hexToString(hex) {
   return "#" + hex.toString(16).padStart(6, "0");
@@ -481,53 +484,232 @@ function getStreakIntensity(streak) {
 
 // Main entry point - updated to support streak-based effects
 export function createBackground(scene, backgroundConfig, levelValue = 1, wordStreak = 0) {
+  console.log("[BG] === createBackground START ===");
+  console.log("[BG] Scene:", scene.scene.key);
+  console.log("[BG] Config:", JSON.stringify(backgroundConfig));
+  console.log("[BG] Level:", levelValue, "Streak:", wordStreak);
+  
+  // Check if scene is valid
+  if (!scene || !scene.cameras || !scene.cameras.main) {
+    console.error("[BG] ERROR: Invalid scene or cameras not ready");
+    return;
+  }
+  
   const width = scene.cameras.main.width;
   const height = scene.cameras.main.height;
   const effect = backgroundConfig?.effect || "static";
   const color = backgroundConfig?.color || 0x000000;
   const asset = backgroundConfig?.asset || null;
   const params = backgroundConfig?.params || {};
+  
+  console.log("[BG] Dimensions:", width, "x", height);
+  console.log("[BG] Effect:", effect, "Color:", color);
 
-  // Static image background
-  if (effect === "static" && asset) {
-    scene.background = scene.add.image(0, 0, asset)
-      .setOrigin(0)
-      .setDisplaySize(width, height)
-      .setDepth(-1);
-    return;
-  }
-
+  // Force log all mobile detection info
+  console.log("[BG-DETECTION] === MOBILE DETECTION DEBUG ===");
+  console.log("[BG-DETECTION] navigator.userAgent:", navigator.userAgent);
+  console.log("[BG-DETECTION] window.innerWidth:", window.innerWidth);
+  console.log("[BG-DETECTION] window.innerHeight:", window.innerHeight);
+  console.log("[BG-DETECTION] screen.width:", screen.width);
+  console.log("[BG-DETECTION] screen.height:", screen.height);
+  console.log("[BG-DETECTION] navigator.maxTouchPoints:", navigator.maxTouchPoints);
+  console.log("[BG-DETECTION] 'ontouchstart' in window:", 'ontouchstart' in window);
+  
+  // Use centralized mobile detection from dimensions.js
+  const isMobile = isMobileDevice();
+  console.log("[BG-DETECTION] isMobileDevice() returned:", isMobile);
+  
+  // Also check what the mobile check conditions would be
+  const checkBubbles = effect === "bubbles";
+  const checkEasy = effect === "easy";
+  const checkElectric = effect === "electric";
+  const checkHard = effect === "hard";
+  const mobileCondition = isMobile && (checkBubbles || checkEasy || checkElectric || checkHard);
+  
+  console.log("[BG-DETECTION] effect check - bubbles:", checkBubbles, "easy:", checkEasy, "electric:", checkElectric, "hard:", checkHard);
+  console.log("[BG-DETECTION] Mobile path condition:", mobileCondition);
+  
   // Calculate streak intensity (0-4)
   const streakIntensity = getStreakIntensity(wordStreak);
   
-  // Create a dynamic canvas background with streak intensity included in the key
-  const gradientTextureKey = `themeBackground_${effect}_level_${levelValue}_streak_${streakIntensity}`;
-  if (!scene.textures.exists(gradientTextureKey)) {
-    const gradientCanvas = scene.textures.createCanvas(gradientTextureKey, width, height);
-    const ctx = gradientCanvas.getContext();
-    if (!ctx) {
-      console.error("Failed to get canvas context for background effect.");
+    // Mobile: use static background images with overlay
+    if (isMobile && (effect === "bubbles" || effect === "easy" || effect === "electric" || effect === "hard")) {
+        console.log("[BG-MOBILE] === MOBILE BACKGROUND PATH ===");
+        
+        // Determine the image key based on mode and level
+        const mode = (effect === "bubbles" || effect === "easy") ? "easy" : "hard";
+        const imageKey = `${mode}_lvl_${levelValue}`;
+        
+        console.log(`[BG-MOBILE] Mode: ${mode}, Level: ${levelValue}`);
+        console.log(`[BG-MOBILE] Image key: ${imageKey}`);
+        console.log(`[BG-MOBILE] Canvas: ${width}x${height}`);
+        console.log(`[BG-MOBILE] Checking texture exists:`, scene.textures.exists(imageKey));
+        
+        // IMPORTANT: Clear any camera background color that might be covering the image
+        scene.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
+    
+    // Check if the texture exists
+    if (!scene.textures.exists(imageKey)) {
+      console.error(`[BG-MOBILE] ERROR: Texture '${imageKey}' not found!`);
+      console.log(`[BG-MOBILE] Available textures:`, Object.keys(scene.textures.list).filter(k => k.includes('lvl')));
+      
+      // Try to load the texture if it's missing
+      const imagePath = `assets/backgrounds/${imageKey}.png`;
+      console.log(`[MOBILE BG] Attempting to load missing texture from: ${imagePath}`);
+      
+      // Load the missing texture
+      scene.load.image(imageKey, imagePath);
+      scene.load.once('complete', () => {
+        console.log(`[MOBILE BG] Texture loaded, creating background image`);
+        // Get camera dimensions at load time
+        const cameraWidth = scene.cameras.main.width;
+        const cameraHeight = scene.cameras.main.height;
+        const centerX = scene.cameras.main.centerX;
+        const centerY = scene.cameras.main.centerY;
+        
+        // Create the background after loading
+        scene.background = scene.add.image(centerX, centerY, imageKey)
+          .setOrigin(0.5, 0.5)
+          .setDepth(-2);
+        
+        // Calculate scale to cover the entire screen
+        const texture = scene.textures.get(imageKey);
+        const frame = texture.get();
+        const scaleX = cameraWidth / frame.width;
+        const scaleY = cameraHeight / frame.height;
+        const scale = Math.max(scaleX, scaleY) * 1.1;
+        
+        scene.background.setScale(scale);
+      });
+      scene.load.start();
+      
+      // Create a temporary solid color background
+      scene.background = scene.add.rectangle(width/2, height/2, width, height, backgroundConfig?.color || 0x000033)
+        .setDepth(-2);
       return;
     }
+    
+    // THIS CODE SHOULD EXECUTE WHEN TEXTURE EXISTS - FIXED INDENTATION
+    // Get the actual camera dimensions for proper positioning
+    const cameraWidth = scene.cameras.main.width;
+    const cameraHeight = scene.cameras.main.height;
+    const centerX = scene.cameras.main.centerX;
+    const centerY = scene.cameras.main.centerY;
+    
+    console.log(`[BG-MOBILE] Creating background image...`);
+    console.log(`[BG-MOBILE] Camera: ${cameraWidth}x${cameraHeight}, center: (${centerX}, ${centerY})`);
+    
+    // Create static background image at camera center
+    scene.background = scene.add.image(centerX, centerY, imageKey)
+      .setOrigin(0.5, 0.5)
+      .setDepth(-100); // Much lower depth to ensure it's absolutely behind everything
+    
+    // Calculate scale to cover the entire screen (like CSS background-size: cover)
+    const texture = scene.textures.get(imageKey);
+    const frame = texture.get();
+    const scaleX = cameraWidth / frame.width;
+    const scaleY = cameraHeight / frame.height;
+    const scale = Math.max(scaleX, scaleY) * 1.1; // Add 10% extra to ensure full coverage
+    
+    scene.background.setScale(scale);
+    
+    console.log(`[BG-MOBILE] Background created successfully!`);
+    console.log(`[BG-MOBILE] - Type:`, scene.background.type);
+    console.log(`[BG-MOBILE] - Position:`, scene.background.x, scene.background.y);
+    console.log(`[BG-MOBILE] - Scale:`, scene.background.scaleX, scene.background.scaleY);
+    console.log(`[BG-MOBILE] - Depth:`, scene.background.depth);
+    console.log(`[BG-MOBILE] - Visible:`, scene.background.visible);
+    console.log(`[BG-MOBILE] - Alpha:`, scene.background.alpha);
+    
+    // Log display list to see what's rendering
+    console.log(`[BG-MOBILE] Display list count:`, scene.children.list.length);
+    const bgInList = scene.children.list.find(child => child === scene.background);
+    console.log(`[BG-MOBILE] Background in display list:`, !!bgInList);
+    
+    // Add semi-opaque overlay that becomes more transparent with streak
+    // For mobile, use MUCH lighter overlay values to preserve background visibility
+    // Use mode-specific darkest background color from imported palettes
+    const overlayColor = mode === "easy" ? EASY_COLORS_HEX.BACKGROUND : HARD_COLORS_HEX.BACKGROUND;
+    const baseOpacity = 0.9; // Reduced base opacity for better visibility
+    // More noticeable reduction per streak intensity level
+    const opacityReduction = streakIntensity * 0.10; // Much larger reduction per intensity level
+    const overlayOpacity = Math.max(0.1, baseOpacity - opacityReduction); // Keep minimum opacity at 0.1
+    console.log("baseOpacity: ", baseOpacity);
+    console.log("opacityReduction: ", opacityReduction);
+    console.log("overlay opacity: ", overlayOpacity);
+    console.log(`[BG-MOBILE] Overlay - color: ${overlayColor.toString(16)}, intensity: ${streakIntensity}, opacity: ${overlayOpacity}`);
+    
+    if (overlayOpacity > 0) {
+      const overlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, overlayColor, overlayOpacity)
+        .setOrigin(0.5, 0.5)
+        .setDepth(-99); // Keep overlay just above background but below everything else
+      
+      // Store overlay reference for potential cleanup
+      scene.background.overlay = overlay;
+      
+      console.log(`[BG-MOBILE] Overlay created at depth ${overlay.depth}`);
+    }
+    
+    // For higher streaks, add a colored tint overlay instead of just darkness
+    if (streakIntensity >= 2) {
+      // Use mode-appropriate color for the tint
+      const tintColor = mode === "easy" ? 0x00ffff : 0xff00ff; // Cyan for easy, magenta for hard
+      const tintOpacity = Math.min(streakIntensity * 0.01, 0.05); // Max 5% colored tint
+      
+      const tintOverlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, tintColor, tintOpacity)
+        .setOrigin(0.5, 0.5)
+        .setDepth(-98); // Above the dark overlay
+      
+      // Store for cleanup
+      scene.background.tintOverlay = tintOverlay;
+      
+      console.log(`[BG-MOBILE] Tint overlay created - color: ${tintColor.toString(16)}, opacity: ${tintOpacity}`);
+    }
+    
+    // Exit early - don't fall through to desktop code
+    console.log("[BG-MOBILE] === MOBILE BACKGROUND COMPLETE ===");
+    return;
+  } else {
+    console.log("[BG-DESKTOP] === DESKTOP BACKGROUND PATH ===");
+    // Desktop: keep procedural generation
+    // Static image background (for other cases)
+    if (effect === "static" && asset) {
+      scene.background = scene.add.image(0, 0, asset)
+        .setOrigin(0)
+        .setDisplaySize(width, height)
+        .setDepth(-1);
+      return;
+    }
+    
+    // Create a dynamic canvas background with streak intensity included in the key
+    const gradientTextureKey = `themeBackground_${effect}_level_${levelValue}_streak_${streakIntensity}`;
+    if (!scene.textures.exists(gradientTextureKey)) {
+      const gradientCanvas = scene.textures.createCanvas(gradientTextureKey, width, height);
+      const ctx = gradientCanvas.getContext();
+      if (!ctx) {
+        console.error("Failed to get canvas context for background effect.");
+        return;
+      }
 
-    // Delegate to the appropriate background creator based on effect
-    if (effect === "bubbles" || effect === "easy") {
-      createEasyBackground(ctx, width, height, levelValue);
-    } else if (effect === "electric" || effect === "hard") {
-      createHardBackground(ctx, width, height, levelValue);
+      // Delegate to the appropriate background creator based on effect
+      if (effect === "bubbles" || effect === "easy") {
+        createEasyBackground(ctx, width, height, levelValue);
+      } else if (effect === "electric" || effect === "hard") {
+        createHardBackground(ctx, width, height, levelValue);
+      }
+
+      gradientCanvas.refresh();
     }
 
-    gradientCanvas.refresh();
-  }
+    // Add the generated background image to the scene
+    scene.background = scene.add.image(0, 0, gradientTextureKey)
+      .setOrigin(0)
+      .setDisplaySize(width, height)
+      .setDepth(-1);
+    
 
-  // Add the generated background image to the scene
-  scene.background = scene.add.image(0, 0, gradientTextureKey)
-    .setOrigin(0)
-    .setDisplaySize(width, height)
-    .setDepth(-1);
-
-  // Animation parameters based on streak intensity - ENHANCED effects
-  const alphaRange = 0.1 + (streakIntensity * 0.05); // 0.1 to 0.3
+    // Animation parameters based on streak intensity - ENHANCED effects
+    const alphaRange = 0.1 + (streakIntensity * 0.05); // 0.1 to 0.3
   const scaleRange = 0.03 + (streakIntensity * 0.015); // 0.03 to 0.09
   const durationBase = 8000 - (streakIntensity * 1500); // 8000 to 2000ms
   
@@ -741,5 +923,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     }
   } else {
     console.log("No streak effects applied - streak is 0");
+  }
   }
 }

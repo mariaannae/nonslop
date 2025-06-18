@@ -4,6 +4,7 @@ import ButtonFactory from "../utils/ButtonFactory.js";
 import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 import { ScalingManager } from "../config/scaling.js";
+import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
 
 export default class UsernameScene extends Phaser.Scene {
     constructor() {
@@ -68,79 +69,63 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     createTitle() {
-        // Create a title for entering username
-        const titleStyle = {
-            fontFamily: 'barcade3d',
-            fontSize: `${this.scalingManager.scaleText(60)}px`,
-            color: this.COLORS_TEXT.TITLE,
-            align: 'center',
-            shadow: {
-                offsetX: 2,
-                offsetY: 2,
-                color: '#000',
-                blur: 2,
-                fill: true
-            }
-        };
+        // Create a title for entering username using centralized text styles
+        const titleStyle = getTextStyle('title', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
 
         this.add.text(
             this.cameras.main.centerX,
-            80,
+            this.scalingManager.scaleValue(80),
             '(NEW HIGH SCORE)',
             titleStyle
         ).setOrigin(0.5);
 
-        // Add explanation text
-        const subtitleStyle = {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${this.scalingManager.scaleText(28)}px`,
-            color: '#ffffff',
-            align: 'center'
-        };
+        // Add explanation text using centralized text styles
+        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
 
         this.add.text(
             this.cameras.main.centerX,
-            this.cameras.main.centerY - 100,
+            this.cameras.main.centerY - this.scalingManager.scaleValue(100),
             'Enter your name for the leaderboard:',
-            subtitleStyle
+            promptStyle
         ).setOrigin(0.5);
     }
 
     createInputField() {
-        const width = this.sys.game.canvas.width * 0.6;
-        const height = 60;
+        // Get box style from centralized configuration
+        const boxStyle = getBoxStyle('input', this.mode, this.scalingManager.scale);
+        
+        // Scale dimensions properly
+        const width = this.scalingManager.scaleValue(this.sys.game.canvas.width * 0.6);
+        const height = this.scalingManager.scaleValue(60);
         const x = this.cameras.main.centerX - width / 2;
-        const y = this.cameras.main.centerY - 50;
+        const y = this.cameras.main.centerY - this.scalingManager.scaleValue(50);
 
-        // Create input field background
+        // Create input field background using box style
         this.inputBg = this.add.graphics();
-        this.inputBg.fillStyle(0xffffff, 1);
-        this.inputBg.fillRoundedRect(x, y, width, height, 10);
-        this.inputBg.lineStyle(3, this.COLORS_HEX.BOX_OUTLINE, 1);
-        this.inputBg.strokeRoundedRect(x, y, width, height, 10);
+        this.inputBg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+        this.inputBg.fillRoundedRect(x, y, width, height, boxStyle.cornerRadius);
+        if (boxStyle.hasOutline) {
+            this.inputBg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.inputBg.strokeRoundedRect(x, y, width, height, boxStyle.cornerRadius);
+        }
 
+        // Get input text style from centralized configuration
+        const inputStyle = getTextStyle('input', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        
         // Create text field
         this.inputText = this.add.text(
-            x + 20,
+            x + this.scalingManager.scaleValue(20),
             y + height / 2,
             this.username || '',
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: `${this.scalingManager.scaleText(DESIGN.UI.TEXTBOX_FONT_SIZE)}px`,
-                color: '#000000'
-            }
+            inputStyle
         ).setOrigin(0, 0.5);
 
-        // Create cursor
+        // Create cursor with same style as input text
         this.cursor = this.add.text(
-            this.inputText.x + this.inputText.width + 2,
+            this.inputText.x + this.inputText.width + this.scalingManager.scaleValue(2),
             y + height / 2,
             '|',
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: `${DESIGN.UI.TEXTBOX_FONT_SIZE}px`,
-                color: '#000000'
-            }
+            inputStyle
         ).setOrigin(0, 0.5);
 
         // Start cursor blinking
@@ -153,18 +138,23 @@ export default class UsernameScene extends Phaser.Scene {
             loop: true
         });
 
+        // Store box dimensions for focus state
+        this.inputBoxDimensions = { x, y, width, height, boxStyle };
+        
         // Make input field interactive
         this.inputBg.setInteractive(
             new Phaser.Geom.Rectangle(x, y, width, height),
             Phaser.Geom.Rectangle.Contains
         ).on('pointerdown', () => {
             this.focusHiddenInput();
-            // Visual cue for focus
+            // Visual cue for focus - use proper styling
+            const { x, y, width, height, boxStyle } = this.inputBoxDimensions;
             this.inputBg.clear();
-            this.inputBg.fillStyle(0xffffff, 1);
-            this.inputBg.fillRoundedRect(x, y, width, height, 10);
-            this.inputBg.lineStyle(3, 0x00ff00, 1);
-            this.inputBg.strokeRoundedRect(x, y, width, height, 10);
+            this.inputBg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+            this.inputBg.fillRoundedRect(x, y, width, height, boxStyle.cornerRadius);
+            // Use accent color for focus state
+            this.inputBg.lineStyle(boxStyle.outlineWidth, this.COLORS_HEX.ACCENT || 0x00ff00, 1);
+            this.inputBg.strokeRoundedRect(x, y, width, height, boxStyle.cornerRadius);
         });
 
         // Set up hidden input for mobile typing
@@ -173,7 +163,10 @@ export default class UsernameScene extends Phaser.Scene {
 
     updateInputText() {
         this.inputText.setText(this.username);
-        this.cursor.setPosition(this.inputText.x + this.inputText.width + 2, this.cursor.y);
+        this.cursor.setPosition(
+            this.inputText.x + this.inputText.width + this.scalingManager.scaleValue(2), 
+            this.cursor.y
+        );
 
         // Sync native input if present
         if (this.nativeInput) {
@@ -296,20 +289,20 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     createButtons() {
-        // Input box layout
-        const inputBoxY = this.cameras.main.centerY - 50;
-        const inputBoxHeight = 60;
+        // Input box layout with proper scaling
+        const inputBoxY = this.cameras.main.centerY - this.scalingManager.scaleValue(50);
+        const inputBoxHeight = this.scalingManager.scaleValue(60);
         const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
-        const buttonGap = DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP;
-        const buttonHeight = DESIGN.UI.BUTTON.HEIGHT;
+        const buttonGap = this.scalingManager.scaleValue(DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP);
+        const buttonHeight = this.scalingManager.buttonHeight();
 
-        // Submit button: 30px below input box, centered at that Y
-        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
+        // Submit button: scaled gap below input box
+        const outlineWidth = this.scalingManager.scaleValue(DESIGN.UI.OUTLINE.WIDTH);
         const submitButtonY = inputBoxBottomEdge + outlineWidth / 2 + buttonGap + buttonHeight / 2;
 
-        // Skip button: 2/3 * gap (20px) below submit button, centered at that Y
-        const skipButtonGap = (2 / 3) * buttonGap;
-        const skipButtonY = submitButtonY + buttonHeight + skipButtonGap + 10;
+        // Skip button: 2/3 * gap below submit button
+        const skipButtonGap = this.scalingManager.scaleValue((2 / 3) * DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP);
+        const skipButtonY = submitButtonY + buttonHeight + skipButtonGap + this.scalingManager.scaleValue(10);
 
         // Create submit button
         this.submitButton = this.createButton(
@@ -359,19 +352,14 @@ export default class UsernameScene extends Phaser.Scene {
         // Create celebration effects for high score
         this.createCelebrationEffect();
         
-        // Show score value
+        // Show score value using centralized effect text style
+        const effectStyle = getTextStyle('effect', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        
         const scoreText = this.add.text(
             this.cameras.main.centerX,
-            this.cameras.main.centerY - 150,
+            this.cameras.main.centerY - this.scalingManager.scaleValue(150),
             `Score: ${this.scoreData?.score || 0}`,
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: `${this.scalingManager.scaleText(28)}px`,
-                color: '#ffffff',
-                fontStyle: 'bold',
-                stroke: '#000000',
-                strokeThickness: 4
-            }
+            effectStyle
         ).setOrigin(0.5);
         
         // Add glow effect to score
@@ -660,25 +648,27 @@ export default class UsernameScene extends Phaser.Scene {
         // Create loading spinner
         this.loadingContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
         
-        // Create a graphics object for the rounded rectangle background
+        // Create a graphics object for the rounded rectangle background with proper scaling
         const bg = this.add.graphics();
         bg.fillStyle(0x000000, 0.7);
-        bg.fillRoundedRect(-100, -50, 200, 100, 10);
+        const bgWidth = this.scalingManager.scaleValue(200);
+        const bgHeight = this.scalingManager.scaleValue(100);
+        bg.fillRoundedRect(-bgWidth/2, -bgHeight/2, bgWidth, bgHeight, this.scalingManager.scaleValue(10));
         
-        const text = this.add.text(0, 0, 'Saving...', {
-            fontFamily: 'IBM Plex Mono',
-                fontSize: `${this.scalingManager.scaleText(24)}px`,
-            color: '#ffffff'
-        }).setOrigin(0.5);
+        // Use centralized text style
+        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const text = this.add.text(0, 0, 'Saving...', tooltipStyle).setOrigin(0.5);
         
         this.loadingContainer.add([bg, text]);
         this.loadingContainer.setDepth(100);
         
-        // Add spinner animation
+        // Add spinner animation with proper scaling
         const spinner = this.add.graphics();
-        spinner.lineStyle(3, 0xffffff, 1);
+        spinner.lineStyle(this.scalingManager.scaleValue(3), 0xffffff, 1);
         spinner.beginPath();
-        spinner.arc(0, 30, 20, 0, Math.PI);
+        const spinnerY = this.scalingManager.scaleValue(30);
+        const spinnerRadius = this.scalingManager.scaleValue(20);
+        spinner.arc(0, spinnerY, spinnerRadius, 0, Math.PI);
         spinner.strokePath();
         this.loadingContainer.add(spinner);
         
@@ -704,23 +694,35 @@ export default class UsernameScene extends Phaser.Scene {
     showErrorMessage(message = "Error saving score") {
         const errorContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
 
-        // Create a graphics object for the rounded rectangle background
+        // Create a graphics object for the rounded rectangle background with proper scaling
         const bg = this.add.graphics();
         bg.fillStyle(0x000000, 0.8);
-        bg.fillRoundedRect(-200, -100, 400, 200, 10);
+        const bgWidth = this.scalingManager.scaleValue(400);
+        const bgHeight = this.scalingManager.scaleValue(200);
+        bg.fillRoundedRect(-bgWidth/2, -bgHeight/2, bgWidth, bgHeight, this.scalingManager.scaleValue(10));
 
-        const text = this.add.text(0, -30, message, {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${this.scalingManager.scaleText(24)}px`,
-            color: '#ff0000',
-            fontStyle: 'bold'
-        }).setOrigin(0.5);
+        // Use centralized text styles
+        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        
+        // Create error message text with red color override
+        const text = this.add.text(
+            0, 
+            this.scalingManager.scaleValue(-30), 
+            message, 
+            {
+                ...promptStyle,
+                color: '#ff0000',
+                fontStyle: 'bold'
+            }
+        ).setOrigin(0.5);
 
-        const subtext = this.add.text(0, 10, 'Please try again or continue without saving.', {
-            fontFamily: 'IBM Plex Mono',
-            fontSize: `${this.scalingManager.scaleText(18)}px`,
-            color: '#ffffff'
-        }).setOrigin(0.5);
+        const subtext = this.add.text(
+            0, 
+            this.scalingManager.scaleValue(10), 
+            'Please try again or continue without saving.', 
+            tooltipStyle
+        ).setOrigin(0.5);
 
         const okButton = this.createButton(
             "OK",
@@ -743,7 +745,8 @@ export default class UsernameScene extends Phaser.Scene {
                     console.error("[showErrorMessage] ERROR during glitch transition:", error);
                 }
             },
-            0, 60
+            0, 
+            this.scalingManager.scaleValue(60)
         );
 
         errorContainer.add([bg, text, subtext, okButton]);
