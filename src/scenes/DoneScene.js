@@ -32,23 +32,24 @@ export default class DoneScene extends Phaser.Scene {
 
     createOutputTextBox() {
         const outputBoxWidth = this.uiBoxWidth;
-        const padding = 30;
+        const padding = this.scalingManager.scaleValue(30);
 
         // Use stored input box position
         const inputBoxBottom = this.inputBoxY + this.inputBoxHeight;
 
-        // Output box: top edge 30px below input box bottom
+        // Output box: top edge scaled padding below input box bottom
         const outputBoxY = inputBoxBottom + padding;
 
+        // Get the appropriate text style for current device
+        const deviceType = detectDeviceType();
+        const outputTextStyle = getTextStyle('output', deviceType, this.mode || 'basic', this.uiScale || 1);
 
         // Create text first to measure its height
         this.outputText = this.add.text(
             0, 0,
             this.evaluation || "",
             {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
-                fill: '#ffffff',
+                ...outputTextStyle,
                 wordWrap: { width: outputBoxWidth - padding * 2 },
                 align: 'left',
                 lineSpacing: 5
@@ -59,13 +60,15 @@ export default class DoneScene extends Phaser.Scene {
         // Calculate dynamic height based on text content
         let outputBoxHeight = this.outputText.height + padding * 2;
 
-        // --- CAP HEIGHT SO BUTTON IS AT LEAST 30PX FROM CANVAS BOTTOM ---
+        // --- CAP HEIGHT SO BUTTON IS AT LEAST SCALED MARGIN FROM CANVAS BOTTOM ---
         const canvasHeight = this.cameras.main.height;
-        const buttonMargin = 30;
-        // button is placed 30px below output box, then DESIGN.UI.BUTTON.HEIGHT/2 to center, then DESIGN.UI.BUTTON.HEIGHT/2 to bottom
-        // So: outputBoxY + outputBoxHeight + 30 + DESIGN.UI.BUTTON.HEIGHT <= canvasHeight - 30
-        // => outputBoxHeight <= canvasHeight - 30 - outputBoxY - 30 - DESIGN.UI.BUTTON.HEIGHT
-        const maxOutputBoxHeight = canvasHeight - buttonMargin - outputBoxY - 30 - DESIGN.UI.BUTTON.HEIGHT - (buttonMargin * 2);
+        const buttonMargin = this.scalingManager.scaleValue(30);
+        const scaledButtonSpacing = this.scalingManager.scaleValue(30);
+        const buttonHeight = this.scalingManager.buttonHeight();
+        // button is placed scaled spacing below output box, then buttonHeight/2 to center, then buttonHeight/2 to bottom
+        // So: outputBoxY + outputBoxHeight + scaledButtonSpacing + buttonHeight <= canvasHeight - buttonMargin
+        // => outputBoxHeight <= canvasHeight - buttonMargin - outputBoxY - scaledButtonSpacing - buttonHeight - buttonMargin
+        const maxOutputBoxHeight = canvasHeight - buttonMargin - outputBoxY - scaledButtonSpacing - buttonHeight - buttonMargin - 30;
         let capped = false;
         if (outputBoxHeight > maxOutputBoxHeight) {
             outputBoxHeight = maxOutputBoxHeight;
@@ -622,13 +625,17 @@ export default class DoneScene extends Phaser.Scene {
 
     createInputTextBox(y) {    
         const textBoxWidth = this.uiBoxWidth;
-        const padding = 30;
-        const minHeight = 60; // Minimum height for the input box
+        const padding = this.scalingManager.scaleValue(30);
+        const minHeight = this.scalingManager.scaleValue(60); // Minimum height for the input box
 
         // Input Text
         if (this.inputText) {
             this.inputText.destroy();
         }
+
+        // Get the appropriate text style for current device
+        const deviceType = detectDeviceType();
+        const inputTextStyle = getTextStyle('input', deviceType, this.mode || 'basic', this.uiScale || 1);
 
         const displayText = "Prompt: " + this.prompt + "\n" +
             "Response: " + this.userInput;
@@ -637,9 +644,7 @@ export default class DoneScene extends Phaser.Scene {
             0, 0,
             displayText,
             {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
-                fill: "#000000",
+                ...inputTextStyle,
                 wordWrap: { width: textBoxWidth - padding * 2 },
                 align: "left"
             }
@@ -693,10 +698,10 @@ export default class DoneScene extends Phaser.Scene {
     }
     
     createPromptTextBox() {
-        this.promptBoxY = 130;
+        this.promptBoxY = this.scalingManager.scaleValue(130);
     
         this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
-        const padding = 30;
+        const padding = this.scalingManager.scaleValue(30);
     
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
@@ -724,6 +729,10 @@ export default class DoneScene extends Phaser.Scene {
         }
 
 
+        // Get the appropriate text style for current device
+        const deviceType = detectDeviceType();
+        const promptTextStyle = getTextStyle('prompt', deviceType, this.mode || 'basic', this.uiScale || 1);
+
         // Position the text at the left side with the same padding as outputbox
         const textX = this.cameras.main.centerX - this.uiBoxWidth / 2 + padding;
         
@@ -732,9 +741,7 @@ export default class DoneScene extends Phaser.Scene {
             0, // Y will be adjusted later
             defaultText,
             {
-                fontFamily: "IBM Plex Mono",
-                fontSize: `${DESIGN.UI.MONO_FONT_SIZE}px`,
-                color: this.COLORS_TEXT.PRIMARY,
+                ...promptTextStyle,
                 wordWrap: { width: this.uiBoxWidth - padding * 2 },
                 align: "left",
                 lineSpacing: 5
@@ -908,7 +915,8 @@ export default class DoneScene extends Phaser.Scene {
         this.aiScore = sumArray(xOver5Digits);
         //const wordCountScore = Math.min(this.totalWordCount, 20);
         this.failCountScore = Math.min(this.failCount, 15);
-        this.totalScore = 15;//this.aiScore  - this.failCountScore;
+        this.totalScore = this.aiScore - this.failCountScore;
+
 
         // Ensure score is 0 if userInput is empty or only whitespace
         if (typeof this.userInput === "string" && this.userInput.trim() === "") {
@@ -921,10 +929,10 @@ export default class DoneScene extends Phaser.Scene {
         // Create prompt first so we can position input box relative to it
         this.createPromptTextBox();
 
-        // Calculate y for input box: bottom of prompt box + 30px
-        const promptPadding = 30;
+        // Calculate y for input box: bottom of prompt box + scaled spacing
+        const promptPadding = this.scalingManager.scaleValue(30);
         const promptBottom = this.promptBoxY + this.promptText.height + promptPadding * 2;
-        const inputBoxY = promptBottom + 30;
+        const inputBoxY = promptBottom + this.scalingManager.scaleValue(30);
 
         // Create input text box and get its height
         this.createInputTextBox(inputBoxY);
@@ -943,10 +951,24 @@ export default class DoneScene extends Phaser.Scene {
         this.inputTextBorder.setDepth(100).setAlpha(1).setVisible(true);
         this.inputText.setDepth(101).setAlpha(1).setVisible(true);
 
-        // Button positioning: 30px below output box bottom
-        const buttonCenterX = this.cameras.main.centerX + this.uiBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
-        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
-        const buttonCenterY = this.outputBoxY + this.outputBoxHeight + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP + DESIGN.UI.BUTTON.HEIGHT / 2;
+        // Button positioning: match Preloader.js positioning relative to text box
+        const buttonWidth = this.scalingManager.buttonWidth();
+        const buttonHeight = this.scalingManager.buttonHeight();
+        
+        // Get the output box's left and right edges (same as text box in Preloader)
+        const boxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
+        
+        // Button right edge: 60px (scaled) left of text box right edge (matches Preloader)
+        const buttonX = (boxX + this.uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
+        
+        // Button vertical gap: 30px (scaled) below text box bottom edge (80px on mobile, matches Preloader)
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+                         (typeof window !== 'undefined' && window.innerWidth <= 900);
+        const buttonVerticalGap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
+        const buttonY = this.outputBoxY + this.outputBoxHeight + buttonVerticalGap + (buttonHeight / 2);
+        
+        const buttonCenterX = buttonX;
+        const buttonCenterY = buttonY;
         this.doneButton = this.createButton("NEXT", null, buttonCenterX, buttonCenterY, {
             depth: 102, // ensure button is visible
             name: 'doneButton'
@@ -956,10 +978,10 @@ export default class DoneScene extends Phaser.Scene {
 
         // Tooltip on hover (match BaseGameScene style)
         this.doneButton.setInteractive()
-            .on('pointerover', () => this.showTooltip("try another prompt", this.doneButton.x, this.doneButton.y - DESIGN.UI.BUTTON.HEIGHT))
+            .on('pointerover', () => this.showTooltip("try another prompt", this.doneButton.x, this.doneButton.y - buttonHeight))
             .on('pointerout', () => this.hideTooltips());
 
-const padding = 30;
+const basePadding = this.scalingManager.scaleValue(30);
 // Calculate safe area insets for mobile (if available)
 let safeAreaLeft = 0, safeAreaBottom = 0;
 if (typeof window !== "undefined" && window.CSS && window.CSS.supports && window.CSS.supports("padding-bottom: env(safe-area-inset-bottom)")) {
@@ -977,14 +999,16 @@ if (typeof window !== "undefined" && window.CSS && window.CSS.supports && window
 // Default to 0 if not found
 safeAreaLeft = isNaN(safeAreaLeft) ? 0 : safeAreaLeft;
 safeAreaBottom = isNaN(safeAreaBottom) ? 0 : safeAreaBottom;
-const leftPadding = Math.max(30, safeAreaLeft);
-const bottomPadding = Math.max(30, safeAreaBottom);
+const leftPadding = Math.max(basePadding, safeAreaLeft);
+const bottomPadding = Math.max(basePadding, safeAreaBottom);
 
+const feedbackButtonWidth = this.scalingManager.buttonWidth();
+const feedbackButtonHeight = this.scalingManager.buttonHeight();
 this.feedbackButton = this.createButton(
     "FEEDBACK",
     () => this.onFeedbackClick(),
-    DESIGN.UI.BUTTON.WIDTH / 2 + padding,
-    this.scale.height - DESIGN.UI.BUTTON.HEIGHT / 2 - padding,
+    feedbackButtonWidth / 2 + basePadding,
+    this.cameras.main.height - feedbackButtonHeight / 2 - basePadding,
     'Share your feedback'
 );
         
@@ -1206,17 +1230,17 @@ createLowScoreWarning() {
       // Create the level up text with full content immediately
       const levelUpText = this.add.text(
         this.cameras.main.centerX,
-        60,
+        this.scalingManager.scaleValue(60),
         "NOT BAD, HUMAN",
         {
           fontFamily: "Courier Prime",
-          fontSize: "60px",
+          fontSize: this.scalingManager.scaleValue(60) + "px",
           color: "#33FF33", // Terminal green
           stroke: "#000000",
           strokeThickness: 4,
           shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 5, fill: true }
         }
-      ).setOrigin(0.5).setDepth(201);
+      ).setOrigin(0.5).setDepth(1001);
       
       // Add pulsing glow effect to the text
       const glowFX = levelUpText.postFX.addGlow(0xffffff, 0, 0, false, 0.1, 24);
@@ -1307,17 +1331,17 @@ createLowScoreWarning() {
       // Create the text immediately with complete content
       const notQuiteText = this.add.text(
         this.cameras.main.centerX,
-        60,
+        this.scalingManager.scaleValue(60),
         "NOT QUITE",
         {
           fontFamily: "Courier Prime",
-          fontSize: "60px",
+          fontSize: this.scalingManager.scaleValue(60) + "px",
           color: EASY_COLORS_HEX.WARNING, 
           stroke: "#000000",
           strokeThickness: 3,
           shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, fill: true }
         }
-      ).setOrigin(0.5).setDepth(201);
+      ).setOrigin(0.5).setDepth(1001);
       
       // Remember original position and text
       const originalX = notQuiteText.x;
