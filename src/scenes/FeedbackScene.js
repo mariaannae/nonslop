@@ -8,6 +8,61 @@ import { detectDeviceType, DEVICE_TYPES } from "../config/dimensions.js";
 
 // DESIGN.UI.OUTLINE.WIDTH, DESIGN.UI.OUTLINE.CORNER_RADIUS, DESIGN.UI.BUTTON.HEIGHT, DESIGN.UI.BUTTON.SPACING, DESIGN.UI.BUTTON.WIDTH
 
+// Configuration constants for FeedbackScene layout
+const SCENE_CONFIG = {
+    // Padding values
+    PADDING: {
+        STANDARD: 20,
+        LARGE: 30,
+        MOBILE: 10,
+        INPUT_HORIZONTAL: 28,
+        INPUT_VERTICAL_RATIO: 0.7,
+        MOBILE_INPUT_VERTICAL_RATIO: 0.6,
+        STATS_RIGHT_MARGIN: 30,
+        MOBILE_STATS_RIGHT_MARGIN: 35
+    },
+    
+    // Box dimensions
+    BOX_DIMENSIONS: {
+        STATS_HEIGHT: 130,
+        INPUT_HEIGHT: 280,
+        MOBILE_INPUT_HEIGHT: 440,
+        PROMPT_MIN_HEIGHT: 60,
+        PROMPT_MAX_HEIGHT_DESKTOP: 220,
+        PROMPT_MAX_HEIGHT_MOBILE: 300,
+        STATS_MAX_WIDTH_DESKTOP: 360,
+        STATS_MAX_WIDTH_MOBILE: 600,
+        SUGGESTION_HEIGHT: 30,
+        SUGGESTION_SPACING: 10
+    },
+    
+    // Animation durations (in milliseconds)
+    ANIMATIONS: {
+        FAST: 200,
+        MEDIUM: 500,
+        SLOW: 800,
+        CURSOR_BLINK: 500,
+        TYPING_TIMEOUT: 500
+    },
+    
+    // Layout - Optimized for FeedbackScene (no menu bar or stats box)
+    LAYOUT: {
+        // Prompt box positioning from top of screen
+        PROMPT_TOP_MARGIN_DESKTOP: 80,
+        PROMPT_TOP_MARGIN_MOBILE: 160,
+        
+        // Spacing between prompt and input boxes
+        INPUT_OFFSET_BELOW_PROMPT: 60,
+        MOBILE_INPUT_OFFSET_BELOW_PROMPT: 70,
+        
+        // Button positioning
+        BUTTON_VERTICAL_GAP_DESKTOP: 30+ DESIGN.UI.BUTTON.HEIGHT/2,
+        BUTTON_VERTICAL_GAP_MOBILE: 80 + DESIGN.UI.BUTTON.HEIGHT/2,
+        BUTTON_HORIZONTAL_OFFSET_DESKTOP: 60,
+        BUTTON_HORIZONTAL_OFFSET_MOBILE: 30
+    }
+};
+
 export default class FeedbackScene extends Phaser.Scene {
     constructor() {
         super({ key: 'FeedbackScene' });
@@ -105,24 +160,51 @@ export default class FeedbackScene extends Phaser.Scene {
     // Get input text style using centralized text styles
     getInputTextStyle() {
         const deviceType = detectDeviceType();
-        const uiScale = this.scalingManager?.uiScale || 1;
-        return getTextStyle('input', deviceType, this.mode || 'basic', uiScale);
+        return getTextStyle('input', deviceType, this.mode || 'basic', this.uiScale);
     }
 
     // Get input box style using centralized box styles
     getInputBoxStyle() {
-        return getBoxStyle('input', this.mode || 'basic', this.scalingManager?.uiScale || 1);
+        return getBoxStyle('input', this.mode || 'basic', this.uiScale);
+    }
+
+    /**
+     * Get standard padding based on device type (matching BaseGameScene)
+     */
+    getStandardPadding() {
+        const deviceType = detectDeviceType();
+        const isMobile = deviceType === DEVICE_TYPES.PHONE;
+        return isMobile ? SCENE_CONFIG.PADDING.MOBILE : SCENE_CONFIG.PADDING.STANDARD;
+    }
+
+    /**
+     * Get large padding based on device type (matching BaseGameScene)
+     */
+    getLargePadding() {
+        const deviceType = detectDeviceType();
+        const isMobile = deviceType === DEVICE_TYPES.PHONE;
+        return isMobile ? SCENE_CONFIG.PADDING.STANDARD : SCENE_CONFIG.PADDING.LARGE;
     }
     
     createInputTextBox() {    
         // Use responsive box width matching Preloader's approach
         const deviceType = detectDeviceType();
         const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
+        const isMobile = deviceType === DEVICE_TYPES.PHONE;
+        const sm = this.scalingManager;
+        
         const textBoxWidth = isDesktop
             ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)  // Narrower on desktop
-            : this.sys.game.canvas.width * (5 / 6);           // Full width on mobile
-        const textBoxHeight = 240;
-        const padding = 30;
+            : this.sys.game.canvas.width * (6 / 7);           // Match BaseGameScene mobile width
+        const textBoxHeight = isMobile ? sm.scaleValue(SCENE_CONFIG.BOX_DIMENSIONS.MOBILE_INPUT_HEIGHT) : sm.scaleValue(SCENE_CONFIG.BOX_DIMENSIONS.INPUT_HEIGHT);
+        
+        // Use input padding from design configuration
+        const textHorizontalPadding = DESIGN.UI.INPUT.HORIZONTAL_PADDING;
+        const textVerticalPadding = DESIGN.UI.INPUT.VERTICAL_PADDING;
+        
+        // Calculate input box Y position based on prompt box bottom (matching InstructionsScene.js approach)
+        const gap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
+        const inputBoxY = this.promptBoxBottomY + gap;
     
         // Input Text Border
         if (this.inputTextBorder) {
@@ -136,7 +218,7 @@ export default class FeedbackScene extends Phaser.Scene {
         this.inputTextBorder.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.inputTextBorder.fillRoundedRect(
             this.cameras.main.centerX - textBoxWidth / 2,
-            this.cameras.main.centerY - textBoxHeight / 2,
+            inputBoxY,
             textBoxWidth,
             textBoxHeight,
             boxStyle.cornerRadius
@@ -146,7 +228,7 @@ export default class FeedbackScene extends Phaser.Scene {
             this.inputTextBorder.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
             this.inputTextBorder.strokeRoundedRect(
                 this.cameras.main.centerX - textBoxWidth / 2,
-                this.cameras.main.centerY - textBoxHeight / 2,
+                inputBoxY,
                 textBoxWidth,
                 textBoxHeight,
                 boxStyle.cornerRadius
@@ -158,7 +240,7 @@ export default class FeedbackScene extends Phaser.Scene {
         this.inputTextBorder.setInteractive(
             new Phaser.Geom.Rectangle(
                 this.cameras.main.centerX - textBoxWidth / 2,
-                this.cameras.main.centerY - textBoxHeight / 2,
+                inputBoxY,
                 textBoxWidth,
                 textBoxHeight
             ),
@@ -177,13 +259,12 @@ export default class FeedbackScene extends Phaser.Scene {
         // Use centralized text style for input text
         const textStyle = {
             ...this.getInputTextStyle(),
-            wordWrap: { width: textBoxWidth - padding * 2 },
-            padding: { x: padding, y: 10 }
+            wordWrap: { width: textBoxWidth - textHorizontalPadding * 2 }
         };
         
         this.inputText = this.add.text(
-            this.cameras.main.centerX - textBoxWidth / 2 + padding,
-            this.cameras.main.centerY - textBoxHeight / 2 + padding,
+            this.cameras.main.centerX - textBoxWidth / 2 + textHorizontalPadding,
+            inputBoxY + textVerticalPadding,
             "_",
             textStyle
         )
@@ -210,6 +291,10 @@ export default class FeedbackScene extends Phaser.Scene {
 
         // Final cursor update
         this.updateCursor();
+        
+        // Store input box dimensions for button positioning
+        this.inputBoxY = inputBoxY;
+        this.inputBoxHeight = textBoxHeight;
     }
 
     setupHiddenInput() {
@@ -264,25 +349,34 @@ export default class FeedbackScene extends Phaser.Scene {
     // Get prompt text style using centralized text styles
     getPromptTextStyle() {
         const deviceType = detectDeviceType();
-        const uiScale = this.scalingManager?.uiScale || 1;
-        return getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
+        return getTextStyle('prompt', deviceType, this.mode || 'basic', this.uiScale);
     }
 
     // Get prompt box style using centralized box styles
     getPromptBoxStyle() {
-        return getBoxStyle('prompt', this.mode || 'basic', this.scalingManager?.uiScale || 1);
+        return getBoxStyle('prompt', this.mode || 'basic', this.uiScale);
     }
 
     createPromptTextBox() {
-        this.promptBoxY = 110;
-    
-        // Use responsive box width matching Preloader's approach
+        // Scale prompt box Y position based on device type
         const deviceType = detectDeviceType();
         const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
+        const isMobile = deviceType === DEVICE_TYPES.PHONE;
+        const sm = this.scalingManager;
+        
+        // Simple positioning from top of screen (no menu bar or stats box in FeedbackScene)
+        const topMargin = isMobile 
+            ? sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_TOP_MARGIN_MOBILE)
+            : sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_TOP_MARGIN_DESKTOP);
+        
+        // Position prompt box from top of screen
+        this.promptBoxY = topMargin;
+    
+        // Use responsive box width matching BaseGameScene
         const uiBoxWidth = isDesktop
             ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)  // Narrower on desktop
-            : this.sys.game.canvas.width * (5 / 6);           // Full width on mobile
-        const padding = 40;
+            : this.sys.game.canvas.width * (6 / 7);           // Match BaseGameScene mobile width
+        const textPadding = sm.scaleValue(SCENE_CONFIG.PADDING.STANDARD);
     
         // Clear existing prompt box graphics if it exists
         if (this.promptTextBox) {
@@ -302,7 +396,7 @@ export default class FeedbackScene extends Phaser.Scene {
         // Use centralized text style for prompt text
         const textStyle = {
             ...this.getPromptTextStyle(),
-            wordWrap: { width: uiBoxWidth - padding * 2 },
+            wordWrap: { width: uiBoxWidth - textPadding * 2 },
             align: "center"
         };
         
@@ -314,7 +408,11 @@ export default class FeedbackScene extends Phaser.Scene {
         ).setOrigin(0.5, 0);
     
         // ✅ Ensure text box height dynamically adjusts
-        const textHeight = this.promptText.height + padding * 2;
+        const textHeight = this.promptText.height + textPadding * 2;
+        
+        // Store prompt box dimensions for input box positioning
+        this.promptBoxHeight = textHeight;
+        this.promptBoxBottomY = this.promptBoxY + textHeight;
     
         // ✅ Use centralized box style for prompt box
         const boxStyle = this.getPromptBoxStyle();
@@ -342,7 +440,7 @@ export default class FeedbackScene extends Phaser.Scene {
         }
     
         // ✅ Position the Text inside the Box
-        this.promptText.setY(this.promptBoxY + padding);
+        this.promptText.setY(this.promptBoxY + textPadding);
     
         // ✅ Ensure Prompt Box Appears Above Other UI Elements
         this.promptTextBox.setDepth(102);
@@ -432,8 +530,11 @@ export default class FeedbackScene extends Phaser.Scene {
     async create() {
         this.cameras.main.scrollY = 0;
 
-        // Initialize scaling manager for responsive UI
+        // Initialize scaling manager for responsive UI (matching Preloader.js approach)
         this.scalingManager = new ScalingManager(this);
+        
+        // Use global UI scale for all elements (matching Preloader.js)
+        this.uiScale = this.registry.get && this.registry.get('uiScale') || 1;
 
         // Create the appropriate background based on mode
         let backgroundConfig;
@@ -448,31 +549,39 @@ export default class FeedbackScene extends Phaser.Scene {
         // Create background with the appropriate theme and level
         createBackground(this, backgroundConfig, this.levelValue);
 
-        // Input Box Creation
-        this.createInputTextBox();
+        // Create prompt box first, then input box (order matters for positioning)
         this.createPromptTextBox();
+        this.createInputTextBox();
 
         // Ensure visibility and layering explicitly
         this.inputTextBorder.setDepth(100).setAlpha(1).setVisible(true);
         this.inputText.setDepth(101).setAlpha(1).setVisible(true);
 
-        // Button positioning correctly relative to input box
+        // Button placement: to the right and below the text box, using scalingManager (matching InstructionsScene.js)
         // Use responsive box width matching the input box
         const deviceType = detectDeviceType();
         const isDesktop = deviceType === DEVICE_TYPES.DESKTOP;
-        const inputBoxWidth = isDesktop
+        const isMobile = deviceType === DEVICE_TYPES.PHONE;
+        const uiBoxWidth = isDesktop
             ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)  // Narrower on desktop
-            : this.sys.game.canvas.width * (5 / 6);           // Full width on mobile
+            : this.sys.game.canvas.width * (6 / 7);           // Match BaseGameScene mobile width
         
-        const inputBoxX = this.cameras.main.centerX;
-        const inputBoxY = this.cameras.main.centerY;
-        const buttonCenterX = inputBoxX + inputBoxWidth / 2 - DESIGN.UI.BUTTON.WIDTH - 20;
-        const outlineWidth = DESIGN.UI.OUTLINE.WIDTH;
-        const buttonCenterY = inputBoxY + 170 + outlineWidth / 2 + DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP; // 170 = half height of input box (340/2), configurable gap below
+        // Use scalingManager for button dimensions (matching Preloader.js)
+        const buttonWidth = this.scalingManager.buttonWidth();
+        const buttonHeight = this.scalingManager.buttonHeight();
+        
+        // Button positioning matching InstructionsScene.js approach
+        const boxX = this.cameras.main.centerX - uiBoxWidth / 2;
+        // Button right edge: 60px (scaled) left of text box right edge (same as InstructionsScene.js)
+        const buttonCenterX = (boxX + uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
+        // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
+        const buttonVerticalGap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
+        const buttonCenterY = this.inputBoxY + this.inputBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
         // Now create the button using ButtonFactory
         this.doneButton = this.createButton("DONE", () => this.onDoneButtonClick(), buttonCenterX, buttonCenterY, {
-            depth: 102 // ensure button is visible
+            depth: 102, // ensure button is visible
+            scalingManager: this.scalingManager
         });
 
         this.addButtonClickEffects();

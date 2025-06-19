@@ -70,7 +70,8 @@ export default class UsernameScene extends Phaser.Scene {
 
     createTitle() {
         // Create a title for entering username using centralized text styles
-        const titleStyle = getTextStyle('title', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        const titleStyle = getTextStyle('title', this.scalingManager.deviceType, this.mode, uiScale);
 
         this.add.text(
             this.cameras.main.centerX,
@@ -80,7 +81,7 @@ export default class UsernameScene extends Phaser.Scene {
         ).setOrigin(0.5);
 
         // Add explanation text using centralized text styles
-        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, uiScale);
 
         this.add.text(
             this.cameras.main.centerX,
@@ -92,7 +93,8 @@ export default class UsernameScene extends Phaser.Scene {
 
     createInputField() {
         // Get box style from centralized configuration
-        const boxStyle = getBoxStyle('input', this.mode, this.scalingManager.scale);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        const boxStyle = getBoxStyle('input', this.mode, uiScale);
         
         // Scale dimensions properly
         const width = this.scalingManager.scaleValue(this.sys.game.canvas.width * 0.6);
@@ -110,7 +112,7 @@ export default class UsernameScene extends Phaser.Scene {
         }
 
         // Get input text style from centralized configuration
-        const inputStyle = getTextStyle('input', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const inputStyle = getTextStyle('input', this.scalingManager.deviceType, this.mode, uiScale);
         
         // Create text field
         this.inputText = this.add.text(
@@ -353,7 +355,8 @@ export default class UsernameScene extends Phaser.Scene {
         this.createCelebrationEffect();
         
         // Show score value using centralized effect text style
-        const effectStyle = getTextStyle('effect', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        const effectStyle = getTextStyle('effect', this.scalingManager.deviceType, this.mode, uiScale);
         
         const scoreText = this.add.text(
             this.cameras.main.centerX,
@@ -656,7 +659,8 @@ export default class UsernameScene extends Phaser.Scene {
         bg.fillRoundedRect(-bgWidth/2, -bgHeight/2, bgWidth, bgHeight, this.scalingManager.scaleValue(10));
         
         // Use centralized text style
-        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, uiScale);
         const text = this.add.text(0, 0, 'Saving...', tooltipStyle).setOrigin(0.5);
         
         this.loadingContainer.add([bg, text]);
@@ -702,8 +706,9 @@ export default class UsernameScene extends Phaser.Scene {
         bg.fillRoundedRect(-bgWidth/2, -bgHeight/2, bgWidth, bgHeight, this.scalingManager.scaleValue(10));
 
         // Use centralized text styles
-        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
-        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, this.scalingManager.scale);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, uiScale);
+        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, uiScale);
         
         // Create error message text with red color override
         const text = this.add.text(

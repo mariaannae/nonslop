@@ -786,12 +786,13 @@ export default class DoneScene extends Phaser.Scene {
     // Style methods - now using centralized textStyles.js module
     getPromptTextStyle() {
         const deviceType = detectDeviceType();
-        const uiScale = this.scalingManager?.uiScale || 1;
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
         return getTextStyle('prompt', deviceType, this.mode || 'basic', uiScale);
     }
 
     getPromptBoxStyle() {
-        return getBoxStyle('prompt', this.mode || 'basic', this.scalingManager?.uiScale || 1);
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        return getBoxStyle('prompt', this.mode || 'basic', uiScale);
     }
    
     init(data) {

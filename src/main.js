@@ -228,6 +228,40 @@ if (!isMobile) {
 
     // Mobile-specific: prevent unwanted mobile behaviors
     if (isMobile) {
+        // Lock orientation to portrait mode
+        const lockOrientation = async () => {
+            if (screen.orientation && screen.orientation.lock) {
+                try {
+                    await screen.orientation.lock('portrait');
+                    console.log('[ORIENTATION] Successfully locked to portrait mode');
+                } catch (error) {
+                    console.log('[ORIENTATION] Failed to lock orientation:', error);
+                    // Fallback: try the older API
+                    if (screen.lockOrientation) {
+                        screen.lockOrientation('portrait');
+                    } else if (screen.mozLockOrientation) {
+                        screen.mozLockOrientation('portrait');
+                    } else if (screen.msLockOrientation) {
+                        screen.msLockOrientation('portrait');
+                    }
+                }
+            }
+        };
+
+        // Try to lock orientation immediately
+        lockOrientation();
+
+        // Also try to lock on first user interaction (some browsers require this)
+        let hasLockedOrientation = false;
+        const tryLockOnInteraction = () => {
+            if (!hasLockedOrientation) {
+                lockOrientation();
+                hasLockedOrientation = true;
+            }
+        };
+        document.addEventListener('touchstart', tryLockOnInteraction, { once: true });
+        document.addEventListener('click', tryLockOnInteraction, { once: true });
+
         // Prevent unwanted mobile behaviors
         document.addEventListener('touchmove', (e) => {
             if (e.target.closest('#game-container')) {

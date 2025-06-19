@@ -101,13 +101,41 @@ export default class Preloader extends Phaser.Scene {
             this.input.manager.queue = [];
         }
         
+        // Mobile-specific input state reset to fix button caching issues
+        const isMobile = isMobileDevice();
+        if (isMobile) {
+            console.log("[MOBILE FIX] Performing enhanced mobile input reset");
+            
+            // Reset scene transition state that might block button interactions
+            this.isTransitioning = false;
+            
+            // Clear any cached DOM event listeners that might interfere
+            if (this.sys && this.sys.game && this.sys.game.canvas) {
+                const canvas = this.sys.game.canvas;
+                // Ensure proper touch handling
+                canvas.style.touchAction = 'none';
+            }
+            
+            // Only clear specific problematic input state, not everything
+            if (this.input && this.input.manager) {
+                // Clear any cached pointer states that might be stale
+                if (this.input.manager.activePointer && this.input.manager.activePointer.isDown === false) {
+                    this.input.manager.activePointer = null;
+                }
+                
+                // Clear any pending input events that might be stale
+                if (this.input.manager.queue && this.input.manager.queue.length > 0) {
+                    this.input.manager.queue.length = 0;
+                }
+            }
+        }
+        
         // Clear any active tweens from previous scene instances
         if (this.tweens) {
             this.tweens.killAll();
         }
         
         // Don't set camera background color on mobile - let background images show through
-        const isMobile = isMobileDevice();
         if (!isMobile) {
             this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // Set background color only on desktop
         }
@@ -379,11 +407,47 @@ export default class Preloader extends Phaser.Scene {
         // Clean up tooltips
         this.hideTooltips();
         
-        // Destroy button properly
+        // Enhanced button cleanup for mobile devices
         if (this.doneButton) {
+            console.log("[MOBILE FIX] Enhanced button cleanup");
+            
+            // Remove all event listeners from the button container
             this.doneButton.removeAllListeners();
+            
+            // If the button has children (like hitRect), clean them up too
+            if (this.doneButton.list && this.doneButton.list.length > 0) {
+                this.doneButton.list.forEach(child => {
+                    if (child && typeof child.removeAllListeners === 'function') {
+                        child.removeAllListeners();
+                    }
+                });
+            }
+            
+            // Disable interactivity before destroying
+            if (this.doneButton.input) {
+                this.doneButton.disableInteractive();
+            }
+            
+            // Destroy the button
             this.doneButton.destroy();
             this.doneButton = null;
+        }
+        
+        // Mobile-specific cleanup to prevent cached input state
+        const isMobile = isMobileDevice();
+        if (isMobile) {
+            console.log("[MOBILE FIX] Performing mobile-specific cleanup");
+            
+            // Only clear stale input state, not active state
+            if (this.input && this.input.manager) {
+                // Only clear if pointer is not currently active
+                if (this.input.manager.activePointer && !this.input.manager.activePointer.isDown) {
+                    this.input.manager.activePointer = null;
+                }
+            }
+            
+            // Reset transition state
+            this.isTransitioning = false;
         }
         
         // Clean up text elements
@@ -619,20 +683,58 @@ this.doneButton = ButtonFactory.createButton(
     buttonY,
     { depth: 200, scalingManager: this.scalingManager }
 );
+
+// Mobile-specific button validation and debugging
+const isMobile = isMobileDevice();
+if (isMobile) {
+    console.log("[MOBILE FIX] Button validation:", {
+        buttonExists: !!this.doneButton,
+        hasInput: !!this.doneButton?.input,
+        inputEnabled: !!this.doneButton?.input?.enabled,
+        hasHitArea: !!this.doneButton?.input?.hitArea,
+        buttonPosition: { x: this.doneButton?.x, y: this.doneButton?.y },
+        buttonSize: { width: this.doneButton?.width, height: this.doneButton?.height }
+    });
+    
+    // Ensure button is properly interactive on mobile
+    if (this.doneButton && !this.doneButton.input?.enabled) {
+        console.log("[MOBILE FIX] Re-enabling button interactivity");
+        this.doneButton.setInteractive();
+    }
+    
+    // Add mobile-specific touch validation
+    this.doneButton.on('pointerdown', (pointer) => {
+        console.log("[MOBILE FIX] Button pointerdown detected:", {
+            pointerType: pointer.pointerType,
+            isTouch: pointer.pointerType === 'touch',
+            position: { x: pointer.x, y: pointer.y },
+            buttonBounds: {
+                x: this.doneButton.x - this.doneButton.width/2,
+                y: this.doneButton.y - this.doneButton.height/2,
+                width: this.doneButton.width,
+                height: this.doneButton.height
+            }
+        });
+    });
+}
+
 console.log("NEXT button created in Preloader, interactive set:", !!this.doneButton.input?.enabled);
 
 this.doneButton.setDepth(200);
 
 // Tooltip functionality (using the container's events which are forwarded from hitRect)
-this.doneButton.on('pointerover', () => {
-    this.showTooltip('Continue to instructions', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
-    this.doneButton.setScale(1.1);
-});
+// Only add tooltips on desktop to avoid mobile touch conflicts
+if (!isMobile) {
+    this.doneButton.on('pointerover', () => {
+        this.showTooltip('Continue to instructions', this.doneButton.x, this.doneButton.y - this.doneButton.height/2);
+        this.doneButton.setScale(1.1);
+    });
 
-this.doneButton.on('pointerout', () => {
-    this.hideTooltips();
-    this.doneButton.setScale(1);
-});
+    this.doneButton.on('pointerout', () => {
+        this.hideTooltips();
+        this.doneButton.setScale(1);
+    });
+}
 
             // Start the typewriter animation after the button is created
             this.startTypewriterEffect(typewriterTextObj);

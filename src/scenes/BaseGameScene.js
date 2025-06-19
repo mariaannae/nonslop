@@ -84,7 +84,7 @@ const SCENE_CONFIG = {
     // Offsets and gaps
     LAYOUT: {
         PROMPT_OFFSET_BELOW_STATS: 10,
-        MOBILE_PROMPT_OFFSET_BELOW_STATS: 20,
+        MOBILE_PROMPT_OFFSET_BELOW_STATS: 40,
         INPUT_OFFSET_BELOW_PROMPT: 60,
         MOBILE_INPUT_OFFSET_BELOW_PROMPT: 70,
         BUTTON_VERTICAL_GAP_DESKTOP: 50,
@@ -990,6 +990,9 @@ export default class BaseGameScene extends Phaser.Scene {
             console.log("[DEBUG] ScalingManager created in BaseGameScene.create()");
         }
         
+        // Use global UI scale for all elements (matching Preloader.js)
+        this.uiScale = this.registry.get && this.registry.get('uiScale') || 1;
+        
         // Create menu bar BEFORE any layout calculations
         // This ensures menuBarHeight is set for calculateUIPositions
         console.log("[DEBUG] Creating menu bar in BaseGameScene...");
@@ -1240,13 +1243,16 @@ export default class BaseGameScene extends Phaser.Scene {
             : sm.scaleValue(SCENE_CONFIG.LAYOUT.PROMPT_OFFSET_BELOW_STATS);
         const promptTopEdge = wordStatsBottom + promptOffset;
         
+        // Add additional 30px offset for mobile only
+        const mobileExtraOffset = this.isMobile ? 60 : 0;
+        
         // Pass the desired top edge position directly
         const promptY = promptTopEdge;
 
         // Input box calculations
         this.uiBoxWidth = !this.isMobile
             ? this.sys.game.canvas.width * (5 / 6) * (2 / 3)
-            : this.sys.game.canvas.width * (5 / 6);
+            : this.sys.game.canvas.width * (6 / 7);
         const inputPadding = this.isMobile ? sm.scaleValue(24) : sm.scaleValue(28);
         const inputBoxHeight = this.isMobile ? sm.scaleValue(SCENE_CONFIG.BOX_DIMENSIONS.MOBILE_INPUT_HEIGHT) : sm.scaleValue(SCENE_CONFIG.BOX_DIMENSIONS.INPUT_HEIGHT);
 
@@ -1332,9 +1338,9 @@ export default class BaseGameScene extends Phaser.Scene {
             ).setDepth(20);
         }
 
-        // Create input text with consistent padding for mobile
-        const textHorizontalPadding = this.isMobile ? 20 : positions.inputPadding;
-        const textVerticalPadding = this.isMobile ? 20 * 0.7 : positions.inputPadding * 0.7;
+        // Use input padding from design configuration
+        const textHorizontalPadding = DESIGN.UI.INPUT.HORIZONTAL_PADDING;
+        const textVerticalPadding = DESIGN.UI.INPUT.VERTICAL_PADDING;
         
         // Get input text style from textStyles.js (same approach as prompt text)
         const inputTextStyle = this.getInputTextStyle();
@@ -3109,10 +3115,10 @@ if (typeof this.add.rexBBCodeText === "function") {
 
 
     setupInputHandlers() {      
-        this.input.keyboard.on('keydown-H', () => {
-            console.log("[HAPTIC TEST] Manual test triggered");
-            this.testHapticFeedback();
-        });
+        // this.input.keyboard.on('keydown-H', () => {
+        //     console.log("[HAPTIC TEST] Manual test triggered");
+        //     this.testHapticFeedback();
+        // });
         
 
 
@@ -3558,18 +3564,23 @@ if (typeof this.add.rexBBCodeText === "function") {
                     }
                 }
                 
-                // Update progress percentage
-                const oldPercentage = this.progressPercentage;
-                let newPercentage = isAIWord 
-                    ? this.progressPercentage - this.progressIncrement 
-                    : this.progressPercentage + this.progressIncrement;
-                
-                this.progressPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
-                
-                // Update UI elements without animations
-                this.updateWordCountDisplay();
-                this.updateStreakCounter(!isAIWord);
-                this.updateProgressFill();
+            // Update progress percentage and create visual effects
+            const oldPercentage = this.progressPercentage;
+            let newPercentage = isAIWord 
+                ? this.progressPercentage - this.progressIncrement 
+                : this.progressPercentage + this.progressIncrement;
+            
+            this.progressPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
+            
+            // Update UI elements and create success particles for mobile
+            this.updateWordCountDisplay();
+            this.updateStreakCounter(!isAIWord);
+            this.updateProgressFill();
+            
+            // Create success particles on mobile when word is original
+            if (!isAIWord) {
+                this.createWordSuccessParticles();
+            }
             }
 
             // Update cursor immediately for mobile
@@ -3629,45 +3640,53 @@ if (typeof this.add.rexBBCodeText === "function") {
             levelModeIndicatorY = menuBarHeight / 2;
         }
 
-        // Fixed positioning for the center of the menu bar
-        const bannerWidth = 180; 
-        const bannerHeight = 34;
-        const bannerX = this.cameras.main.centerX - bannerWidth / 2;
-        
-        // Calculate banner Y position based on the indicator position
-        // This ensures they share the same center point
-        const bannerY = levelModeIndicatorY - bannerHeight / 2;
-        
-        // Create the banner background as a single graphics object
-        this.levelModeBanner = this.add.graphics();
-        
-        // Banner color based on mode
-        const bannerColor = this.COLORS_HEX.ACCENT //this.mode === 'hard' ? 0xff0066 : 0x8800ff;
-        const glowColor = this.COLORS_HEX.ACCENT//this.mode === 'hard' ? 0xff3366 : 0x9933ff;
-        
-        // Draw banner with glow effect
-        this.levelModeBanner.fillStyle(glowColor, 0.3);
-        this.levelModeBanner.fillRoundedRect(bannerX - 3, bannerY - 3, bannerWidth + 6, bannerHeight + 6, 16);
-        this.levelModeBanner.fillStyle(bannerColor, 0.8);
-        this.levelModeBanner.fillRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
-        this.levelModeBanner.lineStyle(2, 0xffffff, 0.5);
-        this.levelModeBanner.strokeRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
-        
-        // Create the text with no container - just directly positioned
-        const deviceType = detectDeviceType();
-        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
-        const indicatorStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
-        this.levelModeIndicator = this.add.text(
-            this.cameras.main.centerX,
-            levelModeIndicatorY,
-            indicatorText,
-            {
-                ...indicatorStyle,
-                fontStyle: 'bold',
-                fill: '#ffffff',
-                align: 'center'
-            }
-        ).setOrigin(0.5, 0.5);
+    // Create the text first to measure its dimensions
+    const deviceType = detectDeviceType();
+    const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+    const indicatorStyle = getTextStyle('effect', deviceType, this.mode || 'basic', uiScale);
+    this.levelModeIndicator = this.add.text(
+        this.cameras.main.centerX,
+        levelModeIndicatorY,
+        indicatorText,
+        {
+            ...indicatorStyle,
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            align: 'center'
+        }
+    ).setOrigin(0.5, 0.5);
+    
+    // Calculate banner dimensions dynamically based on text size with padding
+    const textPadding = this.isMobile ? 40 : 20; // More padding on mobile for better touch targets
+    const verticalPadding = this.isMobile ? 16 : 12; // Vertical padding for height
+    const bannerWidth = this.levelModeIndicator.width + textPadding;
+    const bannerHeight = this.levelModeIndicator.height + verticalPadding;
+    const bannerX = this.cameras.main.centerX - bannerWidth / 2;
+    
+    // Calculate banner Y position based on the indicator position
+    // This ensures they share the same center point
+    const bannerY = levelModeIndicatorY - bannerHeight / 2;
+    
+    // Create the banner background as a single graphics object
+    this.levelModeBanner = this.add.graphics();
+    
+    // Banner color based on mode
+    const bannerColor = this.COLORS_HEX.ACCENT //this.mode === 'hard' ? 0xff0066 : 0x8800ff;
+    const glowColor = this.COLORS_HEX.ACCENT//this.mode === 'hard' ? 0xff3366 : 0x9933ff;
+    
+    // Draw banner with glow effect
+    this.levelModeBanner.fillStyle(glowColor, 0.3);
+    this.levelModeBanner.fillRoundedRect(bannerX - 3, bannerY - 3, bannerWidth + 6, bannerHeight + 6, 16);
+    this.levelModeBanner.fillStyle(bannerColor, 0.8);
+    this.levelModeBanner.fillRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
+    this.levelModeBanner.lineStyle(2, 0xffffff, 0.5);
+    this.levelModeBanner.strokeRoundedRect(bannerX, bannerY, bannerWidth, bannerHeight, 16);
+    
+    // Set banner depth to be behind the text
+    this.levelModeBanner.setDepth(10);
+    
+    // Ensure text is in front of the banner
+    this.levelModeIndicator.setDepth(11);
         
         // Add a subtle pulse glow effect
         this.pulse(this.levelModeIndicator, 1, 1500);
@@ -3715,6 +3734,8 @@ if (typeof this.add.rexBBCodeText === "function") {
                 "(NON-SLOP)",
                 style.titleStyle
             ).setOrigin(0.5, 0.5);
+
+            console.log("menubar title style: ", style.titleStyle);
 
             // Calculate padding between title and box
             const mobilePadding = 20;
@@ -4071,20 +4092,15 @@ if (typeof this.add.rexBBCodeText === "function") {
         
         // Update banner colors
         if (this.levelModeBanner) {
-            const bannerWidth = 180;
+        // Calculate banner width dynamically based on text width with padding
+        const textPadding = this.isMobile ? 60 : 20; // More padding on mobile for better touch targets and wider text area
+            const bannerWidth = this.levelModeIndicator.width + textPadding;
             const bannerHeight = 34;
             const bannerX = this.cameras.main.centerX - bannerWidth / 2;
             
-            // Check if on mobile for proper Y positioning
-            let bannerY;
-            
-            if (this.isMobile) {
-                // For mobile, use the same Y position as the levelModeIndicator
-                bannerY = this.levelModeIndicator.y - bannerHeight / 2;
-            } else {
-                // For desktop, use the standard menubar center position
-                bannerY = this.menuBarHeight / 2 - bannerHeight / 2;
-            }
+            // Calculate banner Y position to center the text within the banner
+            // The text should be centered within the banner, so banner Y = text Y - half banner height
+            const bannerY = this.levelModeIndicator.y - bannerHeight / 2;
             
             const bannerColor = this.COLORS_HEX.ACCENT;
             const glowColor = this.COLORS_HEX.ACCENT;
@@ -4454,6 +4470,8 @@ if (typeof this.add.rexBBCodeText === "function") {
      * Handle level change
      */
     onLevelChange() {
+        console.log("[DEBUG] onLevelChange called - resetting streaks and updating background");
+        
         // Clear the user input text
         this.userInput = '';
         if (this.inputText) {
@@ -4465,7 +4483,14 @@ if (typeof this.add.rexBBCodeText === "function") {
             this._hiddenInput.value = '';
         }
         
-        // Update prompt and background
+        // Reset streak counters BEFORE updating background
+        this.wordStreak = 0;
+        this.lastWordWasOriginal = false;
+        
+        // Clean up any existing streak-specific background elements BEFORE creating new background
+        this.cleanupStreakVisuals();
+        
+        // Update prompt and background - background will now use reset streak value
         this.updatePromptBasedOnLevel();
         this.updateBackgroundForLevel();
         
@@ -4486,13 +4511,8 @@ if (typeof this.add.rexBBCodeText === "function") {
         // Update word count display
         if (this.wordCountDisplay) this.updateWordCountDisplay();
         
-        // Reset streak counters
-        this.wordStreak = 0;
-        this.lastWordWasOriginal = false;
+        // Update streak counter display
         this.updateStreakCounter(false);
-        
-        // Clean up any existing streak-specific background elements
-        this.cleanupStreakVisuals();
         
         // Update cursor to show the cleared state
         this.updateCursor();
@@ -5042,7 +5062,7 @@ if (typeof this.add.rexBBCodeText === "function") {
                 const deviceType = detectDeviceType();
                 const uiScale = sm.uiScale || 1;
                 const labelStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
-                const countStyle = getTextStyle('button', deviceType, this.mode || 'basic', uiScale);
+                const countStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
                 const padding = sm.scaleValue(20);
 
                 // Labels with maximum expected values
@@ -5500,7 +5520,7 @@ this.aiCountText = this.add.text(
         const settingsIcon = this.add.image(x, y, 'settings').setOrigin(0.5);
 
         // Set icon size relative to menu bar height
-        let iconSize = Math.round(menuBarHeight * 0.5);
+        let iconSize = Math.round(menuBarHeight * 0.4);
         // Slightly increase icon size for mobile devices
         if (this.isMobile) {
             iconSize = Math.round(menuBarHeight * 0.35); // was 0.25, now slightly larger

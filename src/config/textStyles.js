@@ -35,7 +35,7 @@ const CLAMP_RANGES = {
     },
     [DEVICE_TYPES.PHONE]: {
         title: { min: 50, max: 300 },
-        menuTitle: { min: 28, max: 60 },
+        menuTitle: { min: 30, max: 120 },
         prompt: { min: 24, max: 32 },
         input: { min: 24, max: 40 },
         output: { min: 24, max: 40 },
@@ -46,6 +46,52 @@ const CLAMP_RANGES = {
         fancyButton: { min: 20, max: 36 },
         transitionText: { min: 36, max: 60 },
         settings: { min: 22, max: 28 },
+    }
+};
+
+// Base font sizes for each device type
+const BASE_FONT_SIZES = {
+    [DEVICE_TYPES.DESKTOP]: {
+        title: 70,
+        menuTitle: 50,
+        prompt: 18,
+        input: 18,
+        output: 18,
+        tooltip: 16,
+        effect: 20,
+        timer: 50,  
+        button: 20,
+        fancyButton: 18,
+        transitionText: 24,
+        settings: 18,
+    },
+    [DEVICE_TYPES.TABLET]: {
+        title: 50,
+        menuTitle: 55,
+        prompt: 18,
+        input: 18,
+        output: 18,
+        tooltip: 16,
+        effect: 20,
+        timer: 50,  // 1.5x effect
+        button: 18,
+        fancyButton: 18,
+        transitionText: 28,
+        settings: 16
+    },
+    [DEVICE_TYPES.PHONE]: {
+        title: 200,
+        menuTitle: 70,
+        prompt: 28,
+        input: 28,
+        output: 28,
+        tooltip: 18,
+        effect: 36,
+        timer: 70,  // 1.5x effect
+        button: 26,
+        fancyButton: 24,
+        transitionText: 36,
+        settings: 26
     }
 };
 
@@ -86,52 +132,6 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
         default:
             COLORS_TEXT = BASIC_COLORS_TEXT;
     }
-
-    // Base font sizes for each device type
-    const BASE_FONT_SIZES = {
-        [DEVICE_TYPES.DESKTOP]: {
-            title: 70,
-            menuTitle: 50,
-            prompt: 18,
-            input: 18,
-            output: 18,
-            tooltip: 16,
-            effect: 20,
-            timer: 50,  
-            button: 20,
-            fancyButton: 18,
-            transitionText: 24,
-            settings: 18,
-        },
-        [DEVICE_TYPES.TABLET]: {
-            title: 50,
-            menuTitle: 55,
-            prompt: 18,
-            input: 18,
-            output: 18,
-            tooltip: 16,
-            effect: 20,
-            timer: 50,  // 1.5x effect
-            button: 18,
-            fancyButton: 18,
-            transitionText: 28,
-            settings: 16
-        },
-        [DEVICE_TYPES.PHONE]: {
-            title: 200,
-            menuTitle: 40,
-            prompt: 28,
-            input: 28,
-            output: 28,
-            tooltip: 18,
-            effect: 36,
-            timer: 70,  // 1.5x effect
-            button: 26,
-            fancyButton: 24,
-            transitionText: 36,
-            settings: 26
-        }
-    };
 
     // Get base font size for device and text type
     const baseFontSize = BASE_FONT_SIZES[deviceType][textType] || 
@@ -406,14 +406,8 @@ export function getMenuBarStyle(mode = 'basic', uiScale = 1) {
     // Get device type for responsive title size
     const deviceType = detectDeviceType();
     
-    // Base font sizes for each device type
-    const TITLE_FONT_SIZES = {
-        [DEVICE_TYPES.DESKTOP]: 60,
-        [DEVICE_TYPES.TABLET]: 55,
-        [DEVICE_TYPES.PHONE]: 40
-    };
-    
-    const baseTitleFontSize = TITLE_FONT_SIZES[deviceType] || TITLE_FONT_SIZES[DEVICE_TYPES.DESKTOP];
+    // Use the menuTitle font sizes from BASE_FONT_SIZES instead of defining separately
+    const baseTitleFontSize = BASE_FONT_SIZES[deviceType]?.menuTitle || BASE_FONT_SIZES[DEVICE_TYPES.DESKTOP]?.menuTitle;
     const scaledTitleFontSize = baseTitleFontSize * uiScale;
     
     // Apply clamping to title font size using the menuTitle clamp ranges
