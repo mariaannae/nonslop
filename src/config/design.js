@@ -62,7 +62,8 @@ const PALETTE = {
     GREEN_LIGHTER: 0xcdffda,
     GREEN_LIGHTEST: 0xebfff7,
     BRIGHT_GREEN: 0x00cc00, // More vibrant green for progress bar success
-  }
+  },
+  BLACK: 0x000000
 };
 
 
@@ -156,7 +157,8 @@ const BASIC = {
     ACCENT: hexToString(PALETTE.ACCENT.ORANGE_LIGHT),
     SUCCESS: hexToString(PALETTE.HIGHLIGHT.GREEN_YELLOW),
     ERROR: hexToString(PALETTE.ACCENT.RED),
-    DARKEST: hexToString(PALETTE.BACKGROUND.DARKEST)
+    DARKEST: hexToString(PALETTE.BACKGROUND.DARKEST),
+    BLACK: hexToString(PALETTE.BLACK)
   }
 };
 
@@ -190,6 +192,7 @@ const EASY = {
     SUCCESS: hexToString(PALETTE.HIGHLIGHT.BRIGHT_GREEN),
     ERROR: hexToString(PALETTE.ACCENT.RED),
     TITLE: hexToString(PALETTE.HIGHLIGHT.YELLOW),
+    BLACK: hexToString(PALETTE.BLACK)
   }
 };
 
@@ -225,6 +228,7 @@ const HARD = {
     BACKGROUND: hexToString(PALETTE.BACKGROUND.DARKER),
     ERROR: hexToString(PALETTE.ACCENT.RED),
     TITLE: hexToString(PALETTE.HIGHLIGHT.YELLOW),
+    BLACK: hexToString(PALETTE.BLACK)
   }
 };
 

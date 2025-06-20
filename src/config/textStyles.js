@@ -198,7 +198,7 @@ export function getTextStyle(textType, deviceType = null, mode = 'basic', uiScal
         input: {
             fontFamily: 'IBM Plex Mono',
             fontSize: `${fontSize}px`,
-            fill: '#000',
+            fill: COLORS_TEXT.BLACK,
             align: 'left',
             lineSpacing: 6 * uiScale
         },
@@ -304,7 +304,7 @@ export function getBoxStyle(boxType, mode = 'basic', uiScale = 1) {
     // Base styles for each box type
     const baseStyles = {
         prompt: {
-            fillColor: COLORS_HEX.BACKGROUND_DARKEST || COLORS_HEX.BACKGROUND || 0x000000,
+            fillColor: COLORS_HEX.BOX_FILL || COLORS_HEX.BACKGROUND || 0x000000,
             fillAlpha: 0.8, // Always visible
             hasOutline: true,
             outlineWidth: outline.WIDTH,
@@ -312,8 +312,8 @@ export function getBoxStyle(boxType, mode = 'basic', uiScale = 1) {
             cornerRadius: outline.CORNER_RADIUS
         },
         input: {
-            fillColor: mode === 'hard' ? 0xffffff : (COLORS_HEX.TEXT || 0xffffff),
-            fillAlpha: mode === 'hard' ? 0.9 : 0.95,
+            fillColor: 0xFFFFFF,
+            fillAlpha: 0.85,
             hasOutline: true,
             outlineWidth: outline.WIDTH,
             outlineColor: COLORS_HEX.ACCENT || 0x00ff00,

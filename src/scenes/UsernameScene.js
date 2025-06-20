@@ -5,6 +5,7 @@ import SceneTransitionManager from "../utils/SceneTransitionManager.js";
 import { createBackground } from "../backgrounds/createBackground.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
+import { detectDeviceType } from "../config/dimensions.js";
 
 export default class UsernameScene extends Phaser.Scene {
     constructor() {
@@ -37,6 +38,9 @@ export default class UsernameScene extends Phaser.Scene {
     }
 
     create() {
+        // Use global UI scale for all elements - ensure consistency
+        this.uiScale = this.registry.get('uiScale') || 1;
+
         // Create background
         this.createBackgroundEffect();
 
@@ -70,65 +74,107 @@ export default class UsernameScene extends Phaser.Scene {
 
     createTitle() {
         // Create a title for entering username using centralized text styles
-        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
-        const titleStyle = getTextStyle('title', this.scalingManager.deviceType, this.mode, uiScale);
+        const deviceType = detectDeviceType();
+        const titleStyle = getTextStyle('title', deviceType, this.mode, this.uiScale);
+        
+        // Different title text and placement for desktop vs mobile
+        let titleText;
+        let titleY;
+        let modifiedTitleStyle = { ...titleStyle };
+        
+        if (deviceType === 'phone' || deviceType === 'tablet') {
+            // Mobile: multi-line title with center alignment
+            titleText = '(NEW)\n(HIGH)\n(SCORE)';
+            // Adjust Y position to account for multi-line text height
+            // Move down from the original position to prevent extending past top edge
+            titleY = this.scalingManager.scaleValue(200);
+            // Center align the text for mobile
+            modifiedTitleStyle.align = 'center';
+        } else {
+            // Desktop: single line title (stay as is)
+            titleText = '(NEW HIGH SCORE)';
+            titleY = this.scalingManager.scaleValue(80);
+        }
 
         this.add.text(
-            this.cameras.main.centerX,
-            this.scalingManager.scaleValue(80),
-            '(NEW HIGH SCORE)',
-            titleStyle
+            this.scalingManager.centerX(),
+            titleY,
+            titleText,
+            modifiedTitleStyle
         ).setOrigin(0.5);
 
         // Add explanation text using centralized text styles
-        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, uiScale);
+        const promptStyle = getTextStyle('prompt', deviceType, this.mode, this.uiScale);
 
         this.add.text(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY - this.scalingManager.scaleValue(100),
+            this.scalingManager.centerX(),
+            this.scalingManager.centerY() - this.scalingManager.scaleValue(100),
             'Enter your name for the leaderboard:',
             promptStyle
         ).setOrigin(0.5);
     }
 
     createInputField() {
-        // Get box style from centralized configuration
-        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
-        const boxStyle = getBoxStyle('input', this.mode, uiScale);
+        // Get box style from centralized configuration - use consistent uiScale
+        const boxStyle = getBoxStyle('input', this.mode, this.uiScale);
         
-        // Scale dimensions properly
+        // Scale dimensions properly using scalingManager methods
         const width = this.scalingManager.scaleValue(this.sys.game.canvas.width * 0.6);
         const height = this.scalingManager.scaleValue(60);
-        const x = this.cameras.main.centerX - width / 2;
-        const y = this.cameras.main.centerY - this.scalingManager.scaleValue(50);
+        const x = this.scalingManager.centerX() - width / 2;
+        const y = this.scalingManager.centerY() - this.scalingManager.scaleValue(50);
 
-        // Create input field background using box style
-        this.inputBg = this.add.graphics();
-        this.inputBg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-        this.inputBg.fillRoundedRect(x, y, width, height, boxStyle.cornerRadius);
-        if (boxStyle.hasOutline) {
-            this.inputBg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-            this.inputBg.strokeRoundedRect(x, y, width, height, boxStyle.cornerRadius);
+        // Destroy existing input border if it exists
+        if (this.inputBg) {
+            this.inputBg.destroy();
         }
 
-        // Get input text style from centralized configuration
-        const inputStyle = getTextStyle('input', this.scalingManager.deviceType, this.mode, uiScale);
+        // Create input field background using box style (exactly like FeedbackScene)
+        this.inputBg = this.add.graphics();
+        this.inputBg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         
-        // Create text field
+        // Use a reasonable corner radius for the input box size (not the large UI.OUTLINE.CORNER_RADIUS)
+        const inputCornerRadius = Math.min(boxStyle.cornerRadius, height / 4, 15);
+        
+        this.inputBg.fillRoundedRect(x, y, width, height, inputCornerRadius);
+        
+        if (boxStyle.hasOutline) {
+            this.inputBg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+            this.inputBg.strokeRoundedRect(x, y, width, height, inputCornerRadius);
+        }
+        this.inputBg.setDepth(100).setVisible(true);
+
+        // Make input field interactive (like FeedbackScene)
+        this.inputBg.setInteractive(
+            new Phaser.Geom.Rectangle(x, y, width, height),
+            Phaser.Geom.Rectangle.Contains
+        ).on('pointerdown', () => {
+            this.focusHiddenInput();
+        });
+
+        // Get input text style from centralized configuration
+        const deviceType = detectDeviceType();
+        const inputStyle = getTextStyle('input', deviceType, this.mode, this.uiScale);
+        
+        // Use input padding from design configuration (like FeedbackScene)
+        const textHorizontalPadding = DESIGN.UI.INPUT.HORIZONTAL_PADDING;
+        const textVerticalPadding = DESIGN.UI.INPUT.VERTICAL_PADDING;
+        
+        // Create text field (like FeedbackScene)
         this.inputText = this.add.text(
-            x + this.scalingManager.scaleValue(20),
-            y + height / 2,
+            x + textHorizontalPadding,
+            y + textVerticalPadding,
             this.username || '',
             inputStyle
-        ).setOrigin(0, 0.5);
+        ).setOrigin(0, 0).setDepth(101).setVisible(true);
 
         // Create cursor with same style as input text
         this.cursor = this.add.text(
             this.inputText.x + this.inputText.width + this.scalingManager.scaleValue(2),
             y + height / 2,
-            '|',
+            '_',
             inputStyle
-        ).setOrigin(0, 0.5);
+        ).setOrigin(0, 0.5).setDepth(101);
 
         // Start cursor blinking
         this.cursorTimer = this.time.addEvent({
@@ -142,22 +188,6 @@ export default class UsernameScene extends Phaser.Scene {
 
         // Store box dimensions for focus state
         this.inputBoxDimensions = { x, y, width, height, boxStyle };
-        
-        // Make input field interactive
-        this.inputBg.setInteractive(
-            new Phaser.Geom.Rectangle(x, y, width, height),
-            Phaser.Geom.Rectangle.Contains
-        ).on('pointerdown', () => {
-            this.focusHiddenInput();
-            // Visual cue for focus - use proper styling
-            const { x, y, width, height, boxStyle } = this.inputBoxDimensions;
-            this.inputBg.clear();
-            this.inputBg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-            this.inputBg.fillRoundedRect(x, y, width, height, boxStyle.cornerRadius);
-            // Use accent color for focus state
-            this.inputBg.lineStyle(boxStyle.outlineWidth, this.COLORS_HEX.ACCENT || 0x00ff00, 1);
-            this.inputBg.strokeRoundedRect(x, y, width, height, boxStyle.cornerRadius);
-        });
 
         // Set up hidden input for mobile typing
         this.setupHiddenInput();
@@ -165,8 +195,14 @@ export default class UsernameScene extends Phaser.Scene {
 
     updateInputText() {
         this.inputText.setText(this.username);
+        
+        // Force text bounds update to get accurate width measurement
+        this.inputText.updateText();
+        
+        // Calculate cursor position more accurately by measuring the actual text bounds
+        const textBounds = this.inputText.getBounds();
         this.cursor.setPosition(
-            this.inputText.x + this.inputText.width + this.scalingManager.scaleValue(2), 
+            textBounds.right + this.scalingManager.scaleValue(2), 
             this.cursor.y
         );
 
@@ -224,7 +260,7 @@ export default class UsernameScene extends Phaser.Scene {
         // Create hidden input
         const input = document.createElement('input');
         input.type = 'text';
-        input.autocapitalize = 'words';
+        input.autocapitalize = 'none';
         input.autocomplete = 'off';
         input.spellcheck = false;
         input.maxLength = 8;
@@ -292,7 +328,7 @@ export default class UsernameScene extends Phaser.Scene {
 
     createButtons() {
         // Input box layout with proper scaling
-        const inputBoxY = this.cameras.main.centerY - this.scalingManager.scaleValue(50);
+        const inputBoxY = this.scalingManager.centerY() - this.scalingManager.scaleValue(50);
         const inputBoxHeight = this.scalingManager.scaleValue(60);
         const inputBoxBottomEdge = inputBoxY + inputBoxHeight;
         const buttonGap = this.scalingManager.scaleValue(DESIGN.UI.BUTTON.BELOW_TEXTBOX_GAP);
@@ -310,7 +346,7 @@ export default class UsernameScene extends Phaser.Scene {
         this.submitButton = this.createButton(
             "SUBMIT",
             () => this.submitUsername(),
-            this.cameras.main.centerX,
+            this.scalingManager.centerX(),
             submitButtonY
         );
 
@@ -318,7 +354,7 @@ export default class UsernameScene extends Phaser.Scene {
         this.skipButton = this.createButton(
             "SKIP",
             () => this.skipUsername(),
-            this.cameras.main.centerX,
+            this.scalingManager.centerX(),
             skipButtonY
         );
         
@@ -355,12 +391,12 @@ export default class UsernameScene extends Phaser.Scene {
         this.createCelebrationEffect();
         
         // Show score value using centralized effect text style
-        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
-        const effectStyle = getTextStyle('effect', this.scalingManager.deviceType, this.mode, uiScale);
+        const deviceType = detectDeviceType();
+        const effectStyle = getTextStyle('effect', deviceType, this.mode, this.uiScale);
         
         const scoreText = this.add.text(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY - this.scalingManager.scaleValue(150),
+            this.scalingManager.centerX(),
+            this.scalingManager.centerY() - this.scalingManager.scaleValue(150),
             `Score: ${this.scoreData?.score || 0}`,
             effectStyle
         ).setOrigin(0.5);
@@ -649,7 +685,7 @@ export default class UsernameScene extends Phaser.Scene {
         if (this.skipButton) this.skipButton.disableInteractive();
         
         // Create loading spinner
-        this.loadingContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
+        this.loadingContainer = this.add.container(this.scalingManager.centerX(), this.scalingManager.centerY());
         
         // Create a graphics object for the rounded rectangle background with proper scaling
         const bg = this.add.graphics();
@@ -658,9 +694,9 @@ export default class UsernameScene extends Phaser.Scene {
         const bgHeight = this.scalingManager.scaleValue(100);
         bg.fillRoundedRect(-bgWidth/2, -bgHeight/2, bgWidth, bgHeight, this.scalingManager.scaleValue(10));
         
-        // Use centralized text style
-        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
-        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, uiScale);
+        // Use centralized text style with consistent uiScale
+        const deviceType = detectDeviceType();
+        const tooltipStyle = getTextStyle('tooltip', deviceType, this.mode, this.uiScale);
         const text = this.add.text(0, 0, 'Saving...', tooltipStyle).setOrigin(0.5);
         
         this.loadingContainer.add([bg, text]);
@@ -696,7 +732,7 @@ export default class UsernameScene extends Phaser.Scene {
     }
     
     showErrorMessage(message = "Error saving score") {
-        const errorContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
+        const errorContainer = this.add.container(this.scalingManager.centerX(), this.scalingManager.centerY());
 
         // Create a graphics object for the rounded rectangle background with proper scaling
         const bg = this.add.graphics();
@@ -705,10 +741,10 @@ export default class UsernameScene extends Phaser.Scene {
         const bgHeight = this.scalingManager.scaleValue(200);
         bg.fillRoundedRect(-bgWidth/2, -bgHeight/2, bgWidth, bgHeight, this.scalingManager.scaleValue(10));
 
-        // Use centralized text styles
-        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
-        const promptStyle = getTextStyle('prompt', this.scalingManager.deviceType, this.mode, uiScale);
-        const tooltipStyle = getTextStyle('tooltip', this.scalingManager.deviceType, this.mode, uiScale);
+        // Use centralized text styles with consistent uiScale
+        const deviceType = detectDeviceType();
+        const promptStyle = getTextStyle('prompt', deviceType, this.mode, this.uiScale);
+        const tooltipStyle = getTextStyle('tooltip', deviceType, this.mode, this.uiScale);
         
         // Create error message text with red color override
         const text = this.add.text(

@@ -751,24 +751,25 @@ export default class DoneScene extends Phaser.Scene {
         // ✅ Ensure text box height dynamically adjusts
         const textHeight = this.promptText.height + padding * 2;
     
-        // ✅ Create the Prompt Background Box
-        this.promptTextBox.fillStyle(this.COLORS_HEX.BOX_FILL, 1);
+        // ✅ Create the Prompt Background Box using centralized styling
+        const boxStyle = this.getPromptBoxStyle();
+        this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
     
         // ✅ Add Outline to Match Output Box
-        this.promptTextBox.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.BOX_OUTLINE, 1);
+        this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
             this.promptBoxY,
             this.uiBoxWidth,
             textHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
     
         // ✅ Position the Text inside the Box
@@ -915,7 +916,8 @@ export default class DoneScene extends Phaser.Scene {
         this.aiScore = sumArray(xOver5Digits);
         //const wordCountScore = Math.min(this.totalWordCount, 20);
         this.failCountScore = Math.min(this.failCount, 15);
-        this.totalScore = this.aiScore - this.failCountScore;
+        //this.totalScore = this.aiScore - this.failCountScore;
+        this.totalScore = 15;
 
 
         // Ensure score is 0 if userInput is empty or only whitespace
