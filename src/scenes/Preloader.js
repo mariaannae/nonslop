@@ -89,44 +89,58 @@ export default class Preloader extends Phaser.Scene {
         this.typewriterTimer = null;
         this.typewriterBox = null;
         this.typewriterText = null;
+        this.isTransitioning = false; // Initialize transition state
         
-        // Clear input state for ALL devices to prevent cached button issues
-        console.log("Clearing input state to prevent cached button issues");
-        // Force clear input plugin state
+        // Enhanced input state cleanup for mobile reliability
+        console.log("Performing comprehensive input state reset");
+        
+        // Clear all scene-level input listeners first
         if (this.input) {
             this.input.removeAllListeners();
-            this.input.clear(true);
-            // Reset input manager state
             this.input.enabled = true;
-            this.input.manager.queue = [];
+            
+            // Clear input manager state more thoroughly
+            if (this.input.manager) {
+                this.input.manager.queue = [];
+                // Reset all pointer states, not just inactive ones
+                if (this.input.manager.activePointer) {
+                    this.input.manager.activePointer.reset();
+                }
+                // Clear any cached hit test results
+                this.input.manager._tempHitTest = [];
+                this.input.manager._tempMatrix = new Phaser.GameObjects.Components.TransformMatrix();
+                this.input.manager._tempMatrix2 = new Phaser.GameObjects.Components.TransformMatrix();
+            }
         }
         
-        // Mobile-specific input state reset to fix button caching issues
+        // Mobile-specific comprehensive reset
         const isMobile = isMobileDevice();
         if (isMobile) {
-            console.log("[MOBILE FIX] Performing enhanced mobile input reset");
+            console.log("[MOBILE FIX] Performing comprehensive mobile input reset");
             
-            // Reset scene transition state that might block button interactions
-            this.isTransitioning = false;
-            
-            // Clear any cached DOM event listeners that might interfere
+            // Ensure canvas touch handling is properly configured
             if (this.sys && this.sys.game && this.sys.game.canvas) {
                 const canvas = this.sys.game.canvas;
-                // Ensure proper touch handling
                 canvas.style.touchAction = 'none';
+                canvas.style.userSelect = 'none';
+                canvas.style.webkitUserSelect = 'none';
+                
+                // Force a brief delay to ensure DOM is ready
+                this.time.delayedCall(50, () => {
+                    // Re-verify touch settings after DOM update
+                    if (canvas.style.touchAction !== 'none') {
+                        canvas.style.touchAction = 'none';
+                    }
+                });
             }
             
-            // Only clear specific problematic input state, not everything
-            if (this.input && this.input.manager) {
-                // Clear any cached pointer states that might be stale
-                if (this.input.manager.activePointer && this.input.manager.activePointer.isDown === false) {
-                    this.input.manager.activePointer = null;
-                }
-                
-                // Clear any pending input events that might be stale
-                if (this.input.manager.queue && this.input.manager.queue.length > 0) {
-                    this.input.manager.queue.length = 0;
-                }
+            // Clear any stale touch/pointer events from the browser
+            if (this.input && this.input.manager && this.input.manager.pointers) {
+                this.input.manager.pointers.forEach(pointer => {
+                    if (pointer && !pointer.isDown) {
+                        pointer.reset();
+                    }
+                });
             }
         }
         
@@ -135,9 +149,14 @@ export default class Preloader extends Phaser.Scene {
             this.tweens.killAll();
         }
         
+        // Clear any remaining timers that might interfere
+        if (this.time) {
+            this.time.removeAllEvents();
+        }
+        
         // Don't set camera background color on mobile - let background images show through
         if (!isMobile) {
-            this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND); // Set background color only on desktop
+            this.cameras.main.setBackgroundColor(COLORS_HEX.BACKGROUND);
         }
     }
 
@@ -395,88 +414,183 @@ export default class Preloader extends Phaser.Scene {
     cleanupScene() {
         console.log("Cleaning up Preloader scene...");
         
-        // Stop any active tweens
-        this.tweens.killAll();
+        // Set transition flag to prevent double-cleanup
+        this.isTransitioning = true;
         
-        // Remove typewriter timer
-        if (this.typewriterTimer && typeof this.typewriterTimer.remove === "function") {
-            this.typewriterTimer.remove();
+        // Stop any active tweens
+        if (this.tweens) {
+            this.tweens.killAll();
+        }
+        
+        // Remove all timers and events
+        if (this.time) {
+            this.time.removeAllEvents();
+        }
+        
+        // Remove typewriter timer with enhanced safety
+        if (this.typewriterTimer) {
+            if (typeof this.typewriterTimer.remove === "function") {
+                this.typewriterTimer.remove();
+            } else if (typeof this.typewriterTimer.destroy === "function") {
+                this.typewriterTimer.destroy();
+            }
             this.typewriterTimer = null;
         }
         
         // Clean up tooltips
         this.hideTooltips();
         
-        // Enhanced button cleanup for mobile devices
+        // Comprehensive button cleanup for mobile reliability
         if (this.doneButton) {
-            console.log("[MOBILE FIX] Enhanced button cleanup");
+            console.log("[MOBILE FIX] Comprehensive button cleanup");
             
-            // Remove all event listeners from the button container
-            this.doneButton.removeAllListeners();
-            
-            // If the button has children (like hitRect), clean them up too
-            if (this.doneButton.list && this.doneButton.list.length > 0) {
-                this.doneButton.list.forEach(child => {
-                    if (child && typeof child.removeAllListeners === 'function') {
-                        child.removeAllListeners();
-                    }
-                });
+            try {
+                // First, remove all event listeners from the button container
+                this.doneButton.removeAllListeners();
+                
+                // Deep cleanup of button children (especially the hitRect)
+                if (this.doneButton.list && this.doneButton.list.length > 0) {
+                    this.doneButton.list.forEach((child, index) => {
+                        if (child) {
+                            console.log(`[MOBILE FIX] Cleaning up button child ${index}:`, child.type || 'unknown');
+                            
+                            // Remove event listeners from child elements
+                            if (typeof child.removeAllListeners === 'function') {
+                                child.removeAllListeners();
+                            }
+                            
+                            // Disable interactivity on child elements
+                            if (child.input && typeof child.disableInteractive === 'function') {
+                                child.disableInteractive();
+                            }
+                            
+                            // Special handling for hitRect (Rectangle objects)
+                            if (child.type === 'Rectangle' && child.input) {
+                                child.input.enabled = false;
+                                child.input = null;
+                            }
+                        }
+                    });
+                }
+                
+                // Disable container interactivity
+                if (this.doneButton.input) {
+                    this.doneButton.input.enabled = false;
+                    this.doneButton.disableInteractive();
+                }
+                
+                // Clear any cached input references
+                if (this.doneButton.input) {
+                    this.doneButton.input = null;
+                }
+                
+                // Destroy the button container
+                this.doneButton.destroy();
+                this.doneButton = null;
+                
+            } catch (error) {
+                console.warn("[MOBILE FIX] Error during button cleanup:", error);
+                // Force null the button reference even if cleanup failed
+                this.doneButton = null;
             }
-            
-            // Disable interactivity before destroying
-            if (this.doneButton.input) {
-                this.doneButton.disableInteractive();
-            }
-            
-            // Destroy the button
-            this.doneButton.destroy();
-            this.doneButton = null;
         }
         
-        // Mobile-specific cleanup to prevent cached input state
+        // Enhanced mobile-specific cleanup
         const isMobile = isMobileDevice();
         if (isMobile) {
-            console.log("[MOBILE FIX] Performing mobile-specific cleanup");
+            console.log("[MOBILE FIX] Performing comprehensive mobile cleanup");
             
-            // Only clear stale input state, not active state
+            // Clear input manager state more thoroughly
             if (this.input && this.input.manager) {
-                // Only clear if pointer is not currently active
+                // Reset all pointer states
+                if (this.input.manager.pointers) {
+                    this.input.manager.pointers.forEach(pointer => {
+                        if (pointer && !pointer.isDown) {
+                            pointer.reset();
+                        }
+                    });
+                }
+                
+                // Clear active pointer if not currently in use
                 if (this.input.manager.activePointer && !this.input.manager.activePointer.isDown) {
+                    this.input.manager.activePointer.reset();
                     this.input.manager.activePointer = null;
                 }
+                
+                // Clear input queue and hit test cache
+                this.input.manager.queue = [];
+                this.input.manager._tempHitTest = [];
             }
             
+            // Force canvas touch settings reset
+            if (this.sys && this.sys.game && this.sys.game.canvas) {
+                const canvas = this.sys.game.canvas;
+                // Use a small delay to ensure DOM is ready
+                setTimeout(() => {
+                    canvas.style.touchAction = 'none';
+                    canvas.style.userSelect = 'none';
+                    canvas.style.webkitUserSelect = 'none';
+                }, 10);
+            }
+        }
+        
+        // Clean up all text elements
+        const textElements = [this.outputText, this.loadingText, this.typewriterText];
+        textElements.forEach((element, index) => {
+            if (element) {
+                try {
+                    element.destroy();
+                } catch (error) {
+                    console.warn(`Error destroying text element ${index}:`, error);
+                }
+            }
+        });
+        this.outputText = null;
+        this.loadingText = null;
+        this.typewriterText = null;
+        
+        // Clean up all graphics elements
+        const graphicsElements = [
+            this.outputTextBox, 
+            this.progressBar, 
+            this.progressBarOutline, 
+            this.typewriterBox,
+            this.background
+        ];
+        graphicsElements.forEach((element, index) => {
+            if (element) {
+                try {
+                    element.destroy();
+                } catch (error) {
+                    console.warn(`Error destroying graphics element ${index}:`, error);
+                }
+            }
+        });
+        this.outputTextBox = null;
+        this.progressBar = null;
+        this.progressBarOutline = null;
+        this.typewriterBox = null;
+        this.background = null;
+        
+        // Clear tooltips array
+        this.tooltips = [];
+        
+        // Final mobile-specific state reset
+        if (isMobile) {
             // Reset transition state
             this.isTransitioning = false;
+            
+            // One final input state verification
+            setTimeout(() => {
+                if (this.input && this.input.manager) {
+                    // Ensure input is enabled for next scene
+                    this.input.enabled = true;
+                    this.input.manager.enabled = true;
+                }
+            }, 50);
         }
         
-        // Clean up text elements
-        if (this.outputText) {
-            this.outputText.destroy();
-            this.outputText = null;
-        }
-        if (this.loadingText) {
-            this.loadingText.destroy();
-            this.loadingText = null;
-        }
-        
-        // Clean up graphics
-        if (this.outputTextBox) {
-            this.outputTextBox.destroy();
-            this.outputTextBox = null;
-        }
-        if (this.progressBar) {
-            this.progressBar.destroy();
-            this.progressBar = null;
-        }
-        if (this.progressBarOutline) {
-            this.progressBarOutline.destroy();
-            this.progressBarOutline = null;
-        }
-        if (this.typewriterBox) {
-            this.typewriterBox.destroy();
-            this.typewriterBox = null;
-        }
+        console.log("[MOBILE FIX] Preloader cleanup completed");
     }
 
     createBadgeGeneratorButton() {
@@ -671,13 +785,32 @@ export default class Preloader extends Phaser.Scene {
             const buttonVerticalGap = isMobileDevice() ? 80 * this.uiScale : 30 * this.uiScale;
             const buttonY = textBoxY + textBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
-// Create button with proper callback
+// Prevent double-creation if button already exists
+if (this.doneButton) {
+    console.log("[MOBILE FIX] Button already exists, cleaning up before recreating");
+    this.doneButton.removeAllListeners();
+    this.doneButton.destroy();
+    this.doneButton = null;
+}
+
+// Create button with enhanced mobile reliability
 this.doneButton = ButtonFactory.createButton(
     this,
     "NEXT",
     () => {
+        // Prevent double-clicks during transition
+        if (this.isTransitioning) {
+            console.log("[MOBILE FIX] Ignoring button click during transition");
+            return;
+        }
+        
+        this.isTransitioning = true;
         console.log("NEXT button clicked - starting scene transition");
-        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        
+        // Small delay to ensure touch event is fully processed
+        this.time.delayedCall(50, () => {
+            this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        });
     },
     buttonX,
     buttonY,
@@ -702,7 +835,7 @@ if (isMobile) {
         this.doneButton.setInteractive();
     }
     
-    // Add mobile-specific touch validation
+    // Add mobile-specific touch validation with enhanced debugging
     this.doneButton.on('pointerdown', (pointer) => {
         console.log("[MOBILE FIX] Button pointerdown detected:", {
             pointerType: pointer.pointerType,
@@ -713,7 +846,19 @@ if (isMobile) {
                 y: this.doneButton.y - this.doneButton.height/2,
                 width: this.doneButton.width,
                 height: this.doneButton.height
-            }
+            },
+            isTransitioning: this.isTransitioning,
+            inputEnabled: this.input?.enabled,
+            buttonInputEnabled: this.doneButton?.input?.enabled
+        });
+    });
+    
+    // Add additional mobile debugging for pointerup
+    this.doneButton.on('pointerup', (pointer) => {
+        console.log("[MOBILE FIX] Button pointerup detected:", {
+            pointerType: pointer.pointerType,
+            isTouch: pointer.pointerType === 'touch',
+            isTransitioning: this.isTransitioning
         });
     });
 }

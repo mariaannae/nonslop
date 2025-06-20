@@ -14,6 +14,11 @@ export default class LeaderboardScene extends Phaser.Scene {
         this.mode = 'easy'; // Default mode
         this.leaderboardEntries = [];
         this.isLoading = false;
+        this.scrollContainer = null;
+        this.scrollY = 0;
+        this.maxScrollY = 0;
+        this.isDragging = false;
+        this.lastPointerY = 0;
     }
 
     init(data) {
@@ -144,7 +149,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Add labels for the toggle
         const easyLabel = this.add.text(
-            -50 * this.scalingManager.scale, 
+            this.scalingManager.scaleValue(-50), 
             0, 
             "EASY", 
             {
@@ -155,7 +160,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         ).setOrigin(1, 0.5);
         
         const hardLabel = this.add.text(
-            50 * this.scalingManager.scale, 
+            this.scalingManager.scaleValue(50), 
             0, 
             "HARD", 
             {
@@ -166,7 +171,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         ).setOrigin(0, 0.5);
         
         // Create the toggle switch
-        const toggleLeftX = -20 * this.scalingManager.scale; // Position relative to center, scaled
+        const toggleLeftX = this.scalingManager.scaleValue(-20); // Position relative to center, scaled
         this.modeToggle = ToggleFactory.createToggle(
             this,
             this.mode,
@@ -282,7 +287,7 @@ export default class LeaderboardScene extends Phaser.Scene {
     async loadScores() {
         try {
             console.log("[LeaderboardScene] [loadScores] Fetching top scores for mode:", this.mode);
-            this.scores = await getTopScores(this.mode, 10);
+            this.scores = await getTopScores(this.mode, 20);
             console.log("[LeaderboardScene] [loadScores] Loaded scores:", this.scores);
         } catch (error) {
             console.error("[LeaderboardScene] [loadScores] ERROR:", error);
@@ -311,30 +316,36 @@ export default class LeaderboardScene extends Phaser.Scene {
         if (this.noScoresText) {
             this.noScoresText.destroy();
         }
+
+        // Remove scroll container if it exists
+        if (this.scrollContainer) {
+            this.scrollContainer.destroy();
+            this.scrollContainer = null;
+        }
+
+        // Reset scroll variables
+        this.scrollY = 0;
+        this.maxScrollY = 0;
+        this.isDragging = false;
     }
 
     displayScores() {
         this.clearScoreDisplay();
         
         // Calculate available height for the leaderboard
-        const buttonHeight = 64; // Estimated button height
-        const bottomMargin = 20;
+        const buttonHeight = this.scalingManager.scaleValue(64);
+        const bottomMargin = this.scalingManager.scaleValue(20);
         const availableHeight = this.cameras.main.height - bottomMargin - buttonHeight;
         
-        const startY = this.scalingManager.heightPercent(21); // 21% from top
-        const headerHeight = 35 * this.scalingManager.scale;
+        const startY = this.scalingManager.heightPercent(21);
+        const headerHeight = this.scalingManager.scaleValue(35);
         
-        // Calculate spacing based on number of scores and available space
-        const maxScores = Math.min(this.scores.length, 10);
-        const contentHeight = availableHeight - startY - headerHeight;
-        const baseSpacing = 35 * this.scalingManager.scale;
-        const spacing = maxScores > 0 ? Math.min(baseSpacing, contentHeight / (maxScores + 1)) : baseSpacing;
-        
+        // Fixed spacing for consistent layout
+        const spacing = this.scalingManager.scaleValue(35);
         const width = this.sys.game.canvas.width * 0.8;
         
-        // Create table header
+        // Create table header (fixed position)
         this.createTableHeader(startY, width, headerHeight);
-        
         
         if (this.scores.length === 0) {
             const deviceType = detectDeviceType();
@@ -342,7 +353,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             
             this.noScoresText = this.add.text(
                 this.scalingManager.centerX(),
-                startY + 80 * this.scalingManager.scale,
+                startY + this.scalingManager.scaleValue(80),
                 'No scores yet. Be the first!',
                 {
                     ...textStyle,
@@ -352,33 +363,8 @@ export default class LeaderboardScene extends Phaser.Scene {
             return;
         }
         
-        // Create a container for each score entry with a staggered appearance
-        this.scores.forEach((score, index) => {
-            const y = startY + headerHeight + spacing * (index + 1);
-            
-            // Calculate the medal color (gold, silver, bronze for top 3)
-            let medalColor;
-            if (index === 0) medalColor = 0xFFD700;      // Gold
-            else if (index === 1) medalColor = 0xC0C0C0;  // Silver
-            else if (index === 2) medalColor = 0xCD7F32;  // Bronze
-            else medalColor = 0x444444;                   // Dark gray for the rest
-            
-            // Create the entry container
-            const container = this.createScoreEntry(index + 1, score, y, width, medalColor, spacing - 5); // Pass row height
-            
-            // Add entry animation
-            container.setAlpha(0);
-            this.tweens.add({
-                targets: container,
-                alpha: 1,
-                y: y,
-                duration: 200,
-                delay: index * 100,
-                ease: 'Power1'
-            });
-            
-            this.leaderboardEntries.push({ score, container });
-        });
+        // Create scrollable container for score entries
+        this.createScrollableScoreList(startY, headerHeight, spacing, width, availableHeight);
     }
 
     createTableHeader(y, width, boxHeight = 35) {
@@ -890,17 +876,17 @@ export default class LeaderboardScene extends Phaser.Scene {
             0x000000, 0.7
         ).setOrigin(0);
         
-        // Add dialog background
-        const dialogWidth = 400;
-        const dialogHeight = 200;
+        // Add dialog background with proper scaling
+        const dialogWidth = this.scalingManager.scaleValue(400);
+        const dialogHeight = this.scalingManager.scaleValue(200);
         const x = this.cameras.main.centerX - dialogWidth / 2;
         const y = this.cameras.main.centerY - dialogHeight / 2;
         
         const dialogBg = this.add.graphics();
         dialogBg.fillStyle(this.COLORS_HEX.BACKGROUND, 0.95);
-        dialogBg.fillRoundedRect(x, y, dialogWidth, dialogHeight, 16);
-        dialogBg.lineStyle(3, this.COLORS_HEX.ACCENT, 1);
-        dialogBg.strokeRoundedRect(x, y, dialogWidth, dialogHeight, 16);
+        dialogBg.fillRoundedRect(x, y, dialogWidth, dialogHeight, this.scalingManager.scaleValue(16));
+        dialogBg.lineStyle(this.scalingManager.scaleValue(3), this.COLORS_HEX.ACCENT, 1);
+        dialogBg.strokeRoundedRect(x, y, dialogWidth, dialogHeight, this.scalingManager.scaleValue(16));
         
         // Add title and message
         const deviceType = detectDeviceType();
@@ -909,7 +895,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         const titleText = this.add.text(
             this.scalingManager.centerX(),
-            y + 40 * this.scalingManager.scale,
+            y + this.scalingManager.scaleValue(40),
             'Confirm Cleanup',
             {
                 ...dialogTitleStyle,
@@ -920,8 +906,8 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         const messageText = this.add.text(
             this.scalingManager.centerX(),
-            y + 80 * this.scalingManager.scale,
-            'This will permanently delete scores that are\nnot in the top 10. Continue?',
+            y + this.scalingManager.scaleValue(80),
+            'This will permanently delete scores that are\nnot in the top 20. Continue?',
             {
                 ...dialogMessageStyle,
                 color: '#ffffff',
@@ -940,8 +926,8 @@ export default class LeaderboardScene extends Phaser.Scene {
                     onComplete: () => this.confirmDialog.destroy()
                 });
             },
-            this.scalingManager.centerX() - 80 * this.scalingManager.scale,
-            y + dialogHeight - 40 * this.scalingManager.scale
+            this.scalingManager.centerX() - this.scalingManager.scaleValue(80),
+            y + dialogHeight - this.scalingManager.scaleValue(40)
         );
         
         const confirmButton = this.createButton(
@@ -955,7 +941,7 @@ export default class LeaderboardScene extends Phaser.Scene {
                 
                 try {
                     // Call cleanup function
-                    await cleanupOldScores(this.mode, 10);
+                    await cleanupOldScores(this.mode, 20);
                     
                     // Reload scores after cleanup
                     await this.loadScores();
@@ -972,8 +958,8 @@ export default class LeaderboardScene extends Phaser.Scene {
                     this.showErrorMessage("Failed to clean up scores");
                 }
             },
-            this.scalingManager.centerX() + 80 * this.scalingManager.scale,
-            y + dialogHeight - 40 * this.scalingManager.scale
+            this.scalingManager.centerX() + this.scalingManager.scaleValue(80),
+            y + dialogHeight - this.scalingManager.scaleValue(40)
         );
         
         // Make overlay interactive to close on click outside
@@ -1022,7 +1008,7 @@ export default class LeaderboardScene extends Phaser.Scene {
     
     showNotification(message, color) {
         // Create notification toast
-        const padding = 20;
+        const padding = this.scalingManager.scaleValue(20);
         const deviceType = detectDeviceType();
         const toastStyle = getTextStyle('settings', deviceType, this.mode, this.scalingManager.scale);
         
@@ -1047,7 +1033,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.scalingManager.centerY() - height / 2,
             width,
             height,
-            10
+            this.scalingManager.scaleValue(10)
         );
         
         const toast = this.add.container(0, 0, [toastBg, toastText]);
@@ -1055,7 +1041,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Animate toast
         toast.setAlpha(0);
-        toast.setY(this.scalingManager.centerY() + 50 * this.scalingManager.scale);
+        toast.setY(this.scalingManager.centerY() + this.scalingManager.scaleValue(50));
         
         this.tweens.add({
             targets: toast,
@@ -1069,7 +1055,7 @@ export default class LeaderboardScene extends Phaser.Scene {
                     this.tweens.add({
                         targets: toast,
                         alpha: 0,
-                        y: this.scalingManager.centerY() - 50 * this.scalingManager.scale,
+                        y: this.scalingManager.centerY() - this.scalingManager.scaleValue(50),
                         duration: 300,
                         ease: 'Back.In',
                         onComplete: () => toast.destroy()
@@ -1117,6 +1103,198 @@ export default class LeaderboardScene extends Phaser.Scene {
         }
     }
     
+    createScrollableScoreList(startY, headerHeight, spacing, width, availableHeight) {
+        // Calculate scroll area dimensions
+        const scrollAreaY = startY + headerHeight;
+        const scrollAreaHeight = availableHeight - startY - headerHeight;
+        
+        // Calculate total content height
+        const totalContentHeight = this.scores.length * spacing;
+        
+        // Create scroll container
+        this.scrollContainer = this.add.container(0, 0);
+        
+        // Create invisible scroll area for input handling
+        const scrollArea = this.add.rectangle(
+            this.scalingManager.centerX(),
+            scrollAreaY + scrollAreaHeight / 2,
+            width,
+            scrollAreaHeight,
+            0x000000,
+            0
+        );
+        scrollArea.setInteractive();
+        
+        // Add scroll event handlers
+        this.setupScrollHandlers(scrollArea, scrollAreaHeight, totalContentHeight);
+        
+        // Create score entries
+        this.scores.forEach((score, index) => {
+            const y = spacing * (index + 1);
+            
+            // Calculate medal color
+            let medalColor;
+            if (index === 0) medalColor = 0xFFD700;      // Gold
+            else if (index === 1) medalColor = 0xC0C0C0;  // Silver
+            else if (index === 2) medalColor = 0xCD7F32;  // Bronze
+            else medalColor = 0x444444;                   // Dark gray
+            
+            // Create score entry
+            const container = this.createScoreEntry(
+                index + 1, 
+                score, 
+                y, 
+                width, 
+                medalColor, 
+                spacing - this.scalingManager.scaleValue(5)
+            );
+            
+            // Add to scroll container
+            this.scrollContainer.add(container);
+            
+            // Add entry animation
+            container.setAlpha(0);
+            this.tweens.add({
+                targets: container,
+                alpha: 1,
+                duration: 200,
+                delay: index * 50,
+                ease: 'Power1'
+            });
+            
+            this.leaderboardEntries.push({ score, container });
+        });
+        
+        // Position scroll container
+        this.scrollContainer.setY(scrollAreaY);
+        
+        // Set up scroll bounds
+        this.maxScrollY = Math.max(0, totalContentHeight - scrollAreaHeight);
+        
+        // Add scroll indicators if content overflows
+        if (this.maxScrollY > 0) {
+            this.createScrollIndicators(startY, headerHeight, width, scrollAreaHeight);
+        }
+    }
+    
+    setupScrollHandlers(scrollArea, scrollAreaHeight, totalContentHeight) {
+        // Mouse wheel scrolling
+        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+            if (this.maxScrollY > 0) {
+                const scrollSpeed = this.scalingManager.scaleValue(30);
+                this.scrollY = Phaser.Math.Clamp(
+                    this.scrollY + (deltaY > 0 ? scrollSpeed : -scrollSpeed),
+                    0,
+                    this.maxScrollY
+                );
+                this.updateScrollPosition();
+            }
+        });
+        
+        // Touch/drag scrolling
+        scrollArea.on('pointerdown', (pointer) => {
+            this.isDragging = true;
+            this.lastPointerY = pointer.y;
+        });
+        
+        this.input.on('pointermove', (pointer) => {
+            if (this.isDragging && this.maxScrollY > 0) {
+                const deltaY = this.lastPointerY - pointer.y;
+                this.scrollY = Phaser.Math.Clamp(
+                    this.scrollY + deltaY,
+                    0,
+                    this.maxScrollY
+                );
+                this.updateScrollPosition();
+                this.lastPointerY = pointer.y;
+            }
+        });
+        
+        this.input.on('pointerup', () => {
+            this.isDragging = false;
+        });
+        
+        // Handle pointer leaving the game area
+        this.input.on('pointerupoutside', () => {
+            this.isDragging = false;
+        });
+    }
+    
+    updateScrollPosition() {
+        if (this.scrollContainer) {
+            // Store base Y for reference on first call
+            if (!this.scrollContainer.getData('baseY')) {
+                this.scrollContainer.setData('baseY', this.scrollContainer.y);
+            }
+            
+            // Update scroll position
+            const baseY = this.scrollContainer.getData('baseY');
+            this.scrollContainer.setY(baseY - this.scrollY);
+            
+            // Update scroll indicator
+            this.updateScrollIndicator();
+        }
+    }
+    
+    createScrollIndicators(startY, headerHeight, width, scrollAreaHeight) {
+        const indicatorWidth = this.scalingManager.scaleValue(4);
+        const indicatorX = this.scalingManager.centerX() + width / 2 + this.scalingManager.scaleValue(10);
+        
+        // Scroll track
+        const scrollTrack = this.add.graphics();
+        scrollTrack.fillStyle(0x444444, 0.3);
+        scrollTrack.fillRoundedRect(
+            indicatorX - indicatorWidth / 2,
+            startY + headerHeight,
+            indicatorWidth,
+            scrollAreaHeight,
+            indicatorWidth / 2
+        );
+        
+        // Scroll thumb
+        const thumbHeight = Math.max(
+            this.scalingManager.scaleValue(20),
+            (scrollAreaHeight / (scrollAreaHeight + this.maxScrollY)) * scrollAreaHeight
+        );
+        
+        this.scrollThumb = this.add.graphics();
+        this.scrollThumb.fillStyle(0xffffff, 0.6);
+        this.scrollThumb.fillRoundedRect(
+            indicatorX - indicatorWidth / 2,
+            startY + headerHeight,
+            indicatorWidth,
+            thumbHeight,
+            indicatorWidth / 2
+        );
+        
+        // Store scroll indicator data
+        this.scrollIndicatorData = {
+            trackY: startY + headerHeight,
+            trackHeight: scrollAreaHeight,
+            thumbHeight: thumbHeight,
+            indicatorX: indicatorX,
+            indicatorWidth: indicatorWidth
+        };
+    }
+    
+    updateScrollIndicator() {
+        if (this.scrollThumb && this.scrollIndicatorData && this.maxScrollY > 0) {
+            const { trackY, trackHeight, thumbHeight, indicatorX, indicatorWidth } = this.scrollIndicatorData;
+            const scrollProgress = this.scrollY / this.maxScrollY;
+            const thumbY = trackY + scrollProgress * (trackHeight - thumbHeight);
+            
+            this.scrollThumb.clear();
+            this.scrollThumb.fillStyle(0xffffff, 0.6);
+            this.scrollThumb.fillRoundedRect(
+                indicatorX - indicatorWidth / 2,
+                thumbY,
+                indicatorWidth,
+                thumbHeight,
+                indicatorWidth / 2
+            );
+        }
+    }
+
     goBack() {
         // Prepare reset data for game scene, preserving level but resetting progress
         const resetData = {
