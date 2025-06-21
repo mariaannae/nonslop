@@ -40,7 +40,7 @@ export default class GameOverScene extends Phaser.Scene {
       createBackground(this, THEMES.hard.background, this.levelValue);
     }
 
-    // Heading
+    // Heading - using consistent scaling patterns from Preloader
     const titleY = this.scalingManager.heightPercent(15);
     const titleStyle = getTextStyle('title', this.deviceType, this.mode, this.uiScale);
     titleStyle.align = 'center';
@@ -52,7 +52,7 @@ export default class GameOverScene extends Phaser.Scene {
       titleStyle
     ).setOrigin(0.5);
 
-    // Subtitle with proper spacing
+    // Subtitle with proper spacing using ScalingManager
     const subtitleY = titleText.y + titleText.height + this.scalingManager.scaleValue(16);
     const subtitleStyle = getTextStyle('prompt', this.deviceType, this.mode, this.uiScale);
     subtitleStyle.align = 'center';
@@ -65,7 +65,7 @@ export default class GameOverScene extends Phaser.Scene {
       subtitleStyle
     ).setOrigin(0.5, 0);
 
-    // Badge placement
+    // Badge placement - using ScalingManager for consistent sizing
     // Pick a random number 1-12 inclusive
     const badgeNum = Math.floor(Math.random() * 12) + 1;
     const badgeKey = `badge_${badgeNum}_${this.mode}_${this.score}`;
@@ -80,20 +80,21 @@ export default class GameOverScene extends Phaser.Scene {
       badgeKey
     ).setOrigin(0.5, 0);
     
-    // Scale badge to 1/4 of canvas height
-    const desiredHeight = this.cameras.main.height / 4;
+    // Scale badge using ScalingManager approach - consistent with other scenes
+    // Use heightPercent for responsive badge sizing instead of hardcoded fraction
+    const desiredHeight = this.scalingManager.heightPercent(25); // 25% of screen height
     if (badge.height > 0) {
-      const scale = desiredHeight / badge.height;
+      const scale = this.scalingManager.scaleValue(desiredHeight) / badge.height;
       badge.setScale(scale);
     } else {
       // If not loaded yet, set scale after texture loads
       badge.once('texturekeychange', () => {
-        const scale = desiredHeight / badge.height;
+        const scale = this.scalingManager.scaleValue(desiredHeight) / badge.height;
         badge.setScale(scale);
       });
     }
 
-    // Add "Celebrate adequacy.\nPublicly:" text below the badge
+    // Add "Celebrate adequacy.\nPublicly:" text below the badge using ScalingManager
     const celebrateY = badge.y + badge.displayHeight + this.scalingManager.scaleValue(64);
     const celebrateStyle = getTextStyle('prompt', this.deviceType, this.mode, this.uiScale);
     celebrateStyle.align = 'center';

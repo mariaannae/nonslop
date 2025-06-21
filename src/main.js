@@ -19,14 +19,33 @@ window.onunhandledrejection = function(event) {
         "UnknownError",
         "A mutation operation was attempted on a database that did not allow mutations"
     ];
+    const knownAudioErrorPatterns = [
+        "failed to start the audio device",
+        "AudioContext",
+        "audio device",
+        "Web Audio",
+        "audio context"
+    ];
+    
     const isKnownIndexedDBError = knownIndexedDBErrorPatterns.some(pattern =>
         reason && reason.toString().includes(pattern)
     );
+    const isKnownAudioError = knownAudioErrorPatterns.some(pattern =>
+        reason && reason.toString().toLowerCase().includes(pattern.toLowerCase())
+    );
+    
     if (isKnownIndexedDBError) {
         // Log to console, but do not alert
         console.warn("Suppressed IndexedDB/Firestore error:", reason);
         return;
     }
+    
+    if (isKnownAudioError) {
+        // Log to console, but do not alert
+        console.warn("Suppressed audio device error:", reason);
+        return;
+    }
+    
     alert("Unhandled promise rejection: " + reason);
     console.error("Unhandled promise rejection:", reason);
 };
@@ -280,13 +299,20 @@ if (!isMobile) {
         }, false);
 
         // Fix: Resume audio context on first user gesture to prevent AudioContext error
-        const unlockAudio = () => {
-            if (game.sound && typeof game.sound.unlock === 'function') {
-                game.sound.unlock();
-            }
-            // For extra safety, also try to resume the context directly if available
-            if (game.sound && game.sound.context && game.sound.context.state === 'suspended') {
-                game.sound.context.resume();
+        const unlockAudio = async () => {
+            try {
+                if (game.sound && typeof game.sound.unlock === 'function') {
+                    game.sound.unlock();
+                }
+                // For extra safety, also try to resume the context directly if available
+                if (game.sound && game.sound.context && game.sound.context.state === 'suspended') {
+                    await game.sound.context.resume();
+                    console.log('[AUDIO] AudioContext resumed successfully');
+                    game.registry.set('audioUnlocked', true);
+                }
+            } catch (error) {
+                console.warn('[AUDIO] Failed to unlock audio context:', error);
+                // Don't throw the error - just log it and continue
             }
             document.removeEventListener('touchstart', unlockAudio, true);
             document.removeEventListener('mousedown', unlockAudio, true);

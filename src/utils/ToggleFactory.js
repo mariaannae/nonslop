@@ -45,15 +45,6 @@ export default class ToggleFactory {
             .setInteractive({ useHandCursor: true });
         toggleContainer.addAt(hitArea, 0);
 
-        // Forward pointerdown from hitArea to toggleBg for feedback/logic
-        hitArea.on('pointerdown', (pointer) => {
-            toggleBg.emit('pointerdown', pointer);
-        });
-        // Also forward pointerup for mobile compatibility
-        hitArea.on('pointerup', (pointer) => {
-            toggleBg.emit('pointerdown', pointer);
-        });
-
         // Position the toggle circle based on mode
         const updateTogglePosition = (mode) => {
             if (mode === 'hard') {
@@ -74,8 +65,8 @@ export default class ToggleFactory {
         // Initial position setup
         updateTogglePosition(currentMode);
 
-        // Toggle mode interaction with scale feedback
-        toggleBg.on('pointerdown', () => {
+        // Toggle function that can be called from any click
+        const performToggle = () => {
             // Scale animation for touch feedback
             scene.tweens.add({
                 targets: toggleBg,
@@ -108,7 +99,13 @@ export default class ToggleFactory {
                     callback(newMode);
                 }
             });
-        });
+        };
+
+        // Attach toggle function to the hit area for maximum click area
+        hitArea.on('pointerdown', performToggle);
+        
+        // Also attach to toggleBg as backup
+        toggleBg.on('pointerdown', performToggle);
 
         // Add method to update toggle state externally
         toggleContainer.updateState = (newMode) => {

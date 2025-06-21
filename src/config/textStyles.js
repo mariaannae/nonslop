@@ -54,9 +54,9 @@ const BASE_FONT_SIZES = {
     [DEVICE_TYPES.DESKTOP]: {
         title: 70,
         menuTitle: 50,
-        prompt: 18,
-        input: 18,
-        output: 18,
+        prompt: 20,
+        input: 20,
+        output: 20,
         tooltip: 16,
         effect: 20,
         timer: 50,  
