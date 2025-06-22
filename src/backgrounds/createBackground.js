@@ -724,44 +724,120 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     // Removed colored tint overlay for streaks ≥ 2 on mobile
     // This was causing visual issues and wasn't adding much value
     
-    // Add subtle border glow for mobile when streak > 0
+    // Add enhanced multi-layered border effects for mobile when streak > 0
     if (wordStreak > 0 && streakIntensity >= 1) {
-      console.log(`[BG-MOBILE] Adding subtle border glow for streak ${wordStreak}`);
+      console.log(`[BG-MOBILE] Adding enhanced border effects for streak ${wordStreak}`);
       
       // Use mode-appropriate color
       const borderColor = mode === "easy" ? 0x00ffff : 0xff00ff; // Cyan for easy, magenta for hard
       
-      // Create a subtle glowing border using a rectangle with stroke
-      // Border width increases slightly with streak intensity
+      // Calculate dynamic properties based on streak intensity
       const borderWidth = 2 + Math.min(streakIntensity * 1.5, 6); // 2px to 8px max
       const borderAlpha = 0.3 + Math.min(streakIntensity * 0.1, 0.4); // 0.3 to 0.7 alpha
+      const pulseDuration = 3000 - (streakIntensity * 375); // 3000ms to 1500ms
+      const pulseIntensity = 0.1 + Math.min(streakIntensity * 0.05, 0.2); // 0.1 to 0.3
       
-      // Create the border slightly inset from screen edges
-      const borderPadding = 10;
-      const border = scene.add.rectangle(
+      // Array to store all border layers for synchronized animation
+      const borderLayers = [];
+      
+      // Layer 1: Outer glow (subtle, always present)
+      const outerGlow = scene.add.rectangle(
         centerX,
         centerY,
-        cameraWidth - borderPadding * 2,
-        cameraHeight - borderPadding * 2,
+        cameraWidth - 5,
+        cameraHeight - 5,
+        borderColor,
+        0 // No fill, just stroke
+      ).setStrokeStyle(1, borderColor, borderAlpha * 0.3) // Very subtle
+        .setDepth(-92);
+      borderLayers.push(outerGlow);
+      
+      // Layer 2: Main border (the primary visual element)
+      const mainBorder = scene.add.rectangle(
+        centerX,
+        centerY,
+        cameraWidth - 10,
+        cameraHeight - 10,
         borderColor,
         0 // No fill, just stroke
       ).setStrokeStyle(borderWidth, borderColor, borderAlpha)
-        .setDepth(-90); // Above overlays but below UI elements
+        .setDepth(-91);
+      borderLayers.push(mainBorder);
       
-      // Add a very subtle pulse animation - much gentler than desktop
+      // Layer 3: Inner accent (only for higher streaks)
+      if (streakIntensity >= 2) {
+        const innerAccent = scene.add.rectangle(
+          centerX,
+          centerY,
+          cameraWidth - 15,
+          cameraHeight - 15,
+          borderColor,
+          0 // No fill, just stroke
+        ).setStrokeStyle(1, borderColor, borderAlpha * 0.5)
+          .setDepth(-90);
+        borderLayers.push(innerAccent);
+        
+        // Store inner accent for cleanup
+        scene.background.innerAccent = innerAccent;
+      }
+      
+      // Layer 4: Extra inner glow for very high streaks
+      if (streakIntensity >= 3) {
+        const innerGlow = scene.add.rectangle(
+          centerX,
+          centerY,
+          cameraWidth - 20,
+          cameraHeight - 20,
+          borderColor,
+          0 // No fill, just stroke
+        ).setStrokeStyle(2, borderColor, borderAlpha * 0.3)
+          .setDepth(-89);
+        borderLayers.push(innerGlow);
+        
+        // Store inner glow for cleanup
+        scene.background.innerGlow = innerGlow;
+      }
+      
+      // Synchronized pulsing animation for all layers
       scene.tweens.add({
-        targets: border,
-        alpha: { from: borderAlpha, to: borderAlpha + 0.1 },
-        duration: 3000, // Slow 3-second pulse
+        targets: borderLayers,
+        alpha: { 
+          from: function(target, key, value) { 
+            return target.alpha; 
+          }, 
+          to: function(target, key, value) { 
+            return target.alpha + pulseIntensity; 
+          } 
+        },
+        duration: pulseDuration,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.InOut'
       });
       
-      // Store for cleanup
-      scene.background.streakBorder = border;
+      // Add subtle scale breathing effect for higher streaks
+      if (streakIntensity >= 2) {
+        scene.tweens.add({
+          targets: mainBorder,
+          scaleX: { from: 1, to: 1.01 },
+          scaleY: { from: 1, to: 1.01 },
+          duration: pulseDuration * 1.5,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.InOut'
+        });
+      }
       
-      console.log(`[BG-MOBILE] Border glow created - width: ${borderWidth}px, alpha: ${borderAlpha}`);
+      // Store main border for cleanup (outer glow will be cleaned up with it)
+      scene.background.streakBorder = mainBorder;
+      scene.background.outerGlow = outerGlow;
+      
+      console.log(`[BG-MOBILE] Enhanced border effects created:`);
+      console.log(`  - Layers: ${borderLayers.length}`);
+      console.log(`  - Border width: ${borderWidth}px`);
+      console.log(`  - Alpha: ${borderAlpha}`);
+      console.log(`  - Pulse duration: ${pulseDuration}ms`);
+      console.log(`  - Pulse intensity: ${pulseIntensity}`);
     }
     
     // Exit early - don't fall through to desktop code
