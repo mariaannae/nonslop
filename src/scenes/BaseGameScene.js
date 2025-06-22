@@ -172,6 +172,12 @@ export default class BaseGameScene extends Phaser.Scene {
         // Track if calculateUIPositions has been called
         this._calculateUIPositionsCalled = false;
         
+        // Canvas shift tracking for mobile keyboard
+        this._canvasShifted = false;
+        this._canvasShiftAmount = 0;
+        this._keyboardResizeHandler = null;
+        this._initialWindowHeight = 0;
+        
         this.fastTypingPenaltySeconds = (config && typeof config.fastTypingPenaltySeconds === "number")
             ? config.fastTypingPenaltySeconds
             : SCENE_CONFIG.FAST_TYPING.DEFAULT_PENALTY_SECONDS;
@@ -1045,6 +1051,68 @@ export default class BaseGameScene extends Phaser.Scene {
             });
         } else {
             console.error("[BG-DEBUG] ERROR: this.background is null!");
+        }
+        
+        // Store initial window height for keyboard detection fallback
+        this._initialWindowHeight = window.innerHeight;
+        console.log("[KEYBOARD] Initial window height stored:", this._initialWindowHeight);
+        
+        // Set up keyboard detection for mobile
+        if (this.isMobile) {
+            console.log("[KEYBOARD] Setting up keyboard detection for mobile");
+            
+            // Use visualViewport API if available (preferred method)
+            if (window.visualViewport) {
+                console.log("[KEYBOARD] Using visualViewport API for keyboard detection");
+                
+                this._keyboardResizeHandler = () => {
+                    const viewportHeight = window.visualViewport.height;
+                    const windowHeight = window.innerHeight;
+                    const keyboardHeight = windowHeight - viewportHeight;
+                    
+                    console.log("[KEYBOARD] Viewport resize detected:", {
+                        viewportHeight,
+                        windowHeight,
+                        keyboardHeight,
+                        hasKeyboard: keyboardHeight > 50
+                    });
+                    
+                    if (keyboardHeight > 50) {
+                        // Keyboard is shown
+                        this.onKeyboardShow(keyboardHeight);
+                    } else {
+                        // Keyboard is hidden
+                        this.onKeyboardHide();
+                    }
+                };
+                
+                window.visualViewport.addEventListener('resize', this._keyboardResizeHandler);
+            } else {
+                // Fallback: use window resize detection
+                console.log("[KEYBOARD] Fallback: using window resize for keyboard detection");
+                
+                this._keyboardResizeHandler = () => {
+                    const currentHeight = window.innerHeight;
+                    const heightDifference = this._initialWindowHeight - currentHeight;
+                    
+                    console.log("[KEYBOARD] Window resize detected:", {
+                        initialHeight: this._initialWindowHeight,
+                        currentHeight,
+                        heightDifference,
+                        hasKeyboard: heightDifference > 100
+                    });
+                    
+                    if (heightDifference > 100) {
+                        // Keyboard is likely shown
+                        this.onKeyboardShow(heightDifference);
+                    } else if (Math.abs(heightDifference) < 50) {
+                        // Keyboard is likely hidden
+                        this.onKeyboardHide();
+                    }
+                };
+                
+                window.addEventListener('resize', this._keyboardResizeHandler);
+            }
         }
         
         // Ensure input handlers are set up after UI is created
@@ -3606,12 +3674,87 @@ if (typeof this.add.rexBBCodeText === "function") {
     }
 
     focusHiddenInput() {
+        console.log("[KEYBOARD] focusHiddenInput called");
         if (!this._hiddenInput) this.setupHiddenInput();
         if (!this._hiddenInput) return; // Guard: do nothing if still undefined (e.g., desktop)
         this._hiddenInput.value = this.userInput;
         this._hiddenInput.focus();
         // Move cursor to end
         this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
+        
+        // Log keyboard detection state
+        console.log("[KEYBOARD] Hidden input focused, checking keyboard detection setup");
+        console.log("[KEYBOARD] _keyboardResizeHandler exists:", !!this._keyboardResizeHandler);
+        console.log("[KEYBOARD] window.visualViewport exists:", !!window.visualViewport);
+    }
+
+    /**
+     * Handle keyboard show event - shift canvas up to hide menu bar
+     * @param {number} keyboardHeight - Height of the keyboard
+     */
+    onKeyboardShow(keyboardHeight) {
+        console.log("[KEYBOARD] onKeyboardShow called, keyboardHeight:", keyboardHeight);
+        console.log("[KEYBOARD] isMobile:", this.isMobile, "canvasShifted:", this._canvasShifted);
+        
+        if (!this.isMobile || this._canvasShifted) return;
+        
+        // Initialize scaling manager if not exists
+        if (!this.scalingManager) {
+            this.scalingManager = new ScalingManager(this);
+        }
+        const sm = this.scalingManager;
+        
+        // Calculate shift amount - only shift enough to show the input area
+        // We want to keep the timer and word stats visible
+        // menuBarHeight is already scaled, so we can use it directly
+        const menuBarHeight = this.menuBarHeight || sm.scaleValue(200);
+        // Shift up by about 40% of the menu bar height to keep stats visible
+        const shiftAmount = Math.floor(menuBarHeight * 0.5);
+        console.log("[KEYBOARD] Shifting canvas by:", shiftAmount, "px (menu bar height:", menuBarHeight, ", percentage: 40%)");
+        
+        // Apply transform to shift canvas up
+        if (this.game && this.game.canvas) {
+            console.log("[KEYBOARD] Applying canvas transform");
+            this.game.canvas.style.transition = 'transform 0.3s ease-out';
+            this.game.canvas.style.transform = `translateY(-${shiftAmount}px)`;
+            this._canvasShifted = true;
+            
+            // Store the shift amount for other calculations
+            this._canvasShiftAmount = shiftAmount;
+            
+            // Ensure input area is still visible
+            this.ensureInputVisible(keyboardHeight);
+        } else {
+            console.log("[KEYBOARD] ERROR: game.canvas not available");
+        }
+    }
+
+    /**
+     * Handle keyboard hide event - reset canvas position
+     */
+    onKeyboardHide() {
+        console.log("[KEYBOARD] onKeyboardHide called");
+        console.log("[KEYBOARD] isMobile:", this.isMobile, "canvasShifted:", this._canvasShifted);
+        
+        if (!this.isMobile || !this._canvasShifted) return;
+        
+        // Reset canvas position
+        if (this.game && this.game.canvas) {
+            console.log("[KEYBOARD] Resetting canvas transform");
+            this.game.canvas.style.transition = 'transform 0.3s ease-out';
+            this.game.canvas.style.transform = 'translateY(0)';
+            this._canvasShifted = false;
+            this._canvasShiftAmount = 0;
+        }
+    }
+
+    /**
+     * Ensure the input area is visible when keyboard is shown
+     * @param {number} keyboardHeight - Height of the keyboard
+     */
+    ensureInputVisible(keyboardHeight) {
+        // This method can be extended to scroll to the input area if needed
+        console.log("[KEYBOARD] Ensuring input visibility with keyboard height:", keyboardHeight);
     }
 
     setupMenuBarControls(menuBarHeight, padding, rightMargin, gap, shiftLeft, { menuBar, menuBarBorder, titleText }) {
@@ -4120,15 +4263,16 @@ if (typeof this.add.rexBBCodeText === "function") {
     // Create and show settings popup with Level, Top K sliders and Mode Toggle
     toggleSettingsPopup() {
         this.popupJustOpened = true;
+        
+        // Hide keyboard on mobile when opening settings (do this first, regardless of mode)
+        if (this.isMobile && this._hiddenInput) {
+            this._hiddenInput.blur();
+        }
+        
         if (this.settingsPopup) {
             // If popup exists, close it
             this.closeSettingsPopup();
             return;
-        }
-        
-        // Hide keyboard on mobile when opening settings
-        if (this.isMobile && this._hiddenInput) {
-            this._hiddenInput.blur();
         }
         
         // Calculate popup dimensions

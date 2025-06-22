@@ -14,7 +14,7 @@ const SCENE_LAYOUT = {
   // Spacing from bottom edge of title to top edge of subtitle
   titleToSubtitleSpacing: 8,  // px from title bottom to subtitle top
   // Spacing from bottom edge of subtitle to top edge of badge
-  subtitleToBadgeSpacing: 24,  // px from subtitle bottom to badge top
+  subtitleToBadgeSpacing: 20,  // px from subtitle bottom to badge top
   // Spacing from badge bottom to first action button (COPY LINK)
   badgeToButtonSpacing: {
     desktop: 15,  // px from badge bottom to COPY LINK button on desktop
@@ -32,8 +32,8 @@ const SCENE_LAYOUT = {
   },
   // Spacing from PLAY AGAIN button to celebrate text
   playAgainToCelebrateSpacing: {
-    desktop: 80,  // px from bottom of PLAY AGAIN to top of celebrate text on desktop
-    mobile: 120   // px from bottom of PLAY AGAIN to top of celebrate text on mobile
+    desktop: 85,  // px from bottom of PLAY AGAIN to top of celebrate text on desktop
+    mobile: 130   // px from bottom of PLAY AGAIN to top of celebrate text on mobile
   },
   // Spacing from social buttons to celebrate text
   socialToCelebrateSpacing: {
