@@ -36,7 +36,7 @@ const CLAMP_RANGES = {
     [DEVICE_TYPES.PHONE]: {
         title: { min: 50, max: 300 },
         menuTitle: { min: 30, max: 120 },
-        prompt: { min: 24, max: 32 },
+        prompt: { min: 24, max: 40 },
         input: { min: 24, max: 40 },
         output: { min: 24, max: 40 },
         tooltip: { min: 20, max: 40 },
@@ -82,9 +82,9 @@ const BASE_FONT_SIZES = {
     [DEVICE_TYPES.PHONE]: {
         title: 200,
         menuTitle: 70,
-        prompt: 28,
-        input: 28,
-        output: 28,
+        prompt: 32,
+        input: 32,
+        output: 32,
         tooltip: 18,
         effect: 36,
         timer: 70,  // 1.5x effect

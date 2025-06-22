@@ -67,9 +67,14 @@ export default class UsernameScene extends Phaser.Scene {
         // Get the appropriate background configuration based on mode
         const themeConfig = this.mode === 'easy' ? THEMES.easy : THEMES.hard;
         
+        // Ensure levelValue is properly set - fallback to 1 if not provided
+        const levelValue = this.levelValue || 1;
+        
+        console.log("UsernameScene createBackgroundEffect - mode:", this.mode, "levelValue:", levelValue);
+        
         // Use the createBackground function from the imported module
         // This will create the appropriate background based on mode and levelValue
-        createBackground(this, themeConfig.background, this.levelValue);
+        createBackground(this, themeConfig.background, levelValue);
     }
 
     createTitle() {
@@ -87,7 +92,7 @@ export default class UsernameScene extends Phaser.Scene {
             titleText = '(NEW)\n(HIGH)\n(SCORE)';
             // Adjust Y position to account for multi-line text height
             // Move down from the original position to prevent extending past top edge
-            titleY = this.scalingManager.scaleValue(200);
+            titleY = this.scalingManager.scaleValue(250);
             // Center align the text for mobile
             modifiedTitleStyle.align = 'center';
         } else {

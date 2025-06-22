@@ -21,7 +21,7 @@ const HARD_COLORS = {
     }
 };
 
-// Badge text options from gameOver.js
+// Badge text options 
 const textList = [
     "CERTIFIED CREATIVE HUMAN.\nBARELY.",
     "YOUR WRITING IS IMPECCABLE.\nALMOST... HUMAN.",

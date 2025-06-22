@@ -105,7 +105,7 @@ const SCENE_CONFIG = {
         TITLE_HEIGHT: 44,
         MIN_GAP: 12,
         STANDARD_GAP: 30,  // Increased from 18
-        MOBILE_GAP: 70,    // Much larger gap for mobile to prevent accidental touches
+        MOBILE_GAP: 50,    // Reduced from 70 to make mobile settings menu shorter
         SLIDER_ROW_HEIGHT: 44,
         TOGGLE_ROW_HEIGHT: 44,
         BUTTON_ROW_HEIGHT: 54,
@@ -2734,8 +2734,8 @@ if (typeof this.add.rexBBCodeText === "function") {
                                         if (this._hiddenInput) {
                                             this._hiddenInput.value = this.userInput;
                                         }
-                                        // Update fail counter to reset streak
-                                        this.updateFailsCounter(false);
+                                        // Don't update fail counter or streak when word is deleted
+                                        // The word was prevented from being added, so no streak change
                                     } else {
                                         // Easy mode - just update counter and shake
                                         this.updateFailsCounter(false);
@@ -2864,8 +2864,8 @@ if (typeof this.add.rexBBCodeText === "function") {
                             if (this._hiddenInput) {
                                 this._hiddenInput.value = this.userInput;
                             }
-                            // Update fail counter to reset streak
-                            this.updateFailsCounter(false);
+                            // Don't update fail counter or streak when word is deleted
+                            // The word was prevented from being added, so no streak change
                         } else {
                             // Easy mode - just update counter and shake
                             this.updateFailsCounter(false);
@@ -4124,6 +4124,11 @@ if (typeof this.add.rexBBCodeText === "function") {
             // If popup exists, close it
             this.closeSettingsPopup();
             return;
+        }
+        
+        // Hide keyboard on mobile when opening settings
+        if (this.isMobile && this._hiddenInput) {
+            this._hiddenInput.blur();
         }
         
         // Calculate popup dimensions

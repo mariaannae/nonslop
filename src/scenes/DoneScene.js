@@ -980,7 +980,7 @@ export default class DoneScene extends Phaser.Scene {
 
         // Tooltip on hover (match BaseGameScene style)
         this.doneButton.setInteractive()
-            .on('pointerover', () => this.showTooltip("try another prompt", this.doneButton.x, this.doneButton.y - buttonHeight))
+            .on('pointerover', () => this.showTooltip("You thought you were finished?", this.doneButton.x, this.doneButton.y - buttonHeight))
             .on('pointerout', () => this.hideTooltips());
 
 const basePadding = this.scalingManager.scaleValue(30);
@@ -1010,9 +1010,13 @@ this.feedbackButton = this.createButton(
     "FEEDBACK",
     () => this.onFeedbackClick(),
     feedbackButtonWidth / 2 + basePadding,
-    this.cameras.main.height - feedbackButtonHeight / 2 - basePadding,
-    'Share your feedback'
+    this.cameras.main.height - feedbackButtonHeight / 2 - basePadding
 );
+
+// Add tooltip on hover (match BaseGameScene style)
+this.feedbackButton.setInteractive()
+    .on('pointerover', () => this.showTooltip('Share your feedback', this.feedbackButton.x, this.feedbackButton.y - feedbackButtonHeight))
+    .on('pointerout', () => this.hideTooltips());
         
         // Test button removed as requested
 

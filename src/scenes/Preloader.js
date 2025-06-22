@@ -23,6 +23,8 @@ export default class Preloader extends Phaser.Scene {
         this.tooltips = []; // Array to store active tooltips
         this.doneButton = null; // Track the NEXT button
         this.typewriterTimer = null; // Track typewriter timer
+        this.buttonClickInProgress = false; // Prevent double-clicks
+        this.sceneFullyInitialized = false; // Track if scene is ready
     }
 
     showTooltip(text, x, y) {
@@ -77,6 +79,8 @@ export default class Preloader extends Phaser.Scene {
     }
 
     init() {
+        console.log("[CACHE FIX] Preloader init - performing comprehensive reset");
+        
         // Reset all instance variables to ensure clean state
         this.progressBar = null;
         this.progressBarOutline = null;
@@ -90,6 +94,14 @@ export default class Preloader extends Phaser.Scene {
         this.typewriterBox = null;
         this.typewriterText = null;
         this.isTransitioning = false; // Initialize transition state
+        this.buttonClickInProgress = false; // Reset button click state
+        this.sceneFullyInitialized = false; // Reset initialization state
+        
+        // Clear any cached button references that might exist
+        if (window.__preloaderButtonCache) {
+            console.log("[CACHE FIX] Clearing cached button references");
+            delete window.__preloaderButtonCache;
+        }
         
         // Enhanced input state cleanup for mobile reliability
         console.log("Performing comprehensive input state reset");
@@ -405,17 +417,41 @@ export default class Preloader extends Phaser.Scene {
     }
 
     onDoneButtonClick() {
+        // Prevent double-clicks and clicks during transition
+        if (this.buttonClickInProgress || this.isTransitioning || !this.sceneFullyInitialized) {
+            console.log("[CACHE FIX] Ignoring button click - transition in progress or scene not ready");
+            return;
+        }
+        
         console.log("NEXT button clicked in Preloader, attempting scene transition...");
-        // Clean up before transitioning
-        this.cleanupScene();
-        this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        this.buttonClickInProgress = true;
+        this.isTransitioning = true;
+        
+        // Disable the button immediately
+        if (this.doneButton && this.doneButton.input) {
+            this.doneButton.disableInteractive();
+        }
+        
+        // Add a small delay to ensure all events are processed
+        this.time.delayedCall(100, () => {
+            // Clean up before transitioning
+            this.cleanupScene();
+            this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+        });
     }
 
     cleanupScene() {
-        console.log("Cleaning up Preloader scene...");
+        console.log("[CACHE FIX] Cleaning up Preloader scene...");
         
         // Set transition flag to prevent double-cleanup
         this.isTransitioning = true;
+        this.buttonClickInProgress = true;
+        this.sceneFullyInitialized = false;
+        
+        // Clear cached button reference
+        if (window.__preloaderButtonCache) {
+            delete window.__preloaderButtonCache;
+        }
         
         // Stop any active tweens
         if (this.tweens) {
@@ -575,22 +611,20 @@ export default class Preloader extends Phaser.Scene {
         // Clear tooltips array
         this.tooltips = [];
         
-        // Final mobile-specific state reset
-        if (isMobile) {
-            // Reset transition state
-            this.isTransitioning = false;
-            
-            // One final input state verification
-            setTimeout(() => {
-                if (this.input && this.input.manager) {
-                    // Ensure input is enabled for next scene
-                    this.input.enabled = true;
-                    this.input.manager.enabled = true;
-                }
-            }, 50);
+        // Final state reset
+        // Reset transition state
+        this.isTransitioning = false;
+        this.buttonClickInProgress = false;
+        this.sceneFullyInitialized = false;
+        
+        // One final input state verification
+        if (this.input && this.input.manager) {
+            // Ensure input is enabled for next scene
+            this.input.enabled = true;
+            this.input.manager.enabled = true;
         }
         
-        console.log("[MOBILE FIX] Preloader cleanup completed");
+        console.log("[CACHE FIX] Preloader cleanup completed");
     }
 
     createBadgeGeneratorButton() {
@@ -615,6 +649,11 @@ export default class Preloader extends Phaser.Scene {
      }
 
     async create() {
+        console.log("[CACHE FIX] Preloader create - starting scene initialization");
+        
+        // Mark scene as not fully initialized yet
+        this.sceneFullyInitialized = false;
+        
         // Use global UI scale for all elements
         this.uiScale = this.registry.get && this.registry.get('uiScale') || 1;
 
@@ -732,7 +771,16 @@ export default class Preloader extends Phaser.Scene {
             console.log("WebLLM Engine ready.");
             this.llmLoaded = true; // Mark LLM as loaded
             this.loadingText.setText("Done Loading");
-            this.checkIfReady(llmEngine); // Check if everything is ready
+            
+            // Add a small delay before checking readiness to ensure DOM is stable
+            this.time.delayedCall(150, () => {
+                this.checkIfReady(llmEngine); // Check if everything is ready
+                // Mark scene as fully initialized after button creation
+                this.time.delayedCall(200, () => {
+                    this.sceneFullyInitialized = true;
+                    console.log("[CACHE FIX] Scene fully initialized and ready for interaction");
+                });
+            });
 
         } catch (error) {
             console.error("Failed to initialize WebLLM:", error);
@@ -787,35 +835,41 @@ export default class Preloader extends Phaser.Scene {
 
 // Prevent double-creation if button already exists
 if (this.doneButton) {
-    console.log("[MOBILE FIX] Button already exists, cleaning up before recreating");
-    this.doneButton.removeAllListeners();
-    this.doneButton.destroy();
+    console.log("[CACHE FIX] Button already exists, performing thorough cleanup");
+    try {
+        this.doneButton.removeAllListeners();
+        if (this.doneButton.input) {
+            this.doneButton.disableInteractive();
+        }
+        this.doneButton.destroy();
+    } catch (e) {
+        console.warn("[CACHE FIX] Error during button cleanup:", e);
+    }
     this.doneButton = null;
 }
 
-// Create button with enhanced mobile reliability
+// Clear any stale button state from cache
+if (window.__preloaderButtonCache) {
+    delete window.__preloaderButtonCache;
+}
+
+// Create button with enhanced reliability
 this.doneButton = ButtonFactory.createButton(
     this,
     "NEXT",
     () => {
-        // Prevent double-clicks during transition
-        if (this.isTransitioning) {
-            console.log("[MOBILE FIX] Ignoring button click during transition");
-            return;
-        }
-        
-        this.isTransitioning = true;
-        console.log("NEXT button clicked - starting scene transition");
-        
-        // Small delay to ensure touch event is fully processed
-        this.time.delayedCall(50, () => {
-            this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
-        });
+        this.onDoneButtonClick();
     },
     buttonX,
     buttonY,
     { depth: 200, scalingManager: this.scalingManager }
 );
+
+// Store button reference to detect stale instances
+window.__preloaderButtonCache = {
+    button: this.doneButton,
+    timestamp: Date.now()
+};
 
 // Mobile-specific button validation and debugging
 const isMobile = isMobileDevice();
@@ -837,7 +891,7 @@ if (isMobile) {
     
     // Add mobile-specific touch validation with enhanced debugging
     this.doneButton.on('pointerdown', (pointer) => {
-        console.log("[MOBILE FIX] Button pointerdown detected:", {
+        console.log("[CACHE FIX] Button pointerdown detected:", {
             pointerType: pointer.pointerType,
             isTouch: pointer.pointerType === 'touch',
             position: { x: pointer.x, y: pointer.y },
@@ -848,6 +902,8 @@ if (isMobile) {
                 height: this.doneButton.height
             },
             isTransitioning: this.isTransitioning,
+            buttonClickInProgress: this.buttonClickInProgress,
+            sceneFullyInitialized: this.sceneFullyInitialized,
             inputEnabled: this.input?.enabled,
             buttonInputEnabled: this.doneButton?.input?.enabled
         });
@@ -855,10 +911,12 @@ if (isMobile) {
     
     // Add additional mobile debugging for pointerup
     this.doneButton.on('pointerup', (pointer) => {
-        console.log("[MOBILE FIX] Button pointerup detected:", {
+        console.log("[CACHE FIX] Button pointerup detected:", {
             pointerType: pointer.pointerType,
             isTouch: pointer.pointerType === 'touch',
-            isTransitioning: this.isTransitioning
+            isTransitioning: this.isTransitioning,
+            buttonClickInProgress: this.buttonClickInProgress,
+            sceneFullyInitialized: this.sceneFullyInitialized
         });
     });
 }
@@ -1043,7 +1101,13 @@ if (!isMobile) {
     
     // Phaser lifecycle method - called when scene is being shut down
     shutdown() {
-        console.log("Preloader scene shutdown called");
+        console.log("[CACHE FIX] Preloader scene shutdown called");
+        
+        // Clear cached button reference before cleanup
+        if (window.__preloaderButtonCache) {
+            delete window.__preloaderButtonCache;
+        }
+        
         this.cleanupScene();
         
         // Additional cleanup for Phaser's systems

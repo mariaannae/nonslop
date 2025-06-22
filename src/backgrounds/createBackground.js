@@ -443,9 +443,12 @@ function createHardLevel3(ctx, width, height) {
 
 // Theme-specific background creation functions
 function createEasyBackground(ctx, width, height, levelValue) {
-  if (levelValue === 1) {
+  // Cap level at 3 - any level above 3 should use level 3 background
+  const cappedLevel = Math.min(levelValue, 3);
+  
+  if (cappedLevel === 1) {
     createEasyLevel1(ctx, width, height);
-  } else if (levelValue === 2) {
+  } else if (cappedLevel === 2) {
     createEasyLevel2(ctx, width, height);
   } else {
     createEasyLevel3(ctx, width, height);
@@ -456,9 +459,12 @@ function createEasyBackground(ctx, width, height, levelValue) {
 }
 
 function createHardBackground(ctx, width, height, levelValue) {
-  if (levelValue === 1) {
+  // Cap level at 3 - any level above 3 should use level 3 background
+  const cappedLevel = Math.min(levelValue, 3);
+  
+  if (cappedLevel === 1) {
     createHardLevel1(ctx, width, height);
-  } else if (levelValue === 2) {
+  } else if (cappedLevel === 2) {
     createHardLevel2(ctx, width, height);
   } else {
     createHardLevel3(ctx, width, height);
@@ -538,7 +544,9 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         
         // Determine the image key based on mode and level
         const mode = (effect === "bubbles" || effect === "easy") ? "easy" : "hard";
-        const imageKey = `${mode}_lvl_${levelValue}`;
+        // Cap level at 3 - any level above 3 should use level 3 background
+        const cappedLevel = Math.min(levelValue, 3);
+        const imageKey = `${mode}_lvl_${cappedLevel}`;
         
         console.log(`[BG-MOBILE] Mode: ${mode}, Level: ${levelValue}`);
         console.log(`[BG-MOBILE] Image key: ${imageKey}`);
@@ -552,6 +560,69 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     if (!scene.textures.exists(imageKey)) {
       console.error(`[BG-MOBILE] ERROR: Texture '${imageKey}' not found!`);
       console.log(`[BG-MOBILE] Available textures:`, Object.keys(scene.textures.list).filter(k => k.includes('lvl')));
+      
+      // For level 3, try fallback to level 2, then level 1
+      let fallbackKey = null;
+      if (levelValue === 3) {
+        const fallbackLevel2 = `${mode}_lvl_2`;
+        const fallbackLevel1 = `${mode}_lvl_1`;
+        if (scene.textures.exists(fallbackLevel2)) {
+          fallbackKey = fallbackLevel2;
+          console.log(`[BG-MOBILE] Using level 2 fallback for level 3: ${fallbackKey}`);
+        } else if (scene.textures.exists(fallbackLevel1)) {
+          fallbackKey = fallbackLevel1;
+          console.log(`[BG-MOBILE] Using level 1 fallback for level 3: ${fallbackKey}`);
+        }
+      }
+      
+      if (fallbackKey) {
+        // Use fallback texture
+        const cameraWidth = scene.cameras.main.width;
+        const cameraHeight = scene.cameras.main.height;
+        const centerX = scene.cameras.main.centerX;
+        const centerY = scene.cameras.main.centerY;
+        
+        console.log(`[BG-MOBILE] Creating background with fallback: ${fallbackKey}`);
+        scene.background = scene.add.image(centerX, centerY, fallbackKey)
+          .setOrigin(0.5, 0.5)
+          .setDepth(-100);
+        
+        // Calculate scale to cover the entire screen
+        const texture = scene.textures.get(fallbackKey);
+        const frame = texture.get();
+        const scaleX = cameraWidth / frame.width;
+        const scaleY = cameraHeight / frame.height;
+        const scale = Math.max(scaleX, scaleY) * 1.1;
+        
+        scene.background.setScale(scale);
+        console.log(`[BG-MOBILE] Fallback background created successfully!`);
+        
+        // Add overlay as normal
+        const overlayColor = mode === "easy" ? EASY_COLORS_HEX.BACKGROUND : HARD_COLORS_HEX.BACKGROUND;
+        const baseOpacity = 0.9;
+        const opacityReduction = streakIntensity * 0.05;
+        const overlayOpacity = Math.max(0.1, baseOpacity - opacityReduction);
+        
+        if (overlayOpacity > 0) {
+          const overlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, overlayColor, overlayOpacity)
+            .setOrigin(0.5, 0.5)
+            .setDepth(-99);
+          scene.background.overlay = overlay;
+        }
+        
+        if (streakIntensity >= 2) {
+          const tintColor = mode === "easy" ? 0x00ffff : 0xff00ff;
+          const tintOpacity = Math.min(streakIntensity * 0.01, 0.05);
+          
+          const tintOverlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, tintColor, tintOpacity)
+            .setOrigin(0.5, 0.5)
+            .setDepth(-98);
+          scene.background.tintOverlay = tintOverlay;
+        }
+        
+        console.log("[BG-MOBILE] === MOBILE BACKGROUND COMPLETE (FALLBACK) ===");
+        return;
+      }
       
       // Try to load the texture if it's missing
       const imagePath = `assets/backgrounds/${imageKey}.png`;
