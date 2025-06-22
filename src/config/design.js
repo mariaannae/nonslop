@@ -11,21 +11,21 @@ const PALETTE = {
     DARK: 0x170548,       // Less dark purple
     MID: 0x3d0364,        // Mid purple
     // Cool purple colors for BASIC mode (based on 0x101551)
-    PURPLE_DARKEST: 0x0a0c36,    // Very dark cool purple
-    PURPLE_DARKER: 0x101551,     // Your chosen cool purple
-    PURPLE_DARK: 0x1a1f6c,       // Medium dark cool purple
-    PURPLE_MID: 0x242987,        // Cool purple mid
-    PURPLE_LIGHT: 0x2e33a2,      // Lighter cool purple
+    PURPLE_DARKEST: 0x050720,    // Very dark saturated purple
+    PURPLE_DARKER: 0x0a0f3a,     // Deep saturated purple
+    PURPLE_DARK: 0x121754,       // Dark saturated purple
+    PURPLE_MID: 0x1a1f6e,        // Mid saturated purple
+    PURPLE_LIGHT: 0x222788,      // Lighter saturated purple
     // Serene colors for Easy mode
-    EASY_DARKEST: 0x001620,    // Deep ocean blue
-    EASY_DARKER: 0x002435,     // Midnight ocean
-    EASY_DARK: 0x003450,       // Ocean blue
-    EASY_MID: 0x004565,        // Teal blue
+    EASY_DARKEST: 0x000e18,    // Very deep saturated ocean blue
+    EASY_DARKER: 0x001828,     // Deep saturated midnight ocean
+    EASY_DARK: 0x002440,       // Dark saturated ocean blue
+    EASY_MID: 0x003058,        // Mid saturated teal blue
     // Intense colors for Hard mode
-    HARD_DARKEST: 0x200025,    // Deep magenta
-    HARD_DARKER: 0x400045,     // Rich magenta
-    HARD_DARK: 0x600065,       // Vibrant magenta
-    HARD_MID: 0x800085,        // Electric magenta
+    HARD_DARKEST: 0x0c0020,    // Very deep saturated blue-magenta
+    HARD_DARKER: 0x1a0045,     // Deep saturated blue-magenta
+    HARD_DARK: 0x280068,       // Dark saturated blue-magenta
+    HARD_MID: 0x360088,        // Mid saturated electric blue-magenta
   },
   // Accent colors
   ACCENT: {
@@ -144,7 +144,8 @@ const BASIC = {
     ACCENT: PALETTE.ACCENT.PINK,                        // Keep original accent
     HIGHLIGHT: PALETTE.HIGHLIGHT.GREEN_LIGHT,           // Keep original highlight
     TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,             // Keep original text
-    GREEN: PALETTE.HIGHLIGHT.GREEN,                     // Keep original green
+    GREEN: PALETTE.HIGHLIGHT.GREEN,      
+    BLACK: PALETTE.BLACK,
     BUTTON: {
       FILL: PALETTE.ACCENT.PINK,                        // Keep original button fill
       OVERLAY: PALETTE.ACCENT.PINK_RED                  // Keep original button overlay
@@ -179,6 +180,7 @@ const EASY = {
     HIGHLIGHT: PALETTE.HIGHLIGHT.YELLOW,
     TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
     WARNING: PALETTE.ACCENT.ORANGE_LIGHT,
+    BLACK: PALETTE.BLACK,
     BUTTON: {
       FILL: PALETTE.ACCENT.PINK,
       OVERLAY: PALETTE.ACCENT.PINK_RED
@@ -211,6 +213,7 @@ const HARD = {
     ERROR: PALETTE.ACCENT.RED,
     TEXT: PALETTE.HIGHLIGHT.GREEN_LIGHTEST,
     WARNING: PALETTE.ACCENT.ORANGE_LIGHT,
+    BLACK: PALETTE.BLACK,
     BUTTON: {
       FILL: PALETTE.ACCENT.PINK,
       OVERLAY: PALETTE.ACCENT.PINK_RED

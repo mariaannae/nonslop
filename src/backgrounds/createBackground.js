@@ -29,19 +29,19 @@ function addEnhancedNoise(ctx, width, height, opacity) {
 function createEasyLevel1(ctx, width, height) {
   // Level 1: Calm Ocean Depths
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#001620");
-  gradient.addColorStop(0.3, "#002435");
-  gradient.addColorStop(0.7, "#003450");
-  gradient.addColorStop(1, "#004565");
+  gradient.addColorStop(0, "#000e18");
+  gradient.addColorStop(0.3, "#001828");
+  gradient.addColorStop(0.7, "#002440");
+  gradient.addColorStop(1, "#003058");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
   // Gentle waves
   for (let i = 0; i < 8; i++) {
     const waveGradient = ctx.createLinearGradient(0, 0, width, 0);
-    waveGradient.addColorStop(0, `rgba(0, 22, 32, ${0.15 - i * 0.015})`);
-    waveGradient.addColorStop(0.5, `rgba(0, 69, 101, ${0.2 - i * 0.015})`);
-    waveGradient.addColorStop(1, `rgba(0, 22, 32, ${0.15 - i * 0.015})`);
+    waveGradient.addColorStop(0, `rgba(0, 14, 24, ${0.15 - i * 0.015})`);
+    waveGradient.addColorStop(0.5, `rgba(0, 48, 88, ${0.2 - i * 0.015})`);
+    waveGradient.addColorStop(1, `rgba(0, 14, 24, ${0.15 - i * 0.015})`);
     ctx.strokeStyle = waveGradient;
     ctx.lineWidth = 2;
     const yOffset = height * (i / 8);
@@ -66,8 +66,8 @@ function createEasyLevel1(ctx, width, height) {
       point.x, point.y, point.size
     );
     glow.addColorStop(0, 'rgba(0, 229, 255, 0.12)');
-    glow.addColorStop(0.5, 'rgba(0, 69, 101, 0.06)');
-    glow.addColorStop(1, 'rgba(0, 22, 32, 0)');
+    glow.addColorStop(0.5, 'rgba(0, 48, 88, 0.06)');
+    glow.addColorStop(1, 'rgba(0, 14, 24, 0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
@@ -83,10 +83,10 @@ function createEasyLevel2(ctx, width, height) {
     centerX, centerY, 0,
     centerX, centerY, Math.max(width, height)
   );
-  baseGradient.addColorStop(0, "#002435");
-  baseGradient.addColorStop(0.4, "#003450");
-  baseGradient.addColorStop(0.7, "#004565");
-  baseGradient.addColorStop(1, "#001620");
+  baseGradient.addColorStop(0, "#001828");
+  baseGradient.addColorStop(0.4, "#002440");
+  baseGradient.addColorStop(0.7, "#003058");
+  baseGradient.addColorStop(1, "#000e18");
   ctx.fillStyle = baseGradient;
   ctx.fillRect(0, 0, width, height);
 
@@ -108,7 +108,7 @@ function createEasyLevel2(ctx, width, height) {
       centerY + Math.sin(angle) * radius
     );
     currentGradient.addColorStop(0, 'rgba(0, 229, 255, 0.15)');
-    currentGradient.addColorStop(1, 'rgba(0, 69, 101, 0)');
+    currentGradient.addColorStop(1, 'rgba(0, 48, 88, 0)');
     ctx.strokeStyle = currentGradient;
     ctx.lineWidth = 15;
     ctx.stroke(curve);
@@ -121,7 +121,7 @@ function createEasyLevel2(ctx, width, height) {
     const orbGradient = ctx.createRadialGradient(x, y, 0, x, y, 80);
     orbGradient.addColorStop(0, 'rgba(0, 255, 255, 0.18)');
     orbGradient.addColorStop(0.5, 'rgba(0, 229, 255, 0.12)');
-    orbGradient.addColorStop(1, 'rgba(0, 69, 101, 0)');
+    orbGradient.addColorStop(1, 'rgba(0, 48, 88, 0)');
     ctx.fillStyle = orbGradient;
     ctx.beginPath();
     ctx.arc(x, y, 80, 0, Math.PI * 2);
@@ -135,15 +135,15 @@ function createEasyLevel3(ctx, width, height) {
   const centerY = height / 2;
   if (ctx.createConicGradient) {
     const baseGradient = ctx.createConicGradient(0, centerX, centerY);
-    baseGradient.addColorStop(0, "#001620");
-    baseGradient.addColorStop(0.25, "#002435");
-    baseGradient.addColorStop(0.5, "#003450");
-    baseGradient.addColorStop(0.75, "#004565");
-    baseGradient.addColorStop(1, "#001620");
+    baseGradient.addColorStop(0, "#000e18");
+    baseGradient.addColorStop(0.25, "#001828");
+    baseGradient.addColorStop(0.5, "#002440");
+    baseGradient.addColorStop(0.75, "#003058");
+    baseGradient.addColorStop(1, "#000e18");
     ctx.fillStyle = baseGradient;
   } else {
     // Fallback for browsers without createConicGradient
-    ctx.fillStyle = "#001620";
+    ctx.fillStyle = "#000e18";
   }
   ctx.fillRect(0, 0, width, height);
 
@@ -154,8 +154,8 @@ function createEasyLevel3(ctx, width, height) {
       centerX, centerY, Math.max(width, height) * (i * 0.2 + 0.15)
     );
     ringGradient.addColorStop(0, `rgba(0, 229, 255, ${0.15 - i * 0.025})`);
-    ringGradient.addColorStop(0.5, `rgba(0, 69, 101, ${0.12 - i * 0.025})`);
-    ringGradient.addColorStop(1, 'rgba(0, 22, 32, 0)');
+    ringGradient.addColorStop(0.5, `rgba(0, 48, 88, ${0.12 - i * 0.025})`);
+    ringGradient.addColorStop(1, 'rgba(0, 14, 24, 0)');
     ctx.fillStyle = ringGradient;
     ctx.beginPath();
     ctx.arc(centerX, centerY, Math.max(width, height) * (i * 0.2 + 0.15), 0, Math.PI * 2);
@@ -177,7 +177,7 @@ function createEasyLevel3(ctx, width, height) {
       centerY + Math.sin(angle) * height * 0.5
     );
     pathGradient.addColorStop(0, 'rgba(0, 255, 255, 0.12)');
-    pathGradient.addColorStop(1, 'rgba(0, 69, 101, 0)');
+    pathGradient.addColorStop(1, 'rgba(0, 48, 88, 0)');
     ctx.strokeStyle = pathGradient;
     ctx.lineWidth = 10;
     ctx.stroke(path);
@@ -188,10 +188,10 @@ function createEasyLevel3(ctx, width, height) {
 function createHardLevel1(ctx, width, height) {
   // Level 1: Intense Energy Field
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#080008");
-  gradient.addColorStop(0.3, "#100012");
-  gradient.addColorStop(0.7, "#180018");
-  gradient.addColorStop(1, "#200025");
+  gradient.addColorStop(0, "#0c0020");
+  gradient.addColorStop(0.3, "#1a0045");
+  gradient.addColorStop(0.7, "#280068");
+  gradient.addColorStop(1, "#360088");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
@@ -200,9 +200,9 @@ function createHardLevel1(ctx, width, height) {
     width/2, height/2, 0,
     width/2, height/2, Math.max(width, height) * 0.7
   );
-  coreGradient.addColorStop(0, "rgba(255, 0, 255, 0.04)");
-  coreGradient.addColorStop(0.3, "rgba(200, 0, 200, 0.02)");
-  coreGradient.addColorStop(1, "rgba(128, 0, 128, 0.01)");
+  coreGradient.addColorStop(0, "rgba(136, 0, 255, 0.04)");
+  coreGradient.addColorStop(0.3, "rgba(102, 0, 204, 0.02)");
+  coreGradient.addColorStop(1, "rgba(68, 0, 136, 0.01)");
   ctx.fillStyle = coreGradient;
   ctx.fillRect(0, 0, width, height);
 
@@ -216,9 +216,9 @@ function createHardLevel1(ctx, width, height) {
       x, y, 0,
       x, y, 100
     );
-    orbGradient.addColorStop(0, "rgba(255, 0, 255, 0.06)");
-    orbGradient.addColorStop(0.5, "rgba(200, 0, 200, 0.03)");
-    orbGradient.addColorStop(1, "rgba(128, 0, 128, 0)");
+    orbGradient.addColorStop(0, "rgba(136, 0, 255, 0.06)");
+    orbGradient.addColorStop(0.5, "rgba(102, 0, 204, 0.03)");
+    orbGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
     ctx.fillStyle = orbGradient;
     ctx.beginPath();
     ctx.arc(x, y, 100, 0, Math.PI * 2);
@@ -231,9 +231,9 @@ function createHardLevel1(ctx, width, height) {
       width/2, height/2, 0,
       width/2, height/2, Math.max(width, height) * 0.4
     );
-    ringGradient.addColorStop(0, `rgba(255, 0, 255, ${0.08 - i * 0.01})`);
-    ringGradient.addColorStop(0.4, `rgba(200, 0, 200, ${0.05 - i * 0.008})`);
-    ringGradient.addColorStop(1, "rgba(128, 0, 128, 0)");
+    ringGradient.addColorStop(0, `rgba(136, 0, 255, ${0.08 - i * 0.01})`);
+    ringGradient.addColorStop(0.4, `rgba(102, 0, 204, ${0.05 - i * 0.008})`);
+    ringGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
     ctx.fillStyle = ringGradient;
     ctx.beginPath();
     ctx.arc(width/2, height/2, Math.max(width, height) * (0.2 + i * 0.15), 0, Math.PI * 2);
@@ -249,8 +249,8 @@ function createHardLevel1(ctx, width, height) {
       width/2 + Math.cos(angle) * length,
       height/2 + Math.sin(angle) * length
     );
-    lineGradient.addColorStop(0, "rgba(255, 0, 255, 0.06)");
-    lineGradient.addColorStop(1, "rgba(128, 0, 128, 0)");
+    lineGradient.addColorStop(0, "rgba(136, 0, 255, 0.06)");
+    lineGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
     ctx.strokeStyle = lineGradient;
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -274,10 +274,10 @@ function createHardLevel2(ctx, width, height) {
     centerX, centerY, 0,
     centerX, centerY, Math.max(width, height)
   );
-  baseGradient.addColorStop(0, "#250035");
-  baseGradient.addColorStop(0.3, "#200030");
-  baseGradient.addColorStop(0.6, "#180025");
-  baseGradient.addColorStop(1, "#100020");
+  baseGradient.addColorStop(0, "#360088");
+  baseGradient.addColorStop(0.3, "#280068");
+  baseGradient.addColorStop(0.6, "#1a0045");
+  baseGradient.addColorStop(1, "#0c0020");
   ctx.fillStyle = baseGradient;
   ctx.fillRect(0, 0, width, height);
 
@@ -300,8 +300,8 @@ function createHardLevel2(ctx, width, height) {
       centerX + Math.cos(angle) * maxRadius,
       centerY + Math.sin(angle) * maxRadius
     );
-    spiralGradient.addColorStop(0, "rgba(180, 40, 220, 0.08)");
-    spiralGradient.addColorStop(1, "rgba(120, 20, 180, 0)");
+    spiralGradient.addColorStop(0, "rgba(136, 0, 255, 0.08)");
+    spiralGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
     ctx.strokeStyle = spiralGradient;
     ctx.lineWidth = 15;
     ctx.beginPath();
@@ -322,9 +322,9 @@ function createHardLevel2(ctx, width, height) {
       x, y, 0,
       x, y, 150
     );
-    nodeGradient.addColorStop(0, "rgba(180, 40, 220, 0.1)");
-    nodeGradient.addColorStop(0.4, "rgba(150, 30, 200, 0.05)");
-    nodeGradient.addColorStop(1, "rgba(120, 20, 180, 0)");
+    nodeGradient.addColorStop(0, "rgba(136, 0, 255, 0.1)");
+    nodeGradient.addColorStop(0.4, "rgba(102, 0, 204, 0.05)");
+    nodeGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
     ctx.fillStyle = nodeGradient;
     ctx.beginPath();
     ctx.arc(x, y, 150, 0, Math.PI * 2);
@@ -336,9 +336,9 @@ function createHardLevel2(ctx, width, height) {
     centerX, centerY, 0,
     centerX, centerY, 250
   );
-  coreGradient.addColorStop(0, "rgba(200, 40, 220, 0.15)");
-  coreGradient.addColorStop(0.3, "rgba(180, 30, 200, 0.08)");
-  coreGradient.addColorStop(1, "rgba(150, 20, 180, 0)");
+  coreGradient.addColorStop(0, "rgba(136, 0, 255, 0.15)");
+  coreGradient.addColorStop(0.3, "rgba(102, 0, 204, 0.08)");
+  coreGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
   ctx.fillStyle = coreGradient;
   ctx.beginPath();
   ctx.arc(centerX, centerY, 250, 0, Math.PI * 2);
@@ -346,99 +346,178 @@ function createHardLevel2(ctx, width, height) {
 }
 
 function createHardLevel3(ctx, width, height) {
-  // Level 3: Power Grid
+  // Level 3: Abstract Energy Waves
   const centerX = width/2;
   const centerY = height/2;
   const baseGradient = ctx.createRadialGradient(
     centerX, centerY, 0,
     centerX, centerY, Math.max(width, height)
   );
-  baseGradient.addColorStop(0, "#450060");
-  baseGradient.addColorStop(0.4, "#350050");
-  baseGradient.addColorStop(0.7, "#250040");
-  baseGradient.addColorStop(1, "#150030");
+  baseGradient.addColorStop(0, "#360088");
+  baseGradient.addColorStop(0.4, "#280068");
+  baseGradient.addColorStop(0.7, "#1a0045");
+  baseGradient.addColorStop(1, "#0c0020");
   ctx.fillStyle = baseGradient;
   ctx.fillRect(0, 0, width, height);
 
-  // Hexagonal grid
-  const hexRadius = 120;
-  const hexHeight = hexRadius * Math.sqrt(3);
-  const cols = Math.ceil(width / (hexRadius * 3)) + 2;
-  const rows = Math.ceil(height / hexHeight) + 2;
-  const offsetX = -hexRadius;
-  const offsetY = -hexHeight;
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const x = offsetX + col * hexRadius * 3 + (row % 2) * hexRadius * 1.5;
-      const y = offsetY + row * hexHeight;
-      const hexGradient = ctx.createRadialGradient(
-        x, y, 0,
-        x, y, hexRadius
-      );
-      hexGradient.addColorStop(0, "rgba(220, 40, 255, 0.12)");
-      hexGradient.addColorStop(0.5, "rgba(180, 30, 220, 0.08)");
-      hexGradient.addColorStop(1, "rgba(140, 20, 180, 0)");
-      ctx.fillStyle = hexGradient;
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i;
-        const hx = x + hexRadius * Math.cos(angle);
-        const hy = y + hexRadius * Math.sin(angle);
-        if (i === 0) ctx.moveTo(hx, hy);
-        else ctx.lineTo(hx, hy);
-      }
-      ctx.closePath();
-      ctx.fill();
-
-      // Connections
-      if (col < cols - 1) {
-        const nextX = x + hexRadius * 3;
-        const connectionGradient = ctx.createLinearGradient(x, y, nextX, y);
-        connectionGradient.addColorStop(0, "rgba(138, 21, 198, 0.06)");
-        connectionGradient.addColorStop(0.5, "rgba(107, 15, 153, 0.03)");
-        connectionGradient.addColorStop(1, "rgba(138, 21, 198, 0.06)");
-        ctx.strokeStyle = connectionGradient;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(x + hexRadius, y);
-        ctx.lineTo(nextX - hexRadius, y);
-        ctx.stroke();
-      }
+  // Large abstract wave patterns
+  for (let wave = 0; wave < 5; wave++) {
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate((wave * Math.PI) / 2.5);
+    
+    // Create flowing wave shape
+    const wavePoints = [];
+    const waveLength = Math.max(width, height) * 1.2;
+    const waveHeight = 150 + wave * 30;
+    
+    for (let x = -waveLength/2; x <= waveLength/2; x += 10) {
+      const y = Math.sin(x * 0.01) * waveHeight * Math.cos(x * 0.005);
+      wavePoints.push({x, y});
     }
+    
+    // Draw the wave with gradient
+    const waveGradient = ctx.createLinearGradient(-waveLength/2, 0, waveLength/2, 0);
+    waveGradient.addColorStop(0, "rgba(136, 0, 255, 0)");
+    waveGradient.addColorStop(0.3, `rgba(136, 0, 255, ${0.15 - wave * 0.02})`);
+    waveGradient.addColorStop(0.5, `rgba(102, 0, 204, ${0.2 - wave * 0.03})`);
+    waveGradient.addColorStop(0.7, `rgba(136, 0, 255, ${0.15 - wave * 0.02})`);
+    waveGradient.addColorStop(1, "rgba(136, 0, 255, 0)");
+    
+    ctx.strokeStyle = waveGradient;
+    ctx.lineWidth = 20 - wave * 3;
+    ctx.beginPath();
+    ctx.moveTo(wavePoints[0].x, wavePoints[0].y);
+    
+    for (let i = 1; i < wavePoints.length; i++) {
+      ctx.lineTo(wavePoints[i].x, wavePoints[i].y);
+    }
+    ctx.stroke();
+    
+    // Add glow effect to waves
+    ctx.strokeStyle = waveGradient;
+    ctx.lineWidth = 40 - wave * 5;
+    ctx.globalAlpha = 0.3;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    
+    ctx.restore();
   }
 
-  // Power nodes
-  const nodeRadius = 40;
-  for (let row = 0; row < rows; row += 2) {
-    for (let col = 0; col < cols; col += 2) {
-      const x = offsetX + col * hexRadius * 3 + (row % 2) * hexRadius * 1.5;
-      const y = offsetY + row * hexHeight;
-      const nodeGradient = ctx.createRadialGradient(
-        x, y, 0,
-        x, y, nodeRadius
-      );
-      nodeGradient.addColorStop(0, "rgba(138, 21, 198, 0.12)");
-      nodeGradient.addColorStop(0.5, "rgba(107, 15, 153, 0.06)");
-      nodeGradient.addColorStop(1, "rgba(61, 9, 130, 0)");
-      ctx.fillStyle = nodeGradient;
-      ctx.beginPath();
-      ctx.arc(x, y, nodeRadius, 0, Math.PI * 2);
-      ctx.fill();
+  // Large abstract organic blobs
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI * 2 * i) / 6;
+    const distance = Math.min(width, height) * 0.3;
+    const shapeX = centerX + Math.cos(angle) * distance;
+    const shapeY = centerY + Math.sin(angle) * distance;
+    
+    // Create abstract blob shapes using bezier curves
+    ctx.save();
+    ctx.translate(shapeX, shapeY);
+    ctx.rotate(angle + Math.PI/3);
+    
+    const shapeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 100);
+    shapeGradient.addColorStop(0, "rgba(136, 0, 255, 0.2)");
+    shapeGradient.addColorStop(0.5, "rgba(102, 0, 204, 0.1)");
+    shapeGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
+    
+    ctx.fillStyle = shapeGradient;
+    ctx.beginPath();
+    
+    // Create organic blob shape with bezier curves
+    const points = [];
+    const numPoints = 8;
+    const baseRadius = 60 + i * 10;
+    
+    for (let p = 0; p < numPoints; p++) {
+      const pAngle = (Math.PI * 2 * p) / numPoints;
+      const variation = Math.sin(p * 1.5 + i) * 20;
+      const r = baseRadius + variation;
+      points.push({
+        x: Math.cos(pAngle) * r,
+        y: Math.sin(pAngle) * r
+      });
     }
+    
+    // Draw smooth blob using quadratic curves
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let p = 0; p < numPoints; p++) {
+      const next = (p + 1) % numPoints;
+      const cpx = (points[p].x + points[next].x) / 2;
+      const cpy = (points[p].y + points[next].y) / 2;
+      ctx.quadraticCurveTo(points[p].x, points[p].y, cpx, cpy);
+    }
+    ctx.closePath();
+    ctx.fill();
+    
+    // Add subtle glow instead of hard outline
+    ctx.strokeStyle = "rgba(136, 0, 255, 0.15)";
+    ctx.lineWidth = 8;
+    ctx.globalAlpha = 0.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    
+    ctx.restore();
   }
 
-  // Central power core
-  const coreGradient = ctx.createRadialGradient(
-    centerX, centerY, 0,
-    centerX, centerY, 300
-  );
-  coreGradient.addColorStop(0, "rgba(255, 60, 255, 0.2)");
-  coreGradient.addColorStop(0.4, "rgba(220, 40, 255, 0.12)");
-  coreGradient.addColorStop(1, "rgba(180, 30, 220, 0)");
-  ctx.fillStyle = coreGradient;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, 300, 0, Math.PI * 2);
-  ctx.fill();
+  // Central abstract core with pulsing rings
+  for (let ring = 0; ring < 4; ring++) {
+    const ringRadius = 80 + ring * 50;
+    
+    // Create distorted ring shape
+    ctx.beginPath();
+    for (let a = 0; a <= Math.PI * 2; a += 0.1) {
+      const distortion = Math.sin(a * 3 + ring) * 20;
+      const r = ringRadius + distortion;
+      const x = centerX + Math.cos(a) * r;
+      const y = centerY + Math.sin(a) * r;
+      
+      if (a === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    
+    const ringGradient = ctx.createRadialGradient(
+      centerX, centerY, ringRadius - 30,
+      centerX, centerY, ringRadius + 30
+    );
+    ringGradient.addColorStop(0, "rgba(136, 0, 255, 0)");
+    ringGradient.addColorStop(0.5, `rgba(102, 0, 204, ${0.2 - ring * 0.04})`);
+    ringGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
+    
+    ctx.fillStyle = ringGradient;
+    ctx.fill();
+    
+    // Add glow
+    ctx.strokeStyle = `rgba(136, 0, 255, ${0.3 - ring * 0.05})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Add abstract connecting lines
+  for (let i = 0; i < 8; i++) {
+    const startAngle = (Math.PI * 2 * i) / 8;
+    const endAngle = startAngle + Math.PI * 0.7;
+    const startDist = Math.min(width, height) * 0.2;
+    const endDist = Math.min(width, height) * 0.45;
+    
+    const x1 = centerX + Math.cos(startAngle) * startDist;
+    const y1 = centerY + Math.sin(startAngle) * startDist;
+    const x2 = centerX + Math.cos(endAngle) * endDist;
+    const y2 = centerY + Math.sin(endAngle) * endDist;
+    
+    const lineGradient = ctx.createLinearGradient(x1, y1, x2, y2);
+    lineGradient.addColorStop(0, "rgba(136, 0, 255, 0.15)");
+    lineGradient.addColorStop(0.5, "rgba(102, 0, 204, 0.08)");
+    lineGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
+    
+    ctx.strokeStyle = lineGradient;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo(centerX, centerY, x2, y2);
+    ctx.stroke();
+  }
 }
 
 // Theme-specific background creation functions
@@ -456,6 +535,10 @@ function createEasyBackground(ctx, width, height, levelValue) {
   
   // Add noise to all easy backgrounds
   addEnhancedNoise(ctx, width, height, 0.02);
+  
+  // Add darkening overlay to make backgrounds darker
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // 30% black overlay
+  ctx.fillRect(0, 0, width, height);
 }
 
 function createHardBackground(ctx, width, height, levelValue) {
@@ -469,6 +552,10 @@ function createHardBackground(ctx, width, height, levelValue) {
   } else {
     createHardLevel3(ctx, width, height);
   }
+  
+  // Add darkening overlay to make backgrounds darker
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // 40% black overlay
+  ctx.fillRect(0, 0, width, height);
 }
 
 // Helper function to get the streak intensity level (0-4)
@@ -597,8 +684,11 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         scene.background.setScale(scale);
         console.log(`[BG-MOBILE] Fallback background created successfully!`);
         
-        // Add overlay as normal
+        // Add black overlay for fallback
+        
         const overlayColor = mode === "easy" ? EASY_COLORS_HEX.BACKGROUND : HARD_COLORS_HEX.BACKGROUND;
+        //const overlayColor = EASY_COLORS_HEX.BLACK; 
+
         const baseOpacity = 0.9;
         const opacityReduction = streakIntensity * 0.05;
         const overlayOpacity = Math.max(0.1, baseOpacity - opacityReduction);
@@ -608,16 +698,7 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
             .setOrigin(0.5, 0.5)
             .setDepth(-99);
           scene.background.overlay = overlay;
-        }
-        
-        if (streakIntensity >= 2) {
-          const tintColor = mode === "easy" ? 0x00ffff : 0xff00ff;
-          const tintOpacity = Math.min(streakIntensity * 0.01, 0.05);
-          
-          const tintOverlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, tintColor, tintOpacity)
-            .setOrigin(0.5, 0.5)
-            .setDepth(-98);
-          scene.background.tintOverlay = tintOverlay;
+          console.log(`[BG-MOBILE] Fallback: Black overlay created with opacity ${overlayOpacity}`);
         }
         
         console.log("[BG-MOBILE] === MOBILE BACKGROUND COMPLETE (FALLBACK) ===");
@@ -697,18 +778,15 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     const bgInList = scene.children.list.find(child => child === scene.background);
     console.log(`[BG-MOBILE] Background in display list:`, !!bgInList);
     
-    // Add semi-opaque overlay that becomes more transparent with streak
-    // For mobile, use MUCH lighter overlay values to preserve background visibility
-    // Use mode-specific darkest background color from imported palettes
+    // Add semi-opaque  overlay that becomes more transparent with streak
     const overlayColor = mode === "easy" ? EASY_COLORS_HEX.BACKGROUND : HARD_COLORS_HEX.BACKGROUND;
-    const baseOpacity = 0.9; // Reduced base opacity for better visibility
+
+    //const overlayColor = 0x000000; // Black color
+    const baseOpacity = 0.9; // Start at 90% opacity
     // More noticeable reduction per streak intensity level
-    const opacityReduction = streakIntensity * 0.05; // Much larger reduction per intensity level
+    const opacityReduction = streakIntensity * 0.05; // Reduce by 5% per intensity level
     const overlayOpacity = Math.max(0.1, baseOpacity - opacityReduction); // Keep minimum opacity at 0.1
-    console.log("baseOpacity: ", baseOpacity);
-    console.log("opacityReduction: ", opacityReduction);
-    console.log("overlay opacity: ", overlayOpacity);
-    console.log(`[BG-MOBILE] Overlay - color: ${overlayColor.toString(16)}, intensity: ${streakIntensity}, opacity: ${overlayOpacity}`);
+    console.log(`[BG-MOBILE] Black overlay - intensity: ${streakIntensity}, opacity: ${overlayOpacity}`);
     
     if (overlayOpacity > 0) {
       const overlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, overlayColor, overlayOpacity)
@@ -718,7 +796,7 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
       // Store overlay reference for potential cleanup
       scene.background.overlay = overlay;
       
-      console.log(`[BG-MOBILE] Overlay created at depth ${overlay.depth}`);
+      console.log(`[BG-MOBILE] Black overlay created at depth ${overlay.depth}`);
     }
     
     // Removed colored tint overlay for streaks ≥ 2 on mobile
