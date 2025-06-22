@@ -6189,9 +6189,132 @@ this.aiCountText = this.add.text(
                     });
                 }
                 
+                // Add screen edge flash effect for mobile
+                if (this.isMobile) {
+                    this.createMobileScreenEdgeFlash(milestone);
+                }
+                
                 // Only celebrate the highest milestone crossed
                 break;
             }
+        }
+    }
+    
+    /**
+     * Create a screen edge flash effect for mobile devices when hitting streak milestones
+     * @param {number} milestone - The milestone that was reached
+     */
+    createMobileScreenEdgeFlash(milestone) {
+        const mode = this.mode || 'easy';
+        const flashColor = mode === 'easy' ? 0x00ffff : 0xff00ff; // Cyan for easy, magenta for hard
+        
+        // Determine flash intensity based on milestone
+        let flashAlpha, flashDuration, pulseCount;
+        if (milestone >= 20) {
+            flashAlpha = 0.6;
+            flashDuration = 400;
+            pulseCount = 3;
+        } else if (milestone >= 15) {
+            flashAlpha = 0.5;
+            flashDuration = 350;
+            pulseCount = 3;
+        } else if (milestone >= 10) {
+            flashAlpha = 0.4;
+            flashDuration = 300;
+            pulseCount = 2;
+        } else if (milestone >= 5) {
+            flashAlpha = 0.35;
+            flashDuration = 250;
+            pulseCount = 2;
+        } else {
+            flashAlpha = 0.3;
+            flashDuration = 200;
+            pulseCount = 1;
+        }
+        
+        const screenWidth = this.cameras.main.width;
+        const screenHeight = this.cameras.main.height;
+        const edgeWidth = 15; // Width of the edge flash
+        
+        // Create edge flash graphics
+        const edges = this.add.graphics();
+        edges.setDepth(995); // High depth but below UI elements
+        
+        // Function to draw the edge flash
+        const drawEdgeFlash = (alpha) => {
+            edges.clear();
+            edges.fillStyle(flashColor, alpha);
+            
+            // Top edge
+            edges.fillRect(0, 0, screenWidth, edgeWidth);
+            // Bottom edge
+            edges.fillRect(0, screenHeight - edgeWidth, screenWidth, edgeWidth);
+            // Left edge
+            edges.fillRect(0, 0, edgeWidth, screenHeight);
+            // Right edge
+            edges.fillRect(screenWidth - edgeWidth, 0, edgeWidth, screenHeight);
+            
+            // Corner enhancements for higher milestones
+            if (milestone >= 10) {
+                const cornerSize = 40;
+                // Top-left corner
+                edges.fillTriangle(0, 0, cornerSize, 0, 0, cornerSize);
+                // Top-right corner
+                edges.fillTriangle(screenWidth, 0, screenWidth - cornerSize, 0, screenWidth, cornerSize);
+                // Bottom-left corner
+                edges.fillTriangle(0, screenHeight, cornerSize, screenHeight, 0, screenHeight - cornerSize);
+                // Bottom-right corner
+                edges.fillTriangle(screenWidth, screenHeight, screenWidth - cornerSize, screenHeight, screenWidth, screenHeight - cornerSize);
+            }
+        };
+        
+        // Initial draw
+        drawEdgeFlash(0);
+        
+        // Create the pulsing animation
+        let currentPulse = 0;
+        const pulseAnimation = () => {
+            currentPulse++;
+            
+            // Fade in
+            this.tweens.add({
+                targets: { alpha: 0 },
+                alpha: flashAlpha,
+                duration: flashDuration / 2,
+                ease: 'Sine.In',
+                onUpdate: (tween) => {
+                    drawEdgeFlash(tween.getValue());
+                },
+                onComplete: () => {
+                    // Fade out
+                    this.tweens.add({
+                        targets: { alpha: flashAlpha },
+                        alpha: 0,
+                        duration: flashDuration / 2,
+                        ease: 'Sine.Out',
+                        onUpdate: (tween) => {
+                            drawEdgeFlash(tween.getValue());
+                        },
+                        onComplete: () => {
+                            if (currentPulse < pulseCount) {
+                                // Do another pulse
+                                this.time.delayedCall(100, pulseAnimation);
+                            } else {
+                                // Clean up
+                                edges.destroy();
+                            }
+                        }
+                    });
+                }
+            });
+        };
+        
+        // Start the animation
+        pulseAnimation();
+        
+        // Add subtle camera shake for higher milestones
+        if (milestone >= 10) {
+            this.cameras.main.shake(200, 0.003);
         }
     }
     
