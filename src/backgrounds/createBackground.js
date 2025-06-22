@@ -721,20 +721,47 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
       console.log(`[BG-MOBILE] Overlay created at depth ${overlay.depth}`);
     }
     
-    // For higher streaks, add a colored tint overlay instead of just darkness
-    if (streakIntensity >= 2) {
-      // Use mode-appropriate color for the tint
-      const tintColor = mode === "easy" ? 0x00ffff : 0xff00ff; // Cyan for easy, magenta for hard
-      const tintOpacity = Math.min(streakIntensity * 0.01, 0.05); // Max 5% colored tint
+    // Removed colored tint overlay for streaks ≥ 2 on mobile
+    // This was causing visual issues and wasn't adding much value
+    
+    // Add subtle border glow for mobile when streak > 0
+    if (wordStreak > 0 && streakIntensity >= 1) {
+      console.log(`[BG-MOBILE] Adding subtle border glow for streak ${wordStreak}`);
       
-      const tintOverlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, tintColor, tintOpacity)
-        .setOrigin(0.5, 0.5)
-        .setDepth(-98); // Above the dark overlay
+      // Use mode-appropriate color
+      const borderColor = mode === "easy" ? 0x00ffff : 0xff00ff; // Cyan for easy, magenta for hard
+      
+      // Create a subtle glowing border using a rectangle with stroke
+      // Border width increases slightly with streak intensity
+      const borderWidth = 2 + Math.min(streakIntensity * 1.5, 6); // 2px to 8px max
+      const borderAlpha = 0.3 + Math.min(streakIntensity * 0.1, 0.4); // 0.3 to 0.7 alpha
+      
+      // Create the border slightly inset from screen edges
+      const borderPadding = 10;
+      const border = scene.add.rectangle(
+        centerX,
+        centerY,
+        cameraWidth - borderPadding * 2,
+        cameraHeight - borderPadding * 2,
+        borderColor,
+        0 // No fill, just stroke
+      ).setStrokeStyle(borderWidth, borderColor, borderAlpha)
+        .setDepth(-90); // Above overlays but below UI elements
+      
+      // Add a very subtle pulse animation - much gentler than desktop
+      scene.tweens.add({
+        targets: border,
+        alpha: { from: borderAlpha, to: borderAlpha + 0.1 },
+        duration: 3000, // Slow 3-second pulse
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut'
+      });
       
       // Store for cleanup
-      scene.background.tintOverlay = tintOverlay;
+      scene.background.streakBorder = border;
       
-      console.log(`[BG-MOBILE] Tint overlay created - color: ${tintColor.toString(16)}, opacity: ${tintOpacity}`);
+      console.log(`[BG-MOBILE] Border glow created - width: ${borderWidth}px, alpha: ${borderAlpha}`);
     }
     
     // Exit early - don't fall through to desktop code
