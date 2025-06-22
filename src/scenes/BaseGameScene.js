@@ -2822,10 +2822,12 @@ if (typeof this.add.rexBBCodeText === "function") {
             // Continue even if there's an error with word checking
         }
         
-        // Reset timer when space is pressed
-        this.timerValue = SCENE_CONFIG.TIMER.DEFAULT_VALUE;
-        if (this.timerText) {
-            this.timerText.setText('0:20');
+        // Reset timer when space is pressed (hard mode only)
+        if (this.mode === 'hard') {
+            this.timerValue = SCENE_CONFIG.TIMER.DEFAULT_VALUE;
+            if (this.timerText) {
+                this.timerText.setText('0:20');
+            }
         }
         
         // Only add space if not on mobile (mobile handles this through the hidden input)
@@ -2946,10 +2948,12 @@ if (typeof this.add.rexBBCodeText === "function") {
             }
         }
         
-        // Reset timer when Enter is pressed
-        this.timerValue = SCENE_CONFIG.TIMER.DEFAULT_VALUE;
-        if (this.timerText) {
-            this.timerText.setText('0:20');
+        // Reset timer when Enter is pressed (hard mode only)
+        if (this.mode === 'hard') {
+            this.timerValue = SCENE_CONFIG.TIMER.DEFAULT_VALUE;
+            if (this.timerText) {
+                this.timerText.setText('0:20');
+            }
         }
         
         // Only add newline if not on mobile (mobile handles this through the hidden input)
@@ -3025,8 +3029,8 @@ if (typeof this.add.rexBBCodeText === "function") {
             this.isActivelyTyping = true;
             if (!this.cursorVisible) this.cursorVisible = true;
 
-            // Start the timer on first keystroke if it hasn't been started yet
-            if (!this.timerStarted) {
+            // Start the timer on first keystroke if it hasn't been started yet (hard mode only)
+            if (!this.timerStarted && this.mode === 'hard') {
                 // Start the countdown timer
                 this.timerEvent = this.time.addEvent({
                     delay: 1000,
@@ -3957,6 +3961,11 @@ if (typeof this.add.rexBBCodeText === "function") {
     }
 
     createTimer() {
+        // Only create timer for hard mode
+        if (this.mode !== 'hard') {
+            return;
+        }
+        
         // Destroy any existing timer text to prevent duplicates
         if (this.timerText) {
             this.timerText.destroy();
@@ -3980,6 +3989,9 @@ if (typeof this.add.rexBBCodeText === "function") {
     }
     
     updateTimer() {
+        // Only update timer if it exists (hard mode only)
+        if (!this.timerText) return;
+        
         this.timerValue--;
         
         // Format the time as minutes:seconds

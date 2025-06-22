@@ -346,7 +346,7 @@ function createHardLevel2(ctx, width, height) {
 }
 
 function createHardLevel3(ctx, width, height) {
-  // Level 3: Abstract Energy Waves
+  // Level 3: Central Radiating Energy
   const centerX = width/2;
   const centerY = height/2;
   const baseGradient = ctx.createRadialGradient(
@@ -360,63 +360,76 @@ function createHardLevel3(ctx, width, height) {
   ctx.fillStyle = baseGradient;
   ctx.fillRect(0, 0, width, height);
 
-  // Large abstract wave patterns
-  for (let wave = 0; wave < 5; wave++) {
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.rotate((wave * Math.PI) / 2.5);
+  // Create a large central radiating shape
+  const maxRadius = Math.min(width, height) * 0.8;
+  
+  // Draw the main central glow
+  const centralGlow = ctx.createRadialGradient(
+    centerX, centerY, 0,
+    centerX, centerY, maxRadius
+  );
+  centralGlow.addColorStop(0, "rgba(136, 0, 255, 0.25)");
+  centralGlow.addColorStop(0.3, "rgba(102, 0, 204, 0.15)");
+  centralGlow.addColorStop(0.7, "rgba(68, 0, 136, 0.05)");
+  centralGlow.addColorStop(1, "rgba(68, 0, 136, 0)");
+  
+  ctx.fillStyle = centralGlow;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, maxRadius, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Add subtle radiating rays from the center
+  const rayCount = 12;
+  for (let i = 0; i < rayCount; i++) {
+    const angle = (Math.PI * 2 * i) / rayCount;
+    const rayLength = maxRadius * 0.9;
     
-    // Create flowing wave shape
-    const wavePoints = [];
-    const waveLength = Math.max(width, height) * 1.2;
-    const waveHeight = 150 + wave * 30;
+    const rayGradient = ctx.createLinearGradient(
+      centerX, centerY,
+      centerX + Math.cos(angle) * rayLength,
+      centerY + Math.sin(angle) * rayLength
+    );
+    rayGradient.addColorStop(0, "rgba(136, 0, 255, 0.2)");
+    rayGradient.addColorStop(0.5, "rgba(102, 0, 204, 0.1)");
+    rayGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
     
-    for (let x = -waveLength/2; x <= waveLength/2; x += 10) {
-      const y = Math.sin(x * 0.01) * waveHeight * Math.cos(x * 0.005);
-      wavePoints.push({x, y});
-    }
+    ctx.strokeStyle = rayGradient;
+    ctx.lineWidth = 15 + Math.sin(i * 0.8) * 10; // Varying width
     
-    // Draw the wave with gradient
-    const waveGradient = ctx.createLinearGradient(-waveLength/2, 0, waveLength/2, 0);
-    waveGradient.addColorStop(0, "rgba(136, 0, 255, 0)");
-    waveGradient.addColorStop(0.3, `rgba(136, 0, 255, ${0.15 - wave * 0.02})`);
-    waveGradient.addColorStop(0.5, `rgba(102, 0, 204, ${0.2 - wave * 0.03})`);
-    waveGradient.addColorStop(0.7, `rgba(136, 0, 255, ${0.15 - wave * 0.02})`);
-    waveGradient.addColorStop(1, "rgba(136, 0, 255, 0)");
-    
-    ctx.strokeStyle = waveGradient;
-    ctx.lineWidth = 20 - wave * 3;
     ctx.beginPath();
-    ctx.moveTo(wavePoints[0].x, wavePoints[0].y);
+    ctx.moveTo(centerX, centerY);
     
-    for (let i = 1; i < wavePoints.length; i++) {
-      ctx.lineTo(wavePoints[i].x, wavePoints[i].y);
-    }
+    // Create a slightly curved ray
+    const cp1x = centerX + Math.cos(angle + 0.1) * rayLength * 0.3;
+    const cp1y = centerY + Math.sin(angle + 0.1) * rayLength * 0.3;
+    const cp2x = centerX + Math.cos(angle - 0.1) * rayLength * 0.6;
+    const cp2y = centerY + Math.sin(angle - 0.1) * rayLength * 0.6;
+    const endX = centerX + Math.cos(angle) * rayLength;
+    const endY = centerY + Math.sin(angle) * rayLength;
+    
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
     ctx.stroke();
     
-    // Add glow effect to waves
-    ctx.strokeStyle = waveGradient;
-    ctx.lineWidth = 40 - wave * 5;
+    // Add subtle glow to rays
     ctx.globalAlpha = 0.3;
+    ctx.lineWidth += 10;
     ctx.stroke();
     ctx.globalAlpha = 1;
-    
-    ctx.restore();
   }
-
-  // Large abstract organic blobs
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI * 2 * i) / 6;
-    const distance = Math.min(width, height) * 0.3;
+  
+  // Add a few abstract shapes around the center
+  const shapeCount = 3; // Reduced from 6 to just a few shapes
+  for (let i = 0; i < shapeCount; i++) {
+    const angle = (Math.PI * 2 * i) / shapeCount;
+    const distance = maxRadius * 0.4; // Closer to center
     const shapeX = centerX + Math.cos(angle) * distance;
     const shapeY = centerY + Math.sin(angle) * distance;
     
-    // Create abstract blob shapes using bezier curves
+    // Create abstract shape
     ctx.save();
     ctx.translate(shapeX, shapeY);
-    ctx.rotate(angle + Math.PI/3);
     
-    const shapeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 100);
+    const shapeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 150);
     shapeGradient.addColorStop(0, "rgba(136, 0, 255, 0.2)");
     shapeGradient.addColorStop(0.5, "rgba(102, 0, 204, 0.1)");
     shapeGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
@@ -424,14 +437,15 @@ function createHardLevel3(ctx, width, height) {
     ctx.fillStyle = shapeGradient;
     ctx.beginPath();
     
-    // Create organic blob shape with bezier curves
+    // Create a more abstract, simpler shape
     const points = [];
-    const numPoints = 8;
-    const baseRadius = 60 + i * 10;
+    const numPoints = 6; // Fewer points for simpler shape
+    const baseRadius = 100 + i * 20; // Larger shapes
     
     for (let p = 0; p < numPoints; p++) {
       const pAngle = (Math.PI * 2 * p) / numPoints;
-      const variation = Math.sin(p * 1.5 + i) * 20;
+      // Less variation for smoother shapes
+      const variation = Math.sin(p * 1.2) * 15;
       const r = baseRadius + variation;
       points.push({
         x: Math.cos(pAngle) * r,
@@ -439,7 +453,7 @@ function createHardLevel3(ctx, width, height) {
       });
     }
     
-    // Draw smooth blob using quadratic curves
+    // Draw smoother shape
     ctx.moveTo(points[0].x, points[0].y);
     for (let p = 0; p < numPoints; p++) {
       const next = (p + 1) % numPoints;
@@ -450,24 +464,25 @@ function createHardLevel3(ctx, width, height) {
     ctx.closePath();
     ctx.fill();
     
-    // Add subtle glow instead of hard outline
+    // Add subtle glow
     ctx.strokeStyle = "rgba(136, 0, 255, 0.15)";
-    ctx.lineWidth = 8;
-    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 10;
+    ctx.globalAlpha = 0.4;
     ctx.stroke();
     ctx.globalAlpha = 1;
     
     ctx.restore();
   }
-
-  // Central abstract core with pulsing rings
-  for (let ring = 0; ring < 4; ring++) {
-    const ringRadius = 80 + ring * 50;
+  
+  // Add concentric rings around the center
+  for (let ring = 0; ring < 3; ring++) { // Reduced from 4 to 3 rings
+    const ringRadius = 100 + ring * 80; // More spacing between rings
     
-    // Create distorted ring shape
+    // Create smoother ring shape with less distortion
     ctx.beginPath();
     for (let a = 0; a <= Math.PI * 2; a += 0.1) {
-      const distortion = Math.sin(a * 3 + ring) * 20;
+      // Reduced distortion for smoother rings
+      const distortion = Math.sin(a * 2) * 10;
       const r = ringRadius + distortion;
       const x = centerX + Math.cos(a) * r;
       const y = centerY + Math.sin(a) * r;
@@ -478,44 +493,19 @@ function createHardLevel3(ctx, width, height) {
     ctx.closePath();
     
     const ringGradient = ctx.createRadialGradient(
-      centerX, centerY, ringRadius - 30,
-      centerX, centerY, ringRadius + 30
+      centerX, centerY, ringRadius - 40,
+      centerX, centerY, ringRadius + 40
     );
     ringGradient.addColorStop(0, "rgba(136, 0, 255, 0)");
-    ringGradient.addColorStop(0.5, `rgba(102, 0, 204, ${0.2 - ring * 0.04})`);
+    ringGradient.addColorStop(0.5, `rgba(102, 0, 204, ${0.15 - ring * 0.03})`);
     ringGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
     
     ctx.fillStyle = ringGradient;
     ctx.fill();
     
-    // Add glow
-    ctx.strokeStyle = `rgba(136, 0, 255, ${0.3 - ring * 0.05})`;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-
-  // Add abstract connecting lines
-  for (let i = 0; i < 8; i++) {
-    const startAngle = (Math.PI * 2 * i) / 8;
-    const endAngle = startAngle + Math.PI * 0.7;
-    const startDist = Math.min(width, height) * 0.2;
-    const endDist = Math.min(width, height) * 0.45;
-    
-    const x1 = centerX + Math.cos(startAngle) * startDist;
-    const y1 = centerY + Math.sin(startAngle) * startDist;
-    const x2 = centerX + Math.cos(endAngle) * endDist;
-    const y2 = centerY + Math.sin(endAngle) * endDist;
-    
-    const lineGradient = ctx.createLinearGradient(x1, y1, x2, y2);
-    lineGradient.addColorStop(0, "rgba(136, 0, 255, 0.15)");
-    lineGradient.addColorStop(0.5, "rgba(102, 0, 204, 0.08)");
-    lineGradient.addColorStop(1, "rgba(68, 0, 136, 0)");
-    
-    ctx.strokeStyle = lineGradient;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.quadraticCurveTo(centerX, centerY, x2, y2);
+    // Add subtle glow
+    ctx.strokeStyle = `rgba(136, 0, 255, ${0.2 - ring * 0.05})`;
+    ctx.lineWidth = 3;
     ctx.stroke();
   }
 }

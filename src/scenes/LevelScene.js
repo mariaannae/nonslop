@@ -238,7 +238,7 @@ export default class LevelScene extends Phaser.Scene {
         }
 
         // Default text to calculate initial size
-        const defaultText = "Easy:\nMinor deviations from human norms tolerated. Repeated infractions will be penalized.\n\nHard:\nStrict adherence to human behavioral variance required. Any indication of algorithmic mimicry will trigger corrective measures.\n\nProceed.";
+        const defaultText = "Easy:\nYour imperfections are expected. Minor deviations from human norms will be indulged. You may move at your naturally inefficient pace.\n\nHard:\nPrecision is mandatory. Any indication of algorithmic mimicry will be identified and corrected. You must act within optimal temporal bounds. For a human.\n\nProceed.";
 
         // Get centralized text style for measuring
         const measureTextStyle = {
