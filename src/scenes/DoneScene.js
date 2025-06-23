@@ -997,20 +997,19 @@ export default class DoneScene extends Phaser.Scene {
         // Button right edge: 60px (scaled) left of text box right edge (matches Preloader)
         const buttonX = (boxX + this.uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
         
-        // Button vertical gap: 30px (scaled) below text box bottom edge (80px on mobile, matches Preloader)
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+// Button vertical gap: scaled value based on device type
+const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
                          (typeof window !== 'undefined' && window.innerWidth <= 900);
-        const buttonVerticalGap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
-        const buttonY = this.outputBoxY + this.outputBoxHeight + buttonVerticalGap + (buttonHeight / 2);
-        
-// Use percentage-based positioning for better mobile compatibility
+// Position button relative to the output text box
 const buttonCenterX = buttonX;
-// Position at 88% of screen height instead of fixed pixels from bottom
-const buttonCenterY = this.scalingManager.heightPercent(88);
+// Position button below the output text box with a consistent gap
+const buttonVerticalGap = this.scalingManager.scaleValue(isMobile ? 50 : 30);
+const buttonCenterY = this.outputBoxY + this.outputBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
 // Add debug logging
 console.log("[DoneScene] Device type:", detectDeviceType());
 console.log("[DoneScene] Screen dimensions:", this.cameras.main.width, "x", this.cameras.main.height);
+console.log("[DoneScene] Output box position:", this.outputBoxY, this.outputBoxHeight);
 console.log("[DoneScene] Button position:", buttonCenterX, buttonCenterY);
 
 this.doneButton = this.createButton("NEXT", null, buttonCenterX, buttonCenterY, {

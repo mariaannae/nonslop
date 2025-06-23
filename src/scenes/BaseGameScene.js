@@ -1447,14 +1447,18 @@ if (typeof this.add.rexBBCodeText === "function") {
      * Create buttons and progress bar
      * @param {object} positions - Calculated positions object
      */
-    createButtonSection(positions) {
-        const sm = this.scalingManager;
-        
-        // Calculate button positions
-        const buttonX = (sm.centerX() - this.uiBoxWidth / 2 + this.uiBoxWidth) - 
-                       (positions.buttonWidth / 2) - positions.horizontalOffset;
-        const buttonY = this.inputBoxY + this.inputBoxHeight + positions.buttonVerticalGap + 
-                       (positions.buttonHeight / 2);
+createButtonSection(positions) {
+    // Initialize scaling manager if not exists
+    if (!this.scalingManager) {
+        this.scalingManager = new ScalingManager(this);
+    }
+    const sm = this.scalingManager;
+    
+    // Calculate button positions
+    const buttonX = (sm.centerX() - this.uiBoxWidth / 2 + this.uiBoxWidth) - 
+                   (positions.buttonWidth / 2) - positions.horizontalOffset;
+    const buttonY = this.inputBoxY + this.inputBoxHeight + positions.buttonVerticalGap + 
+                   (positions.buttonHeight / 2);
 
         // Create progress bar
         this.createFailsCounter();
@@ -1473,7 +1477,25 @@ if (typeof this.add.rexBBCodeText === "function") {
 
         // Create feedback button
         let feedbackButtonX = sm.scaleValue(30) + positions.buttonWidth / 2;
-        let feedbackButtonY = this.cameras.main.height - positions.buttonHeight / 2 - sm.scaleValue(30);
+        
+        // Detect if device is iPad to adjust the feedback button position
+        const isIPad = /ipad/i.test(navigator.userAgent) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
+        // For iPad, position the feedback button to the left of the progress bar
+        // to prevent overlap with the progress bar
+        let feedbackButtonY;
+        if (isIPad) {
+            // Position at the same Y level as the progress bar (failsCounter)
+            feedbackButtonY = progressBarY;
+            // Position to the left side of the screen
+            feedbackButtonX = sm.scaleValue(30) + positions.buttonWidth / 2;
+        } else {
+            // For other devices, keep the original bottom positioning
+            feedbackButtonY = this.cameras.main.height - positions.buttonHeight / 2 - sm.scaleValue(30);
+        }
+        
+        // Ensure the button stays within screen bounds
         feedbackButtonX = Phaser.Math.Clamp(feedbackButtonX, positions.buttonWidth / 2, 
                                            this.sys.game.canvas.width - positions.buttonWidth / 2);
         feedbackButtonY = Phaser.Math.Clamp(feedbackButtonY, positions.buttonHeight / 2, 

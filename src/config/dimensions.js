@@ -56,11 +56,14 @@ export function detectDeviceType() {
     const minDim = Math.min(width, height);
 
     // iPad or Android tablet detection
+    // Also detect iPad Pro with MacIntel platform and multiple touch points
     if (
         (ua.includes("ipad")) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
         (ua.includes("android") && !ua.includes("mobile")) ||
         (minDim >= 600 && minDim < 900)
     ) {
+        console.log("[DEVICE DETECTION] Tablet detected");
         return DEVICE_TYPES.TABLET;
     }
     // Phone detection
@@ -69,9 +72,11 @@ export function detectDeviceType() {
         (ua.includes("android") && ua.includes("mobile")) ||
         (minDim < 600)
     ) {
+        console.log("[DEVICE DETECTION] Phone detected");
         return DEVICE_TYPES.PHONE;
     }
     // Default to desktop
+    console.log("[DEVICE DETECTION] Desktop detected");
     return DEVICE_TYPES.DESKTOP;
 }
 
@@ -150,8 +155,23 @@ export function getOptimalDimensions() {
         
         console.log(`[DIMENSIONS] Desktop base: ${dimensions.width}x${dimensions.height} (landscape: ${isLandscape})`);
         console.log(`[DIMENSIONS] Viewport: ${viewportWidth}x${viewportHeight} (aspect: ${aspectRatio.toFixed(2)})`);
+    } else if (deviceType === DEVICE_TYPES.TABLET) {
+        // For tablets: use desktop dimensions when in landscape, phone dimensions when in portrait
+        if (isLandscape) {
+            // Use desktop dimensions for landscape tablets
+            const baseHeight = 720;
+            dimensions = {
+                width: 1280,
+                height: baseHeight
+            };
+            console.log(`[DIMENSIONS] Tablet (landscape): Using desktop dimensions ${dimensions.width}x${dimensions.height}`);
+        } else {
+            // Use phone dimensions for portrait tablets
+            dimensions = BASE_DIMENSIONS[DEVICE_TYPES.PHONE].PORTRAIT;
+            console.log(`[DIMENSIONS] Tablet (portrait): Using phone dimensions ${dimensions.width}x${dimensions.height}`);
+        }
     } else {
-        // For mobile/tablet, use predefined dimensions
+        // For phones, use predefined dimensions
         if (isLandscape) {
             dimensions = BASE_DIMENSIONS[deviceType].LANDSCAPE;
         } else {

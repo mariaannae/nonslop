@@ -65,7 +65,7 @@ import BadgeGenerator from "./scenes/BadgeGenerator.js";
 import GameOverScene from "./scenes/GameOverScene.js";
 
 // Import centralized dimensions configuration
-import { isMobileDevice, getOptimalDimensions, SCALE_CONFIG } from "./config/dimensions.js";
+import { isMobileDevice, getOptimalDimensions, SCALE_CONFIG, detectDeviceType, DEVICE_TYPES } from "./config/dimensions.js";
 
 // Get optimal dimensions and device info
 const dimensions = getOptimalDimensions();
@@ -247,39 +247,48 @@ if (!isMobile) {
 
     // Mobile-specific: prevent unwanted mobile behaviors
     if (isMobile) {
-        // Lock orientation to portrait mode
-        const lockOrientation = async () => {
-            if (screen.orientation && screen.orientation.lock) {
-                try {
-                    await screen.orientation.lock('portrait');
-                    console.log('[ORIENTATION] Successfully locked to portrait mode');
-                } catch (error) {
-                    console.log('[ORIENTATION] Failed to lock orientation:', error);
-                    // Fallback: try the older API
-                    if (screen.lockOrientation) {
-                        screen.lockOrientation('portrait');
-                    } else if (screen.mozLockOrientation) {
-                        screen.mozLockOrientation('portrait');
-                    } else if (screen.msLockOrientation) {
-                        screen.msLockOrientation('portrait');
+        // Use the already imported device detection functions
+        const deviceType = detectDeviceType();
+        const isTablet = deviceType === DEVICE_TYPES.TABLET;
+        
+        // Only lock orientation for phones, not tablets
+        if (!isTablet) {
+            // Lock orientation to portrait mode for phones only
+            const lockOrientation = async () => {
+                if (screen.orientation && screen.orientation.lock) {
+                    try {
+                        await screen.orientation.lock('portrait');
+                        console.log('[ORIENTATION] Successfully locked to portrait mode');
+                    } catch (error) {
+                        console.log('[ORIENTATION] Failed to lock orientation:', error);
+                        // Fallback: try the older API
+                        if (screen.lockOrientation) {
+                            screen.lockOrientation('portrait');
+                        } else if (screen.mozLockOrientation) {
+                            screen.mozLockOrientation('portrait');
+                        } else if (screen.msLockOrientation) {
+                            screen.msLockOrientation('portrait');
+                        }
                     }
                 }
-            }
-        };
+            };
 
-        // Try to lock orientation immediately
-        lockOrientation();
+            // Try to lock orientation immediately for phones
+            lockOrientation();
 
-        // Also try to lock on first user interaction (some browsers require this)
-        let hasLockedOrientation = false;
-        const tryLockOnInteraction = () => {
-            if (!hasLockedOrientation) {
-                lockOrientation();
-                hasLockedOrientation = true;
-            }
-        };
-        document.addEventListener('touchstart', tryLockOnInteraction, { once: true });
-        document.addEventListener('click', tryLockOnInteraction, { once: true });
+            // Also try to lock on first user interaction (some browsers require this)
+            let hasLockedOrientation = false;
+            const tryLockOnInteraction = () => {
+                if (!hasLockedOrientation) {
+                    lockOrientation();
+                    hasLockedOrientation = true;
+                }
+            };
+            document.addEventListener('touchstart', tryLockOnInteraction, { once: true });
+            document.addEventListener('click', tryLockOnInteraction, { once: true });
+        } else {
+            console.log('[ORIENTATION] Tablet detected - not locking orientation to allow landscape mode');
+        }
 
         // Prevent unwanted mobile behaviors
         document.addEventListener('touchmove', (e) => {

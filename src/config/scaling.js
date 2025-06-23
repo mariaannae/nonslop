@@ -49,8 +49,22 @@ export class ScalingManager {
           this.baseWidth = 405;
           this.baseHeight = 720;
         }
+      } else if (this.deviceType === DEVICE_TYPES.TABLET) {
+        // For tablets: use desktop dimensions when in landscape, phone dimensions when in portrait
+        if (isLandscape) {
+          // Use desktop dimensions for landscape tablets
+          this.baseWidth = 1280;
+          this.baseHeight = 720;
+          console.log(`[ScalingManager] Tablet (landscape): Using desktop base dimensions ${this.baseWidth}x${this.baseHeight}`);
+        } else {
+          // Use phone dimensions for portrait tablets
+          const phoneDimensions = getDimensionsForDevice(DEVICE_TYPES.PHONE, false);
+          this.baseWidth = phoneDimensions.width;
+          this.baseHeight = phoneDimensions.height;
+          console.log(`[ScalingManager] Tablet (portrait): Using phone base dimensions ${this.baseWidth}x${this.baseHeight}`);
+        }
       } else {
-        // For mobile/tablet, use dimensions from config
+        // For phones, use dimensions from config
         const dimensions = getDimensionsForDevice(this.deviceType, isLandscape);
         this.baseWidth = dimensions.width;
         this.baseHeight = dimensions.height;
