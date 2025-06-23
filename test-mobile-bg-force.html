@@ -48,81 +48,30 @@
     </script>
     
     <script src="phaser.js"></script>
-    <script type="module">
-        import { getOptimalDimensions } from './src/config/dimensions.js';
-        
-        // Test mobile detection
-        const dimensions = getOptimalDimensions();
-        console.log('Optimal dimensions:', dimensions);
-        
-        // Simple test scene
-        class TestScene extends Phaser.Scene {
-            constructor() {
-                super({ key: 'TestScene' });
-            }
-            
-            preload() {
-                this.load.setPath('assets/backgrounds');
-                this.load.image('easy_lvl_1', 'easy_lvl_1.png');
-            }
-            
-            create() {
-                console.log('Scene created, canvas size:', this.sys.game.canvas.width, 'x', this.sys.game.canvas.height);
-                console.log('Camera size:', this.cameras.main.width, 'x', this.cameras.main.height);
-                
-                // Clear camera background color
-                this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
-                
-                // Test if we can load and display the background
-                const bg = this.add.image(
-                    this.cameras.main.centerX,
-                    this.cameras.main.centerY,
-                    'easy_lvl_1'
-                );
-                
-                // Scale to cover
-                const scaleX = this.cameras.main.width / bg.width;
-                const scaleY = this.cameras.main.height / bg.height;
-                const scale = Math.max(scaleX, scaleY) * 1.1;
-                bg.setScale(scale);
-                
-                console.log('Background created:', {
-                    position: `${bg.x}, ${bg.y}`,
-                    scale: bg.scale,
-                    visible: bg.visible,
-                    texture: bg.texture.key
-                });
-                
-                // Add some text to confirm scene is running
-                this.add.text(
-                    this.cameras.main.centerX,
-                    50,
-                    'Mobile Background Test\nForced Mobile Mode',
-                    {
-                        fontSize: '24px',
-                        color: '#ffffff',
-                        stroke: '#000000',
-                        strokeThickness: 4,
-                        align: 'center'
-                    }
-                ).setOrigin(0.5);
-            }
-        }
-        
-        // Create game
-        const config = {
-            type: Phaser.AUTO,
-            parent: 'game-container',
-            width: dimensions.width,
-            height: dimensions.height,
-            scale: {
-                mode: dimensions.mode,
-                autoCenter: Phaser.Scale.CENTER_BOTH
-            },
-            scene: TestScene
-        };
-        
-        const game = new Phaser.Game(config);
+    <script src="plugins/rexbbcodetextplugin.min.js"></script>
+    <script type="module" src="src/main.js"></script>
+    
+    <script>
+        // After the game loads, we'll navigate directly to the LeaderboardScene for testing
+        window.addEventListener('load', () => {
+            // Wait a bit for the game to initialize
+            setTimeout(() => {
+                // Get the Phaser game instance
+                const game = window.game;
+                if (game && game.scene) {
+                    console.log('Navigating to LeaderboardScene for testing...');
+                    
+                    // Start the LeaderboardScene with test data
+                    game.scene.start('LeaderboardScene', {
+                        mode: 'easy',
+                        levelValue: 1,
+                        score: 100
+                    });
+                    
+                    console.log('LeaderboardScene started');
+                }
+            }, 2000);
+        });
     </script>
 </body>
 </html>

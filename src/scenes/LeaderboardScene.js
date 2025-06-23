@@ -1066,12 +1066,21 @@ export default class LeaderboardScene extends Phaser.Scene {
     }
     
     createBackButton() {
-        // Fixed position from bottom with 20px margin
-        const bottomMargin = 20;
-        const buttonHeight = 64; // Estimated button height
+        // Use scaling manager for responsive positioning
+        const bottomMargin = this.scalingManager.scaleValue(20);
+        const buttonHeight = this.scalingManager.scaleValue(64); // Estimated button height
         
-        const buttonX = this.cameras.main.centerX;
-        const buttonY = this.cameras.main.height - bottomMargin - buttonHeight / 2;
+        // Calculate position based on camera height, not fixed values
+        const buttonX = this.scalingManager.centerX();
+        
+        // Ensure the button is visible by using a percentage of screen height
+        // instead of fixed pixels from bottom
+        const buttonY = this.scalingManager.heightPercent(92); // Position at 92% of screen height
+        
+        // Add extra logging for debugging
+        console.log("[LeaderboardScene] Device type:", detectDeviceType());
+        console.log("[LeaderboardScene] Screen dimensions:", this.cameras.main.width, "x", this.cameras.main.height);
+        console.log("[LeaderboardScene] Scaling factor:", this.scalingManager.scale);
 
         const button = this.createButton(
             "DONE",

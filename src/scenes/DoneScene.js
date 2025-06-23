@@ -60,19 +60,53 @@ export default class DoneScene extends Phaser.Scene {
         // Calculate dynamic height based on text content
         let outputBoxHeight = this.outputText.height + padding * 2;
 
-        // --- CAP HEIGHT SO BUTTON IS AT LEAST SCALED MARGIN FROM CANVAS BOTTOM ---
+        // --- CAP HEIGHT SO BUTTONS HAVE ENOUGH SPACE BELOW THE OUTPUT BOX ---
         const canvasHeight = this.cameras.main.height;
-        const buttonMargin = this.scalingManager.scaleValue(30);
-        const scaledButtonSpacing = this.scalingManager.scaleValue(30);
+        const buttonMargin = this.scalingManager.scaleValue(30); // Margin between buttons and screen edge
+        
+        // Use the same margin as in InstructionsScene.js
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+                         (typeof window !== 'undefined' && window.innerWidth <= 900);
+        const scaledButtonSpacing = isMobile ? 
+            this.scalingManager.scaleValue(80) : // Mobile: 80 scaled pixels
+            this.scalingManager.scaleValue(30);  // Desktop: 30 scaled pixels
+            
         const buttonHeight = this.scalingManager.buttonHeight();
-        // button is placed scaled spacing below output box, then buttonHeight/2 to center, then buttonHeight/2 to bottom
-        // So: outputBoxY + outputBoxHeight + scaledButtonSpacing + buttonHeight <= canvasHeight - buttonMargin
-        // => outputBoxHeight <= canvasHeight - buttonMargin - outputBoxY - scaledButtonSpacing - buttonHeight - buttonMargin
-        const maxOutputBoxHeight = canvasHeight - buttonMargin - outputBoxY - scaledButtonSpacing - buttonHeight - buttonMargin - 30;
+        const buttonSpacing = this.scalingManager.scaleValue(20); // Spacing between NEXT and FEEDBACK buttons
+        
+        // Calculate exact space needed for buttons and margins:
+        // 1. Space for the NEXT button (buttonHeight)
+        // 2. Space for the FEEDBACK button (buttonHeight)
+        // 3. Margin between output box and NEXT button (scaledButtonSpacing)
+        // 4. Margin between bottom of screen and FEEDBACK button (buttonMargin)
+        // 5. Spacing between NEXT and FEEDBACK buttons (buttonSpacing)
+        
+        // Calculate total space needed at the bottom
+        const reservedBottomSpace = 
+            scaledButtonSpacing +  // Space between output box and NEXT button
+            buttonHeight +         // Height of NEXT button
+            buttonSpacing +        // Space between NEXT and FEEDBACK buttons
+            buttonHeight +         // Height of FEEDBACK button
+            buttonMargin;          // Margin at bottom of screen
+        
+        // Calculate max height for output box
+        const maxOutputBoxHeight = canvasHeight - outputBoxY - reservedBottomSpace;
+        
+        // Debug logging
+        console.log("[DoneScene] Canvas height:", canvasHeight);
+        console.log("[DoneScene] Output box Y:", outputBoxY);
+        console.log("[DoneScene] Button height:", buttonHeight);
+        console.log("[DoneScene] Button spacing:", buttonSpacing);
+        console.log("[DoneScene] Button margin:", buttonMargin);
+        console.log("[DoneScene] Scaled button spacing:", scaledButtonSpacing);
+        console.log("[DoneScene] Reserved bottom space:", reservedBottomSpace);
+        console.log("[DoneScene] Max output box height:", maxOutputBoxHeight);
+        
         let capped = false;
         if (outputBoxHeight > maxOutputBoxHeight) {
             outputBoxHeight = maxOutputBoxHeight;
             capped = true;
+            console.log("[DoneScene] Output box height capped to:", outputBoxHeight);
         }
 
         // Create new output box with rounded corners
@@ -969,12 +1003,20 @@ export default class DoneScene extends Phaser.Scene {
         const buttonVerticalGap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
         const buttonY = this.outputBoxY + this.outputBoxHeight + buttonVerticalGap + (buttonHeight / 2);
         
-        const buttonCenterX = buttonX;
-        const buttonCenterY = buttonY;
-        this.doneButton = this.createButton("NEXT", null, buttonCenterX, buttonCenterY, {
-            depth: 102, // ensure button is visible
-            name: 'doneButton'
-        });
+// Use percentage-based positioning for better mobile compatibility
+const buttonCenterX = buttonX;
+// Position at 88% of screen height instead of fixed pixels from bottom
+const buttonCenterY = this.scalingManager.heightPercent(88);
+
+// Add debug logging
+console.log("[DoneScene] Device type:", detectDeviceType());
+console.log("[DoneScene] Screen dimensions:", this.cameras.main.width, "x", this.cameras.main.height);
+console.log("[DoneScene] Button position:", buttonCenterX, buttonCenterY);
+
+this.doneButton = this.createButton("NEXT", null, buttonCenterX, buttonCenterY, {
+    depth: 102, // ensure button is visible
+    name: 'doneButton'
+});
         // Set the name on the Game Object for debugging
         this.doneButton.name = 'doneButton';
 
@@ -1010,7 +1052,8 @@ this.feedbackButton = this.createButton(
     "FEEDBACK",
     () => this.onFeedbackClick(),
     feedbackButtonWidth / 2 + basePadding,
-    this.cameras.main.height - feedbackButtonHeight / 2 - basePadding
+    // Use percentage-based positioning for better mobile compatibility
+    this.scalingManager.heightPercent(95)
 );
 
 // Add tooltip on hover (match BaseGameScene style)
