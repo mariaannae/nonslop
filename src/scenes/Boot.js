@@ -62,9 +62,29 @@ export default class Boot extends Phaser.Scene
                 waitForAuth()
             ]);
             console.log("All fonts and Firebase auth loaded, starting Preloader...");
+            // Set a flag in the registry to indicate fonts were successfully loaded
+            this.registry.set('fontsLoaded', true);
             this.scene.start("Preloader");
         } catch (error) {
             console.error("Error loading fonts or auth:", error);
+            // Set a flag to indicate there was an issue with font loading
+            this.registry.set('fontsLoaded', false);
+            
+            // Try one more time to load the barcade3d font with a timeout
+            try {
+                const fontLoadPromise = document.fonts.load('1em barcade3d');
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Font load timeout')), 2000)
+                );
+                
+                await Promise.race([fontLoadPromise, timeoutPromise]);
+                console.log("barcade3d font loaded on second attempt");
+                this.registry.set('fontsLoaded', true);
+            } catch (fontError) {
+                console.warn("Second attempt to load barcade3d font failed:", fontError);
+                // Keep fontsLoaded as false
+            }
+            
             // Still proceed to preloader
             this.scene.start("Preloader");
         }

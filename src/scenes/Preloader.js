@@ -432,12 +432,48 @@ export default class Preloader extends Phaser.Scene {
             this.doneButton.disableInteractive();
         }
         
-        // Add a small delay to ensure all events are processed
-        this.time.delayedCall(100, () => {
-            // Clean up before transitioning
-            this.cleanupScene();
-            this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
-        });
+        // Mobile-specific cache clearing
+        const isMobile = isMobileDevice();
+        if (isMobile) {
+            console.log("[MOBILE FIX] Performing additional cache clearing before transition");
+            
+            // Force clear any pending input events
+            if (this.input && this.input.manager) {
+                this.input.manager.queue = [];
+                
+                // Reset all pointer states
+                if (this.input.manager.pointers) {
+                    this.input.manager.pointers.forEach(pointer => {
+                        if (pointer) {
+                            pointer.reset();
+                        }
+                    });
+                }
+                
+                // Clear active pointer
+                if (this.input.manager.activePointer) {
+                    this.input.manager.activePointer.reset();
+                }
+            }
+            
+            // Force a brief delay for mobile to ensure all events are processed
+            this.time.delayedCall(200, () => {
+                // Clean up before transitioning
+                this.cleanupScene();
+                
+                // Force a small additional delay before starting the next scene on mobile
+                this.time.delayedCall(50, () => {
+                    this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+                });
+            });
+        } else {
+            // Desktop path - shorter delay
+            this.time.delayedCall(100, () => {
+                // Clean up before transitioning
+                this.cleanupScene();
+                this.scene.start('InstructionScene', { llmEngine: this.llmEngine });
+            });
+        }
     }
 
     cleanupScene() {
@@ -541,32 +577,66 @@ export default class Preloader extends Phaser.Scene {
                 // Reset all pointer states
                 if (this.input.manager.pointers) {
                     this.input.manager.pointers.forEach(pointer => {
-                        if (pointer && !pointer.isDown) {
+                        if (pointer) {
+                            // Force reset all pointers, not just inactive ones
                             pointer.reset();
+                            // Clear any additional state that might persist
+                            pointer.active = false;
+                            pointer.isDown = false;
+                            pointer.dirty = false;
                         }
                     });
                 }
                 
-                // Clear active pointer if not currently in use
-                if (this.input.manager.activePointer && !this.input.manager.activePointer.isDown) {
+                // Clear active pointer completely
+                if (this.input.manager.activePointer) {
                     this.input.manager.activePointer.reset();
-                    this.input.manager.activePointer = null;
+                    // Force clear additional state
+                    this.input.manager.activePointer.active = false;
+                    this.input.manager.activePointer.isDown = false;
+                    this.input.manager.activePointer.dirty = false;
                 }
                 
-                // Clear input queue and hit test cache
+                // Clear input queue and hit test cache more aggressively
                 this.input.manager.queue = [];
                 this.input.manager._tempHitTest = [];
+                
+                // Reset any drag states that might be active
+                if (this.input.manager._drag) {
+                    this.input.manager._drag.active = false;
+                    this.input.manager._drag.pointer = null;
+                    this.input.manager._drag.gameObject = null;
+                }
+                
+                // Reset any over states that might be active
+                if (this.input.manager._over) {
+                    this.input.manager._over.length = 0;
+                }
             }
             
-            // Force canvas touch settings reset
+            // Force canvas touch settings reset with more aggressive approach
             if (this.sys && this.sys.game && this.sys.game.canvas) {
                 const canvas = this.sys.game.canvas;
-                // Use a small delay to ensure DOM is ready
+                
+                // Immediate reset
+                canvas.style.touchAction = 'none';
+                canvas.style.userSelect = 'none';
+                canvas.style.webkitUserSelect = 'none';
+                canvas.style.webkitTapHighlightColor = 'rgba(0,0,0,0)';
+                
+                // Also use a delayed reset to ensure it takes effect
                 setTimeout(() => {
                     canvas.style.touchAction = 'none';
                     canvas.style.userSelect = 'none';
                     canvas.style.webkitUserSelect = 'none';
+                    canvas.style.webkitTapHighlightColor = 'rgba(0,0,0,0)';
                 }, 10);
+            }
+            
+            // Force a cache flush for mobile browsers
+            if (typeof window !== 'undefined') {
+                // Use a technique that forces layout recalculation
+                const forceReflow = document.body.offsetHeight;
             }
         }
         
@@ -680,47 +750,134 @@ export default class Preloader extends Phaser.Scene {
         // Start with a top margin
         let y = 0.07 * screenHeight;
 
-        // Title
+        // Title - with font loading safety checks
         const deviceType = detectDeviceType();
         const titleStyle = getTextStyle('title', deviceType, 'basic', this.uiScale || 1);
         titleStyle.color = COLORS_TEXT.HIGHLIGHT;
-        console.log(titleStyle)
         
-        const titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", titleStyle);
-        titleText.setOrigin(0.5, 0);
-        titleText.x = -600 * this.uiScale; // Start off-screen
-
-        // Slide-in logic (unchanged)
+        // Check if fonts were loaded in Boot scene
+        const fontsLoaded = this.registry.get('fontsLoaded');
+        console.log(`[FONT CHECK] Fonts loaded from Boot scene: ${fontsLoaded}`);
+        
+        // Create a placeholder for the title text (will be populated after font check)
+        let titleText = null;
         let targetX = this.cameras.main.centerX;
         let slideSpeed = 25 * this.uiScale;
-        const slideInEvent = this.time.addEvent({
-            delay: 16,
-            callback: () => {
-                if (titleText.x < targetX) {
-                    titleText.x += slideSpeed;
-                } else {
-                    titleText.x = targetX;
-                    slideInEvent.remove();
-                    titleText.postFX.addShine(1, .2, 5);
-                    this.time.addEvent({
-                        delay: 3000,
-                        callback: () => {
-                            titleText.postFX.clear();
+        let slideInEvent = null;
+        
+        // Function to create and animate the title text
+        const createTitleText = () => {
+            // If title text already exists, remove it first
+            if (titleText) {
+                titleText.destroy();
+            }
+            
+            // Create the title text
+            titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", titleStyle);
+            titleText.setOrigin(0.5, 0);
+            titleText.x = -600 * this.uiScale; // Start off-screen
+            
+            // Create slide-in animation
+            if (slideInEvent) {
+                slideInEvent.remove();
+            }
+            
+            slideInEvent = this.time.addEvent({
+                delay: 16,
+                callback: () => {
+                    if (titleText.x < targetX) {
+                        titleText.x += slideSpeed;
+                    } else {
+                        titleText.x = targetX;
+                        slideInEvent.remove();
+                        
+                        // Only add shine effect if postFX is available
+                        if (titleText.postFX) {
                             titleText.postFX.addShine(1, .2, 5);
-                        },
-                        loop: true
-                    });
-                    this.tweens.add({
-                        targets: titleText,
-                        x: { from: targetX, to: targetX - 20 * this.uiScale },
-                        duration: 180,
-                        yoyo: true,
-                        ease: "Quad.Out"
-                    });
+                            this.time.addEvent({
+                                delay: 3000,
+                                callback: () => {
+                                    if (titleText && titleText.postFX) {
+                                        titleText.postFX.clear();
+                                        titleText.postFX.addShine(1, .2, 5);
+                                    }
+                                },
+                                loop: true
+                            });
+                        }
+                        
+                        this.tweens.add({
+                            targets: titleText,
+                            x: { from: targetX, to: targetX - 20 * this.uiScale },
+                            duration: 180,
+                            yoyo: true,
+                            ease: "Quad.Out"
+                        });
+                    }
+                },
+                loop: true
+            });
+        };
+        
+        // Function to check if the barcade3d font is available
+        const checkFontAvailable = async () => {
+            try {
+                // Try to load the font with a timeout
+                const fontLoadPromise = document.fonts.load('1em barcade3d');
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Font load timeout')), 2000)
+                );
+                
+                await Promise.race([fontLoadPromise, timeoutPromise]);
+                console.log("[FONT CHECK] barcade3d font loaded successfully");
+                return true;
+            } catch (error) {
+                console.warn("[FONT CHECK] Failed to load barcade3d font:", error);
+                return false;
+            }
+        };
+        
+        // If fonts were already loaded in Boot scene, create title text immediately
+        if (fontsLoaded) {
+            createTitleText();
+        } else {
+            // Otherwise, try to load the font again with a timeout
+            console.log("[FONT CHECK] Attempting to load barcade3d font in Preloader");
+            
+            // Create a temporary title with a fallback font
+            const tempTitleStyle = { ...titleStyle };
+            tempTitleStyle.fontFamily = 'VT323, monospace'; // Fallback font
+            
+            titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", tempTitleStyle);
+            titleText.setOrigin(0.5, 0);
+            titleText.x = targetX; // Position in center immediately
+            
+            // Try to load the font
+            checkFontAvailable().then(fontAvailable => {
+                if (fontAvailable) {
+                    // Font loaded successfully, create title with correct font
+                    createTitleText();
+                } else {
+                    // Font failed to load, keep using fallback font but add a warning
+                    console.warn("[FONT CHECK] Using fallback font for title");
+                    
+                    // Add shine effect if available
+                    if (titleText.postFX) {
+                        titleText.postFX.addShine(1, .2, 5);
+                        this.time.addEvent({
+                            delay: 3000,
+                            callback: () => {
+                                if (titleText && titleText.postFX) {
+                                    titleText.postFX.clear();
+                                    titleText.postFX.addShine(1, .2, 5);
+                                }
+                            },
+                            loop: true
+                        });
+                    }
                 }
-            },
-            loop: true
-        });
+            });
+        }
 
         // Loading text
         y += titleText.height + 0.04 * screenHeight;
@@ -797,6 +954,8 @@ export default class Preloader extends Phaser.Scene {
         console.log("checkIfReady called in Preloader", "progress:", this.progress, "llmLoaded:", this.llmLoaded, "llmEngine:", !!llmEngine);
         // Device type detection for layout
         const isDesktop = !/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) && (window.screen.width >= 900);
+        // Mobile detection for consistent use throughout this method
+        const isMobile = isMobileDevice();
 
         if (this.progress >= 1 && this.llmLoaded) {
             saveInteraction("LLM successfully loaded", "preloader");
@@ -830,7 +989,7 @@ export default class Preloader extends Phaser.Scene {
             // Button right edge: 40px (scaled) left of text box right edge
             const buttonX = (boxX + uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
             // Button top edge: 30px (scaled) below text box bottom edge (move further down on mobile)
-            const buttonVerticalGap = isMobileDevice() ? 80 * this.uiScale : 30 * this.uiScale;
+            const buttonVerticalGap = isMobile ? 80 * this.uiScale : 30 * this.uiScale;
             const buttonY = textBoxY + textBoxHeight + buttonVerticalGap + (buttonHeight / 2);
 
 // Prevent double-creation if button already exists
@@ -865,6 +1024,37 @@ this.doneButton = ButtonFactory.createButton(
     { depth: 200, scalingManager: this.scalingManager }
 );
 
+// For mobile devices, add additional safeguards to ensure button works reliably
+if (isMobile) {
+    console.log("[MOBILE FIX] Adding enhanced mobile button reliability features");
+    
+    // Force a small delay before enabling interactivity to ensure DOM is ready
+    this.time.delayedCall(100, () => {
+        // Re-verify button is properly interactive
+        if (this.doneButton && (!this.doneButton.input || !this.doneButton.input.enabled)) {
+            console.log("[MOBILE FIX] Re-enabling button interactivity after delay");
+            this.doneButton.setInteractive();
+        }
+        
+        // Add a direct click handler to the button's container as a backup
+        if (this.doneButton && this.doneButton.list) {
+            this.doneButton.list.forEach(child => {
+                if (child && child.type === 'Rectangle' && typeof child.setInteractive === 'function') {
+                    console.log("[MOBILE FIX] Adding backup click handler to button hitRect");
+                    child.removeAllListeners();
+                    child.setInteractive();
+                    child.on('pointerup', () => {
+                        console.log("[MOBILE FIX] Backup click handler triggered");
+                        if (!this.buttonClickInProgress && !this.isTransitioning && this.sceneFullyInitialized) {
+                            this.onDoneButtonClick();
+                        }
+                    });
+                }
+            });
+        }
+    });
+}
+
 // Store button reference to detect stale instances
 window.__preloaderButtonCache = {
     button: this.doneButton,
@@ -872,7 +1062,6 @@ window.__preloaderButtonCache = {
 };
 
 // Mobile-specific button validation and debugging
-const isMobile = isMobileDevice();
 if (isMobile) {
     console.log("[MOBILE FIX] Button validation:", {
         buttonExists: !!this.doneButton,
@@ -1116,6 +1305,31 @@ if (!isMobile) {
         
         // Clear the scene's display list to ensure no stale references
         this.children.removeAll();
+        
+        // Mobile-specific additional cleanup on shutdown
+        const isMobile = isMobileDevice();
+        if (isMobile) {
+            console.log("[MOBILE FIX] Additional mobile cleanup on shutdown");
+            
+            // Force clear any scene transition state
+            this.isTransitioning = false;
+            this.buttonClickInProgress = false;
+            
+            // Force clear any cached scene references
+            if (this.scene && this.scene.manager) {
+                // Ensure the scene is properly removed from the manager
+                this.scene.manager.remove('Preloader');
+            }
+            
+            // Force a small delay to ensure cleanup completes before next scene starts
+            if (typeof window !== 'undefined') {
+                setTimeout(() => {
+                    console.log("[MOBILE FIX] Delayed mobile cleanup complete");
+                    // Force a browser repaint/reflow
+                    const forceReflow = document.body.offsetHeight;
+                }, 20);
+            }
+        }
     }
 }
 //onComplete: () => this.scene.start('BaseGameScene', { mode: 'hard' })
