@@ -3385,18 +3385,33 @@ if (typeof this.add.rexBBCodeText === "function") {
             // Now yCursor is the top of the input box
 
             const inputBoxY = yCursor;
-            const inputBoxHeight = sm.scaleValue(240);
+            // Use a larger hit area height for mobile to make it easier to tap
+            const inputBoxHeight = sm.scaleValue(this.isMobile ? 340 : 240);
+            // Store these values for reference in other methods
+            this.inputBoxY = inputBoxY;
+            this.inputBoxHeight = inputBoxHeight;
 
+            // Calculate the actual box dimensions and position
+            const boxX = sm.centerX() - this.uiBoxWidth / 2;
+            const boxWidth = this.uiBoxWidth;
+            
+            // Store these values for reference in other methods
+            this.inputBoxX = boxX;
+            this.inputBoxWidth = boxWidth;
+
+            // Create a larger hit area for mobile devices
+            const hitAreaPadding = this.isMobile ? 20 : 0; // Extra padding around the hit area for mobile
+            
             this.inputTextBorder.setInteractive(
                 new Phaser.Geom.Rectangle(
-                    sm.centerX() - this.uiBoxWidth / 2,
-                    inputBoxY,
-                    this.uiBoxWidth,
-                    inputBoxHeight
+                    boxX - hitAreaPadding,
+                    inputBoxY - hitAreaPadding,
+                    boxWidth + (hitAreaPadding * 2),
+                    inputBoxHeight + (hitAreaPadding * 2)
                 ),
                 Phaser.Geom.Rectangle.Contains
             ).setDepth(20)
-            .on('pointerdown', () => {
+            .on('pointerdown', (pointer) => {
                 // For desktop, focus the game canvas to ensure keyboard events are received
                 if (this.isDesktop) {
                     if (this.sys && this.sys.game && this.sys.game.canvas) {
@@ -3405,10 +3420,16 @@ if (typeof this.add.rexBBCodeText === "function") {
                 }
                 // For mobile, focus the hidden input
                 this.focusHiddenInput();
+                
+                // Create click effect at the actual pointer position instead of center of screen
                 this.createInputBoxClickEffect(
-                    this.cameras.main.centerX,
-                    this.cameras.main.centerY
+                    pointer.x,
+                    pointer.y
                 );
+                
+                // Log for debugging
+                console.log("[INPUT] Input box clicked at:", pointer.x, pointer.y);
+                console.log("[INPUT] Input box dimensions:", boxX, inputBoxY, boxWidth, inputBoxHeight);
             });
         }
         // Set up hidden input for mobile typing
@@ -3548,6 +3569,10 @@ if (typeof this.add.rexBBCodeText === "function") {
                 this._hiddenInput.removeEventListener('blur', this._hiddenInputBlurHandler);
                 this._hiddenInputBlurHandler = null;
             }
+            if (this._hiddenInputFocusHandler) {
+                this._hiddenInput.removeEventListener('focus', this._hiddenInputFocusHandler);
+                this._hiddenInputFocusHandler = null;
+            }
             document.body.removeChild(this._hiddenInput);
             this._hiddenInput = null;
         }
@@ -3555,7 +3580,11 @@ if (typeof this.add.rexBBCodeText === "function") {
             // On desktop, do not create or use hidden input
             return;
         }
-        // Create hidden input
+        
+        // Detect iOS for special handling
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
+        // Create hidden input - use textarea for better mobile keyboard support
         const input = document.createElement('textarea');
         input.autocapitalize = 'sentences';
         input.autocomplete = 'off';
@@ -3568,6 +3597,16 @@ if (typeof this.add.rexBBCodeText === "function") {
         input.style.top = '0';
         input.style.width = '1px';
         input.style.height = '1px';
+        input.style.fontSize = '16px'; // iOS won't zoom in if font size is 16px or larger
+        
+        // For iOS, add some additional styles to improve keyboard behavior
+        if (isIOS) {
+            input.style.fontSize = '16px'; // Prevent zoom on iOS
+            input.style.transformOrigin = 'top left';
+            input.style.transform = 'scale(1)';
+            input.style.webkitTransform = 'scale(1)';
+        }
+        
         input.value = this.userInput;
 
         // Flag to prevent double processing
@@ -3666,25 +3705,71 @@ if (typeof this.add.rexBBCodeText === "function") {
 
         // Store blur handler as a property
         this._hiddenInputBlurHandler = () => {
+            console.log("[KEYBOARD] Hidden input blur event");
             this.updateCursor();
+        };
+        
+        // Store focus handler as a property
+        this._hiddenInputFocusHandler = () => {
+            console.log("[KEYBOARD] Hidden input focus event");
+            // Create a visual indicator that the keyboard is active
+            this.createInputBoxClickEffect(
+                this.cameras.main.centerX,
+                this.inputBoxY + this.inputBoxHeight / 2
+            );
         };
 
         // Add event listeners
         input.addEventListener('input', this._hiddenInputHandler);
         input.addEventListener('blur', this._hiddenInputBlurHandler);
+        input.addEventListener('focus', this._hiddenInputFocusHandler);
 
         document.body.appendChild(input);
         this._hiddenInput = input;
+        
+        // Log for debugging
+        console.log("[KEYBOARD] Hidden input created and added to DOM");
     }
 
     focusHiddenInput() {
         console.log("[KEYBOARD] focusHiddenInput called");
         if (!this._hiddenInput) this.setupHiddenInput();
         if (!this._hiddenInput) return; // Guard: do nothing if still undefined (e.g., desktop)
+        
+        // Set the value to match current user input
         this._hiddenInput.value = this.userInput;
+        
+        // For iOS devices, we need to make the input visible temporarily to ensure focus works
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+            // Make the input briefly visible but transparent
+            this._hiddenInput.style.opacity = '0.01';
+            this._hiddenInput.style.pointerEvents = 'auto';
+            this._hiddenInput.style.left = '50%';
+            this._hiddenInput.style.top = '50%';
+            this._hiddenInput.style.transform = 'translate(-50%, -50%)';
+            this._hiddenInput.style.width = '80%';
+            this._hiddenInput.style.height = '40px';
+        }
+        
+        // Focus the input to show keyboard
         this._hiddenInput.focus();
+        
         // Move cursor to end
         this._hiddenInput.setSelectionRange(this._hiddenInput.value.length, this._hiddenInput.value.length);
+        
+        // For iOS, hide the input again after a short delay
+        if (isIOS) {
+            setTimeout(() => {
+                this._hiddenInput.style.opacity = '0';
+                this._hiddenInput.style.pointerEvents = 'none';
+                this._hiddenInput.style.left = '-1000px';
+                this._hiddenInput.style.top = '0';
+                this._hiddenInput.style.width = '1px';
+                this._hiddenInput.style.height = '1px';
+                this._hiddenInput.style.transform = 'none';
+            }, 100);
+        }
         
         // Log keyboard detection state
         console.log("[KEYBOARD] Hidden input focused, checking keyboard detection setup");
@@ -5879,16 +5964,36 @@ this.aiCountText = this.add.text(
     }
 
     createInputBoxClickEffect(x, y) {
-        const circle = this.add.circle(x, y, 5, 0xffffff, 0.5).setDepth(15);
+        // Create a more visible effect for mobile
+        const size = this.isMobile ? 10 : 5;
+        const color = this.isMobile ? 0x00ffff : 0xffffff; // Cyan for mobile, white for desktop
+        const alpha = this.isMobile ? 0.7 : 0.5;
         
+        const circle = this.add.circle(x, y, size, color, alpha).setDepth(15);
+        
+        // Create a more pronounced animation for mobile
         this.tweens.add({
             targets: circle,
-            scale: { from: 0.5, to: 2 },
-            alpha: { from: 0.5, to: 0 },
-            duration: 500,
+            scale: { from: 0.5, to: this.isMobile ? 3 : 2 },
+            alpha: { from: alpha, to: 0 },
+            duration: this.isMobile ? 700 : 500,
             ease: 'Quad.easeOut',
             onComplete: () => circle.destroy()
         });
+        
+        // For mobile, add a second, larger pulse effect
+        if (this.isMobile) {
+            const outerCircle = this.add.circle(x, y, size * 2, color, alpha * 0.5).setDepth(14);
+            
+            this.tweens.add({
+                targets: outerCircle,
+                scale: { from: 0.5, to: 4 },
+                alpha: { from: alpha * 0.5, to: 0 },
+                duration: 900,
+                ease: 'Quad.easeOut',
+                onComplete: () => outerCircle.destroy()
+            });
+        }
     }
 
 
