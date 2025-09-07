@@ -1164,7 +1164,8 @@ createLowScoreWarning() {
             fontSize: "20px",
             color: "#FF0000",
             stroke: "#000000",
-            strokeThickness: 2
+            strokeThickness: 2,
+            wordWrap: { width: this.sys.game.canvas.width - 40 }
           }
         ).setDepth(201);
         

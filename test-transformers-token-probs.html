@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>transformers.js Per-Token Probability Demo</title>
+  <style>
+    body { font-family: monospace; background: #222; color: #eee; padding: 2em; }
+    .token { color: #8ef; }
+    .prob { color: #fa8; }
+  </style>
+</head>
+<body>
+  <h2>transformers.js Per-Token Probability Demo (GPT-2)</h2>
+  <div id="output">Loading...</div>
+  <script type="module">
+    async function main() {
+      const outputDiv = document.getElementById('output');
+      outputDiv.textContent = 'Loading model... (this may take a minute)';
+
+      // Dynamically import transformers.js as in the project
+      let mod;
+      try {
+        mod = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.0/dist/transformers.min.js');
+      } catch (e) {
+        outputDiv.innerHTML = '<span style="color: #f88;">Error: Failed to import transformers.js. ' + e + '</span>';
+        return;
+      }
+
+      const pipeline = mod.pipeline || (window.transformers && window.transformers.pipeline);
+      if (!pipeline) {
+        outputDiv.innerHTML = '<span style="color: #f88;">Error: pipeline not found in imported module.</span>';
+        return;
+      }
+
+      const generator = await pipeline('text-generation', 'Xenova/gpt2');
+      const tokenizer = generator.tokenizer;
+
+      // Prompt
+      const prompt = "The quick brown fox";
+      outputDiv.innerHTML = `<b>Prompt:</b> "${prompt}"<br><br>`;
+
+      // Tokenize prompt and show initial tokens
+      let input_ids_obj = await tokenizer(prompt, { return_tensors: 'np' });
+      let ids = Array.from(input_ids_obj.input_ids[0]);
+      let tokens = [];
+      for (let i = 0; i < ids.length; ++i) {
+        tokens.push(await tokenizer.decode([ids[i]]));
+      }
+      outputDiv.innerHTML += `<b>Initial tokens:</b> ${tokens.map(t => `<span class="token">${t}</span>`).join(' ')}<br><br>`;
+
+      // Try to use the pipeline's generate method with return_scores if available
+      if (typeof generator !== "function" && generator && typeof generator.generate === "function") {
+        const num_steps = 10;
+        const result = await generator.generate(prompt, {
+          max_new_tokens: num_steps,
+          return_full_text: false,
+          return_scores: true
+        });
+        outputDiv.innerHTML += `<b>Generated tokens and probabilities (via pipeline.generate):</b><br>`;
+        if (result && result.length > 0 && result[0].details && result[0].details.scores) {
+          const scores = result[0].details.scores;
+          const generated_ids = result[0].generated_token_ids;
+          for (let i = 0; i < generated_ids.length; ++i) {
+            const token = await tokenizer.decode([generated_ids[i]]);
+            const prob = scores[i];
+            outputDiv.innerHTML += `<b>Step ${i + 1}:</b> <span class="token">${token}</span> <span class="prob">P = ${prob.toFixed(4)}</span><br>`;
+          }
+        } else {
+          outputDiv.innerHTML += `<span style="color: #f88;">No scores returned by pipeline.generate. Your version of @xenova/transformers may not support per-token probabilities. Please upgrade to the latest version or check the library documentation for updates.</span><br>`;
+        }
+        outputDiv.innerHTML += `<b>Done.</b>`;
+        return;
+      }
+
+      outputDiv.innerHTML += `<span style="color: #f88;">Per-token probabilities are not available in this version of @xenova/transformers. Please upgrade to the latest version or check the library documentation for updates.</span><br>`;
+    }
+
+    main().catch(e => {
+      document.getElementById('output').textContent = 'Error: ' + e;
+      console.error(e);
+    });
+  </script>
+</body>
+</html>
