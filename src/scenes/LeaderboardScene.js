@@ -317,10 +317,22 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.noScoresText.destroy();
         }
 
+        // Clean up mask if it exists
+        if (this.scrollMask) {
+            this.scrollMask.destroy();
+            this.scrollMask = null;
+        }
+
         // Remove scroll container if it exists
         if (this.scrollContainer) {
             this.scrollContainer.destroy();
             this.scrollContainer = null;
+        }
+
+        // Remove scroll indicators if they exist
+        if (this.scrollThumb) {
+            this.scrollThumb.destroy();
+            this.scrollThumb = null;
         }
 
         // Reset scroll variables
@@ -332,10 +344,13 @@ export default class LeaderboardScene extends Phaser.Scene {
     displayScores() {
         this.clearScoreDisplay();
         
-        // Calculate available height for the leaderboard
+        // Calculate the position of the done button and ensure we stop before it
+        const doneButtonY = this.scalingManager.heightPercent(92);
         const buttonHeight = this.scalingManager.scaleValue(64);
-        const bottomMargin = this.scalingManager.scaleValue(20);
-        const availableHeight = this.cameras.main.height - bottomMargin - buttonHeight;
+        const minSpaceAboveButton = this.scalingManager.scaleValue(20);
+        
+        // The scores list should end at this Y position
+        const maxEndY = doneButtonY - (buttonHeight / 2) - minSpaceAboveButton;
         
         const startY = this.scalingManager.heightPercent(21);
         const headerHeight = this.scalingManager.scaleValue(35);
@@ -363,8 +378,8 @@ export default class LeaderboardScene extends Phaser.Scene {
             return;
         }
         
-        // Create scrollable container for score entries
-        this.createScrollableScoreList(startY, headerHeight, spacing, width, availableHeight);
+        // Pass the maximum end Y position to constrain the scroll area
+        this.createScrollableScoreList(startY, headerHeight, spacing, width, maxEndY);
     }
 
     createTableHeader(y, width, boxHeight = 35) {
@@ -1112,16 +1127,32 @@ export default class LeaderboardScene extends Phaser.Scene {
         }
     }
     
-    createScrollableScoreList(startY, headerHeight, spacing, width, availableHeight) {
+    createScrollableScoreList(startY, headerHeight, spacing, width, maxEndY) {
         // Calculate scroll area dimensions
-        const scrollAreaY = startY + headerHeight;
-        const scrollAreaHeight = availableHeight - startY - headerHeight;
+        const scrollAreaY = startY + headerHeight + this.scalingManager.scaleValue(10); // Add padding after header
+        const scrollAreaHeight = maxEndY - scrollAreaY;
         
         // Calculate total content height
         const totalContentHeight = this.scores.length * spacing;
         
-        // Create scroll container
-        this.scrollContainer = this.add.container(0, 0);
+        // Create scroll container positioned at the scroll area
+        this.scrollContainer = this.add.container(0, scrollAreaY);
+        
+        // Create a mask to clip the scroll area
+        const maskShape = this.make.graphics();
+        maskShape.fillStyle(0xffffff);
+        maskShape.fillRect(
+            this.scalingManager.centerX() - width / 2 - 10, // Slightly wider for smooth edges
+            scrollAreaY,
+            width + 20,
+            scrollAreaHeight
+        );
+        
+        // Create a geometry mask from the shape
+        const mask = maskShape.createGeometryMask();
+        
+        // Apply mask to scroll container
+        this.scrollContainer.setMask(mask);
         
         // Create invisible scroll area for input handling
         const scrollArea = this.add.rectangle(
@@ -1137,9 +1168,9 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Add scroll event handlers
         this.setupScrollHandlers(scrollArea, scrollAreaHeight, totalContentHeight);
         
-        // Create score entries
+        // Create score entries - position them relative to container
         this.scores.forEach((score, index) => {
-            const y = spacing * (index + 1);
+            const y = spacing * index; // Position relative to container
             
             // Calculate medal color
             let medalColor;
@@ -1174,8 +1205,9 @@ export default class LeaderboardScene extends Phaser.Scene {
             this.leaderboardEntries.push({ score, container });
         });
         
-        // Position scroll container
-        this.scrollContainer.setY(scrollAreaY);
+        // Store the initial Y position for scrolling calculations
+        this.scrollContainer.setData('baseY', scrollAreaY); // Container starts at scrollAreaY
+        this.scrollContainer.setData('scrollAreaY', scrollAreaY);
         
         // Set up scroll bounds
         this.maxScrollY = Math.max(0, totalContentHeight - scrollAreaHeight);
@@ -1184,6 +1216,9 @@ export default class LeaderboardScene extends Phaser.Scene {
         if (this.maxScrollY > 0) {
             this.createScrollIndicators(startY, headerHeight, width, scrollAreaHeight);
         }
+        
+        // Store mask for cleanup
+        this.scrollMask = mask;
     }
     
     setupScrollHandlers(scrollArea, scrollAreaHeight, totalContentHeight) {
@@ -1249,12 +1284,15 @@ export default class LeaderboardScene extends Phaser.Scene {
         const indicatorWidth = this.scalingManager.scaleValue(4);
         const indicatorX = this.scalingManager.centerX() + width / 2 + this.scalingManager.scaleValue(10);
         
+        // Adjust track Y to match the actual scroll area
+        const scrollAreaY = startY + headerHeight + this.scalingManager.scaleValue(10);
+        
         // Scroll track
         const scrollTrack = this.add.graphics();
         scrollTrack.fillStyle(0x444444, 0.3);
         scrollTrack.fillRoundedRect(
             indicatorX - indicatorWidth / 2,
-            startY + headerHeight,
+            scrollAreaY,
             indicatorWidth,
             scrollAreaHeight,
             indicatorWidth / 2
@@ -1270,7 +1308,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         this.scrollThumb.fillStyle(0xffffff, 0.6);
         this.scrollThumb.fillRoundedRect(
             indicatorX - indicatorWidth / 2,
-            startY + headerHeight,
+            scrollAreaY,
             indicatorWidth,
             thumbHeight,
             indicatorWidth / 2
@@ -1278,7 +1316,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Store scroll indicator data
         this.scrollIndicatorData = {
-            trackY: startY + headerHeight,
+            trackY: scrollAreaY,
             trackHeight: scrollAreaHeight,
             thumbHeight: thumbHeight,
             indicatorX: indicatorX,

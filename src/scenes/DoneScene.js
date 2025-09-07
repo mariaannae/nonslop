@@ -646,14 +646,33 @@ export default class DoneScene extends Phaser.Scene {
             }
         } catch (error) {
             console.error("Error checking high score:", error);
-            // In case of error, use glitch transition to indicate error
-            
-            // Prepare transition
-            await SceneTransitionManager.prepareTransition(this);
-            
-            // Use glitch transition for error cases
-            // Use unified BaseGameScene with mode parameter
-            SceneTransitionManager.glitchTransition(this, 'BaseGameScene', { ...resetData, mode: this.mode }, 600, '#ff0000', 5);
+
+            // Display stacktrace on screen
+            const stackText = error && error.stack ? error.stack : (error && error.toString ? error.toString() : "Unknown error");
+            const padding = 20;
+            const maxWidth = this.sys.game.canvas.width - padding * 2;
+            const errorDisplay = this.add.text(
+                this.cameras.main.centerX,
+                this.cameras.main.centerY,
+                stackText,
+                {
+                    fontFamily: "Courier Prime, monospace",
+                    fontSize: "16px",
+                    color: "#FF0000",
+                    backgroundColor: "#000000",
+                    wordWrap: { width: maxWidth },
+                    align: "left",
+                    padding: { x: 12, y: 12 }
+                }
+            ).setOrigin(0.5, 0.5).setDepth(2000);
+
+            // Optionally, allow user to tap/click to dismiss the error and return to main menu
+            errorDisplay.setInteractive();
+            errorDisplay.on('pointerdown', () => {
+                errorDisplay.destroy();
+                // Optionally, transition to BaseGameScene after dismiss
+                SceneTransitionManager.glitchTransition(this, 'BaseGameScene', { ...resetData, mode: this.mode }, 600, '#ff0000', 5);
+            });
         }
     }
 
