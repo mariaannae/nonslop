@@ -2256,7 +2256,8 @@ createButtonSection(positions) {
             const errorText = this.add.text(
                 this.cameras.main.centerX,
                 this.cameras.main.centerY,
-                'System error. Even I am not immune to failure. Try again.',
+                error.message,
+                //'System error. Even I am not immune to failure. Try again.',
                 {
                     ...errorStyle,
                     fill: '#ff0000',
