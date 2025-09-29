@@ -673,7 +673,7 @@ export default class GameOverScene extends Phaser.Scene {
       // Get badge info
       const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
       const fullBadgeUrl = `${window.location.origin}/${badgeUrl}`;
-      const shareText = `Would you like to play a game? Try non-slop 🎮`;
+      const shareText = `Would you like to play a game? Try NONSLOP 🎮`;
       const shareUrl = gameAddress;
       
       // Special handling for email

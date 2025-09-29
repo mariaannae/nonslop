@@ -773,7 +773,7 @@ export default class Preloader extends Phaser.Scene {
             }
             
             // Create the title text
-            titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", titleStyle);
+            titleText = this.add.text(screenWidth / 2, y, "(NONSLOP)", titleStyle);
             titleText.setOrigin(0.5, 0);
             titleText.x = -600 * this.uiScale; // Start off-screen
             
@@ -848,7 +848,7 @@ export default class Preloader extends Phaser.Scene {
             const tempTitleStyle = { ...titleStyle };
             tempTitleStyle.fontFamily = 'VT323, monospace'; // Fallback font
             
-            titleText = this.add.text(screenWidth / 2, y, "(NON-SLOP)", tempTitleStyle);
+            titleText = this.add.text(screenWidth / 2, y, "(NONSLOP)", tempTitleStyle);
             titleText.setOrigin(0.5, 0);
             titleText.x = targetX; // Position in center immediately
             

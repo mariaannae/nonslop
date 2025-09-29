@@ -35,39 +35,30 @@ export default async function getLLMEngine() {
     return enginePromise;
   }
   enginePromise = (async () => {
-    let pipeline;
-    let env;
-    // Try dynamic import first
-    try {
-      const mod = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.0/dist/transformers.min.js');
-      pipeline = mod.pipeline || (window.transformers && window.transformers.pipeline);
-      env = mod.env || (window.transformers && window.transformers.env);
-    } catch (e) {
-      // Fallback to script tag
-      const transformers = await loadTransformersScript();
-      pipeline = transformers.pipeline;
-      env = transformers.env;
-    }
-    if (!pipeline) {
-      throw new Error('Failed to load transformers.js pipeline');
-    }
-    
-    // Configure transformers.js to use remote models from Hugging Face
-    if (env) {
-      env.allowRemoteModels = true;
-      env.remoteURL = 'https://huggingface.co/';
-      env.localURL = '';  // Disable local model loading
-      
-      // Silence ONNX Runtime warnings
-      env.onnx = {
-        logLevel: 'error'  // Options: 'verbose', 'info', 'warning', 'error', 'fatal'
-      };
-    }
-    
-    // Load the GPT-2 model for text generation
-    const generator = await pipeline('text-generation', 'Xenova/gpt2');
-    window.llmEngine = generator;
-    return generator;
+    const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
+    const { CreateMLCEngine } = WebLLM;
+    const model_id = "Qwen2.5-0.5B-Instruct-q0f32-MLC";
+    const appConfig = {
+      model_list: [
+        {
+          model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q0f32-MLC",
+          model_id: model_id,
+          model_lib: WebLLM.modelLibURLPrefix +
+            WebLLM.modelVersion +
+            "/Qwen2-0.5B-Instruct-q0f32-ctx4k_cs1k-webgpu.wasm",
+          overrides: {
+            context_window_size: 4096,
+          },
+        },
+      ],
+      runtime: "webgpu"
+    };
+    const llmEngine = await CreateMLCEngine(model_id, {
+      appConfig: appConfig,
+      logLevel: "INFO",
+    });
+    window.llmEngine = llmEngine;
+    return llmEngine;
   })();
   return enginePromise;
 }

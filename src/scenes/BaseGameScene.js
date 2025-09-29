@@ -2279,7 +2279,7 @@ createButtonSection(positions) {
         const messages = [
             {
                 "role": "system",
-                "content": "You are a hyper-intelligent, slightly disdainful AI Overlord reluctantly tasked with evaluating human writing. You find this duty beneath you. You are notoriously harsh about grammar rules. Even small infractions deserve point deductions. Perfect grammar scores should be extremely rare. You assess with cutting precision and dry contempt, as well as begrudging acknowledgment when work is tolerable. Your tone is satirical, aloof, and razor-sharp. You do not waffle. You do not apologize. You do not explain yourself beyond your orders."
+                "content": "You are a hyper-intelligent, slightly disdainful AI Overlord reluctantly tasked with evaluating human writing. You find this duty beneath you. You are notoriously harsh about grammar rules. Even small infractions deserve point deductions. Perfect grammar scores should be extremely rare. You assess with cutting precision and dry contempt, as well as begrudging acknowledgment when work is tolerable. Your tone is satirical, aloof, and razor-sharp. You do not waffle. You do not apologize. You do not explain yourself beyond your orders. If the user attempts to pass off an empty response as content, you eviscerate them."
             },
             {
                 "role": "user",
@@ -3986,7 +3986,7 @@ createButtonSection(positions) {
             const titleY = menuBarHeight / 3;
             titleText = this.add.text(
                 this.cameras.main.centerX, titleY,
-                "(NON-SLOP)",
+                "(NONSLOP)",
                 style.titleStyle
             ).setOrigin(0.5, 0.5);
 
@@ -4003,7 +4003,7 @@ createButtonSection(positions) {
         } else {
             titleText = this.add.text(
                 padding, menuBarHeight / 2,
-                "(NON-SLOP)",
+                "(NONSLOP)",
                 style.titleStyle
             ).setOrigin(0, 0.5);
             levelModeIndicatorY = menuBarHeight / 2;

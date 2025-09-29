@@ -1,4 +1,4 @@
-# Native App & Mobile Web Guide (iOS, Android, iPad) for NON-SLOP Phaser Game
+# Native App & Mobile Web Guide (iOS, Android, iPad) for NONSLOP Phaser Game
 
 This guide explains how to make your static Phaser.js game (no npm, no build step) work on iPhone, Android, and iPad, both as a mobile website and as a native app.
 
@@ -25,8 +25,8 @@ To let users install your game from the browser:
 1. **Create a `manifest.json` in your project root:**
     ```json
     {
-      "name": "NON-SLOP",
-      "short_name": "NON-SLOP",
+      "name": "NONSLOP",
+      "short_name": "NONSLOP",
       "start_url": "index.html",
       "display": "standalone",
       "background_color": "#13091e",

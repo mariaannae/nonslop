@@ -39,7 +39,7 @@ export default class BadgeGenerator extends Phaser.Scene {
         const title = this.add.text(
             this.cameras.main.centerX,
             100,
-            "(NON-SLOP)\nBADGE GENERATOR",
+            "(NONSLOP)\nBADGE GENERATOR",
             {
                 fontFamily: 'barcade3d',
                 fontSize: '50px',
@@ -151,7 +151,7 @@ export default class BadgeGenerator extends Phaser.Scene {
         // Create badge elements
         const badgeTitle = this.add.text(
             0, 0,
-            "(NON-SLOP)",
+            "(NONSLOP)",
             {
                 fontFamily: 'barcade3d',
                 fontSize: '55px',

@@ -58,7 +58,7 @@ async function generateBadge(text, mode) {
     ctx.fillStyle = colors.TEXT.TITLE;
     ctx.font = '55px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('(NON-SLOP)', canvas.width / 2, 100);
+    ctx.fillText('(NONSLOP)', canvas.width / 2, 100);
 
     // Draw score
     ctx.fillStyle = colors.TEXT.PRIMARY;
