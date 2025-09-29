@@ -25,6 +25,8 @@ export default class Preloader extends Phaser.Scene {
         this.typewriterTimer = null; // Track typewriter timer
         this.buttonClickInProgress = false; // Prevent double-clicks
         this.sceneFullyInitialized = false; // Track if scene is ready
+        this.consentPopup = null; // Track consent popup
+        this.isShowingConsent = false; // Track if consent is being shown
     }
 
     showTooltip(text, x, y) {
@@ -418,16 +420,181 @@ export default class Preloader extends Phaser.Scene {
 
     onDoneButtonClick() {
         // Prevent double-clicks and clicks during transition
-        if (this.buttonClickInProgress || this.isTransitioning || !this.sceneFullyInitialized) {
-            console.log("[CACHE FIX] Ignoring button click - transition in progress or scene not ready");
+        if (this.buttonClickInProgress || this.isTransitioning || !this.sceneFullyInitialized || this.isShowingConsent) {
+            console.log("[CACHE FIX] Ignoring button click - transition in progress, scene not ready, or consent showing");
             return;
         }
         
-        console.log("NEXT button clicked in Preloader, attempting scene transition...");
+        console.log("NEXT button clicked in Preloader, showing consent popup...");
         this.buttonClickInProgress = true;
+        
+        // Show consent popup instead of transitioning immediately
+        this.showConsentPopup();
+    }
+
+    showConsentPopup() {
+        // Prevent showing popup multiple times
+        if (this.consentPopup || this.isShowingConsent) {
+            return;
+        }
+
+        console.log("Showing consent popup");
+        this.isShowingConsent = true;
+
+        // Get device type and scaling
+        const deviceType = detectDeviceType();
+        const isMobile = isMobileDevice();
+
+        // Calculate popup dimensions
+        const popupWidth = isMobile 
+            ? this.sys.game.canvas.width * 0.9 
+            : Math.min(this.sys.game.canvas.width * 0.7, 600 * this.uiScale);
+        
+        const popupPadding = 40 * this.uiScale;
+        
+        // Create the consent text
+        const consentText = "This game was created by Maria Edwards under advisement from Julian Togelius for the purpose of academic research. Please be aware that your interactions and responses will be anonymized and stored. This data will be used solely for academic purposes.";
+        
+        // Get text style for consistent appearance
+        const textStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
+        
+        // Pre-calculate text height with word wrapping
+        const tempText = this.add.text(0, 0, consentText, {
+            ...textStyle,
+            wordWrap: { width: popupWidth - popupPadding * 2 },
+            align: 'left'
+        }).setOrigin(0, 0).setAlpha(0);
+        
+        const textHeight = tempText.height;
+        tempText.destroy();
+
+        // Calculate total popup height including title, text, button, and spacing
+        const titleHeight = 40 * this.uiScale;
+        const buttonHeight = this.scalingManager.buttonHeight();
+        const spacing = 20 * this.uiScale;
+        const totalPopupHeight = titleHeight + spacing + textHeight + spacing + buttonHeight + popupPadding * 2;
+
+        // Position popup in center
+        const popupX = this.cameras.main.centerX - popupWidth / 2;
+        const popupY = this.cameras.main.centerY - totalPopupHeight / 2;
+
+        // Create popup container
+        this.consentPopup = this.add.container(0, 0).setDepth(1000);
+
+        // Create full-screen overlay for backdrop
+        const overlay = this.add.rectangle(
+            0, 0,
+            this.sys.game.canvas.width,
+            this.cameras.main.height,
+            0x000000,
+            0.7
+        ).setOrigin(0, 0);
+        
+        // Create popup background with game's styling
+        const popupBg = this.add.graphics();
+        popupBg.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 0.95);
+        popupBg.fillRoundedRect(popupX, popupY, popupWidth, totalPopupHeight, DESIGN.UI.OUTLINE.CORNER_RADIUS);
+        popupBg.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        popupBg.strokeRoundedRect(popupX, popupY, popupWidth, totalPopupHeight, DESIGN.UI.OUTLINE.CORNER_RADIUS);
+
+        // Create title
+        const titleStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
+        titleStyle.fontWeight = 'bold';
+        titleStyle.fontSize = `${parseInt(titleStyle.fontSize) * 1.2}px`;
+        
+        const titleText = this.add.text(
+            this.cameras.main.centerX,
+            popupY + popupPadding + titleHeight / 2,
+            'Academic Research Notice',
+            {
+                ...titleStyle,
+                align: 'center'
+            }
+        ).setOrigin(0.5, 0.5);
+
+        // Create main consent text
+        const consentTextObj = this.add.text(
+            popupX + popupPadding,
+            popupY + popupPadding + titleHeight + spacing,
+            consentText,
+            {
+                ...textStyle,
+                wordWrap: { width: popupWidth - popupPadding * 2 },
+                align: 'left'
+            }
+        ).setOrigin(0, 0);
+
+        // Create ACKNOWLEDGE button
+        const buttonY = popupY + totalPopupHeight - popupPadding - buttonHeight / 2;
+        const acknowledgeButton = ButtonFactory.createButton(
+            this,
+            "ACKNOWLEDGE",
+            () => {
+                this.onAcknowledgeClick();
+            },
+            this.cameras.main.centerX,
+            buttonY,
+            { depth: 1001, scalingManager: this.scalingManager }
+        );
+
+        // Add all elements to the popup container
+        this.consentPopup.add([overlay, popupBg, titleText, consentTextObj, acknowledgeButton]);
+
+        // Animate popup appearance
+        this.consentPopup.setScale(0.8).setAlpha(0);
+        this.tweens.add({
+            targets: this.consentPopup,
+            scale: 1,
+            alpha: 1,
+            duration: 300,
+            ease: 'Back.easeOut'
+        });
+
+        // Optional: Close popup when clicking outside (on overlay)
+        overlay.setInteractive();
+        overlay.on('pointerup', (pointer) => {
+            // Only close if clicking directly on the overlay (not on popup content)
+            if (pointer.x < popupX || pointer.x > popupX + popupWidth ||
+                pointer.y < popupY || pointer.y > popupY + totalPopupHeight) {
+                this.onAcknowledgeClick();
+            }
+        });
+    }
+
+    onAcknowledgeClick() {
+        // Prevent multiple acknowledge clicks
+        if (!this.consentPopup || !this.isShowingConsent) {
+            return;
+        }
+
+        console.log("Acknowledge button clicked, proceeding with transition...");
+
+        // Animate popup disappearance
+        this.tweens.add({
+            targets: this.consentPopup,
+            scale: 0.8,
+            alpha: 0,
+            duration: 200,
+            ease: 'Back.easeIn',
+            onComplete: () => {
+                // Clean up popup
+                if (this.consentPopup) {
+                    this.consentPopup.destroy();
+                    this.consentPopup = null;
+                }
+                this.isShowingConsent = false;
+
+                // Now proceed with the original transition logic
+                this.proceedToNextScene();
+            }
+        });
+    }
+
+    proceedToNextScene() {
+        // This contains the original transition logic from onDoneButtonClick
         this.isTransitioning = true;
         
-        // Disable the button immediately
+        // Disable the button 
         if (this.doneButton && this.doneButton.input) {
             this.doneButton.disableInteractive();
         }
@@ -511,6 +678,17 @@ export default class Preloader extends Phaser.Scene {
         
         // Clean up tooltips
         this.hideTooltips();
+        
+        // Clean up consent popup if it exists
+        if (this.consentPopup) {
+            try {
+                this.consentPopup.destroy();
+                this.consentPopup = null;
+            } catch (error) {
+                console.warn("Error destroying consent popup:", error);
+            }
+        }
+        this.isShowingConsent = false;
         
         // Comprehensive button cleanup for mobile reliability
         if (this.doneButton) {

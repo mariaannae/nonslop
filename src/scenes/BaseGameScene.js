@@ -3850,14 +3850,26 @@ createButtonSection(positions) {
         
         if (!this.isMobile || !this._canvasShifted) return;
         
-        // Reset canvas position
-        if (this.game && this.game.canvas) {
+        // Defer canvas reset to next frame to avoid rendering conflicts
+        this.time.delayedCall(0, () => {
+            // Double-check game and canvas still exist
+            if (!this.game || !this.game.canvas) {
+                console.log("[KEYBOARD] Canvas no longer exists, skipping reset");
+                return;
+            }
+            
+            // Reset canvas position
             console.log("[KEYBOARD] Resetting canvas transform");
             this.game.canvas.style.transition = 'transform 0.3s ease-out';
             this.game.canvas.style.transform = 'translateY(0)';
             this._canvasShifted = false;
             this._canvasShiftAmount = 0;
-        }
+            
+            // Force a render update after transform
+            if (this.game.renderer && typeof this.game.renderer.resize === 'function') {
+                this.game.renderer.resize(this.game.canvas.width, this.game.canvas.height);
+            }
+        });
     }
 
     /**
@@ -6334,47 +6346,55 @@ this.aiCountText = this.add.text(
     // Helper method to clean up any streak-specific visuals
     cleanupStreakVisuals() {
         // Clean up any existing streak-specific background elements
-        if (this.background) {
+        if (this.background && this.background.active) {
             // Clean up the border if it exists
-            if (this.background.streakBorder) {
+            if (this.background.streakBorder && this.background.streakBorder.active) {
                 this.background.streakBorder.destroy();
                 this.background.streakBorder = null;
             }
             
             // Clean up particles if they exist
-            if (this.background.particles) {
+            if (this.background.particles && Array.isArray(this.background.particles)) {
                 this.background.particles.forEach(particle => {
-                    if (particle && particle.active) {
-                        particle.destroy();
+                    try {
+                        if (particle && particle.active) {
+                            particle.destroy();
+                        }
+                    } catch (e) {
+                        // Ignore errors during particle cleanup
                     }
                 });
                 this.background.particles = null;
             }
             
             // Clean up glow overlay if it exists
-            if (this.background.glowOverlay) {
+            if (this.background.glowOverlay && this.background.glowOverlay.active) {
                 this.background.glowOverlay.destroy();
                 this.background.glowOverlay = null;
             }
             
             // Clean up vignette if it exists
-            if (this.background.vignette) {
+            if (this.background.vignette && this.background.vignette.active) {
                 this.background.vignette.destroy();
                 this.background.vignette = null;
             }
             
             // Clean up flares if they exist
-            if (this.background.flares) {
+            if (this.background.flares && Array.isArray(this.background.flares)) {
                 this.background.flares.forEach(flare => {
-                    if (flare && flare.active) {
-                        flare.destroy();
+                    try {
+                        if (flare && flare.active) {
+                            flare.destroy();
+                        }
+                    } catch (e) {
+                        // Ignore errors during flare cleanup
                     }
                 });
                 this.background.flares = null;
             }
             
             // Clean up mobile overlay if it exists
-            if (this.background.overlay) {
+            if (this.background.overlay && this.background.overlay.active) {
                 this.background.overlay.destroy();
                 this.background.overlay = null;
             }
@@ -6949,44 +6969,57 @@ this.aiCountText = this.add.text(
      * Clean up all suggestion-related visual elements
      */
     cleanupAllSuggestions() {
-        // First clean up tracked elements
-        if (this.suggestionBoxes && this.suggestionBoxes.length > 0) {
+        // First clean up tracked elements with null safety
+        if (this.suggestionBoxes && Array.isArray(this.suggestionBoxes) && this.suggestionBoxes.length > 0) {
             this.suggestionBoxes.forEach(box => {
-                if (box && !box.destroyed) {
-                    box.clear();
-                    box.destroy();
+                try {
+                    if (box && box.active && !box.destroyed) {
+                        // Check if clear method exists before calling
+                        if (typeof box.clear === 'function') {
+                            box.clear();
+                        }
+                        box.destroy();
+                    }
+                } catch (e) {
+                    // Ignore errors during cleanup
                 }
             });
         }
-        if (this.suggestionTexts && this.suggestionTexts.length > 0) {
+        if (this.suggestionTexts && Array.isArray(this.suggestionTexts) && this.suggestionTexts.length > 0) {
             this.suggestionTexts.forEach(text => {
-                if (text && !text.destroyed) {
-                    text.destroy();
+                try {
+                    if (text && text.active && !text.destroyed) {
+                        text.destroy();
+                    }
+                } catch (e) {
+                    // Ignore errors during cleanup
                 }
             });
         }
         
         // Then do a comprehensive cleanup of any remaining suggestion elements
-        if (this.children && this.children.list) {
+        if (this.children && this.children.list && Array.isArray(this.children.list)) {
             // Create a copy of the list to avoid modification during iteration
             const childrenToCheck = [...this.children.list];
             childrenToCheck.forEach(child => {
-                if (child && !child.destroyed) {
-                    // Check for suggestion-related depths (15-16)
-                    if (child.depth >= 15 && child.depth <= 16) {
-                        // Check if it's a graphics or text object
-                        if (child.type === 'Graphics' || child.type === 'Text' || 
-                            child.constructor.name === 'Graphics' || child.constructor.name === 'Text') {
-                            try {
-                                if (child.type === 'Graphics' || child.constructor.name === 'Graphics') {
+                try {
+                    if (child && child.active && !child.destroyed) {
+                        // Check for suggestion-related depths (15-16)
+                        if (child.depth >= 15 && child.depth <= 16) {
+                            // Check if it's a graphics or text object
+                            if (child.type === 'Graphics' || child.type === 'Text' || 
+                                (child.constructor && (child.constructor.name === 'Graphics' || child.constructor.name === 'Text'))) {
+                                // For graphics objects, clear before destroying
+                                if ((child.type === 'Graphics' || (child.constructor && child.constructor.name === 'Graphics')) 
+                                    && typeof child.clear === 'function') {
                                     child.clear();
                                 }
                                 child.destroy();
-                            } catch (e) {
-                                // Ignore destruction errors
                             }
                         }
                     }
+                } catch (e) {
+                    // Ignore destruction errors
                 }
             });
         }
@@ -7214,30 +7247,47 @@ this.aiCountText = this.add.text(
         console.log("[MOBILE BG DEBUG] Mode:", this.mode);
         console.log("[MOBILE BG DEBUG] Level:", this.levelValue);
         
-        // Clean up existing background elements first
-        if (this.background) {
-            console.log("[MOBILE BG DEBUG] Destroying existing background");
-            
-            // IMPORTANT: Clean up the overlay BEFORE destroying the background
-            // This prevents overlays from stacking on mobile
-            if (this.background.overlay) {
-                console.log("[MOBILE BG DEBUG] Destroying existing overlay");
-                this.background.overlay.destroy();
-                this.background.overlay = null;
+        // Defer cleanup to next frame to avoid rendering conflicts on Android
+        this.time.delayedCall(0, () => {
+            // Clean up existing background elements first
+            if (this.background && this.background.active) {
+                console.log("[MOBILE BG DEBUG] Destroying existing background");
+                
+                // IMPORTANT: Clean up the overlay BEFORE destroying the background
+                // This prevents overlays from stacking on mobile
+                if (this.background.overlay && this.background.overlay.active) {
+                    console.log("[MOBILE BG DEBUG] Destroying existing overlay");
+                    this.background.overlay.destroy();
+                    this.background.overlay = null;
+                }
+                
+                // Also clean up any tint overlay if it exists
+                if (this.background.tintOverlay && this.background.tintOverlay.active) {
+                    console.log("[MOBILE BG DEBUG] Destroying existing tint overlay");
+                    this.background.tintOverlay.destroy();
+                    this.background.tintOverlay = null;
+                }
+                
+                // Clean up any other streak-related visuals
+                this.cleanupStreakVisuals();
+                
+                // Destroy background only if it's still active
+                if (this.background.active) {
+                    this.background.destroy();
+                    this.background = null;
+                }
             }
             
-            // Also clean up any tint overlay if it exists
-            if (this.background.tintOverlay) {
-                console.log("[MOBILE BG DEBUG] Destroying existing tint overlay");
-                this.background.tintOverlay.destroy();
-                this.background.tintOverlay = null;
-            }
-            
-            // Clean up any other streak-related visuals
-            this.cleanupStreakVisuals();
-            
-            this.background.destroy();
-        }
+            // Continue with background creation after cleanup
+            this._createBackgroundAfterCleanup();
+        });
+    }
+    
+    /**
+     * Create background after cleanup is complete
+     * @private
+     */
+    _createBackgroundAfterCleanup() {
         
         // DEBUG: Log background config and canvas size
         const bgConfig = THEMES[this.mode]?.background;
