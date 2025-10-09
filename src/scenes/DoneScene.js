@@ -30,87 +30,57 @@ export default class DoneScene extends Phaser.Scene {
         });
     }
 
+    // Pixel-perfect output text box for stacked layout, matching prompt box exactly
     createOutputTextBox() {
         const outputBoxWidth = this.uiBoxWidth;
         const padding = this.scalingManager.scaleValue(30);
 
         // Use stored input box position
         const inputBoxBottom = this.inputBoxY + this.inputBoxHeight;
-
-        // Output box: top edge scaled padding below input box bottom
         const outputBoxY = inputBoxBottom + padding;
 
-        // Get the appropriate text style for current device
+        // Get style
         const deviceType = detectDeviceType();
-        const outputTextStyle = getTextStyle('output', deviceType, this.mode || 'basic', this.uiScale || 1);
+        const style = getTextStyle('prompt', deviceType, this.mode || 'basic', this.uiScale || 1);
+        const boxStyle = this.getPromptBoxStyle();
+        // DEBUG: Log box style for output
+        console.log("[Output BoxStyle]", JSON.stringify(boxStyle));
 
-        // Create text first to measure its height
-        this.outputText = this.add.text(
-            0, 0,
-            this.evaluation || "",
-            {
-                ...outputTextStyle,
-                wordWrap: { width: outputBoxWidth - padding * 2 },
-                align: 'left',
-                lineSpacing: 5
-            }
-        ).setOrigin(0, 0);
-        this.outputText.y = 0;
+        this.outputText = this.add.text(0, 0, this.evaluation || "", {
+            ...style,
+            wordWrap: { width: outputBoxWidth - padding * 2 },
+            align: 'left',
+            lineSpacing: 5
+        }).setOrigin(0, 0);
 
-        // Calculate dynamic height based on text content
         let outputBoxHeight = this.outputText.height + padding * 2;
 
-        // --- CAP HEIGHT SO BUTTONS HAVE ENOUGH SPACE BELOW THE OUTPUT BOX ---
+        // Cap height for buttons
         const canvasHeight = this.cameras.main.height;
-        const buttonMargin = this.scalingManager.scaleValue(30); // Margin between buttons and screen edge
-        
-        // Use the same margin as in InstructionsScene.js
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+        const buttonMargin = this.scalingManager.scaleValue(30);
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) ||
                          (typeof window !== 'undefined' && window.innerWidth <= 900);
-        const scaledButtonSpacing = isMobile ? 
-            this.scalingManager.scaleValue(80) : // Mobile: 80 scaled pixels
-            this.scalingManager.scaleValue(30);  // Desktop: 30 scaled pixels
-            
+        const scaledButtonSpacing = isMobile ?
+            this.scalingManager.scaleValue(80) :
+            this.scalingManager.scaleValue(30);
         const buttonHeight = this.scalingManager.buttonHeight();
-        const buttonSpacing = this.scalingManager.scaleValue(20); // Spacing between NEXT and FEEDBACK buttons
-        
-        // Calculate exact space needed for buttons and margins:
-        // 1. Space for the NEXT button (buttonHeight)
-        // 2. Space for the FEEDBACK button (buttonHeight)
-        // 3. Margin between output box and NEXT button (scaledButtonSpacing)
-        // 4. Margin between bottom of screen and FEEDBACK button (buttonMargin)
-        // 5. Spacing between NEXT and FEEDBACK buttons (buttonSpacing)
-        
-        // Calculate total space needed at the bottom
-        const reservedBottomSpace = 
-            scaledButtonSpacing +  // Space between output box and NEXT button
-            buttonHeight +         // Height of NEXT button
-            buttonSpacing +        // Space between NEXT and FEEDBACK buttons
-            buttonHeight +         // Height of FEEDBACK button
-            buttonMargin;          // Margin at bottom of screen
-        
-        // Calculate max height for output box
+        const buttonSpacing = this.scalingManager.scaleValue(20);
+
+        const reservedBottomSpace =
+            scaledButtonSpacing +
+            buttonHeight +
+            buttonSpacing +
+            buttonHeight +
+            buttonMargin;
+
         const maxOutputBoxHeight = canvasHeight - outputBoxY - reservedBottomSpace;
-        
-        // Debug logging
-        console.log("[DoneScene] Canvas height:", canvasHeight);
-        console.log("[DoneScene] Output box Y:", outputBoxY);
-        console.log("[DoneScene] Button height:", buttonHeight);
-        console.log("[DoneScene] Button spacing:", buttonSpacing);
-        console.log("[DoneScene] Button margin:", buttonMargin);
-        console.log("[DoneScene] Scaled button spacing:", scaledButtonSpacing);
-        console.log("[DoneScene] Reserved bottom space:", reservedBottomSpace);
-        console.log("[DoneScene] Max output box height:", maxOutputBoxHeight);
-        
         let capped = false;
         if (outputBoxHeight > maxOutputBoxHeight) {
             outputBoxHeight = maxOutputBoxHeight;
             capped = true;
-            console.log("[DoneScene] Output box height capped to:", outputBoxHeight);
         }
 
-        // Create new output box with rounded corners
-        const boxStyle = this.getPromptBoxStyle();
+        // Draw box at absolute coordinates, just like prompt box
         this.outputTextBox = this.add.graphics();
         this.outputTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.outputTextBox.fillRoundedRect(
@@ -128,31 +98,32 @@ export default class DoneScene extends Phaser.Scene {
             outputBoxHeight,
             boxStyle.cornerRadius
         );
-        this.add.existing(this.outputTextBox);
+        this.outputTextBox.setDepth(9);
 
-        // Create a container for the text (add mask if capped)
-        const textAreaX = this.cameras.main.centerX - outputBoxWidth / 2 + padding;
-        const textAreaY = outputBoxY + padding;
-        this.outputTextContainer = this.add.container(textAreaX, textAreaY);
-        this.outputTextContainer.add(this.outputText);
+        // Position text inside the box with padding
+        this.outputText.setPosition(
+            this.cameras.main.centerX - outputBoxWidth / 2 + padding,
+            outputBoxY + padding
+        );
 
+        // Mask to prevent overflow
+        if (this.outputTextMask) this.outputTextMask.destroy();
+        this.outputTextMask = this.add.graphics().fillRect(
+            this.cameras.main.centerX - outputBoxWidth / 2,
+            outputBoxY,
+            outputBoxWidth,
+            outputBoxHeight
+        );
+        const mask = this.outputTextMask.createGeometryMask();
+        this.outputText.setMask(mask);
+
+        // If capped, add scroll helpers
         if (capped) {
-            // Add a mask to the text so it doesn't overflow the box
-            // The mask must be positioned at the same global coordinates as the text
-            const maskShape = this.make.graphics({ x: textAreaX, y: textAreaY, add: false });
-            maskShape.fillStyle(0xffffff);
-            maskShape.fillRect(0, 0, outputBoxWidth - padding * 2, outputBoxHeight - padding * 2);
-            const mask = maskShape.createGeometryMask();
-            this.outputText.setMask(mask);
-
-            // Store info for scroll helpers
             this.outputBoxInfo = {
                 y: outputBoxY,
                 height: outputBoxHeight,
                 padding: padding
             };
-
-            // Use the user's scroll event and indicator helpers
             this.addScrollEvent();
             this.addScrollIndicator();
         }
@@ -161,13 +132,10 @@ export default class DoneScene extends Phaser.Scene {
         this.outputBoxY = outputBoxY;
         this.outputBoxHeight = outputBoxHeight;
 
-        // Set depth
-        this.outputTextBox.setDepth(9);
-        this.outputTextContainer.setDepth(10);
-
-        // Set initial state
+        // Set depth and fade-in
+        this.outputText.setDepth(10).setAlpha(0);
         this.tweens.add({
-            targets: [this.outputTextBox, this.outputTextContainer],
+            targets: [this.outputTextBox, this.outputText],
             alpha: 1,
             duration: 500,
             ease: 'Sine.InOut'
@@ -177,15 +145,20 @@ export default class DoneScene extends Phaser.Scene {
     // Column version of input box (explicit rect)
     createInputTextBoxAtRect({ x, y, width, height }) {
       const deviceType = detectDeviceType();
-      const style = getTextStyle('input', deviceType, this.mode || 'basic', this.uiScale || 1);
-      const boxStyle = getBoxStyle('input', this.mode || 'basic', this.uiScale || 1);
+      const style = getTextStyle('prompt', deviceType, this.mode || 'basic', this.uiScale || 1);
+      const boxStyle = this.getPromptBoxStyle(); // Use proper theme-based style
+      // DEBUG: Log box style for input (columns mode)
+      console.log("[Input BoxStyle]", JSON.stringify(boxStyle));
       const padding = this.scalingManager?.scaleValue(30) ?? 30;
 
       const displayText = "Prompt: " + this.prompt + "\n" + "Response: " + this.userInput;
 
-      // Text first (for wrap)
+      // Text first (for wrap) - use style as-is
       const innerW = Math.max(0, width - padding * 2);
-      const textObj = this.add.text(0, 0, displayText, { ...style, wordWrap: { width: innerW, useAdvancedWrap: true }})
+      const textObj = this.add.text(0, 0, displayText, { 
+        ...style, 
+        wordWrap: { width: innerW, useAdvancedWrap: true }
+      })
         .setOrigin(0, 0);
 
       // Container
@@ -194,19 +167,26 @@ export default class DoneScene extends Phaser.Scene {
       container.add(bg);
       container.add(textObj);
 
-      // Draw rounded box + outline
-      bg.fillStyle(boxStyle.backgroundColor ?? 0x000000, boxStyle.backgroundAlpha ?? 0.2);
+      // Draw rounded box + outline EXACTLY like top box - no conditional check
+      bg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
       bg.fillRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
-      if (boxStyle.outlineWidth) {
-        bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-        bg.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
-      }
+      bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+      bg.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
 
       // Position text inside padding and add mask clip
       textObj.setPosition(padding, padding);
       const maskShape = this.add.graphics().fillRect(x + 0, y + 0, width, height);
       const mask = maskShape.createGeometryMask();
       container.setMask(mask);
+
+      // Add fade-in effect for loading
+      container.setAlpha(0);
+      this.tweens.add({
+        targets: container,
+        alpha: 1,
+        duration: 500,
+        ease: 'Sine.InOut'
+      });
 
       // Store state for scrolling
       this._inputBox = {
@@ -219,12 +199,17 @@ export default class DoneScene extends Phaser.Scene {
     // Column version of output box (explicit rect)
     createOutputTextBoxAtRect({ x, y, width, height }) {
       const deviceType = detectDeviceType();
-      const style = getTextStyle('output', deviceType, this.mode || 'basic', this.uiScale || 1);
-      const boxStyle = getBoxStyle('output', this.mode || 'basic', this.uiScale || 1);
+      const style = getTextStyle('prompt', deviceType, this.mode || 'basic', this.uiScale || 1);
+      const boxStyle = this.getPromptBoxStyle(); // Use proper theme-based style
+      // DEBUG: Log box style for output (columns mode)
+      console.log("[Output BoxStyle]", JSON.stringify(boxStyle));
       const padding = this.scalingManager?.scaleValue(30) ?? 30;
 
       const innerW = Math.max(0, width - padding * 2);
-      const textObj = this.add.text(0, 0, this.evaluation || "", { ...style, wordWrap: { width: innerW, useAdvancedWrap: true }})
+      const textObj = this.add.text(0, 0, this.evaluation || "", { 
+        ...style, 
+        wordWrap: { width: innerW, useAdvancedWrap: true }
+      })
         .setOrigin(0, 0);
 
       const container = this.add.container(x, y);
@@ -232,17 +217,26 @@ export default class DoneScene extends Phaser.Scene {
       container.add(bg);
       container.add(textObj);
 
-      bg.fillStyle(boxStyle.backgroundColor ?? 0x000000, boxStyle.backgroundAlpha ?? 0.2);
+      // Draw rounded box + outline EXACTLY like top box - no conditional check
+      bg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
       bg.fillRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
-      if (boxStyle.outlineWidth) {
-        bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-        bg.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
-      }
+      bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+      bg.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
 
       textObj.setPosition(padding, padding);
       const maskShape = this.add.graphics().fillRect(x + 0, y + 0, width, height);
       const mask = maskShape.createGeometryMask();
       container.setMask(mask);
+
+      // Add fade-in effect for loading
+      container.setAlpha(0);
+      this.tweens.add({
+        targets: container,
+        alpha: 1,
+        duration: 500,
+        delay: 200, // Slight delay so output appears after input
+        ease: 'Sine.InOut'
+      });
 
       this._outputBox = {
         container, width, height,
@@ -270,19 +264,20 @@ export default class DoneScene extends Phaser.Scene {
         // Common scroll function used by both wheel and touch
         const scrollContent = (deltaY) => {
             if (!canScroll()) return;
-            
+
+            const scrollPad = 22;
             const textHeight = this.outputText.height;
-            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
+            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2) - scrollPad * 2;
             const maxScroll = textHeight - boxHeight;
-            
+
             // Apply scroll movement
             this._outputTextScrollY = Phaser.Math.Clamp(
                 this._outputTextScrollY + deltaY,
                 0,
                 maxScroll
             );
-            this.outputText.y = -this._outputTextScrollY;
-            
+            this.outputText.y = -this._outputTextScrollY + scrollPad;
+
             // Update scroll indicator visibility
             if (this.scrollIndicator) {
                 const isAtBottom = this._outputTextScrollY >= maxScroll - 5;
@@ -401,10 +396,11 @@ export default class DoneScene extends Phaser.Scene {
         // Choose appropriate text based on device
         const scrollText = isMobile ? "▼ Swipe to scroll ▼" : "▼ Scroll for more ▼";
 
-        // Create scroll indicator
+        // Place indicator higher to avoid rounded corners
+        const scrollPad = 22;
         this.scrollIndicator = this.add.text(
             this.cameras.main.centerX,
-            this.outputBoxInfo.y + this.outputBoxInfo.height - 15,
+            this.outputBoxInfo.y + this.outputBoxInfo.height - scrollPad,
             scrollText,
             {
                 fontFamily: 'IBM Plex Mono',
@@ -756,78 +752,78 @@ export default class DoneScene extends Phaser.Scene {
         }
     }
 
-    createInputTextBox(y) {    
+    // Pixel-perfect input text box for stacked layout, matching prompt box exactly
+    createInputTextBox(y) {
         const textBoxWidth = this.uiBoxWidth;
         const padding = this.scalingManager.scaleValue(30);
-        const minHeight = this.scalingManager.scaleValue(60); // Minimum height for the input box
+        const minHeight = this.scalingManager.scaleValue(60);
 
-        // Input Text
-        if (this.inputText) {
-            this.inputText.destroy();
-        }
+        // Clean up previous
+        if (this.inputText) this.inputText.destroy();
+        if (this.inputTextBorder) this.inputTextBorder.destroy();
 
-        // Get the appropriate text style for current device
+        // Get style
         const deviceType = detectDeviceType();
-        const inputTextStyle = getTextStyle('input', deviceType, this.mode || 'basic', this.uiScale || 1);
+        const style = getTextStyle('prompt', deviceType, this.mode || 'basic', this.uiScale || 1);
+        const boxStyle = this.getPromptBoxStyle();
+        // DEBUG: Log box style for input
+        console.log("[Input BoxStyle]", JSON.stringify(boxStyle));
 
-        const displayText = "Prompt: " + this.prompt + "\n" +
-            "Response: " + this.userInput;
+        const displayText = "Prompt: " + this.prompt + "\n" + "Response: " + this.userInput;
         this.cursorVisible = true;
-        this.inputText = this.add.text(
-            0, 0,
-            displayText,
-            {
-                ...inputTextStyle,
-                wordWrap: { width: textBoxWidth - padding * 2 },
-                align: "left"
-            }
-        )
-        .setOrigin(0, 0)
-        .setAlpha(1)
-        .setVisible(true)
-        .setDepth(101);  // highest depth clearly above input border
+        this.inputText = this.add.text(0, 0, displayText, {
+            ...style,
+            wordWrap: { width: textBoxWidth - padding * 2 },
+            align: "left"
+        }).setOrigin(0, 0).setAlpha(1).setVisible(true).setDepth(101);
 
-        this.inputText.updateText(); // Force redraw explicitly
+        this.inputText.updateText();
 
-        // Calculate dynamic height based on text content
         const dynamicHeight = Math.max(this.inputText.height + padding * 2, minHeight);
-
-        // Use provided y or center vertically if not provided
         const boxX = this.cameras.main.centerX - textBoxWidth / 2;
         const boxY = (typeof y === "number") ? y : (this.cameras.main.centerY - dynamicHeight / 2);
 
-        // Always store the actual y and height for later use
         this.inputBoxY = boxY;
         this.inputBoxHeight = dynamicHeight;
 
-        // Input Text Border
-        if (this.inputTextBorder) {
-            this.inputTextBorder.destroy();
-        }
+        // Draw box at absolute coordinates, just like prompt box
         this.inputTextBorder = this.add.graphics();
-        this.inputTextBorder.fillStyle(0xffffff, 1);
+        this.inputTextBorder.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.inputTextBorder.fillRoundedRect(
             boxX,
             boxY,
             textBoxWidth,
             dynamicHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
-        this.inputTextBorder.lineStyle(DESIGN.UI.OUTLINE.WIDTH, this.COLORS_HEX.ACCENT, 1);
+        this.inputTextBorder.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
         this.inputTextBorder.strokeRoundedRect(
             boxX,
             boxY,
             textBoxWidth,
             dynamicHeight,
-            DESIGN.UI.OUTLINE.CORNER_RADIUS
+            boxStyle.cornerRadius
         );
         this.inputTextBorder.setDepth(100).setVisible(true);
 
         // Position text inside the box with padding
-        this.inputText.setPosition(
-            boxX + padding,
-            boxY + padding
-        );
+        this.inputText.setPosition(boxX + padding, boxY + padding);
+
+        // Mask to prevent overflow
+        if (this.inputTextMask) this.inputTextMask.destroy();
+        this.inputTextMask = this.add.graphics().fillRect(boxX, boxY, textBoxWidth, dynamicHeight);
+        const mask = this.inputTextMask.createGeometryMask();
+        this.inputText.setMask(mask);
+
+        // Fade-in
+        this.inputText.setAlpha(0);
+        this.inputTextBorder.setAlpha(0);
+        this.tweens.add({
+            targets: [this.inputText, this.inputTextBorder],
+            alpha: 1,
+            duration: 500,
+            ease: 'Sine.InOut'
+        });
     }
     
     createPromptTextBox() {
@@ -848,19 +844,17 @@ export default class DoneScene extends Phaser.Scene {
             this.promptText.destroy();
         }
 
-        
-        
+        // DEBUG: Log box style for prompt
+        const boxStyle = this.getPromptBoxStyle();
+        console.log("[Prompt BoxStyle]", JSON.stringify(boxStyle));
+
         let defaultText;
         if (this.mode === "hard") {
-            //defaultText = `Total Words: ${this.totalWordCount - this.failCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
             defaultText =`Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
-
         }
         else if (this.mode === "easy") {
-            //defaultText = `Total Words: ${this.totalWordCount}\n` + `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
             defaultText = `Unoriginal Words Attempted: ${this.failCount}\nAI Overlord's Assessment: ${this.aiScore}/15\nTotal Score: ${this.totalScore}/15`;
         }
-
 
         // Get the appropriate text style for current device
         const deviceType = detectDeviceType();
@@ -869,6 +863,7 @@ export default class DoneScene extends Phaser.Scene {
         // Position the text at the left side with the same padding as outputbox
         const textX = this.cameras.main.centerX - this.uiBoxWidth / 2 + padding;
         
+        // Use the prompt style directly without forcing colors
         this.promptText = this.add.text(
             textX, 
             0, // Y will be adjusted later
@@ -885,7 +880,7 @@ export default class DoneScene extends Phaser.Scene {
         const textHeight = this.promptText.height + padding * 2;
     
         // ✅ Create the Prompt Background Box using centralized styling
-        const boxStyle = this.getPromptBoxStyle();
+        // Use the already-declared boxStyle
         this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
@@ -895,7 +890,7 @@ export default class DoneScene extends Phaser.Scene {
             boxStyle.cornerRadius
         );
     
-        // ✅ Add Outline to Match Output Box
+        // Draw outline normally, same as InstructionsScene
         this.promptTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
         this.promptTextBox.strokeRoundedRect(
             this.cameras.main.centerX - this.uiBoxWidth / 2, 
@@ -962,30 +957,30 @@ export default class DoneScene extends Phaser.Scene {
     // --- BUTTONS: anchor to corners (safe-area aware) WITHOUT setOrigin ---
     placeBottomButtons() {
       const safe = this.safeAreaInsets ?? { left: 0, right: 0, bottom: 0 };
-      const gap  = this.scalingManager?.scaleValue(16) ?? 16;
+      
+      // Use the same margin as the next button to ensure consistency
+      const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+                       (typeof window !== 'undefined' && window.innerWidth <= 900);
+      const buttonMargin = isMobile ? 
+          this.scalingManager.scaleValue(20) : // Mobile: 20 scaled pixels
+          this.scalingManager.scaleValue(30);  // Desktop: 30 scaled pixels
 
-      // helper that returns display size for most Phaser objects (Container, Image, Text)
-      const getSize = (obj) => {
-        if (!obj) return { w: 0, h: 0 };
-        // Container has width/height; Images/Text have displayWidth/Height; fall back to getBounds
-        const w = obj.displayWidth ?? obj.width ?? obj.getBounds?.().width  ?? 0;
-        const h = obj.displayHeight ?? obj.height ?? obj.getBounds?.().height ?? 0;
-        return { w, h };
-      };
+      // Get button dimensions using scalingManager for consistency
+      const buttonWidth = this.scalingManager.buttonWidth();
+      const buttonHeight = this.scalingManager.buttonHeight();
 
-      // FEEDBACK: bottom-left
+      // Buttons are likely anchored at their center (0.5, 0.5), so we need to account for half their dimensions
+      // FEEDBACK: bottom-left with consistent margins (accounting for center anchor)
       if (this.feedbackButton) {
-        const { w, h } = getSize(this.feedbackButton);
-        const x = gap + (safe.left || 0);
-        const y = this.scale.height - gap - (safe.bottom || 0) - h;
+        const x = buttonMargin + (safe.left || 0) + buttonWidth / 2;
+        const y = this.scale.height - buttonMargin - (safe.bottom || 0) - buttonHeight / 2;
         this.feedbackButton.setPosition(x, y);
       }
 
-      // NEXT: bottom-right
+      // NEXT: bottom-right with consistent margins (accounting for center anchor)
       if (this.doneButton) {
-        const { w, h } = getSize(this.doneButton);
-        const x = this.scale.width - gap - (safe.right || 0) - w;
-        const y = this.scale.height - gap - (safe.bottom || 0) - h;
+        const x = this.scale.width - buttonMargin - (safe.right || 0) - buttonWidth / 2;
+        const y = this.scale.height - buttonMargin - (safe.bottom || 0) - buttonHeight / 2;
         this.doneButton.setPosition(x, y);
       }
     }
@@ -1006,11 +1001,12 @@ export default class DoneScene extends Phaser.Scene {
       hit.on('pointerout',  () => { hit._isOver = false; });
 
       // Measure content & scrolling
+      const scrollPad = 22; // Match the pad used in updateScrollIndicator
       const contentH = textObj.getTextBounds?.().local?.height ?? textObj.height;
-      const innerH   = height - (padding.top + padding.bottom);
+      const innerH   = height - (padding.top + padding.bottom) - scrollPad * 2;
       box.maxScroll  = Math.max(0, contentH - innerH);
       box.scrollY    = 0;
-      box._baseTextY = padding.top;
+      box._baseTextY = padding.top + scrollPad;
 
       const setScroll = (y) => {
         box.scrollY = Phaser.Math.Clamp(y, 0, box.maxScroll);
@@ -1063,15 +1059,15 @@ export default class DoneScene extends Phaser.Scene {
       if (!needs) return;
 
       const barW = 4;
-      const pad = 8;
+      const pad = 22; // Increased from 8 to 22 to avoid rounded corners
       const trackH = ind.h - pad * 2;
       const ratio = (box.scrollY / box.maxScroll) || 0;
       const barH = Math.max(24, trackH * 0.25);
       const barY = pad + (trackH - barH) * ratio;
       const x = ind.w - pad - barW;
 
-      ind.g.fillStyle(0x000000, 0.18).fillRoundedRect(x, pad, barW, trackH, 2);
-      ind.g.fillStyle(0xffffff, 0.9).fillRoundedRect(x, barY, barW, barH, 2);
+      ind.g.fillStyle(0x000000, 0.18).fillRoundedRect(x, pad, barW, trackH, 4);
+      ind.g.fillStyle(0xffffff, 0.9).fillRoundedRect(x, barY, barW, barH, 4);
     }
 
 
