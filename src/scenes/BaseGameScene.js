@@ -2439,86 +2439,32 @@ createButtonSection(positions) {
                 throw new Error('LLM engine is not available or does not have required API');
             }
             console.log("DEBUG: Calling LLM engine with context:", trimmedcontext);
-            
-            // More aggressive cache-busting strategies
-            const uniqueId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            // MUCH larger temperature variation to force different outputs
-            const baseTemp = this.temperature || 0.2;
-            const tempVariation = Math.random() * 0.4 - 0.2; // Random between -0.2 and +0.2
-            const finalTemp = Math.max(0.1, Math.min(1.5, baseTemp + tempVariation));
-            
-            // Add random invisible characters to the context to force cache miss
-            // These shouldn't affect the meaning but will change the input hash
-            const invisibleChars = ['\u200B', '\u200C', '\u200D', '\uFEFF']; // Zero-width spaces
-            const randomInvisible = invisibleChars[Math.floor(Math.random() * invisibleChars.length)];
-            const randomPosition = Math.floor(Math.random() * 3); // Add at beginning, middle, or end
-            
-            let modifiedContext = trimmedcontext;
-            if (randomPosition === 0) {
-                modifiedContext = randomInvisible + trimmedcontext;
-            } else if (randomPosition === 1 && trimmedcontext.length > 10) {
-                const mid = Math.floor(trimmedcontext.length / 2);
-                modifiedContext = trimmedcontext.slice(0, mid) + randomInvisible + trimmedcontext.slice(mid);
-            } else {
-                modifiedContext = trimmedcontext + randomInvisible;
-            }
-            
-            // Add a unique suffix that won't affect the meaning but will change the cache key
-            const cacheBuster = ` [${uniqueId}]`;
-            modifiedContext = modifiedContext + cacheBuster;
-            
-            console.log("DEBUG: Modified context with cache-busters:", {
-                originalLength: trimmedcontext.length,
-                modifiedLength: modifiedContext.length,
-                temperature: finalTemp,
-                uniqueId: uniqueId
-            });
-            
-            // WORKAROUND: Force each call to be treated as a completely new conversation
-            // by using a unique conversation ID in the system message
-            // and adding more aggressive randomization
-            const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            // Create a completely fresh message array with unique formatting
-            // to break any conversation caching
-            const messages = [
-                {
-                    role: "system", 
-                    content: `[SESSION: ${conversationId}] You are a text completion assistant. Complete the following text with exactly ONE word. Session ID: ${uniqueId}. Random value: ${Math.random()}`
-                },
-                {
-                    role: "user",
-                    content: `Complete this text with the next word: "${modifiedContext}"\nProvide only one word. [REQ: ${uniqueId}]`
-                }
-            ];
-            
-            console.log("DEBUG: Calling LLM with temperature:", finalTemp);
-            console.log("DEBUG: Conversation ID:", conversationId);
-            
-            // Note: resetChat doesn't exist on web-llm, but we can try to break context
-            // by using unique conversation patterns
-            
+
+
             // Use the engine from registry manager (MLC-AI WebLLM engine)
             const response = await llmEngine.chat.completions.create({
-                messages: messages,
-                max_tokens: 1,
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a helpful AI that suggests the next possible words based on the given context. Provide only the most probable next words without any additional text or explanation. Use English only."
+                    },
+                    {
+                        role: "user",
+                        content: trimmedcontext
+                    }
+                    ],
+                max_tokens: 5,
                 n: 1,
                 top_logprobs: 5,
                 logprobs: true,
-                temperature: finalTemp, // Use significantly varied temperature
+                temperature: this.temperature, 
                 stream: false,
-                seed: Math.floor(Math.random() * 10000000), // Different seed each time
+                //seed: Math.floor(Math.random() * 10000000), // Different seed each time
                 // Add more randomization parameters
-                presence_penalty: Math.random() * 0.2, // Increased penalty range
-                frequency_penalty: Math.random() * 0.2, // Increased penalty range
-                top_p: 0.9 + Math.random() * 0.1 // Add top_p variation
+                
             });
-            
-            // Detailed debugging to understand the caching issue
-            console.log("DEBUG: Response ID:", response.id);
-            console.log("DEBUG: Response created timestamp:", response.created);
-            
+
+            console.log("DEBUG: LLM raw response:", response);
             const logprobs = response.choices[0].logprobs.content[0].top_logprobs;
             console.log("DEBUG: Top logprobs:", logprobs);
             
@@ -2551,7 +2497,7 @@ createButtonSection(positions) {
                 .map(word => word.trim()) // Trim whitespace
                 .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "")) // Remove leading/trailing punctuation
                 
-
+            console.log("DEBUG WORDS: ", words);
             // Only keep unique, non-empty words and limit to topKValue
             const filtered_words = words.filter(word => word && word.length > 1 && !stopwords.includes(word.toLowerCase())); // Filter short words and stopwords
             const uniqueSuggestedWords = Array.from(new Set(filtered_words)).slice(0, Math.max(this.topKValue, 1)); 
@@ -2581,32 +2527,11 @@ createButtonSection(positions) {
             
         } catch (error) {
             console.error("Error generating AI suggestions:", error);
-            console.error("llmEngine type:", typeof llmEngine);
-            console.error("llmEngine value:", llmEngine);
-            
-            // Clear suggestions on any error
-            this.aiSuggestedWords = [];
-            this.showSuggestions([]);
-            if (this.autocompleteText) {
-                this.autocompleteText.setText('');
-            }
-            
-            // If it's a function call error, try to recover the engine
-            if (error.message.includes('llmEngine is not a function') || error.message.includes('not a function')) {
-                registryManager.attemptEngineRecovery((recoveredEngine) => {
-                    if (recoveredEngine && typeof recoveredEngine === 'function') {
-                        console.log("Engine recovered after error, retrying AI suggestions");
-                        // Use current user input for retry to ensure we get suggestions for current state
-                        if (this.userInput && (this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r'))) {
-                            this.generateAISuggestions(this.userInput);
-                        }
-                    }
-                });
-            }
-        } finally {
-            this.isProcessingQueuedKeys = false; // Unlock queue processing at end
-            // Don't reset isGeneratingAISuggestions here - let generateAISuggestionsWithQueue handle it
         }
+            
+        this.isProcessingQueuedKeys = false; // Unlock queue processing at end
+        // Don't reset isGeneratingAISuggestions here - let generateAISuggestionsWithQueue handle it
+        
     }
 
     // Template methods with customization hooks
@@ -7450,58 +7375,21 @@ this.aiCountText = this.add.text(
         const h = this.sys.game.config.height || this.cameras.main.height;
 
         
-        if (!bgConfig) {
-            console.error("[MOBILE BG DEBUG] No background config found for mode:", this.mode);
-            return;
-        }
-        
         if (!w || !h || w < 10 || h < 10) {
             this.time.delayedCall(50, () => this.updateBackgroundForLevel());
             return;
         }
         
-        // Create new background based on level and mode with streak effects
-        console.log("[MOBILE BG DEBUG] Calling createBackground...");
-        console.log("[MOBILE BG DEBUG] About to call createBackground with:", {
-            scene: this,
-            bgConfig: bgConfig,
-            levelValue: this.levelValue,
-            wordStreak: this.wordStreak || 0
-        });
         
         try {
-            console.log("[MOBILE BG DEBUG] About to import createBackground...");
-            // Make sure createBackground is imported
-            if (typeof createBackground === 'undefined') {
-                console.error("[MOBILE BG DEBUG] ERROR: createBackground is undefined!");
-                console.error("[MOBILE BG DEBUG] Check import statement at top of file");
-                return;
-            }
-            console.log("[MOBILE BG DEBUG] createBackground function exists, calling it now...");
+
             createBackground(this, bgConfig, this.levelValue, this.wordStreak || 0);
-            console.log("[MOBILE BG DEBUG] createBackground call completed");
         } catch (error) {
             console.error("[MOBILE BG DEBUG] Error calling createBackground:", error);
             console.error("[MOBILE BG DEBUG] Error stack:", error.stack);
             console.error("[MOBILE BG DEBUG] Error message:", error.message);
         }
-        
-        // Check if background was created
-        if (this.background) {
-            console.log("[MOBILE BG DEBUG] Background created successfully!");
-            console.log("[MOBILE BG DEBUG] Background properties:", {
-                x: this.background.x,
-                y: this.background.y,
-                width: this.background.width,
-                height: this.background.height,
-                depth: this.background.depth,
-                visible: this.background.visible,
-                alpha: this.background.alpha,
-                texture: this.background.texture ? this.background.texture.key : 'N/A'
-            });
-        } else {
-            console.error("[MOBILE BG DEBUG] Background was NOT created!");
-        }
+
     }
     
     /**
