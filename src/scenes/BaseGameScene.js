@@ -133,7 +133,7 @@ const SCENE_CONFIG = {
     // Fast typing penalty
     FAST_TYPING: {
         DEFAULT_PENALTY_SECONDS: 3,
-        DEFAULT_COOLDOWN_MS: 150,
+        DEFAULT_COOLDOWN_MS: 50,
         MODAL_WIDTH_RATIO: 0.8,
         MODAL_MAX_WIDTH: 500,
         MODAL_HEIGHT: 180,
@@ -2407,25 +2407,51 @@ createButtonSection(positions) {
         const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
         const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
         
-        this.showSuggestions(['Loading...']);
+        // Don't show "Loading..." as it causes unnecessary clearing of existing suggestions
+        // Suggestions will be displayed when ready
         
         // Don't wait for render frame - process immediately
         
         // Get the LLM engine from the registry manager
         const llmEngine = registryManager.get('llmEngine');
         
-        // Minimal logging - only if there's an issue
-        if (!llmEngine) {
+        // Check if engine exists and has the required MLC-AI WebLLM API
+        const isValidEngine = llmEngine && 
+            typeof llmEngine === 'object' && 
+            llmEngine.chat && 
+            llmEngine.chat.completions && 
+            typeof llmEngine.chat.completions.create === 'function';
+            
+        if (!isValidEngine) {
+            console.log("DEBUG: llmEngine issue - engine:", llmEngine, "typeof:", typeof llmEngine);
+            console.log("DEBUG: has chat API:", !!(llmEngine && llmEngine.chat && llmEngine.chat.completions));
             if (requestId !== this.suggestionRequestId) return;
-            // Mark processing as complete even when engine is missing
+            // Mark processing as complete even when engine is missing or invalid
             this.keyProcessingComplete = true;
             this.isProcessingQueuedKeys = false;
             
+            // Clear suggestions when engine is not available
+            this.aiSuggestedWords = [];
+            this.showSuggestions([]);
+            if (this.autocompleteText) {
+                this.autocompleteText.setText('');
+            }
+            
             // Try to recover the engine
             registryManager.attemptEngineRecovery((recoveredEngine) => {
-                if (recoveredEngine && this.userInput === inputAtRequest) {
-                    // If we recovered the engine and the input hasn't changed, retry
-                    this.generateAISuggestions(inputAtRequest);
+                const isRecoveredValid = recoveredEngine && 
+                    typeof recoveredEngine === 'object' && 
+                    recoveredEngine.chat && 
+                    recoveredEngine.chat.completions && 
+                    typeof recoveredEngine.chat.completions.create === 'function';
+                    
+                if (isRecoveredValid) {
+                    console.log("Engine recovered successfully, retrying AI suggestions");
+                    // Use current user input instead of the old inputAtRequest
+                    // This ensures we generate suggestions for the current state
+                    if (this.userInput && (this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r'))) {
+                        this.generateAISuggestions(this.userInput);
+                    }
                 }
             });
             return;
@@ -2434,23 +2460,58 @@ createButtonSection(positions) {
         // Optimize context - only include last 50 characters of context to reduce token count
         const optimizedContext = context.length > 50 ? '...' + context.slice(-50) : context;
         const trimmedcontext = this.currentPrompt + ": " + optimizedContext.trim();
-        
+        console.log("DEBUG: LLM output:");
         // Add retry logic
         try {
-            // Use the engine from registry manager (transformers.js pipeline)
-            const output = await llmEngine(trimmedcontext, { 
-                max_new_tokens: 1,
-                temperature: this.temperature, // Use configurable temperature
-                do_sample: true
+            // Double-check the engine is still valid before calling it
+            const isStillValid = llmEngine && 
+                typeof llmEngine === 'object' && 
+                llmEngine.chat && 
+                llmEngine.chat.completions && 
+                typeof llmEngine.chat.completions.create === 'function';
+                
+            if (!isStillValid) {
+                throw new Error('LLM engine is not available or does not have required API');
+            }
+            console.log("DEBUG: Calling LLM engine with context:", trimmedcontext);
+            // Use the engine from registry manager (MLC-AI WebLLM engine)
+            const response = await llmEngine.chat.completions.create({
+                messages: [
+                    {
+                        role: "user",
+                        content: trimmedcontext
+                    }
+                ],
+                max_tokens: 1,
+                n: 1,
+                top_logprobs: 5,
+                logprobs:true,
+                temperature: this.temperature,
+                stream: false
             });
-
+            
+            console.log("DEBUG: LLM raw response:", response);
+            const logprobs = response.choices[0].logprobs.content[0].top_logprobs;
+            console.log("DEBUG: Top logprobs:", logprobs);
+            
             // Only process the result if this is the latest request AND input matches current userInput
             if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
                 this.isProcessingQueuedKeys = false;
                 return;
             }
 
-            if (!output || !Array.isArray(output) || output.length === 0 || !output[0].generated_text) {
+            // Check if we're still at a word boundary - only update suggestions at word boundaries
+            const stillAtWordBoundary = this.userInput.endsWith(' ') || 
+                                       this.userInput.endsWith('\n') || 
+                                       this.userInput.endsWith('\r');
+            
+            if (!stillAtWordBoundary) {
+                // User is mid-word, don't update suggestions (let them persist)
+                this.isProcessingQueuedKeys = false;
+                return;
+            }
+
+            if (!logprobs || !Array.isArray(logprobs) || logprobs.length === 0) {
                 this.aiSuggestedWords = [];
                 this.showSuggestions([]);
                 if (this.autocompleteText) {
@@ -2460,28 +2521,34 @@ createButtonSection(positions) {
                 return;
             }
 
-            // Get the generated text, split into words, filter stopwords/punctuation, and take topK
-            let suggestion = output[0].generated_text.trim();
+            // Extract tokens from logprobs array and filter them
+            let words = logprobs
+                .map(item => item.token) // Extract token strings
+                .map(word => word.trim()) // Trim whitespace
+                .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "")) // Remove leading/trailing punctuation
+                
 
-            // Remove the prompt context from the start if present
-            if (suggestion.startsWith(trimmedcontext)) {
-                suggestion = suggestion.slice(trimmedcontext.length).trim();
+            // Only keep unique, non-empty words and limit to topKValue
+            const filtered_words = words.filter(word => word && word.length > 1 && !stopwords.includes(word.toLowerCase())); // Filter short words and stopwords
+            const uniqueSuggestedWords = Array.from(new Set(filtered_words)).slice(0, Math.max(this.topKValue, 1)); 
+            console.log("DEBUG: Unfiltered suggestions from logprobs:", words);
+            console.log("DEBUG: Filtered suggestions from logprobs:", filtered_words);
+            console.log("DEBUG: Unique suggestions to display:", uniqueSuggestedWords);
+
+            // Update suggestions and UI
+            this.aiSuggestedWords = uniqueSuggestedWords;
+            console.log("[SUGGESTIONS DEBUG] Setting aiSuggestedWords to:", uniqueSuggestedWords);
+            this.showSuggestions(uniqueSuggestedWords);
+            console.log("[SUGGESTIONS DEBUG] Called showSuggestions with:", uniqueSuggestedWords);
+            
+            // Force cache invalidation to ensure cursor updates (especially for empty suggestions)
+            if (this._cachedValues) {
+                this._cachedValues.lastAutocomplete = null; // Invalidate autocomplete cache
             }
             
-            // Split into words, filter, and deduplicate
-            let words = suggestion.split(/\s+/)
-                .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "")) // Remove leading/trailing punctuation
-                .filter(word => word && word.length > 1 && !stopwords.includes(word.toLowerCase())); // Filter short words too
-
-            // Only keep unique, non-empty words
-            const uniqueSuggestedWords = Array.from(new Set(words)).slice(0, Math.max(this.topKValue, 1)); 
-            console.log("[DEBUG] suggestion: ", suggestion)
-
-
-            this.aiSuggestedWords = uniqueSuggestedWords;
-            this.showSuggestions(uniqueSuggestedWords);
-            this.updateCursor(); // Ensure UI refreshes with the latest suggestion
-            console.log("[DEBUG] filtered: ", uniqueSuggestedWords)
+            // Always update cursor to reflect current state (including empty suggestions)
+            this.updateCursor();
+            console.log("[SUGGESTIONS DEBUG] After updateCursor, aiSuggestedWords is:", this.aiSuggestedWords);
 
             // Only track performance issues
             const endTime = performance.now();
@@ -2490,11 +2557,27 @@ createButtonSection(positions) {
             
         } catch (error) {
             console.error("Error generating AI suggestions:", error);
-            // Error processing suggestion results
+            console.error("llmEngine type:", typeof llmEngine);
+            console.error("llmEngine value:", llmEngine);
+            
+            // Clear suggestions on any error
             this.aiSuggestedWords = [];
             this.showSuggestions([]);
             if (this.autocompleteText) {
                 this.autocompleteText.setText('');
+            }
+            
+            // If it's a function call error, try to recover the engine
+            if (error.message.includes('llmEngine is not a function') || error.message.includes('not a function')) {
+                registryManager.attemptEngineRecovery((recoveredEngine) => {
+                    if (recoveredEngine && typeof recoveredEngine === 'function') {
+                        console.log("Engine recovered after error, retrying AI suggestions");
+                        // Use current user input for retry to ensure we get suggestions for current state
+                        if (this.userInput && (this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r'))) {
+                            this.generateAISuggestions(this.userInput);
+                        }
+                    }
+                });
             }
         } finally {
             this.isProcessingQueuedKeys = false; // Unlock queue processing at end
@@ -2998,10 +3081,15 @@ createButtonSection(positions) {
         
         this.userInput = this.userInput.slice(0, -1);
         this.updateCursor();
-        // Block queue until async suggestion generation is fully complete
-        this.aiSuggestedWords = [];
-        this.showSuggestions("");
-        this.generateAISuggestionsWithQueue(done);
+        
+        // Don't clear suggestions immediately - let them persist until next generation
+        // Only trigger new generation if we're at a word boundary after backspace
+        if (this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r')) {
+            this.generateAISuggestionsWithQueue(done);
+        } else {
+            // No new generation needed, just complete
+            if (done) done();
+        }
     }
 
     // Handle printable characters
@@ -3140,7 +3228,8 @@ createButtonSection(positions) {
                 }, 1000);
             });
         } else {
-            // No suggestions needed, clear the flag
+            // No suggestions needed, clear the flag but DON'T clear existing suggestions
+            // Suggestions should persist until the next generation cycle
             this.isGeneratingAISuggestions = false;
             if (done) done();
         }
@@ -6403,9 +6492,18 @@ this.aiCountText = this.add.text(
     
     // Update background based on the current streak
     updateBackgroundForStreak() {
-        // Simply call the scene's updateBackgroundForLevel method
-        // which will handle the background creation with the current streak value
-        this.updateBackgroundForLevel();
+        // Only update the background visually, don't trigger a full UI relayout
+        // which would destroy existing UI elements like suggestion boxes
+        this.time.delayedCall(0, () => {
+            // Clean up existing background elements first
+            if (this.background && this.background.active) {
+                // Clean up any existing streak-specific background elements
+                this.cleanupStreakVisuals();
+            }
+            
+            // Continue with background creation after cleanup
+            this._createBackgroundAfterCleanup();
+        });
     }
     
     // Celebrate streak milestones with special effects
@@ -6969,6 +7067,11 @@ this.aiCountText = this.add.text(
      * Clean up all suggestion-related visual elements
      */
     cleanupAllSuggestions() {
+        console.log("[SUGGESTIONS DEBUG] cleanupAllSuggestions called");
+        console.log("[SUGGESTIONS DEBUG] Stack trace:", new Error().stack);
+        console.log("[SUGGESTIONS DEBUG] Current suggestionBoxes length:", this.suggestionBoxes?.length || 0);
+        console.log("[SUGGESTIONS DEBUG] Current suggestionTexts length:", this.suggestionTexts?.length || 0);
+        
         // First clean up tracked elements with null safety
         if (this.suggestionBoxes && Array.isArray(this.suggestionBoxes) && this.suggestionBoxes.length > 0) {
             this.suggestionBoxes.forEach(box => {
@@ -7030,13 +7133,20 @@ this.aiCountText = this.add.text(
     }
 
     showSuggestions(words) {
+        console.log("[SUGGESTIONS DEBUG] showSuggestions called with:", words);
+        console.log("[SUGGESTIONS DEBUG] Current aiSuggestedWords before cleanup:", this.aiSuggestedWords);
+        
         // Performance optimization - measure time for suggestion rendering
         const startTime = performance.now();
         
         // Use the comprehensive cleanup method
         this.cleanupAllSuggestions();
+        console.log("[SUGGESTIONS DEBUG] After cleanupAllSuggestions, aiSuggestedWords is:", this.aiSuggestedWords);
 
-        if (!words || words.length === 0) return;
+        if (!words || words.length === 0) {
+            console.log("[SUGGESTIONS DEBUG] No words to show, returning early");
+            return;
+        }
 
         const padding = 20;
         const boxHeight = 30;

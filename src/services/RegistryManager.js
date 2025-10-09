@@ -105,41 +105,62 @@ class RegistryManager {
      * @param {Function} callback - Optional callback when recovery succeeds
      */
     attemptEngineRecovery(callback) {
+        console.log("Registry Manager: Attempting engine recovery...");
+        
         // Try immediate recovery
         const engine = this.recoverEngine();
-        if (engine) {
+        if (engine && typeof engine === 'function') {
+            console.log("Registry Manager: Immediate recovery successful");
             if (callback && typeof callback === 'function') {
-                callback(engine);
+                try {
+                    callback(engine);
+                } catch (error) {
+                    console.error("Registry Manager: Error in recovery callback:", error);
+                }
             }
             return engine;
         }
         
-        // Set up retries
-        const maxRetries = 3;
+        // Set up retries with better timing
+        const maxRetries = 5; // Increased from 3
         let currentRetry = 0;
         
         const attemptRecovery = () => {
+            currentRetry++;
+            console.log(`Registry Manager: Recovery attempt ${currentRetry}/${maxRetries}`);
+            
             const recoveredEngine = this.recoverEngine();
             
-            if (recoveredEngine) {
+            if (recoveredEngine && typeof recoveredEngine === 'function') {
+                console.log("Registry Manager: Engine recovery successful on attempt", currentRetry);
                 if (callback && typeof callback === 'function') {
-                    callback(recoveredEngine);
+                    try {
+                        // Use setTimeout to ensure callback executes in next tick
+                        setTimeout(() => {
+                            callback(recoveredEngine);
+                        }, 10);
+                    } catch (error) {
+                        console.error("Registry Manager: Error in recovery callback:", error);
+                    }
                 }
                 return recoveredEngine;
             }
             
-            currentRetry++;
             if (currentRetry >= maxRetries) {
-                console.error("Registry Manager: Engine recovery failed after multiple attempts");
+                console.error("Registry Manager: Engine recovery failed after", maxRetries, "attempts");
                 return null;
             }
             
-            console.log(`Registry Manager: Recovery attempt ${currentRetry}/${maxRetries}`);
-            setTimeout(attemptRecovery, 300);
+            // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms
+            const delay = Math.min(100 * Math.pow(2, currentRetry - 1), 1600);
+            console.log(`Registry Manager: Retrying in ${delay}ms...`);
+            setTimeout(attemptRecovery, delay);
             return null;
         };
         
-        return attemptRecovery();
+        // Start the retry process
+        setTimeout(attemptRecovery, 100);
+        return null;
     }
 
     /**

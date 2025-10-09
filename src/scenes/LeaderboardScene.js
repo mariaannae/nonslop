@@ -19,12 +19,14 @@ export default class LeaderboardScene extends Phaser.Scene {
         this.maxScrollY = 0;
         this.isDragging = false;
         this.lastPointerY = 0;
+        this.userResponse = null;
     }
 
     init(data) {
         this.mode = data.mode || 'easy';
         this.levelValue = data.levelValue || 1;
         this.score = data.score || 0;
+        this.userResponse = data.userResponse || null;
         //this.previousScene = data.previousScene || 'DoneScene';
 
         // Set colors based on mode
@@ -1355,7 +1357,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         };
         
         if (this.levelValue >= 4){
-            this.scene.start('GameOverScene', { ...resetData, mode: this.mode, levelValue: this.levelValue, score: this.score });
+            this.scene.start('GameOverScene', { ...resetData, mode: this.mode, levelValue: this.levelValue, score: this.score, userResponse: this.userResponse } );
         }
         else {
             // Use unified BaseGameScene with mode parameter

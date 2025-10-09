@@ -120,6 +120,8 @@ export default class GameOverScene extends Phaser.Scene {
   }
 
   create() {
+
+    console.log("GameOverScene create", this.mode, this.levelValue, this.score, this.userResponse)
     // Initialize scaling manager
     this.scalingManager = new ScalingManager(this);
     

@@ -23,6 +23,7 @@ export default class UsernameScene extends Phaser.Scene {
         this.scoreData = data.scoreData || null;
         this.username = data.username || '';
         this.levelValue = data.levelValue || 1;
+        this.userResponse = data.userResponse || null;
         console.log("UsernameScene initialized with mode:", this.mode);
         console.log("UsernameScene score data:", this.scoreData);
         console.log("UsernameScene levelValue:", this.levelValue);
@@ -781,7 +782,8 @@ export default class UsernameScene extends Phaser.Scene {
                         {
                             mode: this.mode,
                             levelValue: this.levelValue,
-                            previousScene: 'DoneScene'
+                            previousScene: 'DoneScene',
+                            userResponse: this.userResponse
                         },
                         600,
                         '#ff0000',

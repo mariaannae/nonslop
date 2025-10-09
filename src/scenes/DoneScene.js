@@ -490,7 +490,8 @@ export default class DoneScene extends Phaser.Scene {
         this.scene.start('UsernameScene', {
             mode: this.mode || 'easy',
             scoreData: testScoreData,
-            levelValue: this.levelValue || 1
+            levelValue: this.levelValue || 1,
+            userResponse: this.userInput || ''
         });
     }
     
