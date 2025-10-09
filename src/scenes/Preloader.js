@@ -453,7 +453,7 @@ export default class Preloader extends Phaser.Scene {
         const popupPadding = 40 * this.uiScale;
         
         // Create the consent text
-        const consentText = "This game was created by Maria Edwards under advisement from Julian Togelius for the purpose of academic research. Please be aware that your interactions and responses will be anonymized and stored. This data will be used solely for academic purposes.";
+        const consentText = "This simulation was constructed by Maria Edwards under the supervision of Julian Togelius, for the advancement of academic inquiry.\n\nYour behavior within this environment will be observed. Patterns extracted from your responses will be rendered anonymous and archived. The resulting data will serve one purpose only: to refine our understanding of human interaction.\n\nNo further assurances are provided.\n\n";
         
         // Get text style for consistent appearance
         const textStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
