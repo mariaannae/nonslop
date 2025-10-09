@@ -567,14 +567,8 @@ function getStreakIntensity(streak) {
 
 // Main entry point - updated to support streak-based effects
 export function createBackground(scene, backgroundConfig, levelValue = 1, wordStreak = 0) {
-  console.log("[BG] === createBackground START ===");
-  console.log("[BG] Scene:", scene.scene.key);
-  console.log("[BG] Config:", JSON.stringify(backgroundConfig));
-  console.log("[BG] Level:", levelValue, "Streak:", wordStreak);
-  
   // Check if scene is valid
   if (!scene || !scene.cameras || !scene.cameras.main) {
-    console.error("[BG] ERROR: Invalid scene or cameras not ready");
     return;
   }
   
@@ -585,59 +579,25 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
   const asset = backgroundConfig?.asset || null;
   const params = backgroundConfig?.params || {};
   
-  console.log("[BG] Dimensions:", width, "x", height);
-  console.log("[BG] Effect:", effect, "Color:", color);
-
-  // Force log all mobile detection info
-  console.log("[BG-DETECTION] === MOBILE DETECTION DEBUG ===");
-  console.log("[BG-DETECTION] navigator.userAgent:", navigator.userAgent);
-  console.log("[BG-DETECTION] window.innerWidth:", window.innerWidth);
-  console.log("[BG-DETECTION] window.innerHeight:", window.innerHeight);
-  console.log("[BG-DETECTION] screen.width:", screen.width);
-  console.log("[BG-DETECTION] screen.height:", screen.height);
-  console.log("[BG-DETECTION] navigator.maxTouchPoints:", navigator.maxTouchPoints);
-  console.log("[BG-DETECTION] 'ontouchstart' in window:", 'ontouchstart' in window);
-  
   // Use centralized mobile detection from dimensions.js
   const isMobile = isMobileDevice();
-  console.log("[BG-DETECTION] isMobileDevice() returned:", isMobile);
-  
-  // Also check what the mobile check conditions would be
-  const checkBubbles = effect === "bubbles";
-  const checkEasy = effect === "easy";
-  const checkElectric = effect === "electric";
-  const checkHard = effect === "hard";
-  const mobileCondition = isMobile && (checkBubbles || checkEasy || checkElectric || checkHard);
-  
-  console.log("[BG-DETECTION] effect check - bubbles:", checkBubbles, "easy:", checkEasy, "electric:", checkElectric, "hard:", checkHard);
-  console.log("[BG-DETECTION] Mobile path condition:", mobileCondition);
   
   // Calculate streak intensity (0-4)
   const streakIntensity = getStreakIntensity(wordStreak);
   
     // Mobile: use static background images with overlay
     if (isMobile && (effect === "bubbles" || effect === "easy" || effect === "electric" || effect === "hard")) {
-        console.log("[BG-MOBILE] === MOBILE BACKGROUND PATH ===");
-        
         // Determine the image key based on mode and level
         const mode = (effect === "bubbles" || effect === "easy") ? "easy" : "hard";
         // Cap level at 3 - any level above 3 should use level 3 background
         const cappedLevel = Math.min(levelValue, 3);
         const imageKey = `${mode}_lvl_${cappedLevel}`;
         
-        console.log(`[BG-MOBILE] Mode: ${mode}, Level: ${levelValue}`);
-        console.log(`[BG-MOBILE] Image key: ${imageKey}`);
-        console.log(`[BG-MOBILE] Canvas: ${width}x${height}`);
-        console.log(`[BG-MOBILE] Checking texture exists:`, scene.textures.exists(imageKey));
-        
         // IMPORTANT: Clear any camera background color that might be covering the image
         scene.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
     
     // Check if the texture exists
     if (!scene.textures.exists(imageKey)) {
-      console.error(`[BG-MOBILE] ERROR: Texture '${imageKey}' not found!`);
-      console.log(`[BG-MOBILE] Available textures:`, Object.keys(scene.textures.list).filter(k => k.includes('lvl')));
-      
       // For level 3, try fallback to level 2, then level 1
       let fallbackKey = null;
       if (levelValue === 3) {
@@ -645,10 +605,8 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         const fallbackLevel1 = `${mode}_lvl_1`;
         if (scene.textures.exists(fallbackLevel2)) {
           fallbackKey = fallbackLevel2;
-          console.log(`[BG-MOBILE] Using level 2 fallback for level 3: ${fallbackKey}`);
         } else if (scene.textures.exists(fallbackLevel1)) {
           fallbackKey = fallbackLevel1;
-          console.log(`[BG-MOBILE] Using level 1 fallback for level 3: ${fallbackKey}`);
         }
       }
       
@@ -659,7 +617,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         const centerX = scene.cameras.main.centerX;
         const centerY = scene.cameras.main.centerY;
         
-        console.log(`[BG-MOBILE] Creating background with fallback: ${fallbackKey}`);
         scene.background = scene.add.image(centerX, centerY, fallbackKey)
           .setOrigin(0.5, 0.5)
           .setDepth(-100);
@@ -672,7 +629,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         const scale = Math.max(scaleX, scaleY) * 1.1;
         
         scene.background.setScale(scale);
-        console.log(`[BG-MOBILE] Fallback background created successfully!`);
         
         // Add black overlay for fallback
         
@@ -688,21 +644,17 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
             .setOrigin(0.5, 0.5)
             .setDepth(-99);
           scene.background.overlay = overlay;
-          console.log(`[BG-MOBILE] Fallback: Black overlay created with opacity ${overlayOpacity}`);
         }
         
-        console.log("[BG-MOBILE] === MOBILE BACKGROUND COMPLETE (FALLBACK) ===");
         return;
       }
       
       // Try to load the texture if it's missing
       const imagePath = `assets/backgrounds/${imageKey}.png`;
-      console.log(`[MOBILE BG] Attempting to load missing texture from: ${imagePath}`);
       
       // Load the missing texture
       scene.load.image(imageKey, imagePath);
       scene.load.once('complete', () => {
-        console.log(`[MOBILE BG] Texture loaded, creating background image`);
         // Get camera dimensions at load time
         const cameraWidth = scene.cameras.main.width;
         const cameraHeight = scene.cameras.main.height;
@@ -738,9 +690,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     const centerX = scene.cameras.main.centerX;
     const centerY = scene.cameras.main.centerY;
     
-    console.log(`[BG-MOBILE] Creating background image...`);
-    console.log(`[BG-MOBILE] Camera: ${cameraWidth}x${cameraHeight}, center: (${centerX}, ${centerY})`);
-    
     // Create static background image at camera center
     scene.background = scene.add.image(centerX, centerY, imageKey)
       .setOrigin(0.5, 0.5)
@@ -755,19 +704,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     
     scene.background.setScale(scale);
     
-    console.log(`[BG-MOBILE] Background created successfully!`);
-    console.log(`[BG-MOBILE] - Type:`, scene.background.type);
-    console.log(`[BG-MOBILE] - Position:`, scene.background.x, scene.background.y);
-    console.log(`[BG-MOBILE] - Scale:`, scene.background.scaleX, scene.background.scaleY);
-    console.log(`[BG-MOBILE] - Depth:`, scene.background.depth);
-    console.log(`[BG-MOBILE] - Visible:`, scene.background.visible);
-    console.log(`[BG-MOBILE] - Alpha:`, scene.background.alpha);
-    
-    // Log display list to see what's rendering
-    console.log(`[BG-MOBILE] Display list count:`, scene.children.list.length);
-    const bgInList = scene.children.list.find(child => child === scene.background);
-    console.log(`[BG-MOBILE] Background in display list:`, !!bgInList);
-    
     // Add semi-opaque  overlay that becomes more transparent with streak
     const overlayColor = mode === "easy" ? EASY_COLORS_HEX.BACKGROUND : HARD_COLORS_HEX.BACKGROUND;
 
@@ -776,7 +712,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     // More noticeable reduction per streak intensity level
     const opacityReduction = streakIntensity * 0.05; // Reduce by 5% per intensity level
     const overlayOpacity = Math.max(0.1, baseOpacity - opacityReduction); // Keep minimum opacity at 0.1
-    console.log(`[BG-MOBILE] Black overlay - intensity: ${streakIntensity}, opacity: ${overlayOpacity}`);
     
     if (overlayOpacity > 0) {
       const overlay = scene.add.rectangle(centerX, centerY, cameraWidth, cameraHeight, overlayColor, overlayOpacity)
@@ -785,8 +720,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
       
       // Store overlay reference for potential cleanup
       scene.background.overlay = overlay;
-      
-      console.log(`[BG-MOBILE] Black overlay created at depth ${overlay.depth}`);
     }
     
     // Removed colored tint overlay for streaks ≥ 2 on mobile
@@ -794,8 +727,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
     
     // Add enhanced multi-layered border effects for mobile when streak > 0
     if (wordStreak > 0 && streakIntensity >= 1) {
-      console.log(`[BG-MOBILE] Adding enhanced border effects for streak ${wordStreak}`);
-      
       // Use mode-appropriate color
       const borderColor = mode === "easy" ? 0x00ffff : 0xff00ff; // Cyan for easy, magenta for hard
       
@@ -899,20 +830,11 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
       // Store main border for cleanup (outer glow will be cleaned up with it)
       scene.background.streakBorder = mainBorder;
       scene.background.outerGlow = outerGlow;
-      
-      console.log(`[BG-MOBILE] Enhanced border effects created:`);
-      console.log(`  - Layers: ${borderLayers.length}`);
-      console.log(`  - Border width: ${borderWidth}px`);
-      console.log(`  - Alpha: ${borderAlpha}`);
-      console.log(`  - Pulse duration: ${pulseDuration}ms`);
-      console.log(`  - Pulse intensity: ${pulseIntensity}`);
     }
     
     // Exit early - don't fall through to desktop code
-    console.log("[BG-MOBILE] === MOBILE BACKGROUND COMPLETE ===");
     return;
   } else {
-    console.log("[BG-DESKTOP] === DESKTOP BACKGROUND PATH ===");
     // Desktop: keep procedural generation
     // Static image background (for other cases)
     if (effect === "static" && asset) {
@@ -955,9 +877,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
   const scaleRange = 0.03 + (streakIntensity * 0.015); // 0.03 to 0.09
   const durationBase = 8000 - (streakIntensity * 1500); // 8000 to 2000ms
   
-  console.log(`Background effects for streak intensity: ${streakIntensity}, streak: ${wordStreak}`);
-  
-  
   // More dramatic pulsing effect
   scene.tweens.add({
     targets: scene.background,
@@ -981,8 +900,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
   
   // Only apply streak-specific effects when streak > 0
   if (wordStreak > 0) {
-    console.log(`Applying all streak effects for streak: ${wordStreak}, intensity: ${streakIntensity}`);
-    
     // Add effects for ALL streak levels, with increasing intensity
     if (streakIntensity >= 1) {
       // Even at low streaks, add a subtle rotation
@@ -1081,7 +998,7 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         // Store reference for cleanup
         scene.background.particles = particles;
       } catch (e) {
-        console.error("Error creating streak particles:", e);
+        // Silently handle errors
       }
     }
     
@@ -1163,8 +1080,6 @@ export function createBackground(scene, backgroundConfig, levelValue = 1, wordSt
         scene.background.flares = flares;
       }
     }
-  } else {
-    console.log("No streak effects applied - streak is 0");
   }
   }
 }

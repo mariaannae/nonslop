@@ -1050,7 +1050,7 @@ export default class BaseGameScene extends Phaser.Scene {
                 alpha: this.background.alpha
             });
         } else {
-            console.error("[BG-DEBUG] ERROR: this.background is null!");
+            console.error("[BG-DEBUG] ERROR: this.background not yet created");
         }
         
         // Store initial window height for keyboard detection fallback
@@ -1444,7 +1444,7 @@ if (typeof this.add.rexBBCodeText === "function") {
     }
 
     /**
-     * Create buttons and progress bar
+     * Create buttons
      * @param {object} positions - Calculated positions object
      */
 createButtonSection(positions) {
@@ -1460,12 +1460,6 @@ createButtonSection(positions) {
     const buttonY = this.inputBoxY + this.inputBoxHeight + positions.buttonVerticalGap + 
                    (positions.buttonHeight / 2);
 
-        // Create progress bar
-        this.createFailsCounter();
-        const progressBarX = sm.centerX() - this.uiBoxWidth / 2 + positions.horizontalOffset;
-        const progressBarY = buttonY - (positions.buttonHeight / 2);
-        this.failsCounter.setPosition(progressBarX, progressBarY).setDepth(50);
-
         // Create done button
         this.doneButton = this.createButton(
             "DONE",
@@ -1477,23 +1471,7 @@ createButtonSection(positions) {
 
         // Create feedback button
         let feedbackButtonX = sm.scaleValue(30) + positions.buttonWidth / 2;
-        
-        // Detect if device is iPad to adjust the feedback button position
-        const isIPad = /ipad/i.test(navigator.userAgent) || 
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        
-        // For iPad, position the feedback button to the left of the progress bar
-        // to prevent overlap with the progress bar
-        let feedbackButtonY;
-        if (isIPad) {
-            // Position at the same Y level as the progress bar (failsCounter)
-            feedbackButtonY = progressBarY;
-            // Position to the left side of the screen
-            feedbackButtonX = sm.scaleValue(30) + positions.buttonWidth / 2;
-        } else {
-            // For other devices, keep the original bottom positioning
-            feedbackButtonY = this.cameras.main.height - positions.buttonHeight / 2 - sm.scaleValue(30);
-        }
+        let feedbackButtonY = this.cameras.main.height - positions.buttonHeight / 2 - sm.scaleValue(30);
         
         // Ensure the button stays within screen bounds
         feedbackButtonX = Phaser.Math.Clamp(feedbackButtonX, positions.buttonWidth / 2, 
@@ -2383,7 +2361,7 @@ createButtonSection(positions) {
         // Performance measurement - start
         const startTime = performance.now();
         
-        // Track the request ID and input for this invocation
+        // ALWAYS increment request ID to ensure no caching - force fresh generation every time
         const requestId = ++this.suggestionRequestId;
         const inputAtRequest = userInput;
 
@@ -2458,9 +2436,8 @@ createButtonSection(positions) {
         }
     
         // Optimize context - only include last 50 characters of context to reduce token count
-        const optimizedContext = context.length > 50 ? '...' + context.slice(-50) : context;
+        const optimizedContext = context.length > 200 ? '...' + context.slice(-200) : context;
         const trimmedcontext = this.currentPrompt + ": " + optimizedContext.trim();
-        console.log("DEBUG: LLM output:");
         // Add retry logic
         try {
             // Double-check the engine is still valid before calling it
@@ -2474,39 +2451,99 @@ createButtonSection(positions) {
                 throw new Error('LLM engine is not available or does not have required API');
             }
             console.log("DEBUG: Calling LLM engine with context:", trimmedcontext);
+            
+            // More aggressive cache-busting strategies
+            const uniqueId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            // MUCH larger temperature variation to force different outputs
+            const baseTemp = this.temperature || 0.2;
+            const tempVariation = Math.random() * 0.4 - 0.2; // Random between -0.2 and +0.2
+            const finalTemp = Math.max(0.1, Math.min(1.5, baseTemp + tempVariation));
+            
+            // Add random invisible characters to the context to force cache miss
+            // These shouldn't affect the meaning but will change the input hash
+            const invisibleChars = ['\u200B', '\u200C', '\u200D', '\uFEFF']; // Zero-width spaces
+            const randomInvisible = invisibleChars[Math.floor(Math.random() * invisibleChars.length)];
+            const randomPosition = Math.floor(Math.random() * 3); // Add at beginning, middle, or end
+            
+            let modifiedContext = trimmedcontext;
+            if (randomPosition === 0) {
+                modifiedContext = randomInvisible + trimmedcontext;
+            } else if (randomPosition === 1 && trimmedcontext.length > 10) {
+                const mid = Math.floor(trimmedcontext.length / 2);
+                modifiedContext = trimmedcontext.slice(0, mid) + randomInvisible + trimmedcontext.slice(mid);
+            } else {
+                modifiedContext = trimmedcontext + randomInvisible;
+            }
+            
+            // Add a unique suffix that won't affect the meaning but will change the cache key
+            const cacheBuster = ` [${uniqueId}]`;
+            modifiedContext = modifiedContext + cacheBuster;
+            
+            console.log("DEBUG: Modified context with cache-busters:", {
+                originalLength: trimmedcontext.length,
+                modifiedLength: modifiedContext.length,
+                temperature: finalTemp,
+                uniqueId: uniqueId
+            });
+            
+            // WORKAROUND: Force each call to be treated as a completely new conversation
+            // by using a unique conversation ID in the system message
+            // and adding more aggressive randomization
+            const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            // Create a completely fresh message array with unique formatting
+            // to break any conversation caching
+            const messages = [
+                {
+                    role: "system", 
+                    content: `[SESSION: ${conversationId}] You are a text completion assistant. Complete the following text with exactly ONE word. Session ID: ${uniqueId}. Random value: ${Math.random()}`
+                },
+                {
+                    role: "user",
+                    content: `Complete this text with the next word: "${modifiedContext}"\nProvide only one word. [REQ: ${uniqueId}]`
+                }
+            ];
+            
+            console.log("DEBUG: Calling LLM with temperature:", finalTemp);
+            console.log("DEBUG: Conversation ID:", conversationId);
+            
+            // Note: resetChat doesn't exist on web-llm, but we can try to break context
+            // by using unique conversation patterns
+            
             // Use the engine from registry manager (MLC-AI WebLLM engine)
             const response = await llmEngine.chat.completions.create({
-                messages: [
-                    {
-                        role: "user",
-                        content: trimmedcontext
-                    }
-                ],
+                messages: messages,
                 max_tokens: 1,
                 n: 1,
                 top_logprobs: 5,
-                logprobs:true,
-                temperature: this.temperature,
-                stream: false
+                logprobs: true,
+                temperature: finalTemp, // Use significantly varied temperature
+                stream: false,
+                seed: Math.floor(Math.random() * 10000000), // Different seed each time
+                // Add more randomization parameters
+                presence_penalty: Math.random() * 0.2, // Increased penalty range
+                frequency_penalty: Math.random() * 0.2, // Increased penalty range
+                top_p: 0.9 + Math.random() * 0.1 // Add top_p variation
             });
             
-            console.log("DEBUG: LLM raw response:", response);
+            // Detailed debugging to understand the caching issue
+            console.log("DEBUG: LLM raw response:", JSON.stringify(response, null, 2));
+            console.log("DEBUG: Response ID:", response.id);
+            console.log("DEBUG: Response created timestamp:", response.created);
+            
             const logprobs = response.choices[0].logprobs.content[0].top_logprobs;
             console.log("DEBUG: Top logprobs:", logprobs);
             
+            // Log the actual tokens and their probabilities
+            if (logprobs && Array.isArray(logprobs)) {
+                logprobs.forEach((item, index) => {
+                    console.log(`DEBUG: Suggestion ${index}: token="${item.token}", logprob=${item.logprob}`);
+                });
+            }
+            
             // Only process the result if this is the latest request AND input matches current userInput
             if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
-                this.isProcessingQueuedKeys = false;
-                return;
-            }
-
-            // Check if we're still at a word boundary - only update suggestions at word boundaries
-            const stillAtWordBoundary = this.userInput.endsWith(' ') || 
-                                       this.userInput.endsWith('\n') || 
-                                       this.userInput.endsWith('\r');
-            
-            if (!stillAtWordBoundary) {
-                // User is mid-word, don't update suggestions (let them persist)
                 this.isProcessingQueuedKeys = false;
                 return;
             }
@@ -2908,8 +2945,8 @@ createButtonSection(positions) {
                                         if (this._hiddenInput) {
                                             this._hiddenInput.value = this.userInput;
                                         }
-                                        // Don't update fail counter or streak when word is deleted
-                                        // The word was prevented from being added, so no streak change
+                                        // FIX: Still need to count AI word attempts and break streak
+                                        this.updateFailsCounter(false);
                                     } else {
                                         // Easy mode - just update counter and shake
                                         this.updateFailsCounter(false);
@@ -2926,6 +2963,13 @@ createButtonSection(positions) {
         } catch (error) {
             console.error("Error processing space key:", error);
             // Continue even if there's an error with word checking
+        }
+        
+        // NOW clear old suggestions after checking the word
+        this.aiSuggestedWords = [];
+        this.showSuggestions([]);
+        if (this.autocompleteText) {
+            this.autocompleteText.setText('');
         }
         
         // Reset timer when space is pressed (hard mode only)
@@ -2981,6 +3025,8 @@ createButtonSection(positions) {
                     if (typeof this.showBlockFeedback === 'function') {
                         this.showBlockFeedback(suggestionToUse);
                     }
+                    // FIX: Still need to count AI word attempts and break streak
+                    this.updateFailsCounter(false);
                     // Don't add the word to input
                     if (done) done();
                     return;
@@ -3040,8 +3086,8 @@ createButtonSection(positions) {
                             if (this._hiddenInput) {
                                 this._hiddenInput.value = this.userInput;
                             }
-                            // Don't update fail counter or streak when word is deleted
-                            // The word was prevented from being added, so no streak change
+                            // FIX: Still need to count AI word attempts and break streak
+                            this.updateFailsCounter(false);
                         } else {
                             // Easy mode - just update counter and shake
                             this.updateFailsCounter(false);
@@ -3052,6 +3098,13 @@ createButtonSection(positions) {
                     }
                 }
             }
+        }
+        
+        // NOW clear old suggestions after checking the word
+        this.aiSuggestedWords = [];
+        this.showSuggestions([]);
+        if (this.autocompleteText) {
+            this.autocompleteText.setText('');
         }
         
         // Reset timer when Enter is pressed (hard mode only)
@@ -3080,14 +3133,26 @@ createButtonSection(positions) {
         }
         
         this.userInput = this.userInput.slice(0, -1);
+        
+        // Check if we're at a word boundary after backspace
+        const atWordBoundary = this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r');
+        
+        // Clear suggestions ONLY when at word boundary
+        if (atWordBoundary) {
+            this.aiSuggestedWords = [];
+            this.showSuggestions([]);
+            if (this.autocompleteText) {
+                this.autocompleteText.setText('');
+            }
+        }
+        
         this.updateCursor();
         
-        // Don't clear suggestions immediately - let them persist until next generation
-        // Only trigger new generation if we're at a word boundary after backspace
-        if (this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r')) {
+        // Always trigger new generation at word boundaries to refresh suggestions
+        if (atWordBoundary) {
             this.generateAISuggestionsWithQueue(done);
         } else {
-            // No new generation needed, just complete
+            // Mid-word: don't clear suggestions, just complete
             if (done) done();
         }
     }
@@ -7068,7 +7133,6 @@ this.aiCountText = this.add.text(
      */
     cleanupAllSuggestions() {
         console.log("[SUGGESTIONS DEBUG] cleanupAllSuggestions called");
-        console.log("[SUGGESTIONS DEBUG] Stack trace:", new Error().stack);
         console.log("[SUGGESTIONS DEBUG] Current suggestionBoxes length:", this.suggestionBoxes?.length || 0);
         console.log("[SUGGESTIONS DEBUG] Current suggestionTexts length:", this.suggestionTexts?.length || 0);
         
@@ -7352,28 +7416,22 @@ this.aiCountText = this.add.text(
      * Update background based on current level and streak
      */
     updateBackgroundForLevel() {
-        console.log("[MOBILE BG DEBUG] updateBackgroundForLevel called");
-        console.log("[MOBILE BG DEBUG] Current scene:", this.scene.key);
-        console.log("[MOBILE BG DEBUG] Mode:", this.mode);
-        console.log("[MOBILE BG DEBUG] Level:", this.levelValue);
-        
+ 
         // Defer cleanup to next frame to avoid rendering conflicts on Android
         this.time.delayedCall(0, () => {
             // Clean up existing background elements first
             if (this.background && this.background.active) {
-                console.log("[MOBILE BG DEBUG] Destroying existing background");
+
                 
                 // IMPORTANT: Clean up the overlay BEFORE destroying the background
                 // This prevents overlays from stacking on mobile
                 if (this.background.overlay && this.background.overlay.active) {
-                    console.log("[MOBILE BG DEBUG] Destroying existing overlay");
                     this.background.overlay.destroy();
                     this.background.overlay = null;
                 }
                 
                 // Also clean up any tint overlay if it exists
                 if (this.background.tintOverlay && this.background.tintOverlay.active) {
-                    console.log("[MOBILE BG DEBUG] Destroying existing tint overlay");
                     this.background.tintOverlay.destroy();
                     this.background.tintOverlay = null;
                 }
@@ -7403,11 +7461,7 @@ this.aiCountText = this.add.text(
         const bgConfig = THEMES[this.mode]?.background;
         const w = this.sys.game.config.width || this.cameras.main.width;
         const h = this.sys.game.config.height || this.cameras.main.height;
-        console.log("[MOBILE BG DEBUG] bgConfig:", bgConfig);
-        console.log("[MOBILE BG DEBUG] Canvas size:", w, "x", h);
-        console.log("[MOBILE BG DEBUG] isMobile:", this.isMobile);
-        console.log("[MOBILE BG DEBUG] navigator.userAgent:", navigator.userAgent);
-        console.log("[MOBILE BG DEBUG] window.innerWidth:", window.innerWidth);
+
         
         if (!bgConfig) {
             console.error("[MOBILE BG DEBUG] No background config found for mode:", this.mode);
@@ -7415,7 +7469,6 @@ this.aiCountText = this.add.text(
         }
         
         if (!w || !h || w < 10 || h < 10) {
-            console.warn("[MOBILE BG DEBUG] Background creation delayed: invalid canvas size", w, h);
             this.time.delayedCall(50, () => this.updateBackgroundForLevel());
             return;
         }

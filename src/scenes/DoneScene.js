@@ -174,6 +174,86 @@ export default class DoneScene extends Phaser.Scene {
         });
     }
 
+    // Column version of input box (explicit rect)
+    createInputTextBoxAtRect({ x, y, width, height }) {
+      const deviceType = detectDeviceType();
+      const style = getTextStyle('input', deviceType, this.mode || 'basic', this.uiScale || 1);
+      const boxStyle = getBoxStyle('input', this.mode || 'basic', this.uiScale || 1);
+      const padding = this.scalingManager?.scaleValue(30) ?? 30;
+
+      const displayText = "Prompt: " + this.prompt + "\n" + "Response: " + this.userInput;
+
+      // Text first (for wrap)
+      const innerW = Math.max(0, width - padding * 2);
+      const textObj = this.add.text(0, 0, displayText, { ...style, wordWrap: { width: innerW, useAdvancedWrap: true }})
+        .setOrigin(0, 0);
+
+      // Container
+      const container = this.add.container(x, y);
+      const bg = this.add.graphics();
+      container.add(bg);
+      container.add(textObj);
+
+      // Draw rounded box + outline
+      bg.fillStyle(boxStyle.backgroundColor ?? 0x000000, boxStyle.backgroundAlpha ?? 0.2);
+      bg.fillRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
+      if (boxStyle.outlineWidth) {
+        bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+        bg.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
+      }
+
+      // Position text inside padding and add mask clip
+      textObj.setPosition(padding, padding);
+      const maskShape = this.add.graphics().fillRect(x + 0, y + 0, width, height);
+      const mask = maskShape.createGeometryMask();
+      container.setMask(mask);
+
+      // Store state for scrolling
+      this._inputBox = {
+        container, width, height,
+        padding: { top: padding, bottom: padding, left: padding, right: padding },
+        textObj
+      };
+    }
+
+    // Column version of output box (explicit rect)
+    createOutputTextBoxAtRect({ x, y, width, height }) {
+      const deviceType = detectDeviceType();
+      const style = getTextStyle('output', deviceType, this.mode || 'basic', this.uiScale || 1);
+      const boxStyle = getBoxStyle('output', this.mode || 'basic', this.uiScale || 1);
+      const padding = this.scalingManager?.scaleValue(30) ?? 30;
+
+      const innerW = Math.max(0, width - padding * 2);
+      const textObj = this.add.text(0, 0, this.evaluation || "", { ...style, wordWrap: { width: innerW, useAdvancedWrap: true }})
+        .setOrigin(0, 0);
+
+      const container = this.add.container(x, y);
+      const bg = this.add.graphics();
+      container.add(bg);
+      container.add(textObj);
+
+      bg.fillStyle(boxStyle.backgroundColor ?? 0x000000, boxStyle.backgroundAlpha ?? 0.2);
+      bg.fillRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
+      if (boxStyle.outlineWidth) {
+        bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+        bg.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
+      }
+
+      textObj.setPosition(padding, padding);
+      const maskShape = this.add.graphics().fillRect(x + 0, y + 0, width, height);
+      const mask = maskShape.createGeometryMask();
+      container.setMask(mask);
+
+      this._outputBox = {
+        container, width, height,
+        padding: { top: padding, bottom: padding, left: padding, right: padding },
+        textObj
+      };
+    }
+
+
+
+
     // Enhanced scroll event that supports both desktop (wheel) and mobile (touch)
     addScrollEvent() {
         // Initialize scroll position
@@ -856,6 +936,145 @@ export default class DoneScene extends Phaser.Scene {
         return getBoxStyle('prompt', this.mode || 'basic', uiScale);
     }
    
+    // --- LAYOUT: compute two-column geometry (desktop only)
+    layoutTwoColumns(topY) {
+      const safe = this.safeAreaInsets ?? { left: 0, right: 0, bottom: 0 };
+      const fullW = this.uiBoxWidth;
+      const centerX = this.cameras.main.centerX;
+
+      const gutter = this.scalingManager?.scaleValue(30) ?? 30;
+      const colWidth = (fullW - gutter) / 2;
+
+      // Fallback to stacked if too narrow
+      if (colWidth < 400) return { mode: 'stacked' };
+
+      const leftEdge = centerX - fullW / 2;
+      const xLeft = leftEdge;
+      const xRight = leftEdge + colWidth + gutter;
+
+      // Equal heights that fit above the bottom buttons
+      const bottomReserved = Math.max(120, this.scalingManager?.scaleValue(120) ?? 120) + (safe.bottom || 0);
+      const colHeight = Math.floor(this.scale.height - bottomReserved - topY);
+
+      return { mode: 'columns', xLeft, xRight, colWidth, topY, colHeight };
+    }
+
+    // --- BUTTONS: anchor to corners (safe-area aware) WITHOUT setOrigin ---
+    placeBottomButtons() {
+      const safe = this.safeAreaInsets ?? { left: 0, right: 0, bottom: 0 };
+      const gap  = this.scalingManager?.scaleValue(16) ?? 16;
+
+      // helper that returns display size for most Phaser objects (Container, Image, Text)
+      const getSize = (obj) => {
+        if (!obj) return { w: 0, h: 0 };
+        // Container has width/height; Images/Text have displayWidth/Height; fall back to getBounds
+        const w = obj.displayWidth ?? obj.width ?? obj.getBounds?.().width  ?? 0;
+        const h = obj.displayHeight ?? obj.height ?? obj.getBounds?.().height ?? 0;
+        return { w, h };
+      };
+
+      // FEEDBACK: bottom-left
+      if (this.feedbackButton) {
+        const { w, h } = getSize(this.feedbackButton);
+        const x = gap + (safe.left || 0);
+        const y = this.scale.height - gap - (safe.bottom || 0) - h;
+        this.feedbackButton.setPosition(x, y);
+      }
+
+      // NEXT: bottom-right
+      if (this.doneButton) {
+        const { w, h } = getSize(this.doneButton);
+        const x = this.scale.width - gap - (safe.right || 0) - w;
+        const y = this.scale.height - gap - (safe.bottom || 0) - h;
+        this.doneButton.setPosition(x, y);
+      }
+    }
+
+
+    addScrollForBox(box) {
+      const { container, width, height, padding, textObj } = box;
+
+      // Transparent hit area inside the box container
+      const hit = this.add.rectangle(0, 0, width, height, 0x000000, 0)
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: false });
+      container.add(hit);
+
+      // Track hover state explicitly (so we don't rely on pointerOver())
+      hit._isOver = false;
+      hit.on('pointerover', () => { hit._isOver = true; });
+      hit.on('pointerout',  () => { hit._isOver = false; });
+
+      // Measure content & scrolling
+      const contentH = textObj.getTextBounds?.().local?.height ?? textObj.height;
+      const innerH   = height - (padding.top + padding.bottom);
+      box.maxScroll  = Math.max(0, contentH - innerH);
+      box.scrollY    = 0;
+      box._baseTextY = padding.top;
+
+      const setScroll = (y) => {
+        box.scrollY = Phaser.Math.Clamp(y, 0, box.maxScroll);
+        textObj.setY(box._baseTextY - box.scrollY);
+        this.updateScrollIndicator(box);
+      };
+
+      // Wheel handler: (pointer, currentlyOver, dx, dy, dz, event)
+      const onWheel = (_pointer, _over, dx, dy) => {
+        if (!hit._isOver) return;          // only scroll when pointer is over this box
+        if (box.maxScroll <= 0) return;    // no overflow, nothing to scroll
+        setScroll(box.scrollY + dy * 0.6); // dampen wheel speed
+      };
+      this.input.on('wheel', onWheel);
+      box._offWheel = () => this.input.off('wheel', onWheel);
+
+      // Drag-to-scroll (works on desktop & touch)
+      let dragStartY = null, startScroll = 0;
+      hit.on('pointerdown', (p) => { dragStartY = p.worldY; startScroll = box.scrollY; });
+      hit.on('pointermove', (p) => {
+        if (!p.isDown || dragStartY == null) return;
+        setScroll(startScroll - (p.worldY - dragStartY));
+      });
+      hit.on('pointerup',   () => { dragStartY = null; });
+      hit.on('pointerupoutside', () => { dragStartY = null; });
+
+      // Scroll indicator (only shows if overflow)
+      box._indicator = this.makeScrollIndicator(container, width, height);
+      this.updateScrollIndicator(box);
+
+      // Clean up listener when scene shuts down (optional but good hygiene)
+      this.events.once('shutdown', () => {
+        box._offWheel && box._offWheel();
+      });
+    }
+
+
+    makeScrollIndicator(parent, w, h) {
+      const g = parent.scene.add.graphics();
+      parent.add(g);
+      g.setScrollFactor?.(0);
+      return { g, w, h, visible: false };
+    }
+
+    updateScrollIndicator(box) {
+      const ind = box._indicator;
+      const needs = (box.maxScroll || 0) > 0;
+      ind.visible = needs;
+      ind.g.clear();
+      if (!needs) return;
+
+      const barW = 4;
+      const pad = 8;
+      const trackH = ind.h - pad * 2;
+      const ratio = (box.scrollY / box.maxScroll) || 0;
+      const barH = Math.max(24, trackH * 0.25);
+      const barY = pad + (trackH - barH) * ratio;
+      const x = ind.w - pad - barW;
+
+      ind.g.fillStyle(0x000000, 0.18).fillRoundedRect(x, pad, barW, trackH, 2);
+      ind.g.fillStyle(0xffffff, 0.9).fillRoundedRect(x, barY, barW, barH, 2);
+    }
+
+
     init(data) {
         // Always reset transition flag on scene entry
         this.isTransitioning = false;
@@ -935,169 +1154,146 @@ export default class DoneScene extends Phaser.Scene {
 
 
     async create() {
-        // Use global UI scale for all elements
-        this.uiScale = this.registry.get('uiScale') || 1;
+      // --- unchanged bootstrapping ---
+      this.uiScale = this.registry.get('uiScale') || 1;
+      this.cameras.main.scrollY = 0;
+      this.scalingManager = new ScalingManager(this);
 
-        this.cameras.main.scrollY = 0;
+      if (this.mode === "easy")      createBackground(this, THEMES.easy.background, this.levelValue);
+      else if (this.mode === "hard") createBackground(this, THEMES.hard.background, this.levelValue);
+      else                           this.createBackgroundEffect();
 
-        // Initialize scaling manager for responsive UI
-        this.scalingManager = new ScalingManager(this);
+      // --- unchanged scoring logic ---
+      let xOver5Digits = [];
+      if (typeof this.evaluation === "string") {
+        const regex = /\b(\d)\/5\b/g;
+        let match;
+        while ((match = regex.exec(this.evaluation)) !== null) xOver5Digits.push(match[1]);
+      }
+      const sumArray = (arr) => arr.reduce((acc, val) => acc + Number(val), 0);
+      this.aiScore = sumArray(xOver5Digits);
+      this.failCountScore = Math.min(this.failCount, 15);
+      this.totalScore = this.aiScore - this.failCountScore;
 
-        // Use the same background based on mode and level
-        if (this.mode === "easy") {
-            createBackground(this, THEMES.easy.background, this.levelValue);
-        } else if (this.mode === "hard") {
-            createBackground(this, THEMES.hard.background, this.levelValue);
-        } else {
-            // Fallback to the old background effect if mode is invalid
-            this.createBackgroundEffect();
+      if (typeof this.userInput === "string" && this.userInput.trim() === "") {
+        this.totalScore = 0;
+      }
+
+      // --- prompt first; we’ll lay out relative to it ---
+      this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
+      this.createPromptTextBox();
+
+      const promptPadding = this.scalingManager.scaleValue(30);
+      const promptBottom  = this.promptBoxY + this.promptText.height + promptPadding * 2;
+      const topY          = promptBottom + this.scalingManager.scaleValue(30);
+
+      // --- responsive layout switch: columns on desktop, stacked on mobile ---
+      const isMobileUA = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+      const isNarrow   = (typeof window !== 'undefined' && window.innerWidth <= 900);
+      const isStacked  = isMobileUA || isNarrow;
+
+      // We’ll keep references to whether we used columns or not
+      let usedColumns = false;
+
+      if (!isStacked) {
+        // Try two-column layout; if too narrow, helper returns { mode: 'stacked' }
+        const layout = this.layoutTwoColumns(topY);
+        if (layout.mode === 'columns') {
+          usedColumns = true;
+
+          // Left: INPUT  |  Right: OUTPUT   (equal heights; never exceed canvas)
+          this.createInputTextBoxAtRect({
+            x: layout.xLeft,
+            y: layout.topY,
+            width:  layout.colWidth,
+            height: layout.colHeight
+          });
+          this.createOutputTextBoxAtRect({
+            x: layout.xRight,
+            y: layout.topY,
+            width:  layout.colWidth,
+            height: layout.colHeight
+          });
+
+          // Independent scroll + indicator per column (only shows if overflow)
+          if (this._inputBox)  this.addScrollForBox(this._inputBox);
+          if (this._outputBox) this.addScrollForBox(this._outputBox);
         }
+      }
 
-        // Extract all digits X in the form X/5 from this.evaluation, in order
-        let xOver5Digits = [];
-        if (typeof this.evaluation === "string") {
-            const regex = /\b(\d)\/5\b/g;
-            let match;
-            while ((match = regex.exec(this.evaluation)) !== null) {
-                xOver5Digits.push(match[1]);
-            }
-            console.log("Digits in X/5 form:", xOver5Digits);
-        }
-        function sumArray(arr) {
-          return arr.reduce((acc, val) => acc + Number(val), 0);
-        }
-        this.aiScore = sumArray(xOver5Digits);
-        //const wordCountScore = Math.min(this.totalWordCount, 20);
-        this.failCountScore = Math.min(this.failCount, 15);
-        this.totalScore = this.aiScore - this.failCountScore;
-        //this.totalScore = 15;
-
-
-        // Ensure score is 0 if userInput is empty or only whitespace
-        if (typeof this.userInput === "string" && this.userInput.trim() === "") {
-            this.totalScore = 0;
-        }
-
-        // Input Box Creation
-        this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
-
-        // Create prompt first so we can position input box relative to it
-        this.createPromptTextBox();
-
-        // Calculate y for input box: bottom of prompt box + scaled spacing
-        const promptPadding = this.scalingManager.scaleValue(30);
-        const promptBottom = this.promptBoxY + this.promptText.height + promptPadding * 2;
-        const inputBoxY = promptBottom + this.scalingManager.scaleValue(30);
-
-        // Create input text box and get its height
+      if (!usedColumns) {
+        // --- original stacked behavior (mobile/small screens or fallback) ---
+        const inputBoxY = topY;
         this.createInputTextBox(inputBoxY);
-        // inputTextBorder is the border, its y and height are used for placement
 
-        // Debug: log inputBoxY and inputBoxHeight
+        // (optional) logs you had
         if (typeof this.inputBoxY !== "undefined" && typeof this.inputBoxHeight !== "undefined") {
-            console.log("inputBoxY:", this.inputBoxY, "inputBoxHeight:", this.inputBoxHeight);
+          console.log("inputBoxY:", this.inputBoxY, "inputBoxHeight:", this.inputBoxHeight);
         } else {
-            console.warn("inputBoxY or inputBoxHeight not defined before createOutputTextBox");
+          console.warn("inputBoxY or inputBoxHeight not defined before createOutputTextBox");
         }
 
         this.createOutputTextBox();
 
-        // Ensure visibility and layering explicitly
-        this.inputTextBorder.setDepth(100).setAlpha(1).setVisible(true);
-        this.inputText.setDepth(101).setAlpha(1).setVisible(true);
+        // You can still enable per-box scroll/indicator in stacked mode if desired
+        if (this._inputBox)  this.addScrollForBox(this._inputBox);
+        if (this._outputBox) this.addScrollForBox(this._outputBox);
+      }
 
-        // Button positioning: match Preloader.js positioning relative to text box
-        const buttonWidth = this.scalingManager.buttonWidth();
-        const buttonHeight = this.scalingManager.buttonHeight();
-        
-        // Get the output box's left and right edges (same as text box in Preloader)
-        const boxX = this.cameras.main.centerX - this.uiBoxWidth / 2;
-        
-        // Button right edge: 60px (scaled) left of text box right edge (matches Preloader)
-        const buttonX = (boxX + this.uiBoxWidth) - (buttonWidth / 2) - (60 * this.uiScale);
-        
-// Button vertical gap: scaled value based on device type
-const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
-                         (typeof window !== 'undefined' && window.innerWidth <= 900);
-// Position button relative to the output text box
-const buttonCenterX = buttonX;
-// Position button below the output text box with a consistent gap
-const buttonVerticalGap = this.scalingManager.scaleValue(isMobile ? 50 : 30);
-const buttonCenterY = this.outputBoxY + this.outputBoxHeight + buttonVerticalGap + (buttonHeight / 2);
+      // --- Ensure visibility/layers (guard in case column creators use different refs) ---
+      if (this.inputTextBorder) this.inputTextBorder.setDepth(100).setAlpha(1).setVisible(true);
+      if (this.inputText)       this.inputText.setDepth(101).setAlpha(1).setVisible(true);
 
-// Add debug logging
-console.log("[DoneScene] Device type:", detectDeviceType());
-console.log("[DoneScene] Screen dimensions:", this.cameras.main.width, "x", this.cameras.main.height);
-console.log("[DoneScene] Output box position:", this.outputBoxY, this.outputBoxHeight);
-console.log("[DoneScene] Button position:", buttonCenterX, buttonCenterY);
+      // =======================
+      // BUTTONS: corners anchor
+      // =======================
 
-this.doneButton = this.createButton("NEXT", null, buttonCenterX, buttonCenterY, {
-    depth: 102, // ensure button is visible
-    name: 'doneButton'
-});
-        // Set the name on the Game Object for debugging
-        this.doneButton.name = 'doneButton';
+      // Create NEXT / FEEDBACK at placeholder coords; we’ll re-anchor to corners.
+      const buttonWidth  = this.scalingManager.buttonWidth();
+      const buttonHeight = this.scalingManager.buttonHeight();
 
-        // Tooltip on hover (match BaseGameScene style)
-        this.doneButton.setInteractive()
-            .on('pointerover', () => this.showTooltip("You thought you were finished?", this.doneButton.x, this.doneButton.y - buttonHeight))
-            .on('pointerout', () => this.hideTooltips());
+      // Create NEXT (bottom-right)
+      this.doneButton = this.createButton("NEXT", null, 0, 0, {
+        depth: 102,
+        name: 'doneButton'
+      });
+      this.doneButton.name = 'doneButton';
+      this.doneButton.setInteractive()
+        .on('pointerover', () => this.showTooltip("You thought you were finished?", this.doneButton.x, this.doneButton.y - buttonHeight))
+        .on('pointerout',  () => this.hideTooltips());
 
-const basePadding = this.scalingManager.scaleValue(30);
-// Calculate safe area insets for mobile (if available)
-let safeAreaLeft = 0, safeAreaBottom = 0;
-if (typeof window !== "undefined" && window.CSS && window.CSS.supports && window.CSS.supports("padding-bottom: env(safe-area-inset-bottom)")) {
-    // Try to read the safe area insets from CSS environment variables
-    safeAreaLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--satmp-safe-area-inset-left') || 0, 10);
-    safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--satmp-safe-area-inset-bottom') || 0, 10);
-    // Fallback: try direct env() if custom properties not set
-    if (!safeAreaLeft) {
-        safeAreaLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding-left') || 0, 10);
+      // Create FEEDBACK (bottom-left)
+      const feedbackButtonWidth  = this.scalingManager.buttonWidth();
+      const feedbackButtonHeight = this.scalingManager.buttonHeight();
+      this.feedbackButton = this.createButton(
+        "FEEDBACK",
+        () => this.onFeedbackClick(),
+        0, 0 // placeholder; will be anchored below
+      );
+      this.feedbackButton.setInteractive()
+        .on('pointerover', () => this.showTooltip('Share your feedback', this.feedbackButton.x, this.feedbackButton.y - feedbackButtonHeight))
+        .on('pointerout',  () => this.hideTooltips());
+
+      // Anchor both buttons to screen corners (safe-area aware)
+      this.placeBottomButtons();
+
+      // Re-anchor on resize (keeps buttons snapped to corners)
+      this.scale.on('resize', () => {
+        this.placeBottomButtons();
+      });
+
+      // --- keep your click FX and score effects as-is ---
+      this.addButtonClickEffects();
+
+      if (this.totalScore >= 10)      this.createScoreRewardEffect();
+      else if (this.totalScore < 5)   this.createLowScoreWarning();
+      else                            this.createMidScoreEffect();
+
+      // Debug (optional)
+      console.log("[DoneScene] Device type:", detectDeviceType?.());
+      console.log("[DoneScene] Screen:", this.cameras.main.width, "x", this.cameras.main.height);
     }
-    if (!safeAreaBottom) {
-        safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding-bottom') || 0, 10);
-    }
-}
-// Default to 0 if not found
-safeAreaLeft = isNaN(safeAreaLeft) ? 0 : safeAreaLeft;
-safeAreaBottom = isNaN(safeAreaBottom) ? 0 : safeAreaBottom;
-const leftPadding = Math.max(basePadding, safeAreaLeft);
-const bottomPadding = Math.max(basePadding, safeAreaBottom);
 
-const feedbackButtonWidth = this.scalingManager.buttonWidth();
-const feedbackButtonHeight = this.scalingManager.buttonHeight();
-this.feedbackButton = this.createButton(
-    "FEEDBACK",
-    () => this.onFeedbackClick(),
-    feedbackButtonWidth / 2 + basePadding,
-    // Use percentage-based positioning for better mobile compatibility
-    this.scalingManager.heightPercent(95)
-);
-
-// Add tooltip on hover (match BaseGameScene style)
-this.feedbackButton.setInteractive()
-    .on('pointerover', () => this.showTooltip('Share your feedback', this.feedbackButton.x, this.feedbackButton.y - feedbackButtonHeight))
-    .on('pointerout', () => this.hideTooltips());
-        
-        // Test button removed as requested
-
-        
-        
-
-   
-        
-
-        this.addButtonClickEffects();
-
-        if (this.totalScore >= 10) {
-            this.createScoreRewardEffect();
-          } else if (this.totalScore < 5) {
-            this.createLowScoreWarning();
-          } else {
-            this.createMidScoreEffect();
-          }
-    
-    }
 
     // Tooltip methods (copied and adapted from BaseGameScene)
     showTooltip(text, x, y) {

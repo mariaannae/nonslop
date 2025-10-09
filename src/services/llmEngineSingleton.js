@@ -51,7 +51,8 @@ export default async function getLLMEngine() {
           },
         },
       ],
-      runtime: "webgpu"
+      runtime: "webgpu",
+      useIndexedDBCache: false
     };
     const llmEngine = await CreateMLCEngine(model_id, {
       appConfig: appConfig,
