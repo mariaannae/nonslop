@@ -1,7 +1,6 @@
 import { DESIGN, BASIC_COLORS_HEX as COLORS_HEX, BASIC_COLORS_TEXT as COLORS_TEXT} from "../config/design.js";
 import { getUserEnvironmentInfo,saveInteraction } from "../config/firebase.js";
 import registryManager from "../services/RegistryManager.js";
-import getLLMEngine from "../services/llmEngineSingleton.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
 import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle, getBoxStyle } from "../config/textStyles.js";
@@ -550,15 +549,7 @@ export default class Preloader extends Phaser.Scene {
             ease: 'Back.easeOut'
         });
 
-        // Optional: Close popup when clicking outside (on overlay)
-        overlay.setInteractive();
-        overlay.on('pointerup', (pointer) => {
-            // Only close if clicking directly on the overlay (not on popup content)
-            if (pointer.x < popupX || pointer.x > popupX + popupWidth ||
-                pointer.y < popupY || pointer.y > popupY + totalPopupHeight) {
-                this.onAcknowledgeClick();
-            }
-        });
+        // Overlay is now non-interactive; popup can only be dismissed by the ACKNOWLEDGE button.
     }
 
     onAcknowledgeClick() {
@@ -1094,10 +1085,10 @@ export default class Preloader extends Phaser.Scene {
                 }
             }, 300);
 
-            // --- TRUE GLOBAL SINGLETON LLM ENGINE INIT ---
-            console.log("About to await getLLMEngine in Preloader...");
-            const llmEngine = await getLLMEngine();
-            console.log("getLLMEngine resolved in Preloader, llmEngine:", !!llmEngine);
+            // --- LLM ENGINE INIT VIA REGISTRY MANAGER ---
+            console.log("About to await registryManager.createOrGetEngine in Preloader...");
+            const llmEngine = await registryManager.createOrGetEngine();
+            console.log("createOrGetEngine resolved in Preloader, llmEngine:", !!llmEngine);
 
             clearInterval(progressInterval); // Stop progress updates
             this.progress = 1; // Set to full once LLM is loaded

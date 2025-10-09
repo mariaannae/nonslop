@@ -46,13 +46,55 @@ class RegistryManager {
         if (this.resources.has(key)) {
             return this.resources.get(key);
         }
-        
+
         // Try to recover engine if that's what's being requested
         if (key === 'llmEngine') {
             return this.recoverEngine() || fallbackValue;
         }
-        
+
         return fallbackValue;
+    }
+
+    /**
+     * Create or get the LLM engine (async).
+     * If already loaded, returns it. Otherwise, loads and stores it.
+     * @returns {Promise<Object>} The LLM engine instance
+     */
+    async createOrGetEngine() {
+        if (this.resources.has('llmEngine')) {
+            return this.resources.get('llmEngine');
+        }
+        if (this._enginePromise) {
+            return this._enginePromise;
+        }
+        this._enginePromise = (async () => {
+            const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
+            const { CreateMLCEngine } = WebLLM;
+            const model_id = "Qwen2.5-0.5B-Instruct-q0f32-MLC";
+            const appConfig = {
+                model_list: [
+                    {
+                        model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q0f32-MLC",
+                        model_id: model_id,
+                        model_lib: WebLLM.modelLibURLPrefix +
+                            WebLLM.modelVersion +
+                            "/Qwen2-0.5B-Instruct-q0f32-ctx4k_cs1k-webgpu.wasm",
+                        overrides: {
+                            context_window_size: 4096,
+                        },
+                    },
+                ],
+                runtime: "webgpu",
+                useIndexedDBCache: false
+            };
+            const llmEngine = await CreateMLCEngine(model_id, {
+                appConfig: appConfig,
+                logLevel: "INFO",
+            });
+            this.set('llmEngine', llmEngine);
+            return llmEngine;
+        })();
+        return this._enginePromise;
     }
 
     /**
@@ -63,17 +105,12 @@ class RegistryManager {
      */
     set(key, value) {
         this.resources.set(key, value);
-        
+
         // Also set in Phaser registry if possible
         if (this._registry && key === 'llmEngine') {
             this._registry.set(key, value);
         }
-        
-        // For llmEngine specifically, also set in window for backup
-        if (key === 'llmEngine') {
-            window.llmEngine = value;
-        }
-        
+
         return value;
     }
 
@@ -82,20 +119,13 @@ class RegistryManager {
      * @returns {Object|null} The recovered engine or null
      */
     recoverEngine() {
-        // Try window object first
-        if (window.llmEngine) {
-            console.log("Registry Manager: Recovered llmEngine from window");
-            this.set('llmEngine', window.llmEngine);
-            return window.llmEngine;
-        }
-        
-        // Try Phaser registry next
+        // Try Phaser registry
         if (this._registry && this._registry.get('llmEngine')) {
             console.log("Registry Manager: Recovered llmEngine from registry");
             this.set('llmEngine', this._registry.get('llmEngine'));
             return this._registry.get('llmEngine');
         }
-        
+
         console.warn("Registry Manager: Engine recovery failed - no backup found");
         return null;
     }

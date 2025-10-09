@@ -827,7 +827,16 @@ export default class DoneScene extends Phaser.Scene {
     }
     
     createPromptTextBox() {
+        // Default Y for prompt box
         this.promptBoxY = this.scalingManager.scaleValue(130);
+        console.log("Prompt box Y position:", this.promptBoxY);
+        // Move up by 20px on desktop only
+        const isMobileUA = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+        const isNarrow   = (typeof window !== 'undefined' && window.innerWidth <= 900);
+        if (!isMobileUA && !isNarrow && !this.totalscore >= 5) {
+            this.promptBoxY -= 60;
+        }
+        console.log("Prompt box Y position:", this.promptBoxY);
     
         this.uiBoxWidth = this.sys.game.canvas.width * (5 / 6);
         const padding = this.scalingManager.scaleValue(30);

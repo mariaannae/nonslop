@@ -1041,18 +1041,6 @@ export default class BaseGameScene extends Phaser.Scene {
             });
         });
         
-        // Check if background exists and is visible
-        if (this.background) {
-            console.log("[BG-DEBUG] Background object exists:", {
-                inDisplayList: this.children.list.includes(this.background),
-                depth: this.background.depth,
-                visible: this.background.visible,
-                alpha: this.background.alpha
-            });
-        } else {
-            console.error("[BG-DEBUG] ERROR: this.background not yet created");
-        }
-        
         // Store initial window height for keyboard detection fallback
         this._initialWindowHeight = window.innerHeight;
         console.log("[KEYBOARD] Initial window height stored:", this._initialWindowHeight);
@@ -2528,7 +2516,6 @@ createButtonSection(positions) {
             });
             
             // Detailed debugging to understand the caching issue
-            console.log("DEBUG: LLM raw response:", JSON.stringify(response, null, 2));
             console.log("DEBUG: Response ID:", response.id);
             console.log("DEBUG: Response created timestamp:", response.created);
             
