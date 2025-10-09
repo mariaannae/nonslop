@@ -1028,7 +1028,7 @@ export default class DoneScene extends Phaser.Scene {
       hit.on('pointerdown', (p) => { dragStartY = p.worldY; startScroll = box.scrollY; });
       hit.on('pointermove', (p) => {
         if (!p.isDown || dragStartY == null) return;
-        setScroll(startScroll - (p.worldY - dragStartY));
+        setScroll(startScroll + (p.worldY - dragStartY));
       });
       hit.on('pointerup',   () => { dragStartY = null; });
       hit.on('pointerupoutside', () => { dragStartY = null; });
