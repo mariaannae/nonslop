@@ -1254,7 +1254,7 @@ export default class DoneScene extends Phaser.Scene {
       // =======================
 
       // Create NEXT / FEEDBACK at placeholder coords; we’ll re-anchor to corners.
-      const buttonWidth  = this.scalingManager.buttonWidth();
+      const buttonWidth = this.scalingManager.buttonWidth();
       const buttonHeight = this.scalingManager.buttonHeight();
 
       // Create NEXT (bottom-right)
@@ -1268,23 +1268,71 @@ export default class DoneScene extends Phaser.Scene {
         .on('pointerout',  () => this.hideTooltips());
 
       // Create FEEDBACK (bottom-left)
-      const feedbackButtonWidth  = this.scalingManager.buttonWidth();
-      const feedbackButtonHeight = this.scalingManager.buttonHeight();
       this.feedbackButton = this.createButton(
         "FEEDBACK",
         () => this.onFeedbackClick(),
         0, 0 // placeholder; will be anchored below
       );
       this.feedbackButton.setInteractive()
-        .on('pointerover', () => this.showTooltip('Share your feedback', this.feedbackButton.x, this.feedbackButton.y - feedbackButtonHeight))
+        .on('pointerover', () => this.showTooltip('Share your feedback', this.feedbackButton.x, this.feedbackButton.y - buttonHeight))
         .on('pointerout',  () => this.hideTooltips());
 
-      // Anchor both buttons to screen corners (safe-area aware)
-      this.placeBottomButtons();
+      // === BUTTON PLACEMENT LOGIC ===
+      // Place buttons relative to their boxes in both layouts
+      // Asymmetrical placement: next button up, feedback button further left
+      const nextButtonVerticalGap = this.scalingManager.scaleValue(30); // move up (was 50)
+      const nextButtonHorizontalOffset = this.scalingManager.scaleValue(60);
+      const feedbackButtonHorizontalOffset = this.scalingManager.scaleValue(90); // move further left
+      const feedbackButtonVerticalGap = this.scalingManager.scaleValue(50);
 
-      // Re-anchor on resize (keeps buttons snapped to corners)
+      // Column layout: use _outputBox and _inputBox containers
+      if (this._outputBox && this.doneButton) {
+        // Place NEXT just below and near right edge of output box
+        const out = this._outputBox;
+        const buttonX = out.container.x + out.width - nextButtonHorizontalOffset - buttonWidth / 2;
+        const buttonY = out.container.y + out.height + nextButtonVerticalGap + buttonHeight / 2;
+        this.doneButton.setPosition(buttonX, buttonY);
+      } else if (typeof this.outputBoxY === "number" && typeof this.outputBoxHeight === "number" && this.doneButton) {
+        // Stacked layout fallback
+        const buttonX = (this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth) - (buttonWidth / 2) - nextButtonHorizontalOffset;
+        const buttonY = this.outputBoxY + this.outputBoxHeight + nextButtonVerticalGap + (buttonHeight / 2);
+        this.doneButton.setPosition(buttonX, buttonY);
+      }
+
+      // Place FEEDBACK button at same left margin as in BaseGameScene.js, regardless of layout
+      if (this.feedbackButton) {
+        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+                         (typeof window !== 'undefined' && window.innerWidth <= 900);
+        const buttonMargin = this.scalingManager.scaleValue(isMobile ? 20 : 30);
+        const safe = this.safeAreaInsets ?? { left: 0, right: 0, bottom: 0 };
+        const feedbackX = buttonMargin + (safe.left || 0) + buttonWidth / 2;
+        const feedbackY = this.scale.height - buttonMargin - (safe.bottom || 0) - buttonHeight / 2;
+        this.feedbackButton.setPosition(feedbackX, feedbackY);
+      }
+
+      // On resize, re-anchor relative to boxes
       this.scale.on('resize', () => {
-        this.placeBottomButtons();
+        if (this._outputBox && this.doneButton) {
+          const out = this._outputBox;
+          const buttonX = out.container.x + out.width - nextButtonHorizontalOffset - buttonWidth / 2;
+          const buttonY = out.container.y + out.height + nextButtonVerticalGap + buttonHeight / 2;
+          this.doneButton.setPosition(buttonX, buttonY);
+        } else if (typeof this.outputBoxY === "number" && typeof this.outputBoxHeight === "number" && this.doneButton) {
+          const buttonX = (this.cameras.main.centerX - this.uiBoxWidth / 2 + this.uiBoxWidth) - (buttonWidth / 2) - nextButtonHorizontalOffset;
+          const buttonY = this.outputBoxY + this.outputBoxHeight + nextButtonVerticalGap + (buttonHeight / 2);
+          this.doneButton.setPosition(buttonX, buttonY);
+        }
+
+        // Place FEEDBACK button at same left margin as in BaseGameScene.js, regardless of layout
+        if (this.feedbackButton) {
+          const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
+                           (typeof window !== 'undefined' && window.innerWidth <= 900);
+          const buttonMargin = this.scalingManager.scaleValue(isMobile ? 20 : 30);
+          const safe = this.safeAreaInsets ?? { left: 0, right: 0, bottom: 0 };
+          const feedbackX = buttonMargin + (safe.left || 0) + buttonWidth / 2;
+          const feedbackY = this.scale.height - buttonMargin - (safe.bottom || 0) - buttonHeight / 2;
+          this.feedbackButton.setPosition(feedbackX, feedbackY);
+        }
       });
 
       // --- keep your click FX and score effects as-is ---
