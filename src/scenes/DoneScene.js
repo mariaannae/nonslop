@@ -46,15 +46,6 @@ export default class DoneScene extends Phaser.Scene {
         // DEBUG: Log box style for output
         console.log("[Output BoxStyle]", JSON.stringify(boxStyle));
 
-        this.outputText = this.add.text(0, 0, this.evaluation || "", {
-            ...style,
-            wordWrap: { width: outputBoxWidth - padding * 2 },
-            align: 'left',
-            lineSpacing: 5
-        }).setOrigin(0, 0);
-
-        let outputBoxHeight = this.outputText.height + padding * 2;
-
         // Cap height for buttons
         const canvasHeight = this.cameras.main.height;
         const buttonMargin = this.scalingManager.scaleValue(30);
@@ -73,69 +64,73 @@ export default class DoneScene extends Phaser.Scene {
             buttonHeight +
             buttonMargin;
 
+        // Calculate max height
         const maxOutputBoxHeight = canvasHeight - outputBoxY - reservedBottomSpace;
-        let capped = false;
-        if (outputBoxHeight > maxOutputBoxHeight) {
-            outputBoxHeight = maxOutputBoxHeight;
-            capped = true;
-        }
+        
+        // Create text object first to measure content
+        const textObj = this.add.text(0, 0, this.evaluation || "", {
+            ...style,
+            wordWrap: { width: outputBoxWidth - padding * 2 },
+            align: 'left',
+            lineSpacing: 5
+        }).setOrigin(0, 0);
 
-        // Draw box at absolute coordinates, just like prompt box
-        this.outputTextBox = this.add.graphics();
-        this.outputTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
-        this.outputTextBox.fillRoundedRect(
+        // Use content height or max height
+        const outputBoxHeight = Math.min(textObj.height + padding * 2, maxOutputBoxHeight);
+
+        // Create container for the box
+        const container = this.add.container(
             this.cameras.main.centerX - outputBoxWidth / 2,
-            outputBoxY,
-            outputBoxWidth,
-            outputBoxHeight,
-            boxStyle.cornerRadius
-        );
-        this.outputTextBox.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-        this.outputTextBox.strokeRoundedRect(
-            this.cameras.main.centerX - outputBoxWidth / 2,
-            outputBoxY,
-            outputBoxWidth,
-            outputBoxHeight,
-            boxStyle.cornerRadius
-        );
-        this.outputTextBox.setDepth(9);
-
-        // Position text inside the box with padding
-        this.outputText.setPosition(
-            this.cameras.main.centerX - outputBoxWidth / 2 + padding,
-            outputBoxY + padding
+            outputBoxY
         );
 
-        // Mask to prevent overflow
-        if (this.outputTextMask) this.outputTextMask.destroy();
-        this.outputTextMask = this.add.graphics().fillRect(
+        // Create background graphics
+        const bg = this.add.graphics();
+        bg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
+        bg.fillRoundedRect(0, 0, outputBoxWidth, outputBoxHeight, boxStyle.cornerRadius);
+        bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+        bg.strokeRoundedRect(0, 0, outputBoxWidth, outputBoxHeight, boxStyle.cornerRadius);
+
+        // Add to container
+        container.add(bg);
+        container.add(textObj);
+        container.setDepth(9);
+
+        // Position text with padding
+        textObj.setPosition(padding, padding);
+
+        // Create mask for overflow
+        const maskShape = this.add.graphics().fillRect(
             this.cameras.main.centerX - outputBoxWidth / 2,
             outputBoxY,
             outputBoxWidth,
             outputBoxHeight
         );
-        const mask = this.outputTextMask.createGeometryMask();
-        this.outputText.setMask(mask);
+        const mask = maskShape.createGeometryMask();
+        container.setMask(mask);
 
-        // If capped, add scroll helpers
-        if (capped) {
-            this.outputBoxInfo = {
-                y: outputBoxY,
-                height: outputBoxHeight,
-                padding: padding
-            };
-            this.addScrollEvent();
-            this.addScrollIndicator();
-        }
+        // Store references
+        this.outputText = textObj;
+        this.outputTextBox = bg;
+        this.outputTextMask = maskShape;
 
         // Store output box position and height for button placement
         this.outputBoxY = outputBoxY;
         this.outputBoxHeight = outputBoxHeight;
 
-        // Set depth and fade-in
-        this.outputText.setDepth(10).setAlpha(0);
+        // Create the box structure for scrolling (same as column version)
+        this._outputBox = {
+            container: container,
+            width: outputBoxWidth,
+            height: outputBoxHeight,
+            padding: { top: padding, bottom: padding, left: padding, right: padding },
+            textObj: textObj
+        };
+
+        // Fade-in animation
+        container.setAlpha(0);
         this.tweens.add({
-            targets: [this.outputTextBox, this.outputText],
+            targets: container,
             alpha: 1,
             duration: 500,
             ease: 'Sine.InOut'
@@ -243,211 +238,6 @@ export default class DoneScene extends Phaser.Scene {
         padding: { top: padding, bottom: padding, left: padding, right: padding },
         textObj
       };
-    }
-
-
-
-
-    // Enhanced scroll event that supports both desktop (wheel) and mobile (touch)
-    addScrollEvent() {
-        // Initialize scroll position
-        if (typeof this._outputTextScrollY !== "number") this._outputTextScrollY = 0;
-        
-        // Check if we can scroll
-        const canScroll = () => {
-            if (!this.outputText || !this.outputBoxInfo) return false;
-            const textHeight = this.outputText.height;
-            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2);
-            return textHeight > boxHeight;
-        };
-        
-        // Common scroll function used by both wheel and touch
-        const scrollContent = (deltaY) => {
-            if (!canScroll()) return;
-
-            const scrollPad = 22;
-            const textHeight = this.outputText.height;
-            const boxHeight = this.outputBoxInfo.height - (this.outputBoxInfo.padding * 2) - scrollPad * 2;
-            const maxScroll = textHeight - boxHeight;
-
-            // Apply scroll movement
-            this._outputTextScrollY = Phaser.Math.Clamp(
-                this._outputTextScrollY + deltaY,
-                0,
-                maxScroll
-            );
-            this.outputText.y = -this._outputTextScrollY + scrollPad;
-
-            // Update scroll indicator visibility
-            if (this.scrollIndicator) {
-                const isAtBottom = this._outputTextScrollY >= maxScroll - 5;
-                this.scrollIndicator.setVisible(!isAtBottom);
-            }
-        };
-        
-        // DESKTOP: Mouse wheel scrolling
-        if (this.scrollWheelEvent) {
-            this.input.off('wheel', this.scrollWheelEvent);
-        }
-        
-        this.scrollWheelEvent = (pointer, gameObjects, deltaX, deltaY) => {
-            scrollContent(deltaY * 0.5);
-        };
-        
-        this.input.on('wheel', this.scrollWheelEvent);
-        
-        // MOBILE: Touch scrolling
-        // Make the output box area interactive for touch
-        const hitArea = new Phaser.Geom.Rectangle(
-            this.cameras.main.centerX - this.uiBoxWidth / 2,
-            this.outputBoxInfo.y,
-            this.uiBoxWidth,
-            this.outputBoxInfo.height
-        );
-        
-        // Create an invisible interactive zone for touch
-        const touchZone = this.add.zone(
-            this.cameras.main.centerX,
-            this.outputBoxInfo.y + this.outputBoxInfo.height / 2,
-            this.uiBoxWidth,
-            this.outputBoxInfo.height
-        ).setInteractive().setDepth(11);
-        
-        // Touch scrolling variables
-        let startY = 0;
-        let lastY = 0;
-        let isDragging = false;
-        let velocity = 0;
-        let lastTime = 0;
-        
-        // Start touch
-        touchZone.on('pointerdown', (pointer) => {
-            if (!canScroll()) return;
-            startY = pointer.y;
-            lastY = pointer.y;
-            isDragging = true;
-            velocity = 0;
-            lastTime = pointer.event.timeStamp;
-            
-            // Stop any momentum scrolling
-            if (this.momentumTween) {
-                this.momentumTween.stop();
-            }
-        });
-        
-        // Move touch
-        this.input.on('pointermove', (pointer) => {
-            if (!isDragging || !canScroll()) return;
-            
-            const currentTime = pointer.event.timeStamp;
-            const deltaTime = currentTime - lastTime;
-            const deltaY = lastY - pointer.y;
-            
-            // Calculate velocity for momentum
-            if (deltaTime > 0) {
-                velocity = deltaY / deltaTime * 16; // Convert to per-frame velocity
-            }
-            
-            scrollContent(deltaY);
-            lastY = pointer.y;
-            lastTime = currentTime;
-        });
-        
-        // End touch - add momentum
-        this.input.on('pointerup', () => {
-            if (!isDragging) return;
-            isDragging = false;
-            
-            // Add momentum scrolling if velocity is significant
-            if (Math.abs(velocity) > 0.5) {
-                this.momentumTween = this.tweens.add({
-                    targets: { v: velocity },
-                    v: 0,
-                    duration: 1000,
-                    ease: 'Quad.Out',
-                    onUpdate: (tween) => {
-                        const v = tween.getValue();
-                        scrollContent(v);
-                    }
-                });
-            }
-        });
-        
-        // Clean up on scene shutdown
-        this.events.once('shutdown', () => {
-            touchZone.destroy();
-            if (this.momentumTween) {
-                this.momentumTween.stop();
-            }
-        });
-    }
-
-    // User's scroll indicator: text label at bottom of output box
-    addScrollIndicator() {
-        // Remove any existing indicator
-        if (this.scrollIndicator) {
-            this.scrollIndicator.destroy();
-        }
-        
-        // Detect if mobile device
-        const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) || 
-                         (typeof window !== 'undefined' && window.innerWidth <= 900);
-        
-        // Choose appropriate text based on device
-        const scrollText = isMobile ? "▼ Swipe to scroll ▼" : "▼ Scroll for more ▼";
-
-        // Place indicator higher to avoid rounded corners
-        const scrollPad = 22;
-        this.scrollIndicator = this.add.text(
-            this.cameras.main.centerX,
-            this.outputBoxInfo.y + this.outputBoxInfo.height - scrollPad,
-            scrollText,
-            {
-                fontFamily: 'IBM Plex Mono',
-                fontSize: '16px',
-                fill: '#ffffff',
-                backgroundColor: '#4b237a',
-                padding: { x: 8, y: 4 }
-            }
-        ).setOrigin(0.5, 0.5)
-         .setDepth(11)
-         .setAlpha(0.8);
-
-        // Add animation to make it more noticeable
-        this.tweens.add({
-            targets: this.scrollIndicator,
-            alpha: { from: 0.8, to: 1 },
-            y: '+=5',
-            duration: 800,
-            yoyo: true,
-            repeat: -1
-        });
-        
-        // Add visual feedback for mobile - create swipe hint animation
-        if (isMobile) {
-            // Create a finger icon that shows swipe gesture
-            const swipeHint = this.add.text(
-                this.cameras.main.centerX,
-                this.outputBoxInfo.y + this.outputBoxInfo.height / 2,
-                '👆',
-                {
-                    fontSize: '40px'
-                }
-            ).setOrigin(0.5, 0.5)
-             .setDepth(12)
-             .setAlpha(0);
-            
-            // Animate the swipe hint
-            this.tweens.add({
-                targets: swipeHint,
-                y: '-=60',
-                alpha: { from: 0, to: 0.6 },
-                duration: 1000,
-                ease: 'Quad.Out',
-                yoyo: true,
-                onComplete: () => swipeHint.destroy()
-            });
-        }
     }
 
 
