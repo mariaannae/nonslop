@@ -192,6 +192,7 @@ export default class Preloader extends Phaser.Scene {
         
         this.load.setPath('assets');
         this.load.image('gh-qr-code', 'gh-qr-code.png');
+        this.load.image('nonslop-qr-code', 'nonslop-qr-code.png'); // Load for badge generation
         this.load.image('settings', 'settings.png');
 
         // Load badge images with scores

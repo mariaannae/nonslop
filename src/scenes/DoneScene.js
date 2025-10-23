@@ -709,7 +709,8 @@ export default class DoneScene extends Phaser.Scene {
                         mode: this.mode,
                         levelValue: this.levelValue, // Pass updated levelValue
                         temperature: this.temperature,
-                        score: this.totalScore
+                        score: this.totalScore,
+                        userResponse: userInputCopy // Pass user's text for badge generation
                     },
                     transitionContext,
                     {

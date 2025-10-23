@@ -4,6 +4,7 @@ import { ScalingManager } from "../config/scaling.js";
 import { getTextStyle } from "../config/textStyles.js";
 import { detectDeviceType } from "../config/dimensions.js";
 import ButtonFactory from "../utils/ButtonFactory.js";
+import { BadgeGenerator } from "../utils/BadgeGenerator.js";
 
 // Scene layout constants
 const SCENE_LAYOUT = {
@@ -56,6 +57,7 @@ export default class GameOverScene extends Phaser.Scene {
     this.mode = data.mode || 'easy';
     this.levelValue = data.levelValue || 1;
     this.score = data.score || 0;
+    this.userResponse = data.userResponse || data.userInput || ''; // Receive user text
 
     if (this.mode === "easy") {
       this.COLORS_HEX = EASY_COLORS_HEX;
@@ -66,9 +68,14 @@ export default class GameOverScene extends Phaser.Scene {
     }
   }
 
-  getBadgeKey() {
-    // Return the badge key in the format that matches the actual files: badge_1_easy_10.png
-    return `badge_${this.currentBadgeIndex + 1}_${this.mode}_${this.score}`;
+  async getBadgeTextureKey() {
+    // Generate dynamic badge and return its texture key
+    return await BadgeGenerator.generate(
+      this,
+      this.userResponse,
+      this.mode,
+      this.score
+    );
   }
 
   showSharingInstructions(platform) {
@@ -119,7 +126,7 @@ export default class GameOverScene extends Phaser.Scene {
     });
   }
 
-  create() {
+  async create() {
 
     console.log("GameOverScene create", this.mode, this.levelValue, this.score, this.userResponse)
     // Initialize scaling manager
@@ -175,9 +182,11 @@ export default class GameOverScene extends Phaser.Scene {
     ).setOrigin(0.5, 0);
 
     // Badge placement - using ScalingManager for consistent sizing
-    // Randomly select a badge index (0-11)
-    this.currentBadgeIndex = Math.floor(Math.random() * 12);
-    const badgeKey = this.getBadgeKey();
+    // Generate dynamic badge with user text (await since it's now async)
+    const badgeTextureKey = await this.getBadgeTextureKey();
+    
+    // Store the texture key for later use in save/copy buttons
+    this.badgeTextureKey = badgeTextureKey;
     
     // Use scaling manager for consistent spacing
     const badgeY = subtitleText.y + subtitleText.displayHeight + this.scalingManager.scaleValue(SCENE_LAYOUT.subtitleToBadgeSpacing);
@@ -186,7 +195,7 @@ export default class GameOverScene extends Phaser.Scene {
     const badge = this.add.image(
       this.scalingManager.centerX(),
       badgeY,
-      badgeKey
+      badgeTextureKey
     ).setOrigin(0.5, 0);
     
     // Scale badge using ScalingManager approach - consistent with other scenes
@@ -283,8 +292,12 @@ export default class GameOverScene extends Phaser.Scene {
       this,
       "SAVE BADGE",
       async () => {
-        const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
-        const fullBadgeUrl = `${window.location.origin}/${badgeUrl}`;
+        // Get the data URL from the dynamic badge
+        const badgeDataURL = BadgeGenerator.toDataURL(this, this.badgeTextureKey);
+        if (!badgeDataURL) {
+          this.showToast("Failed to generate badge image");
+          return;
+        }
         
         try {
           // Check if on iOS Safari specifically
@@ -336,7 +349,7 @@ export default class GameOverScene extends Phaser.Scene {
                 </style>
               </head>
               <body>
-                <img src="${fullBadgeUrl}" alt="Nonslop Badge">
+                <img src="${badgeDataURL}" alt="Nonslop Badge">
                 <div class="instructions">
                   <p>To save to Photos:</p>
                   <p>1. <span class="highlight">Press and hold</span> the image above</p>
@@ -357,12 +370,12 @@ export default class GameOverScene extends Phaser.Scene {
             // Other mobile devices: Try Web Share API first
             if (navigator.share) {
               try {
-                // Fetch the image as a blob
-                const response = await fetch(badgeUrl);
+                // Convert data URL to blob
+                const response = await fetch(badgeDataURL);
                 const blob = await response.blob();
                 
                 // Try sharing without canShare check (some browsers don't implement it)
-                const file = new File([blob], `${this.getBadgeKey()}.png`, { type: 'image/png' });
+                const file = new File([blob], `nonslop-badge-${this.score}.png`, { type: 'image/png' });
                 const shareData = {
                   files: [file],
                   title: 'My Nonslop Badge',
@@ -379,14 +392,16 @@ export default class GameOverScene extends Phaser.Scene {
             }
             
             // Fallback for mobile: Open image in new tab
-            window.open(fullBadgeUrl, '_blank');
+            const newWindow = window.open('', '_blank');
+            newWindow.document.write(`<img src="${badgeDataURL}" alt="Badge" />`);
+            newWindow.document.close();
             this.showToast("Long press the image and select 'Save Image' to save to Photos!");
             
           } else {
-            // Desktop approach: Use download
+            // Desktop approach: Use download with data URL
             const a = document.createElement('a');
-            a.href = badgeUrl;
-            a.download = badgeUrl.split('/').pop() || 'badge.png';
+            a.href = badgeDataURL;
+            a.download = `nonslop-badge-${this.score}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -395,9 +410,7 @@ export default class GameOverScene extends Phaser.Scene {
           
         } catch (error) {
           console.error('Failed to save badge:', error);
-          // Final fallback: open in new tab
-          window.open(fullBadgeUrl, '_blank');
-          this.showToast("Long press the image to save!");
+          this.showToast("Failed to save badge");
         }
       },
       this.scalingManager.centerX() - badgeButtonHorizontalSpacing,
@@ -414,8 +427,12 @@ export default class GameOverScene extends Phaser.Scene {
       "COPY BADGE",
       async () => {
         try {
-          const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
-          const fullBadgeUrl = `${window.location.origin}/${badgeUrl}`;
+          // Get the data URL from the dynamic badge
+          const badgeDataURL = BadgeGenerator.toDataURL(this, this.badgeTextureKey);
+          if (!badgeDataURL) {
+            this.showToast("Failed to generate badge image");
+            return;
+          }
           
           // Check if on iOS Safari specifically
           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -466,7 +483,7 @@ export default class GameOverScene extends Phaser.Scene {
                 </style>
               </head>
               <body>
-                <img src="${fullBadgeUrl}" alt="Nonslop Badge">
+                <img src="${badgeDataURL}" alt="Nonslop Badge">
                 <div class="instructions">
                   <p>To copy this image:</p>
                   <p>1. <span class="highlight">Press and hold</span> the image above</p>
@@ -488,10 +505,10 @@ export default class GameOverScene extends Phaser.Scene {
             // Other mobile devices: Try Web Share API first
             if (navigator.share) {
               try {
-                // Fetch the image as a blob
-                const response = await fetch(badgeUrl);
+                // Convert data URL to blob
+                const response = await fetch(badgeDataURL);
                 const blob = await response.blob();
-                const file = new File([blob], `${this.getBadgeKey()}.png`, { type: 'image/png' });
+                const file = new File([blob], `nonslop-badge-${this.score}.png`, { type: 'image/png' });
                 
                 // Try sharing without canShare check (some browsers don't implement it)
                 const shareData = {
@@ -509,20 +526,17 @@ export default class GameOverScene extends Phaser.Scene {
               }
             }
             
-            // Fallback for mobile: Copy the link
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(fullBadgeUrl);
-              this.showToast("Badge link copied - paste to share!");
-            } else {
-              // Open image in new tab as last resort
-              window.open(fullBadgeUrl, '_blank');
-              this.showToast("Long press the image and select 'Copy'");
-            }
+            // Fallback for mobile: Open in new tab
+            const newWindow = window.open('', '_blank');
+            newWindow.document.write(`<img src="${badgeDataURL}" alt="Badge" />`);
+            newWindow.document.close();
+            this.showToast("Long press the image and select 'Copy'");
             
           } else {
             // Desktop: Try clipboard API for images first
             try {
-              const response = await fetch(badgeUrl);
+              // Convert data URL to blob
+              const response = await fetch(badgeDataURL);
               const blob = await response.blob();
               
               if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined') {
@@ -536,31 +550,17 @@ export default class GameOverScene extends Phaser.Scene {
                 }
               }
               
-              // Fallback: Copy the link
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(fullBadgeUrl);
-                this.showToast("Badge link copied - paste to share!");
-              } else {
-                // Old browser fallback
-                const textarea = document.createElement('textarea');
-                textarea.value = fullBadgeUrl;
-                textarea.style.position = 'fixed';
-                textarea.style.opacity = '0';
-                document.body.appendChild(textarea);
-                textarea.select();
-                try {
-                  document.execCommand('copy');
-                  this.showToast("Badge link copied - paste to share!");
-                } catch (err) {
-                  window.open(fullBadgeUrl, '_blank');
-                  this.showToast("Badge opened in new tab");
-                }
-                document.body.removeChild(textarea);
-              }
+              // Fallback: Open in new tab
+              const newWindow = window.open('', '_blank');
+              newWindow.document.write(`<img src="${badgeDataURL}" alt="Badge" />`);
+              newWindow.document.close();
+              this.showToast("Badge opened in new tab");
             } catch (error) {
               console.error('Failed to process badge:', error);
               // Final fallback
-              window.open(fullBadgeUrl, '_blank');
+              const newWindow = window.open('', '_blank');
+              newWindow.document.write(`<img src="${badgeDataURL}" alt="Badge" />`);
+              newWindow.document.close();
               this.showToast("Badge opened in new tab");
             }
           }
@@ -673,8 +673,7 @@ export default class GameOverScene extends Phaser.Scene {
       const isMobile = isIOS || isAndroid;
       
       // Get badge info
-      const badgeUrl = `assets/badges/${this.getBadgeKey()}.png`;
-      const fullBadgeUrl = `${window.location.origin}/${badgeUrl}`;
+      const badgeDataURL = BadgeGenerator.toDataURL(this, this.badgeTextureKey);
       const shareText = `Would you like to play a game? Try NONSLOP 🎮`;
       const shareUrl = gameAddress;
       
@@ -687,10 +686,10 @@ export default class GameOverScene extends Phaser.Scene {
       }
       
       // For mobile devices, try Web Share API first (can include images)
-      if (isMobile && navigator.share) {
+      if (isMobile && navigator.share && badgeDataURL) {
         try {
-          // Fetch the badge image
-          const response = await fetch(badgeUrl);
+          // Convert data URL to blob
+          const response = await fetch(badgeDataURL);
           const blob = await response.blob();
           const file = new File([blob], `nonslop-badge-${this.score}.png`, { type: 'image/png' });
           
