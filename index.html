@@ -94,10 +94,58 @@
                 cursor: default !important;
             }
             
+            /* Orientation guidance for mobile devices */
+            .orientation-notice {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.95);
+                z-index: 10000;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                color: white;
+                font-family: Arial, sans-serif;
+                text-align: center;
+                padding: 20px;
+            }
+            
+            .orientation-notice .icon {
+                font-size: 80px;
+                margin-bottom: 20px;
+            }
+            
+            .orientation-notice h1 {
+                font-size: 24px;
+                margin-bottom: 10px;
+            }
+            
+            .orientation-notice p {
+                font-size: 16px;
+                opacity: 0.8;
+            }
+            
+            /* Show orientation notice only on mobile devices in landscape mode */
+            @media screen and (max-width: 900px) and (orientation: landscape) {
+                .orientation-notice {
+                    display: flex;
+                }
+            }
+            
         </style>
     </head>
     <body>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/webfont/1.6.28/webfontloader.js"></script>
+        
+        <!-- Orientation guidance overlay for mobile devices -->
+        <div class="orientation-notice">
+            <div class="icon">📱</div>
+            <h1>Please Rotate Your Device</h1>
+            <p>This game works best in portrait mode</p>
+        </div>
         
         <div id="game-container"></div>
         <script src="./phaser.js"></script>

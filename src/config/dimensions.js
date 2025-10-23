@@ -130,53 +130,24 @@ export function getOptimalDimensions() {
     const isLandscape = aspectRatio >= 1;
     const deviceType = detectDeviceType();
     
-    // Get dimensions based on device type and orientation
+    // Get dimensions based on device type
     let dimensions;
     
-    // For desktop, use dimensions that maintain game layout but allow proper scaling
+    // For desktop, ALWAYS use landscape dimensions
     if (deviceType === DEVICE_TYPES.DESKTOP) {
-        // Use a fixed height and calculate width based on a reasonable aspect ratio
-        // This ensures the game layout is consistent
+        // Always use landscape dimensions for desktop regardless of window size
         const baseHeight = 720;
+        dimensions = {
+            width: 1280,
+            height: baseHeight
+        };
         
-        if (isLandscape) {
-            // Use 16:9 as the target aspect ratio for landscape
-            dimensions = {
-                width: 1280,
-                height: baseHeight
-            };
-        } else {
-            // Use 9:16 for portrait
-            dimensions = {
-                width: baseHeight * 0.5625, // 405
-                height: baseHeight
-            };
-        }
-        
-        console.log(`[DIMENSIONS] Desktop base: ${dimensions.width}x${dimensions.height} (landscape: ${isLandscape})`);
+        console.log(`[DIMENSIONS] Desktop base: ${dimensions.width}x${dimensions.height} (forced landscape)`);
         console.log(`[DIMENSIONS] Viewport: ${viewportWidth}x${viewportHeight} (aspect: ${aspectRatio.toFixed(2)})`);
-    } else if (deviceType === DEVICE_TYPES.TABLET) {
-        // For tablets: use desktop dimensions when in landscape, phone dimensions when in portrait
-        if (isLandscape) {
-            // Use desktop dimensions for landscape tablets
-            const baseHeight = 720;
-            dimensions = {
-                width: 1280,
-                height: baseHeight
-            };
-            console.log(`[DIMENSIONS] Tablet (landscape): Using desktop dimensions ${dimensions.width}x${dimensions.height}`);
-        } else {
-            // Use phone dimensions for portrait tablets
-            dimensions = BASE_DIMENSIONS[DEVICE_TYPES.PHONE].PORTRAIT;
-            console.log(`[DIMENSIONS] Tablet (portrait): Using phone dimensions ${dimensions.width}x${dimensions.height}`);
-        }
     } else {
-        // For phones, use predefined dimensions
-        if (isLandscape) {
-            dimensions = BASE_DIMENSIONS[deviceType].LANDSCAPE;
-        } else {
-            dimensions = BASE_DIMENSIONS[deviceType].PORTRAIT;
-        }
+        // For ALL mobile devices (phones and tablets), ALWAYS use portrait dimensions
+        dimensions = BASE_DIMENSIONS[DEVICE_TYPES.PHONE].PORTRAIT;
+        console.log(`[DIMENSIONS] Mobile device (${deviceType}): Using portrait dimensions ${dimensions.width}x${dimensions.height}`);
     }
     
     return {
