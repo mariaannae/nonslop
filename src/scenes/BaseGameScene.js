@@ -3060,13 +3060,8 @@ createButtonSection(positions) {
         
         this.updateCursor();
         
-        // Always trigger new generation at word boundaries to refresh suggestions
-        if (atWordBoundary) {
-            this.generateAISuggestionsWithQueue(done);
-        } else {
-            // Mid-word: don't clear suggestions, just complete
-            if (done) done();
-        }
+        // Complete immediately without regenerating suggestions
+        if (done) done();
     }
 
     // Handle printable characters
