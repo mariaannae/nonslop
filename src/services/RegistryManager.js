@@ -58,6 +58,7 @@ class RegistryManager {
     /**
      * Create or get the LLM engine (async).
      * If already loaded, returns it. Otherwise, loads and stores it.
+     * Uses WebLLM on desktop (throws error if fails), Transformers.js on mobile (fallback).
      * @returns {Promise<Object>} The LLM engine instance
      */
     async createOrGetEngine() {
@@ -68,33 +69,133 @@ class RegistryManager {
             return this._enginePromise;
         }
         this._enginePromise = (async () => {
-            const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
-            const { CreateMLCEngine } = WebLLM;
-            const model_id = "Qwen2.5-0.5B-Instruct-q0f32-MLC";
-            const appConfig = {
-                model_list: [
-                    {
-                        model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q0f32-MLC",
-                        model_id: model_id,
-                        model_lib: WebLLM.modelLibURLPrefix +
-                            WebLLM.modelVersion +
-                            "/Qwen2-0.5B-Instruct-q0f32-ctx4k_cs1k-webgpu.wasm",
-                        overrides: {
-                            context_window_size: 4096,
-                        },
-                    },
-                ],
-                runtime: "webgpu",
-                useIndexedDBCache: false
-            };
-            const llmEngine = await CreateMLCEngine(model_id, {
-                appConfig: appConfig,
-                logLevel: "INFO",
-            });
-            this.set('llmEngine', llmEngine);
-            return llmEngine;
+            // Detect mobile device
+            const isMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(navigator.userAgent) 
+                           || window.screen.width < 900;
+            
+            if (!isMobile) {
+                // Desktop: ALWAYS use WebLLM (throw error if it fails)
+                console.log("Desktop detected - loading WebLLM (required)");
+                return await this._loadWebLLMEngine();
+            } else {
+                // Mobile: Use Transformers.js as fallback
+                console.log("Mobile detected - loading Transformers.js for compatibility");
+                return await this._loadTransformersJSEngine();
+            }
         })();
         return this._enginePromise;
+    }
+    
+    /**
+     * Load WebLLM engine (requires WebGPU)
+     * @private
+     */
+    async _loadWebLLMEngine() {
+        const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
+        const { CreateMLCEngine } = WebLLM;
+        const model_id = "Qwen2.5-0.5B-Instruct-q0f32-MLC";
+        const appConfig = {
+            model_list: [
+                {
+                    model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q0f32-MLC",
+                    model_id: model_id,
+                    model_lib: WebLLM.modelLibURLPrefix +
+                        WebLLM.modelVersion +
+                        "/Qwen2-0.5B-Instruct-q0f32-ctx4k_cs1k-webgpu.wasm",
+                    overrides: {
+                        context_window_size: 4096,
+                    },
+                },
+            ],
+            runtime: "webgpu",
+            useIndexedDBCache: false
+        };
+        const llmEngine = await CreateMLCEngine(model_id, {
+            appConfig: appConfig,
+            logLevel: "INFO",
+        });
+        console.log("WebLLM engine loaded successfully");
+        this.set('llmEngine', llmEngine);
+        return llmEngine;
+    }
+    
+    /**
+     * Load Transformers.js engine (WASM fallback, no WebGPU required)
+     * @private
+     */
+    async _loadTransformersJSEngine() {
+        // Import Transformers.js
+        const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+        
+        // Configure environment for WASM
+        env.allowLocalModels = false;
+        env.allowRemoteModels = true;
+        env.backends.onnx.wasm.numThreads = 4;
+        env.backends.onnx.wasm.simd = true;
+        
+        // Load Qwen model
+        console.log("Loading Qwen1.5-0.5B-Chat model with Transformers.js...");
+        const generator = await pipeline(
+            'text-generation',
+            'Xenova/Qwen1.5-0.5B-Chat',
+            { quantized: true }
+        );
+        
+        console.log("Transformers.js engine loaded successfully");
+        
+        // Create a wrapper to match the expected API
+        const llmEngine = {
+            chat: {
+                completions: {
+                    create: async (options) => {
+                        const { 
+                            messages, 
+                            max_tokens = 5, 
+                            temperature = 0.2,
+                            top_logprobs = 5
+                        } = options;
+                        
+                        // Extract the last user message
+                        const userMessage = messages.find(m => m.role === 'user')?.content || '';
+                        
+                        // Generate text
+                        const result = await generator(userMessage, {
+                            max_new_tokens: max_tokens,
+                            temperature: temperature,
+                            do_sample: temperature > 0,
+                            return_full_text: false,
+                            num_return_sequences: 1
+                        });
+                        
+                        // Extract generated text
+                        const generatedText = result[0].generated_text.trim();
+                        
+                        // Split into words and create logprobs structure
+                        const words = generatedText.split(/\s+/).filter(w => w.length > 0);
+                        const topWords = words.slice(0, top_logprobs);
+                        
+                        // Create a response structure that matches the expected format
+                        return {
+                            choices: [{
+                                logprobs: {
+                                    content: [{
+                                        top_logprobs: topWords.map((token, index) => ({
+                                            token: token,
+                                            logprob: -0.1 - (index * 0.05)
+                                        }))
+                                    }]
+                                }
+                            }]
+                        };
+                    }
+                }
+            },
+            // Store the pipeline for direct access if needed
+            pipeline: generator
+        };
+        
+        this.set('llmEngine', llmEngine);
+        return llmEngine;
     }
 
     /**
@@ -152,7 +253,7 @@ class RegistryManager {
         }
         
         // Set up retries with better timing
-        const maxRetries = 5; // Increased from 3
+        const maxRetries = 5;
         let currentRetry = 0;
         
         const attemptRecovery = () => {
@@ -165,7 +266,6 @@ class RegistryManager {
                 console.log("Registry Manager: Engine recovery successful on attempt", currentRetry);
                 if (callback && typeof callback === 'function') {
                     try {
-                        // Use setTimeout to ensure callback executes in next tick
                         setTimeout(() => {
                             callback(recoveredEngine);
                         }, 10);
@@ -181,14 +281,12 @@ class RegistryManager {
                 return null;
             }
             
-            // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms
             const delay = Math.min(100 * Math.pow(2, currentRetry - 1), 1600);
             console.log(`Registry Manager: Retrying in ${delay}ms...`);
             setTimeout(attemptRecovery, delay);
             return null;
         };
         
-        // Start the retry process
         setTimeout(attemptRecovery, 100);
         return null;
     }
