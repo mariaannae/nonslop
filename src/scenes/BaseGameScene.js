@@ -777,7 +777,9 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelValue = 1;
         this.topKValue = 1;
         this.temperature = 0.5; // Add temperature for randomness control
-        this.frequencyPenalty = 1.0; // Add frequency penalty to reduce repetition (range: 0.0 to 2.0)
+        this.frequencyPenalty = 2.0; // Frequency penalty to reduce word repetition (range: 0.0 to 2.0, adjust in code)
+        this.presencePenalty = 2.0; // Presence penalty for topic diversity (range: 0.0 to 2.0, adjust in code)
+        this.repetitionPenalty = 1.1; // Repetition penalty for token diversity (range: 1.0 to 2.0, 1.0 = no penalty)
         this.isShuttingDown = false; // CRITICAL: Reset shutdown flag
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
@@ -1653,6 +1655,8 @@ createButtonSection(positions) {
             topKValue: topKValue !== null ? topKValue : this.topKValue || 1,
             temperature: this.temperature,
             frequencyPenalty: this.frequencyPenalty,
+            presencePenalty: this.presencePenalty,
+            repetitionPenalty: this.repetitionPenalty,
             // Reset word counts with simplified approach - only track AI words now
             aiWordCount: 0
         };
@@ -2491,6 +2495,8 @@ createButtonSection(positions) {
                 logprobs: true,
                 temperature: this.temperature,
                 frequency_penalty: this.frequencyPenalty,
+                presence_penalty: this.presencePenalty,
+                repetition_penalty: this.repetitionPenalty,
                 stream: false,
                 //seed: Math.floor(Math.random() * 10000000), // Different seed each time
                 // Add more randomization parameters
@@ -4565,12 +4571,11 @@ createButtonSection(positions) {
         // Create UI elements
         const { levelSliderHandle, levelLabel } = this.createLevelSlider(popupX, popupY, popupWidth, popupHeight);
         const { tempSliderHandle, tempLabel } = this.createTemperatureSlider(popupX, popupY, popupWidth, popupHeight);
-        const { freqSliderHandle, freqLabel } = this.createFrequencyPenaltySlider(popupX, popupY, popupWidth, popupHeight);
         this.createModeToggle(popupX, popupY, popupWidth, popupHeight);
         this.createSettingsButtons(popupX, popupY, popupWidth, popupHeight);
         
         // Setup drag functionality
-        this.setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel, freqSliderHandle, freqLabel);
+        this.setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel);
         
         // Animate popup appearance
         this.animateSettingsPopupIn();
@@ -4589,14 +4594,12 @@ createButtonSection(positions) {
         const gap2 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
         const sliderRowHeight2 = sm.scaleValue(44);
         const gap3 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
-        const sliderRowHeight3 = sm.scaleValue(44); // Frequency penalty slider row
-        const gap4 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
         const toggleRowHeight = sm.scaleValue(44);
-        const gap5 = sm.scaleValue(15);
+        const gap4 = sm.scaleValue(15);
         const buttonRowHeight = sm.scaleValue(54);
         const bottomPadding = sm.scaleValue(30);
 
-        const popupHeight = bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + sliderRowHeight3 + gap4 + toggleRowHeight + gap5 + buttonRowHeight + bottomPadding;
+        const popupHeight = bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + toggleRowHeight + gap4 + buttonRowHeight + bottomPadding;
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
@@ -5308,21 +5311,21 @@ createButtonSection(positions) {
      * Create the mode toggle
      */
     createModeToggle(popupX, popupY, popupWidth, popupHeight) {
-        const gap = 20;
-        const bannerHeight = 54;
-        const gap1 = 24;
-        const sliderRowHeight = 44;
-        const gap2 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP;
-        const sliderRowHeight2 = 44; // Temperature slider row
-        const gap3 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP;
-        const sliderRowHeight3 = 44; // Frequency penalty slider row
-        const gap4 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP;
+        const sm = this.scalingManager || new ScalingManager(this);
+        const gap = sm.scaleValue(20);
+        const bannerHeight = sm.scaleValue(54);
+        const gap1 = sm.scaleValue(24);
+        const sliderRowHeight = sm.scaleValue(44);
+        const gap2 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+        const sliderRowHeight2 = sm.scaleValue(44); // Temperature slider row
+        const gap3 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
         
-        let yCursor = popupY + bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + sliderRowHeight3 + gap4;
+        // Position after Level slider and Temperature slider only (no frequency slider)
+        let yCursor = popupY + bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3;
         
         // Mode Toggle row
-        const modeToggleLabelX = popupX + 30;
-        const modeToggleLabelY = yCursor + 22;
+        const modeToggleLabelX = popupX + sm.scaleValue(30);
+        const modeToggleLabelY = yCursor + sm.scaleValue(22);
         const deviceType = detectDeviceType();
         const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
         const labelStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
@@ -5462,7 +5465,7 @@ createButtonSection(positions) {
         sliderTrack.strokeRoundedRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
     }
     
-    setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel, freqSliderHandle, freqLabel) {
+    setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel) {
         const scene = this;
         
         // Clean up any existing handlers
@@ -5473,6 +5476,9 @@ createButtonSection(positions) {
         
         // Simple drag setup function
         const setupSliderDrag = (handle, sliderType, label) => {
+            // Guard: skip if handle is undefined
+            if (!handle) return;
+            
             // Ensure the handle is draggable
             scene.input.setDraggable(handle);
             
@@ -5533,17 +5539,15 @@ createButtonSection(positions) {
             });
         };
         
-        // Setup all three sliders
+        // Setup only the two sliders we have
         setupSliderDrag(levelSliderHandle, 'level', levelLabel);
         setupSliderDrag(tempSliderHandle, 'temperature', tempLabel);
-        setupSliderDrag(freqSliderHandle, 'frequency', freqLabel);
         
         // Store cleanup function
         this._sliderCleanup = () => {
             // Remove all listeners from handles
-            levelSliderHandle.removeAllListeners();
-            tempSliderHandle.removeAllListeners();
-            freqSliderHandle.removeAllListeners();
+            if (levelSliderHandle) levelSliderHandle.removeAllListeners();
+            if (tempSliderHandle) tempSliderHandle.removeAllListeners();
         };
     }
 
