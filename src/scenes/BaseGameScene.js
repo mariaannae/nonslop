@@ -2454,7 +2454,7 @@ createButtonSection(positions) {
                     }
                     ],
                 max_tokens: 5,
-                n: 1,
+                n: 10,
                 top_logprobs: 5,
                 logprobs: true,
                 temperature: this.temperature, 
@@ -2465,15 +2465,17 @@ createButtonSection(positions) {
             });
 
             console.log("DEBUG: LLM raw response:", response);
+            const choices = response.choices || [];
+            if (choices.length === 0) {
+                throw new Error('LLM engine returned no choices');
+            }
+            console.log("DEBUG: Choices: ", choices);
+
+
+            // Extract logprobs from the first choice
             const logprobs = response.choices[0].logprobs.content[0].top_logprobs;
             console.log("DEBUG: Top logprobs:", logprobs);
             
-            // Log the actual tokens and their probabilities
-            if (logprobs && Array.isArray(logprobs)) {
-                logprobs.forEach((item, index) => {
-                    console.log(`DEBUG: Suggestion ${index}: token="${item.token}", logprob=${item.logprob}`);
-                });
-            }
             
             // Only process the result if this is the latest request AND input matches current userInput
             if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
@@ -2491,18 +2493,60 @@ createButtonSection(positions) {
                 return;
             }
 
-            // Extract tokens from logprobs array and filter them
-            let words = logprobs
-                .map(item => item.token) // Extract token strings
-                .map(word => word.trim()) // Trim whitespace
-                .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "")) // Remove leading/trailing punctuation
+            // PRIORITY 1: Extract and filter words from choices FIRST
+            let words = [];
+            
+            // Log the actual tokens and their probabilities from choices
+            if (choices && Array.isArray(choices)) {
+                choices.forEach((item, index) => {
+                    console.log(`DEBUG: Suggestion ${index}: token="${item.message.content}", logprob=${item.logprobs.content[0].logprob}`);
+                    const topWord = item.message.content.split(" ")[0];
+                    if (topWord) {
+                        const cleanedWord = topWord.trim().replace(/^[\p{P}]+|[\p{P}]+$/gu, "");
+                        words.push(cleanedWord);
+                    }
+                });
+            }
+            
+            // Filter the choices words
+            const filtered_choices = words.filter(word => 
+                word && 
+                word.length > 1 && 
+                !stopwords.includes(word.toLowerCase())
+            );
+            
+            console.log("DEBUG: Filtered choices words:", filtered_choices);
+            
+            // PRIORITY 2: Only if we don't have enough words, add from logprobs
+            let finalWords = [];
+            if (filtered_choices.length < this.topKValue) {
+                console.log("DEBUG: Not enough words from choices, adding from logprobs");
                 
-            console.log("DEBUG WORDS: ", words);
-            // Only keep unique, non-empty words and limit to topKValue
-            const filtered_words = words.filter(word => word && word.length > 1 && !stopwords.includes(word.toLowerCase())); // Filter short words and stopwords
-            const uniqueSuggestedWords = Array.from(new Set(filtered_words)).slice(0, Math.max(this.topKValue, 1)); 
-            console.log("DEBUG: Unfiltered suggestions from logprobs:", words);
-            console.log("DEBUG: Filtered suggestions from logprobs:", filtered_words);
+                // Extract tokens from logprobs as fallback
+                const logprobWords = logprobs
+                    .map(item => item.token)
+                    .map(word => word.trim())
+                    .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, ""));
+                
+                // Filter logprob words
+                const filtered_logprobs = logprobWords.filter(word => 
+                    word && 
+                    word.length > 1 && 
+                    !stopwords.includes(word.toLowerCase())
+                );
+                
+                console.log("DEBUG: Filtered logprobs words:", filtered_logprobs);
+                
+                // Combine: choices first, then logprobs
+                finalWords = [...filtered_choices, ...filtered_logprobs];
+            } else {
+                finalWords = filtered_choices;
+            }
+            
+            console.log("DEBUG: Combined words before deduplication:", finalWords);
+            
+            // Deduplicate and limit to topKValue
+            const uniqueSuggestedWords = Array.from(new Set(finalWords)).slice(0, Math.max(this.topKValue, 1));
             console.log("DEBUG: Unique suggestions to display:", uniqueSuggestedWords);
 
             // Update suggestions and UI
@@ -4368,7 +4412,7 @@ createButtonSection(positions) {
             1: [
                 "What do you want to have for dinner today?", 
                 "Describe what you see around you right now.",
-                "Who is your favorite musical artist and why?",
+                "Who is your favorite artist and why?",
                 "Describe your living room.",
                 "Describe the sky right now.",
                 "What is your favorite color and what does it remind you of?",
