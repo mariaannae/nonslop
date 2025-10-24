@@ -776,7 +776,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.keyProcessingComplete = true;
         this.levelValue = 1;
         this.topKValue = 1;
-        this.temperature = 0.2; // Add temperature for randomness control
+        this.temperature = 0.5; // Add temperature for randomness control
         this.isShuttingDown = false; // CRITICAL: Reset shutdown flag
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
@@ -2552,7 +2552,7 @@ createButtonSection(positions) {
             // Update suggestions and UI
             this.aiSuggestedWords = uniqueSuggestedWords;
             console.log("[SUGGESTIONS DEBUG] Setting aiSuggestedWords to:", uniqueSuggestedWords);
-            this.showSuggestions(uniqueSuggestedWords);
+            this.showSuggestions(" I would say: ", uniqueSuggestedWords);
             console.log("[SUGGESTIONS DEBUG] Called showSuggestions with:", uniqueSuggestedWords);
             
             // Force cache invalidation to ensure cursor updates (especially for empty suggestions)
