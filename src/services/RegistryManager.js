@@ -93,25 +93,12 @@ class RegistryManager {
     async _loadWebLLMEngine() {
         const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
         const { CreateMLCEngine } = WebLLM;
-        const model_id = "Qwen2.5-0.5B-Instruct-q0f32-MLC";
-        const appConfig = {
-            model_list: [
-                {
-                    model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q0f32-MLC",
-                    model_id: model_id,
-                    model_lib: WebLLM.modelLibURLPrefix +
-                        WebLLM.modelVersion +
-                        "/Qwen2-0.5B-Instruct-q0f32-ctx4k_cs1k-webgpu.wasm",
-                    overrides: {
-                        context_window_size: 4096,
-                    },
-                },
-            ],
-            runtime: "webgpu",
-            useIndexedDBCache: false
-        };
+        
+        // Use Qwen2.5-1.5B-Instruct - a larger model (3x the size of 0.5B)
+        // Using the pre-configured model from WebLLM's model list
+        const model_id = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
+        
         const llmEngine = await CreateMLCEngine(model_id, {
-            appConfig: appConfig,
             logLevel: "INFO",
         });
         console.log("WebLLM engine loaded successfully");
@@ -134,10 +121,10 @@ class RegistryManager {
         env.backends.onnx.wasm.simd = true;
         
         // Load Qwen model
-        console.log("Loading Qwen1.5-0.5B-Chat model with Transformers.js...");
+        console.log("Loading Qwen2-1.5B-Instruct model with Transformers.js...");
         const generator = await pipeline(
             'text-generation',
-            'Xenova/Qwen1.5-0.5B-Chat',
+            'Xenova/Qwen2-1.5B-Instruct',
             { quantized: true }
         );
         
