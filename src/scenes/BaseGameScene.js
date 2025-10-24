@@ -1360,8 +1360,11 @@ export default class BaseGameScene extends Phaser.Scene {
     createInputSection(positions, promptBoxInfo) {
         const sm = this.scalingManager;
         
-        // Calculate input box position
-        const inputBoxY = promptBoxInfo.boxY + promptBoxInfo.boxHeight + (this.isMobile ? SCENE_CONFIG.LAYOUT.MOBILE_INPUT_OFFSET_BELOW_PROMPT : SCENE_CONFIG.LAYOUT.INPUT_OFFSET_BELOW_PROMPT);
+        // Calculate input box position - use scaled offset to match showSuggestions calculations
+        const inputOffset = this.isMobile 
+            ? sm.scaleValue(SCENE_CONFIG.LAYOUT.MOBILE_INPUT_OFFSET_BELOW_PROMPT)
+            : sm.scaleValue(SCENE_CONFIG.LAYOUT.INPUT_OFFSET_BELOW_PROMPT);
+        const inputBoxY = promptBoxInfo.boxY + promptBoxInfo.boxHeight + inputOffset;
         const inputBoxX = sm.centerX() - this.uiBoxWidth / 2;
 
         // Create input box graphics
@@ -7189,9 +7192,16 @@ this.aiCountText = this.add.text(
             return;
         }
 
-        const padding = 20;
-        const boxHeight = 30;
-        const boxSpacing = 10;
+        // Initialize scaling manager if not exists
+        if (!this.scalingManager) {
+            this.scalingManager = new ScalingManager(this);
+        }
+        const sm = this.scalingManager;
+        
+        // Scale all dimensions properly
+        const padding = sm.scaleValue(20);
+        const boxHeight = sm.scaleValue(30);
+        const boxSpacing = sm.scaleValue(10);
         
         // Calculate position dynamically between prompt box and input box
         let suggestionsY;
@@ -7202,12 +7212,21 @@ this.aiCountText = this.add.text(
             const inputTop = this.inputBoxY;
             const availableSpace = inputTop - promptBottom;
             
+            // Log spacing details for debugging
+            console.log("[SUGGESTIONS DEBUG] Space calculation:", {
+                promptBottom,
+                inputTop,
+                availableSpace,
+                boxHeight,
+                scaledBoxHeight: boxHeight
+            });
+            
             // Position suggestions in the middle of available space
             const middlePoint = promptBottom + (availableSpace / 2);
             suggestionsY = middlePoint - (boxHeight / 2);
             
-            // Ensure there's at least some padding from both boxes
-            const minPadding = 10;
+            // Ensure there's at least some padding from both boxes (scaled)
+            const minPadding = sm.scaleValue(10);
             const maxY = inputTop - boxHeight - minPadding;
             const minY = promptBottom + minPadding;
             
@@ -7215,11 +7234,11 @@ this.aiCountText = this.add.text(
         } else {
             // Fallback positioning - use stored inputBoxY if available
             if (this.inputBoxY) {
-                const suggestionsOffset = 70;
+                const suggestionsOffset = sm.scaleValue(70);
                 suggestionsY = this.inputBoxY - suggestionsOffset - boxHeight;
             } else {
                 // Last resort - position relative to center
-                suggestionsY = this.cameras.main.centerY - 100;
+                suggestionsY = this.cameras.main.centerY - sm.scaleValue(100);
             }
         }
         
