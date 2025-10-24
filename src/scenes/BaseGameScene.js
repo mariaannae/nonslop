@@ -2682,10 +2682,12 @@ createButtonSection(positions) {
             const maxHeight = 400;
             boxHeight = Math.min(boxHeight, maxHeight);
         } else {
-            // Desktop: use original logic
-            const minHeight = 60;
-            boxHeight = Math.max(minHeight, textHeight + padding * 2);
-            const maxHeight = 300;
+            // Desktop: use scaled logic for consistency with input offset
+            const sm = this.scalingManager;
+            const minHeight = sm.scaleValue(70);
+            const scaledPadding = sm.scaleValue(padding);
+            boxHeight = Math.max(minHeight, textHeight + scaledPadding * 2);
+            const maxHeight = sm.scaleValue(300);
             boxHeight = Math.min(boxHeight, maxHeight);
         }
         console.log("boxheight: ", boxHeight);
