@@ -2479,8 +2479,8 @@ createButtonSection(positions) {
                         content: trimmedcontext
                     }
                     ],
-                max_tokens: 5,
-                n: 3,
+                max_tokens: 3,
+                n: 5,
                 top_logprobs: 5,
                 logprobs: true,
                 temperature: this.temperature, 
