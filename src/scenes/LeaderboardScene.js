@@ -585,16 +585,23 @@ export default class LeaderboardScene extends Phaser.Scene {
         ).setOrigin(1, 0.5);
         container.add(dateText);
         
-        // Make row interactive
-        rowBg.setInteractive(
-            new Phaser.Geom.Rectangle(
-                this.cameras.main.centerX - width / 2,
-                0,
-                width,
-                boxHeight
-            ),
-            Phaser.Geom.Rectangle.Contains
-        )
+        // Create invisible hit area for interaction - must be positioned at centerX to overlap with visible elements
+        const hitArea = this.add.rectangle(
+            this.cameras.main.centerX,
+            boxHeight / 2,
+            width,
+            boxHeight,
+            0x000000,
+            0
+        ).setOrigin(0.5, 0.5);
+        
+        container.add(hitArea);
+        
+        // Make hit area interactive
+        // Store initial pointer position to detect if this is a click or drag
+        let pointerDownY = null;
+        
+        hitArea.setInteractive()
         .on('pointerover', () => {
             rowBg.clear();
             rowBg.fillStyle(this.COLORS_HEX.BOX_FILL, 0.6);
@@ -637,8 +644,16 @@ export default class LeaderboardScene extends Phaser.Scene {
                 );
             }
         })
-        .on('pointerdown', () => {
-            this.showScoreDetails(score);
+        .on('pointerdown', (pointer) => {
+            pointerDownY = pointer.y;
+        })
+        .on('pointerup', (pointer) => {
+            // Only show details if this was a click, not a drag
+            // Allow small movement tolerance (5 pixels)
+            if (pointerDownY !== null && Math.abs(pointer.y - pointerDownY) < 5) {
+                this.showScoreDetails(score);
+            }
+            pointerDownY = null;
         });
         
         return container;
@@ -654,10 +669,13 @@ export default class LeaderboardScene extends Phaser.Scene {
         // Start with a minimum height - will adjust based on content
         let minHeight = this.cameras.main.height * 0.6;
         const x = this.cameras.main.centerX - width / 2;
-        const y = this.cameras.main.centerY - minHeight / 2;
+        // Position from top with margin instead of centering to avoid overflow
+        const topMargin = this.scalingManager.scaleValue(40);
+        const y = topMargin;
         
         // Container for all modal elements
         this.detailsModal = this.add.container(0, 0);
+        this.detailsModal.setDepth(10000); // Ensure modal appears above everything including DONE button
         
         // Add dark overlay
         const overlay = this.add.rectangle(
@@ -697,11 +715,7 @@ export default class LeaderboardScene extends Phaser.Scene {
             { label: "Level:", value: score.level || 1, customColor: this.getLevelColor(score.level || 1) },
             { label: "Mode:", value: score.mode === 'easy' ? 'Easy' : 'Hard' },
             { label: "Prompt:", value: score.prompt || "No prompt available", isLongText: true },
-            { label: "Input Text:", value: score.inputText || "No input text available", isLongText: true },
-            { label: "Original Words:", value: score.originalWordCount || 0 },
-            { label: "AI Words Used:", value: score.aiWordCount || 0 },
-            { label: "Total Words:", value: score.wordCount || 0 },
-            { label: "Date:", value: `${formattedDate} at ${formattedTime}` }
+            { label: "Input Text:", value: score.inputText || "No input text available", isLongText: true }
         ];
         
         // Calculate available width for text wrapping
@@ -817,8 +831,9 @@ export default class LeaderboardScene extends Phaser.Scene {
                     alpha: 0,
                     duration: 200,
                     onComplete: () => {
-                        this.detailsModal.destroy();
-                        overlay.disableInteractive?.();
+                        if (this.detailsModal) {
+                            this.detailsModal.destroy();
+                        }
                     }
                 });
             });
@@ -987,8 +1002,9 @@ export default class LeaderboardScene extends Phaser.Scene {
                     alpha: 0,
                     duration: 200,
                     onComplete: () => {
-                        this.confirmDialog.destroy();
-                        overlay.disableInteractive?.();
+                        if (this.confirmDialog) {
+                            this.confirmDialog.destroy();
+                        }
                     }
                 });
             });
@@ -1139,6 +1155,7 @@ export default class LeaderboardScene extends Phaser.Scene {
         
         // Create scroll container positioned at the scroll area
         this.scrollContainer = this.add.container(0, scrollAreaY);
+        this.scrollContainer.setDepth(100); // Ensure score entries are above scroll area
         
         // Create a mask to clip the scroll area
         const maskShape = this.make.graphics();

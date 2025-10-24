@@ -441,7 +441,7 @@ async function getTopScores(gameMode = null, maxResults = 10) {
 }
 
 // Check if the score is a high score
-async function isHighScore(score, gameMode, maxResults = 10) {
+async function isHighScore(score, gameMode, level, maxResults = 10) {
   try {
     // Validate input parameters
     if (typeof score !== 'number' || isNaN(score)) {
@@ -465,10 +465,28 @@ async function isHighScore(score, gameMode, maxResults = 10) {
       return true;
     }
     
-    // Otherwise, check if this score is higher than the lowest score on the board
-    const lowestScore = topScores[topScores.length - 1].score;
-    const isHigh = score > lowestScore;
-    console.log(`Score ${score} compared to lowest on board ${lowestScore}: ${isHigh ? "is" : "is not"} a high score`);
+    // Use level-aware comparison (same logic as getTopScores sorting)
+    const lowestOnBoard = topScores[topScores.length - 1];
+    const lowestLevel = typeof lowestOnBoard.level === 'number' ? lowestOnBoard.level : 1;
+    const playerLevel = typeof level === 'number' ? level : 1;
+    
+    console.log(`Comparing: Player level ${playerLevel} score ${score} vs Board lowest level ${lowestLevel} score ${lowestOnBoard.score}`);
+    
+    // If player's level is higher, it's automatically a high score
+    if (playerLevel > lowestLevel) {
+      console.log(`Player level ${playerLevel} > lowest level ${lowestLevel}: IS a high score`);
+      return true;
+    }
+    
+    // If player's level is lower, it's not a high score
+    if (playerLevel < lowestLevel) {
+      console.log(`Player level ${playerLevel} < lowest level ${lowestLevel}: is NOT a high score`);
+      return false;
+    }
+    
+    // Same level - compare raw scores
+    const isHigh = score > lowestOnBoard.score;
+    console.log(`Same level ${playerLevel}: Score ${score} vs ${lowestOnBoard.score}: ${isHigh ? "IS" : "is NOT"} a high score`);
     return isHigh;
   } catch (e) {
     console.error("Error checking if high score:", e);

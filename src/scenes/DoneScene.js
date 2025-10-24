@@ -461,7 +461,7 @@ export default class DoneScene extends Phaser.Scene {
 
             // LOG: Before isHighScore
             console.log("[DEBUG] Before isHighScore");
-            const isHighScoreResult = await isHighScore(this.totalScore, this.mode);
+            const isHighScoreResult = await isHighScore(this.totalScore, this.mode, originalLevelValue);
             // LOG: After isHighScore
             console.log("[DEBUG] After isHighScore, result:", isHighScoreResult);
 
