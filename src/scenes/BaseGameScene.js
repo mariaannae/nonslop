@@ -777,6 +777,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelValue = 1;
         this.topKValue = 1;
         this.temperature = 0.5; // Add temperature for randomness control
+        this.frequencyPenalty = 1.0; // Add frequency penalty to reduce repetition (range: 0.0 to 2.0)
         this.isShuttingDown = false; // CRITICAL: Reset shutdown flag
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
@@ -1650,6 +1651,8 @@ createButtonSection(positions) {
             progressPercentage: DESIGN.UI.PROGRESS_BAR.INITIAL,
             levelValue: levelValue,
             topKValue: topKValue !== null ? topKValue : this.topKValue || 1,
+            temperature: this.temperature,
+            frequencyPenalty: this.frequencyPenalty,
             // Reset word counts with simplified approach - only track AI words now
             aiWordCount: 0
         };
@@ -2486,7 +2489,8 @@ createButtonSection(positions) {
                 n: 5,
                 top_logprobs: 5,
                 logprobs: true,
-                temperature: this.temperature, 
+                temperature: this.temperature,
+                frequency_penalty: this.frequencyPenalty,
                 stream: false,
                 //seed: Math.floor(Math.random() * 10000000), // Different seed each time
                 // Add more randomization parameters
@@ -4561,11 +4565,12 @@ createButtonSection(positions) {
         // Create UI elements
         const { levelSliderHandle, levelLabel } = this.createLevelSlider(popupX, popupY, popupWidth, popupHeight);
         const { tempSliderHandle, tempLabel } = this.createTemperatureSlider(popupX, popupY, popupWidth, popupHeight);
+        const { freqSliderHandle, freqLabel } = this.createFrequencyPenaltySlider(popupX, popupY, popupWidth, popupHeight);
         this.createModeToggle(popupX, popupY, popupWidth, popupHeight);
         this.createSettingsButtons(popupX, popupY, popupWidth, popupHeight);
         
         // Setup drag functionality
-        this.setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel);
+        this.setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel, freqSliderHandle, freqLabel);
         
         // Animate popup appearance
         this.animateSettingsPopupIn();
@@ -4584,12 +4589,14 @@ createButtonSection(positions) {
         const gap2 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
         const sliderRowHeight2 = sm.scaleValue(44);
         const gap3 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+        const sliderRowHeight3 = sm.scaleValue(44); // Frequency penalty slider row
+        const gap4 = sm.scaleValue(this.isMobile ? SCENE_CONFIG.SETTINGS_POPUP.MOBILE_GAP : SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
         const toggleRowHeight = sm.scaleValue(44);
-        const gap4 = sm.scaleValue(15);
+        const gap5 = sm.scaleValue(15);
         const buttonRowHeight = sm.scaleValue(54);
         const bottomPadding = sm.scaleValue(30);
 
-        const popupHeight = bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + toggleRowHeight + gap4 + buttonRowHeight + bottomPadding;
+        const popupHeight = bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + sliderRowHeight3 + gap4 + toggleRowHeight + gap5 + buttonRowHeight + bottomPadding;
         const popupX = this.cameras.main.centerX - popupWidth / 2;
         const popupY = this.cameras.main.centerY - popupHeight / 2;
 
@@ -5137,18 +5144,181 @@ createButtonSection(positions) {
     }
 
     /**
+     * Create the frequency penalty slider
+     */
+    createFrequencyPenaltySlider(popupX, popupY, popupWidth, popupHeight) {
+        const sm = this.scalingManager || new ScalingManager(this);
+        const sliderWidth = sm.scaleValue(150);
+        const gap = sm.scaleValue(20);
+        const bannerHeight = sm.scaleValue(54);
+        const gap1 = sm.scaleValue(24);
+        const sliderRowHeight = sm.scaleValue(44);
+        const gap2 = sm.scaleValue(SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+        const sliderRowHeight2 = sm.scaleValue(44);
+        const gap3 = sm.scaleValue(SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP);
+
+        let yCursor = popupY + bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3;
+
+        // Frequency penalty slider row
+        const freqLabelX = popupX + sm.scaleValue(30);
+        const freqLabelY = yCursor + sm.scaleValue(22);
+        const deviceType = detectDeviceType();
+        const uiScale = this.registry && this.registry.get && this.registry.get('uiScale') || 1;
+        const labelStyle = getTextStyle('settings', deviceType, this.mode || 'basic', uiScale);
+        const freqLabel = this.add.text(
+            freqLabelX, freqLabelY,
+            `Word Variety: `,
+            {
+                ...labelStyle,
+                fontSize: `${parseInt(labelStyle.fontSize)}px`,
+                fill: '#ffffff'
+            }
+        ).setOrigin(0, 0.5);
+        this.settingsPopup.add(freqLabel);
+
+        const freqSliderX = freqLabelX + freqLabel.displayWidth + gap;
+        const freqSliderY = freqLabelY;
+
+        // Create slider track
+        const isMobileDevice = this.isMobile;
+        const sliderTrackHeight = isMobileDevice ? sm.scaleValue(20) : sm.scaleValue(12);
+        const freqSlider = this.add.graphics();
+        // Draw the full track (background)
+        freqSlider.fillStyle(0x444444, 1);
+        freqSlider.fillRect(freqSliderX, freqSliderY - sliderTrackHeight / 2, sliderWidth, sliderTrackHeight);
+        // Draw the filled portion up to the handle (frequency penalty ranges from 0.0 to 2.0)
+        const freqT = this.frequencyPenalty / 2.0;
+        const freqFillWidth = sliderWidth * freqT;
+        if (freqFillWidth > 0) {
+            freqSlider.fillStyle(BASIC_COLORS_HEX.HIGHLIGHT, 1);
+            freqSlider.fillRect(freqSliderX, freqSliderY - sliderTrackHeight / 2, freqFillWidth, sliderTrackHeight);
+        }
+        freqSlider.lineStyle(2, 0xffffff, 0.3);
+        freqSlider.strokeRect(freqSliderX, freqSliderY - sliderTrackHeight / 2, sliderWidth, sliderTrackHeight);
+        this.settingsPopup.add(freqSlider);
+
+        // Create slider handle
+        const freqSliderHandle = this.createFrequencyPenaltySliderHandle(freqSliderX, freqSliderY, sliderWidth);
+        this.settingsPopup.add(freqSliderHandle);
+
+        // Setup slider interactions
+        this.setupFrequencyPenaltySliderInteractions(freqSlider, freqSliderHandle, freqLabel, freqSliderX, freqSliderY, sliderWidth);
+
+        return { freqSliderHandle, freqLabel };
+    }
+
+    /**
+     * Create a frequency penalty slider handle
+     */
+    createFrequencyPenaltySliderHandle(sliderX, sliderY, sliderWidth) {
+        const sm = this.scalingManager || new ScalingManager(this);
+        const isMobileDevice = this.isMobile;
+        // Map frequency penalty (0.0 to 2.0) to slider position (0 to 1)
+        const freqT = this.frequencyPenalty / 2.0;
+        const freqSliderMinX = sliderX + sm.scaleValue(5);
+        const freqSliderMaxX = sliderX + sliderWidth - sm.scaleValue(5);
+        const freqHandleX = Phaser.Math.Linear(freqSliderMinX, freqSliderMaxX, freqT);
+
+        // Create a simple sprite for the handle
+        const handleSize = isMobileDevice ? sm.scaleValue(24) : sm.scaleValue(20);
+        
+        // Reuse the texture if it exists, or create it
+        if (!this.textures.exists('freqSliderHandle')) {
+            const graphics = this.make.graphics({ x: 0, y: 0 }, false);
+            graphics.fillStyle(BASIC_COLORS_HEX.ACCENT, 1);
+            graphics.fillCircle(handleSize/2, handleSize/2, handleSize/2);
+            graphics.lineStyle(2, 0xffffff, 1);
+            graphics.strokeCircle(handleSize/2, handleSize/2, handleSize/2);
+            graphics.generateTexture('freqSliderHandle', handleSize, handleSize);
+            graphics.destroy();
+        }
+        
+        // Create the sprite from the generated texture
+        const handle = this.add.sprite(freqHandleX, sliderY, 'freqSliderHandle');
+        handle.setDepth(3);
+        
+        // Set up interactive and draggable
+        const hitArea = isMobileDevice ? 44 : 60;
+        handle.setInteractive({ 
+            hitArea: new Phaser.Geom.Circle(handleSize/2, handleSize/2, hitArea/2), 
+            hitAreaCallback: Phaser.Geom.Circle.Contains,
+            draggable: true,
+            useHandCursor: true
+        });
+
+        // Visual feedback
+        handle.on('pointerover', () => {
+            handle.setScale(1.2);
+            handle.setTint(0xffff00);
+        });
+        
+        handle.on('pointerout', () => {
+            if (!handle.getData('isDragging')) {
+                handle.setScale(1);
+                handle.clearTint();
+            }
+        });
+
+        return handle;
+    }
+
+    /**
+     * Setup frequency penalty slider interactions
+     */
+    setupFrequencyPenaltySliderInteractions(freqSlider, freqSliderHandle, freqLabel, sliderX, sliderY, sliderWidth) {
+        const freqSliderMinX = sliderX + 5;
+        const freqSliderMaxX = sliderX + sliderWidth - 5;
+        const isMobileDevice = this.isMobile;
+        const sliderTrackHeight = isMobileDevice ? this.scalingManager.scaleValue(20) : this.scalingManager.scaleValue(12);
+        
+        // Store bounds and references on the handle for drag functionality
+        freqSliderHandle.setData('minX', freqSliderMinX);
+        freqSliderHandle.setData('maxX', freqSliderMaxX);
+        freqSliderHandle.setData('type', 'frequency');
+        freqSliderHandle.setData('sliderTrack', freqSlider);
+        freqSliderHandle.setData('sliderX', sliderX);
+        freqSliderHandle.setData('sliderWidth', sliderWidth);
+        freqSliderHandle.setData('sliderTrackHeight', sliderTrackHeight);
+        
+        // Handle clicks on slider track
+        const sliderBarHitHeight = isMobileDevice ? 44 : 20;
+        freqSlider.setInteractive(new Phaser.Geom.Rectangle(sliderX, sliderY - sliderBarHitHeight / 2, sliderWidth, sliderBarHitHeight), Phaser.Geom.Rectangle.Contains)
+            .on('pointerdown', (pointer) => {
+                const clampedX = Phaser.Math.Clamp(pointer.x, freqSliderMinX, freqSliderMaxX);
+                freqSliderHandle.x = clampedX;
+                // Map slider position to frequency penalty (0.0 to 2.0)
+                const newFreq = Phaser.Math.Linear(0.0, 2.0, (clampedX - freqSliderMinX) / (freqSliderMaxX - freqSliderMinX));
+                
+                // Update the fill
+                this.updateSliderFill(freqSliderHandle);
+                
+                if (Math.abs(newFreq - this.frequencyPenalty) > 0.01) {
+                    this.frequencyPenalty = newFreq;
+                    freqLabel.setText(`Word Variety: `);
+                }
+                
+                if (isMobileDevice) {
+                    freqSliderHandle.emit('pointerdown', pointer);
+                    this.input.emit('dragstart', pointer, freqSliderHandle);
+                }
+            });
+    }
+
+    /**
      * Create the mode toggle
      */
     createModeToggle(popupX, popupY, popupWidth, popupHeight) {
         const gap = 20;
-        const bannerHeight = 54; // Match what's used in createLevelSlider and createTemperatureSlider
-        const gap1 = 24; // Match what's used in createLevelSlider
+        const bannerHeight = 54;
+        const gap1 = 24;
         const sliderRowHeight = 44;
-        const gap2 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP; // Use config constant
+        const gap2 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP;
         const sliderRowHeight2 = 44; // Temperature slider row
-        const gap3 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP; // Use config constant
+        const gap3 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP;
+        const sliderRowHeight3 = 44; // Frequency penalty slider row
+        const gap4 = SCENE_CONFIG.SETTINGS_POPUP.STANDARD_GAP;
         
-        let yCursor = popupY + bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3;
+        let yCursor = popupY + bannerHeight + gap1 + sliderRowHeight + gap2 + sliderRowHeight2 + gap3 + sliderRowHeight3 + gap4;
         
         // Mode Toggle row
         const modeToggleLabelX = popupX + 30;
@@ -5292,7 +5462,7 @@ createButtonSection(positions) {
         sliderTrack.strokeRoundedRect(sliderX, sliderY - sliderTrackHeight / 2, maxX - minX + 10, sliderTrackHeight);
     }
     
-    setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel) {
+    setupSliderDragFunctionality(levelSliderHandle, levelLabel, tempSliderHandle, tempLabel, freqSliderHandle, freqLabel) {
         const scene = this;
         
         // Clean up any existing handlers
@@ -5302,7 +5472,7 @@ createButtonSection(positions) {
         }
         
         // Simple drag setup function
-        const setupSliderDrag = (handle, isLevel) => {
+        const setupSliderDrag = (handle, sliderType, label) => {
             // Ensure the handle is draggable
             scene.input.setDraggable(handle);
             
@@ -5318,20 +5488,27 @@ createButtonSection(positions) {
                 const newX = Phaser.Math.Clamp(dragX, minX, maxX);
                 this.x = newX;
                 
-                if (isLevel) {
+                if (sliderType === 'level') {
                     // Update the level value
                     const newLevel = Math.round(Phaser.Math.Linear(1, 3, (newX - minX) / (maxX - minX)));
                     if (newLevel !== scene.levelValue) {
                         scene.levelValue = newLevel;
-                        levelLabel.setText(`Level: ${scene.levelValue}`);
+                        label.setText(`Level: ${scene.levelValue}`);
                         scene.onLevelChange();
                     }
-                } else {
+                } else if (sliderType === 'temperature') {
                     // Update the temperature value
                     const newTemp = Phaser.Math.Linear(0.1, 1.5, (newX - minX) / (maxX - minX));
                     if (Math.abs(newTemp - scene.temperature) > 0.01) {
                         scene.temperature = newTemp;
-                        tempLabel.setText(`Randomness: `);
+                        label.setText(`Randomness: `);
+                    }
+                } else if (sliderType === 'frequency') {
+                    // Update the frequency penalty value
+                    const newFreq = Phaser.Math.Linear(0.0, 2.0, (newX - minX) / (maxX - minX));
+                    if (Math.abs(newFreq - scene.frequencyPenalty) > 0.01) {
+                        scene.frequencyPenalty = newFreq;
+                        label.setText(`Word Variety: `);
                     }
                 }
                 
@@ -5356,15 +5533,17 @@ createButtonSection(positions) {
             });
         };
         
-        // Setup both sliders
-        setupSliderDrag(levelSliderHandle, true);
-        setupSliderDrag(tempSliderHandle, false);
+        // Setup all three sliders
+        setupSliderDrag(levelSliderHandle, 'level', levelLabel);
+        setupSliderDrag(tempSliderHandle, 'temperature', tempLabel);
+        setupSliderDrag(freqSliderHandle, 'frequency', freqLabel);
         
         // Store cleanup function
         this._sliderCleanup = () => {
             // Remove all listeners from handles
             levelSliderHandle.removeAllListeners();
             tempSliderHandle.removeAllListeners();
+            freqSliderHandle.removeAllListeners();
         };
     }
 
