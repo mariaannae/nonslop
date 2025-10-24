@@ -2425,7 +2425,8 @@ createButtonSection(positions) {
     
         // Optimize context - only include last 50 characters of context to reduce token count
         const optimizedContext = context.length > 200 ? '...' + context.slice(-200) : context;
-        const trimmedcontext = this.currentPrompt + ": " + optimizedContext.trim();
+        const trimmedcontext = "question: " + this.currentPrompt + ": \nanswer: " + optimizedContext.trim();
+        console.log("DEBUG: Calling LLM engine with context:", trimmedcontext);
         // Add retry logic
         try {
             // Double-check the engine is still valid before calling it
@@ -2438,15 +2439,40 @@ createButtonSection(positions) {
             if (!isStillValid) {
                 throw new Error('LLM engine is not available or does not have required API');
             }
-            console.log("DEBUG: Calling LLM engine with context:", trimmedcontext);
+            
 
 
             // Use the engine from registry manager (MLC-AI WebLLM engine)
+            
+            // CACHE FIX: Try to reset the chat session to prevent cached responses
+            try {
+                // Try different WebLLM cache reset methods
+                if (llmEngine.resetChat && typeof llmEngine.resetChat === 'function') {
+                    console.log("[Cache] Resetting chat session via resetChat()");
+                    await llmEngine.resetChat();
+                } else if (llmEngine.reset && typeof llmEngine.reset === 'function') {
+                    console.log("[Cache] Resetting chat session via reset()");
+                    await llmEngine.reset();
+                } else if (llmEngine.chat && llmEngine.chat.reset) {
+                    console.log("[Cache] Resetting chat session via chat.reset()");
+                    await llmEngine.chat.reset();
+                } else if (llmEngine.pipeline && llmEngine.pipeline.session) {
+                    // For Transformers.js fallback (mobile)
+                    console.log("[Cache] Clearing Transformers.js session");
+                    delete llmEngine.pipeline.session;
+                } else {
+                    console.log("[Cache] No reset method found - cache may persist");
+                }
+            } catch (e) {
+                // If reset fails, log but continue (non-critical)
+                console.log("[Cache] Could not reset chat session:", e.message);
+            }
+            
             const response = await llmEngine.chat.completions.create({
                 messages: [
                     {
                         role: "system",
-                        content: "You are a helpful AI that suggests the next possible words based on the given context. Provide only the most probable next words without any additional text or explanation. Use English only."
+                        content: "You are a helpful AI that suggests the next possible words based on the given context, including the entire phrase. Use English only."
                     },
                     {
                         role: "user",
@@ -2454,7 +2480,7 @@ createButtonSection(positions) {
                     }
                     ],
                 max_tokens: 5,
-                n: 10,
+                n: 3,
                 top_logprobs: 5,
                 logprobs: true,
                 temperature: this.temperature, 
@@ -2552,7 +2578,7 @@ createButtonSection(positions) {
             // Update suggestions and UI
             this.aiSuggestedWords = uniqueSuggestedWords;
             console.log("[SUGGESTIONS DEBUG] Setting aiSuggestedWords to:", uniqueSuggestedWords);
-            this.showSuggestions(" I would say: ", uniqueSuggestedWords);
+            this.showSuggestions(uniqueSuggestedWords);
             console.log("[SUGGESTIONS DEBUG] Called showSuggestions with:", uniqueSuggestedWords);
             
             // Force cache invalidation to ensure cursor updates (especially for empty suggestions)
