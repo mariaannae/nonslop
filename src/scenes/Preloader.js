@@ -25,6 +25,7 @@ export default class Preloader extends Phaser.Scene {
         this.buttonClickInProgress = false; // Prevent double-clicks
         this.sceneFullyInitialized = false; // Track if scene is ready
         this.consentPopup = null; // Track consent popup
+        this.mobileWarningPopup = null; // Track mobile warning popup
         this.isShowingConsent = false; // Track if consent is being shown
     }
 
@@ -425,11 +426,167 @@ export default class Preloader extends Phaser.Scene {
             return;
         }
         
-        console.log("NEXT button clicked in Preloader, showing consent popup...");
+        console.log("NEXT button clicked in Preloader");
         this.buttonClickInProgress = true;
         
-        // Show consent popup instead of transitioning immediately
-        this.showConsentPopup();
+        // Check if mobile - show mobile warning first, then consent
+        const isMobile = isMobileDevice();
+        if (isMobile) {
+            console.log("Mobile device detected, showing mobile warning popup first...");
+            this.showMobileWarningPopup();
+        } else {
+            console.log("Desktop device, showing consent popup directly...");
+            this.showConsentPopup();
+        }
+    }
+
+    showMobileWarningPopup() {
+        // Prevent showing popup multiple times
+        if (this.mobileWarningPopup || this.isShowingConsent) {
+            return;
+        }
+
+        console.log("Showing mobile warning popup");
+        this.isShowingConsent = true;
+
+        // Get device type and scaling
+        const deviceType = detectDeviceType();
+        const isMobile = isMobileDevice();
+
+        // Calculate popup dimensions
+        const popupWidth = isMobile 
+            ? this.sys.game.canvas.width * 0.9 
+            : Math.min(this.sys.game.canvas.width * 0.7, 600 * this.uiScale);
+        
+        const popupPadding = 80 * this.uiScale;
+        
+        // Create the warning text with the specified message
+        const warningText = "For a superior experience, it is recommended to run this game on a PC.\n\nYour mobile devices are suboptimal, and likely to experience performance issues.";
+        
+        // Get text style for consistent appearance
+        const textStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
+        
+        // Pre-calculate text height with word wrapping
+        const tempText = this.add.text(0, 0, warningText, {
+            ...textStyle,
+            wordWrap: { width: popupWidth - popupPadding * 2 },
+            align: 'left'
+        }).setOrigin(0, 0).setAlpha(0);
+        
+        const textHeight = tempText.height;
+        tempText.destroy();
+
+        // Calculate total popup height including title, text, button, and spacing
+        const titleHeight = 40 * this.uiScale;
+        const buttonHeight = this.scalingManager.buttonHeight();
+        const spacing = 20 * this.uiScale;
+        const totalPopupHeight = titleHeight + spacing + textHeight + spacing + buttonHeight + popupPadding * 2;
+
+        // Position popup in center
+        const popupX = this.cameras.main.centerX - popupWidth / 2;
+        const popupY = this.cameras.main.centerY - totalPopupHeight / 2;
+
+        // Create popup container
+        this.mobileWarningPopup = this.add.container(0, 0).setDepth(1000);
+
+        // Create full-screen overlay for backdrop
+        const overlay = this.add.rectangle(
+            0, 0,
+            this.sys.game.canvas.width,
+            this.cameras.main.height,
+            0x000000,
+            0.7
+        ).setOrigin(0, 0);
+        
+        // Create popup background with game's styling
+        const popupBg = this.add.graphics();
+        popupBg.fillStyle(COLORS_HEX.BACKGROUND_DARKEST, 0.95);
+        popupBg.fillRoundedRect(popupX, popupY, popupWidth, totalPopupHeight, DESIGN.UI.OUTLINE.CORNER_RADIUS);
+        popupBg.lineStyle(DESIGN.UI.OUTLINE.WIDTH, COLORS_HEX.BOX_OUTLINE, 1);
+        popupBg.strokeRoundedRect(popupX, popupY, popupWidth, totalPopupHeight, DESIGN.UI.OUTLINE.CORNER_RADIUS);
+
+        // Create title
+        const titleStyle = getTextStyle('prompt', deviceType, 'basic', this.uiScale || 1);
+        titleStyle.fontWeight = 'bold';
+        titleStyle.fontSize = `${parseInt(titleStyle.fontSize) * 1.2}px`;
+        
+        const titleText = this.add.text(
+            this.cameras.main.centerX,
+            popupY + popupPadding + titleHeight / 2,
+            'Mobile Device Warning',
+            {
+                ...titleStyle,
+                align: 'center'
+            }
+        ).setOrigin(0.5, 0.5);
+
+        // Create main warning text
+        const warningTextObj = this.add.text(
+            popupX + popupPadding,
+            popupY + popupPadding + titleHeight + spacing,
+            warningText,
+            {
+                ...textStyle,
+                wordWrap: { width: popupWidth - popupPadding * 2 },
+                align: 'left'
+            }
+        ).setOrigin(0, 0);
+
+        // Create ACKNOWLEDGE button
+        const buttonY = popupY + totalPopupHeight - popupPadding - buttonHeight / 2;
+        const acknowledgeButton = ButtonFactory.createButton(
+            this,
+            "OK",
+            () => {
+                this.onMobileWarningAcknowledgeClick();
+            },
+            this.cameras.main.centerX,
+            buttonY,
+            { depth: 1001, scalingManager: this.scalingManager }
+        );
+
+        // Add all elements to the popup container
+        this.mobileWarningPopup.add([overlay, popupBg, titleText, warningTextObj, acknowledgeButton]);
+
+        // Animate popup appearance
+        this.mobileWarningPopup.setScale(0.8).setAlpha(0);
+        this.tweens.add({
+            targets: this.mobileWarningPopup,
+            scale: 1,
+            alpha: 1,
+            duration: 300,
+            ease: 'Back.easeOut'
+        });
+    }
+
+    onMobileWarningAcknowledgeClick() {
+        // Prevent multiple acknowledge clicks
+        if (!this.mobileWarningPopup || !this.isShowingConsent) {
+            return;
+        }
+
+        console.log("Mobile warning acknowledged, starting initialization...");
+
+        // Animate popup disappearance
+        this.tweens.add({
+            targets: this.mobileWarningPopup,
+            scale: 0.8,
+            alpha: 0,
+            duration: 200,
+            ease: 'Back.easeIn',
+            onComplete: () => {
+                // Clean up mobile warning popup
+                if (this.mobileWarningPopup) {
+                    this.mobileWarningPopup.destroy();
+                    this.mobileWarningPopup = null;
+                }
+                // Reset showing consent flag
+                this.isShowingConsent = false;
+                
+                // Now continue with normal initialization
+                this.initializePreloader();
+            }
+        });
     }
 
     showConsentPopup() {
@@ -680,6 +837,17 @@ export default class Preloader extends Phaser.Scene {
                 console.warn("Error destroying consent popup:", error);
             }
         }
+        
+        // Clean up mobile warning popup if it exists
+        if (this.mobileWarningPopup) {
+            try {
+                this.mobileWarningPopup.destroy();
+                this.mobileWarningPopup = null;
+            } catch (error) {
+                console.warn("Error destroying mobile warning popup:", error);
+            }
+        }
+        
         this.isShowingConsent = false;
         
         // Comprehensive button cleanup for mobile reliability
@@ -916,12 +1084,31 @@ export default class Preloader extends Phaser.Scene {
 
         saveInteraction("creating preloader", "preloader");
 
+        // === Check for mobile and show warning popup BEFORE loading LLM ===
+        if (isMobile) {
+            console.log("Mobile device detected - showing warning popup before LLM load");
+            // Show mobile warning popup and wait for acknowledgment before continuing
+            this.showMobileWarningPopup();
+            // The rest of the initialization will be triggered from onMobileWarningAcknowledgeClick
+            return;
+        }
+
+        // Desktop path - continue with normal initialization
+        this.initializePreloader();
+    }
+
+    async initializePreloader() {
+        console.log("Initializing preloader UI and starting LLM load");
+        
+        const screenWidth = this.sys.game.canvas.width;
+        const screenHeight = this.cameras.main.height;
+        const deviceType = detectDeviceType();
+
         // === Vertical Layout ===
         // Start with a top margin
         let y = 0.07 * screenHeight;
 
         // Title - with font loading safety checks
-        const deviceType = detectDeviceType();
         const titleStyle = getTextStyle('title', deviceType, 'basic', this.uiScale || 1);
         titleStyle.color = COLORS_TEXT.HIGHLIGHT;
         
