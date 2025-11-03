@@ -642,7 +642,8 @@ export default class UsernameScene extends Phaser.Scene {
                 {
                     mode: this.mode,
                     levelValue: this.levelValue,
-                    score: this.scoreData?.score
+                    score: this.scoreData?.score,
+                    userResponse: this.scoreData?.inputText || this.scoreData?.response
                 },
                 700,
                 this.mode === 'hard' ? '#200025' : '#002435',
@@ -672,7 +673,8 @@ export default class UsernameScene extends Phaser.Scene {
                 {
                     mode: this.mode,
                     levelValue: this.levelValue,
-                    score: this.scoreData?.score
+                    score: this.scoreData?.score,
+                    userResponse: this.scoreData?.inputText || this.scoreData?.response
                 },
                 700,
                 this.mode === 'hard' ? '#200025' : '#002435',
@@ -783,7 +785,7 @@ export default class UsernameScene extends Phaser.Scene {
                             mode: this.mode,
                             levelValue: this.levelValue,
                             previousScene: 'DoneScene',
-                            userResponse: this.userResponse
+                            userResponse: this.scoreData?.inputText || this.scoreData?.response || this.userResponse
                         },
                         600,
                         '#ff0000',

@@ -26,7 +26,8 @@ export default class DoneScene extends Phaser.Scene {
             mode: this.mode,
             levelValue: this.levelValue,
             previousScene: 'DoneScene',
-            score: this.totalScore
+            score: this.totalScore,
+            userResponse: this.userInput
         });
     }
 
@@ -37,7 +38,9 @@ export default class DoneScene extends Phaser.Scene {
 
         // Use stored input box position
         const inputBoxBottom = this.inputBoxY + this.inputBoxHeight;
-        const outputBoxY = inputBoxBottom + padding;
+        // Increased vertical margin from 30 to 50 to prevent text overflow
+        const verticalMargin = this.scalingManager.scaleValue(30);
+        const outputBoxY = inputBoxBottom + verticalMargin;
 
         // Get style
         const deviceType = detectDeviceType();
@@ -84,30 +87,36 @@ export default class DoneScene extends Phaser.Scene {
             outputBoxY
         );
 
-        // Create background graphics
+        // Create background fill (no outline yet)
         const bg = this.add.graphics();
         bg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         bg.fillRoundedRect(0, 0, outputBoxWidth, outputBoxHeight, boxStyle.cornerRadius);
-        bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-        bg.strokeRoundedRect(0, 0, outputBoxWidth, outputBoxHeight, boxStyle.cornerRadius);
-
-        // Add to container
+        
+        // Create separate outline graphics to ensure it's always on top
+        const outline = this.add.graphics();
+        outline.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+        outline.strokeRoundedRect(0, 0, outputBoxWidth, outputBoxHeight, boxStyle.cornerRadius);
+        
+        // Add to container - background, text, then outline on top
         container.add(bg);
         container.add(textObj);
+        container.add(outline);  // Add outline last so it's on top
+        
         container.setDepth(9);
 
         // Position text with padding
         textObj.setPosition(padding, padding);
 
-        // Create mask for overflow
+        // Create mask for overflow - apply to text ONLY, inset slightly to prevent overlap with border
+        const maskInset = Math.ceil(boxStyle.outlineWidth / 2);
         const maskShape = this.add.graphics().fillRect(
-            this.cameras.main.centerX - outputBoxWidth / 2,
-            outputBoxY,
-            outputBoxWidth,
-            outputBoxHeight
+            this.cameras.main.centerX - outputBoxWidth / 2 + maskInset,
+            outputBoxY + maskInset,
+            outputBoxWidth - maskInset * 2,
+            outputBoxHeight - maskInset * 2
         );
         const mask = maskShape.createGeometryMask();
-        container.setMask(mask);
+        textObj.setMask(mask);  // Apply mask to text only, not the entire container
 
         // Store references
         this.outputText = textObj;
@@ -212,16 +221,30 @@ export default class DoneScene extends Phaser.Scene {
       container.add(bg);
       container.add(textObj);
 
-      // Draw rounded box + outline EXACTLY like top box - no conditional check
+      // Draw rounded box fill (no outline yet)
       bg.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
       bg.fillRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
-      bg.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
-      bg.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
+      
+      // Create separate outline graphics to ensure it's always on top
+      const outline = this.add.graphics();
+      outline.lineStyle(boxStyle.outlineWidth, boxStyle.outlineColor, 1);
+      outline.strokeRoundedRect(0, 0, width, height, boxStyle.cornerRadius);
+
+      // Add to container - background, text, then outline on top
+      container.add(outline);  // Add outline last so it's on top
 
       textObj.setPosition(padding, padding);
-      const maskShape = this.add.graphics().fillRect(x + 0, y + 0, width, height);
+      
+      // Create mask inset by half the outline width to prevent text from overlapping border - apply to text only
+      const maskInset = Math.ceil(boxStyle.outlineWidth / 2);
+      const maskShape = this.add.graphics().fillRect(
+        x + maskInset, 
+        y + maskInset, 
+        width - maskInset * 2, 
+        height - maskInset * 2
+      );
       const mask = maskShape.createGeometryMask();
-      container.setMask(mask);
+      textObj.setMask(mask);  // Apply mask to text only, not the entire container
 
       // Add fade-in effect for loading
       container.setAlpha(0);
@@ -801,7 +824,8 @@ export default class DoneScene extends Phaser.Scene {
       hit.on('pointerout',  () => { hit._isOver = false; });
 
       // Measure content & scrolling
-      const scrollPad = 22; // Match the pad used in updateScrollIndicator
+      // Increased from 22 to 35 to provide more bottom padding and prevent text from extending into rounded corners
+      const scrollPad = 45;
       const contentH = textObj.getTextBounds?.().local?.height ?? textObj.height;
       const innerH   = height - (padding.top + padding.bottom) - scrollPad * 2;
       box.maxScroll  = Math.max(0, contentH - innerH);
@@ -859,7 +883,8 @@ export default class DoneScene extends Phaser.Scene {
       if (!needs) return;
 
       const barW = 4;
-      const pad = 22; // Increased from 8 to 22 to avoid rounded corners
+      // Increased from 22 to 35 to match scrollPad and provide consistent spacing
+      const pad = 45;
       const trackH = ind.h - pad * 2;
       const ratio = (box.scrollY / box.maxScroll) || 0;
       const barH = Math.max(24, trackH * 0.25);

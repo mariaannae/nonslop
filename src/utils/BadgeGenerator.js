@@ -54,7 +54,7 @@ export class BadgeGenerator {
         
         // Try progressively wider badges until text fits or we hit max width
         // Carefully calculated to ensure QR code and URL always fit within 800px height
-        const availableTextHeight = 114; // 3 lines * 38px = 114px max for user text
+        const availableTextHeight = 92; // 2 lines * 46px = 92px max for user text (reduced from 3 lines to fit QR code)
         let textFits = false;
         
         while (!textFits && currentWidth <= MAX_WIDTH) {
@@ -191,6 +191,10 @@ export class BadgeGenerator {
         
         // Draw user's text directly (removed "YOUR RESPONSE:" label to save space)
         console.log('[BadgeGenerator] Drawing user text:', finalUserText.substring(0, 50) + '...');
+        console.log('[BadgeGenerator] Text color:', colorsText.PRIMARY);
+        console.log('[BadgeGenerator] Text position y:', yPosition);
+        console.log('[BadgeGenerator] Max width for text:', currentWidth - padding * 4);
+        
         const userTextHeight = this.drawWrappedText(
             ctx,
             finalUserText,
@@ -198,9 +202,11 @@ export class BadgeGenerator {
             yPosition,
             currentWidth - padding * 4, // Max width with padding
             colorsText.PRIMARY,
-            true // Return the height
+            true, // Return the height
+            '34px' // Increased font size
         );
         console.log('[BadgeGenerator] User text height:', userTextHeight);
+        console.log('[BadgeGenerator] Text drawing complete');
         
         // Calculate Y position for QR code (below user text) with more spacing
         const qrY = yPosition + (userTextHeight || 0) + 40; // Increased from 30 to 40
@@ -281,9 +287,9 @@ export class BadgeGenerator {
         // Create a temporary canvas to measure text
         const tempCanvas = document.createElement('canvas');
         const ctx = tempCanvas.getContext('2d');
-        ctx.font = '26px monospace, "IBM Plex Mono"'; // Match increased font size
+        ctx.font = '34px monospace, "IBM Plex Mono"'; // Match increased font size
         
-        const lineHeight = 38; // Match increased line height
+        const lineHeight = 46; // Match increased line height
         const maxLines = Math.floor(maxHeight / lineHeight);
         
         const words = text.split(' ');
@@ -326,9 +332,9 @@ export class BadgeGenerator {
     static truncateText(text, maxWidth, maxHeight) {
         const tempCanvas = document.createElement('canvas');
         const ctx = tempCanvas.getContext('2d');
-        ctx.font = '26px monospace, "IBM Plex Mono"'; // Match increased font size
+        ctx.font = '34px monospace, "IBM Plex Mono"'; // Match increased font size
         
-        const lineHeight = 38; // Match increased line height
+        const lineHeight = 46; // Match increased line height
         const maxLines = Math.floor(maxHeight / lineHeight);
         
         const words = text.split(' ');
@@ -379,10 +385,11 @@ export class BadgeGenerator {
      * Draw text with automatic word wrapping
      * @private
      * @param {boolean} returnHeight - If true, returns the total height of the drawn text
+     * @param {string} fontSize - Font size to use (e.g., '34px')
      */
-    static drawWrappedText(ctx, text, x, y, maxWidth, color, returnHeight = false) {
+    static drawWrappedText(ctx, text, x, y, maxWidth, color, returnHeight = false, fontSize = '34px') {
         ctx.fillStyle = color;
-        ctx.font = '26px monospace, "IBM Plex Mono"';
+        ctx.font = `${fontSize} monospace, "IBM Plex Mono"`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         
@@ -390,8 +397,8 @@ export class BadgeGenerator {
         const words = text.split(' ');
         let line = '';
         let lineY = y;
-        const lineHeight = 38;
-        const maxLines = 3; // Reduced from 4 to 3 to ensure QR code always fits
+        const lineHeight = 46; // Increased from 38 to 46 to match larger font
+        const maxLines = 2; // Reduced from 3 to 2 to ensure QR code fits within badge with larger text
         let lineCount = 0;
         
         for (let i = 0; i < words.length && lineCount < maxLines; i++) {

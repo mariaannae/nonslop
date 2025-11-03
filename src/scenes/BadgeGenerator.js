@@ -188,7 +188,7 @@ export default class BadgeGenerator extends Phaser.Scene {
             this.textList[this.currentIndex],
             {
                 fontFamily: 'IBM Plex Mono',
-                fontSize: '24px',
+                fontSize: '32px',
                 color: '#fff',
                 fontStyle: 'bold',
                 align: 'center',

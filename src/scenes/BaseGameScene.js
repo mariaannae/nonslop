@@ -2351,7 +2351,8 @@ createButtonSection(positions) {
     }
 
     async generateAISuggestions(userInput) {
-        console.log("DEBUG: generateAISuggestions called with input:", userInput);
+        //return;
+        
         this.isProcessingQueuedKeys = true; // Lock queue processing at start
         // The flag should already be set by the caller, but ensure it's true
         this.isGeneratingAISuggestions = true;
@@ -2399,8 +2400,7 @@ createButtonSection(positions) {
             typeof llmEngine.chat.completions.create === 'function';
             
         if (!isValidEngine) {
-            console.log("DEBUG: llmEngine issue - engine:", llmEngine, "typeof:", typeof llmEngine);
-            console.log("DEBUG: has chat API:", !!(llmEngine && llmEngine.chat && llmEngine.chat.completions));
+   
             if (requestId !== this.suggestionRequestId) return;
             // Mark processing as complete even when engine is missing or invalid
             this.keyProcessingComplete = true;
@@ -2422,7 +2422,6 @@ createButtonSection(positions) {
                     typeof recoveredEngine.chat.completions.create === 'function';
                     
                 if (isRecoveredValid) {
-                    console.log("Engine recovered successfully, retrying AI suggestions");
                     // Use current user input instead of the old inputAtRequest
                     // This ensures we generate suggestions for the current state
                     if (this.userInput && (this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r'))) {
@@ -2436,7 +2435,6 @@ createButtonSection(positions) {
         // Optimize context - only include last 50 characters of context to reduce token count
         const optimizedContext = context.length > 200 ? '...' + context.slice(-200) : context;
         const trimmedcontext = "question: " + this.currentPrompt + ": \nanswer: " + optimizedContext.trim();
-        console.log("DEBUG: Calling LLM engine with context:", trimmedcontext);
         // Add retry logic
         try {
             // Double-check the engine is still valid before calling it
@@ -2453,36 +2451,14 @@ createButtonSection(positions) {
 
 
             // Use the engine from registry manager (MLC-AI WebLLM engine)
-            
-            // CACHE FIX: Try to reset the chat session to prevent cached responses
-            try {
-                // Try different WebLLM cache reset methods
-                if (llmEngine.resetChat && typeof llmEngine.resetChat === 'function') {
-                    console.log("[Cache] Resetting chat session via resetChat()");
-                    await llmEngine.resetChat();
-                } else if (llmEngine.reset && typeof llmEngine.reset === 'function') {
-                    console.log("[Cache] Resetting chat session via reset()");
-                    await llmEngine.reset();
-                } else if (llmEngine.chat && llmEngine.chat.reset) {
-                    console.log("[Cache] Resetting chat session via chat.reset()");
-                    await llmEngine.chat.reset();
-                } else if (llmEngine.pipeline && llmEngine.pipeline.session) {
-                    // For Transformers.js fallback (mobile)
-                    console.log("[Cache] Clearing Transformers.js session");
-                    delete llmEngine.pipeline.session;
-                } else {
-                    console.log("[Cache] No reset method found - cache may persist");
-                }
-            } catch (e) {
-                // If reset fails, log but continue (non-critical)
-                console.log("[Cache] Could not reset chat session:", e.message);
-            }
+            // Note: We don't reset the chat session as it causes conversation state corruption.
+            // The temperature, frequency_penalty, and other parameters provide sufficient randomness.
             
             const response = await llmEngine.chat.completions.create({
                 messages: [
                     {
                         role: "system",
-                        content: "You are a helpful AI that suggests the next possible words based on the given context, including the entire phrase. Use English only."
+                        content: "You are a helpful AI that suggests the next possible words based on the given context. Use English only."
                     },
                     {
                         role: "user",
@@ -2508,12 +2484,12 @@ createButtonSection(positions) {
             if (choices.length === 0) {
                 throw new Error('LLM engine returned no choices');
             }
-            console.log("DEBUG: Choices: ", choices);
+
 
 
             // Extract logprobs from the first choice
             const logprobs = response.choices[0].logprobs.content[0].top_logprobs;
-            console.log("DEBUG: Top logprobs:", logprobs);
+
             
             
             // Only process the result if this is the latest request AND input matches current userInput
@@ -2538,7 +2514,6 @@ createButtonSection(positions) {
             // Log the actual tokens and their probabilities from choices
             if (choices && Array.isArray(choices)) {
                 choices.forEach((item, index) => {
-                    console.log(`DEBUG: Suggestion ${index}: token="${item.message.content}", logprob=${item.logprobs.content[0].logprob}`);
                     const topWord = item.message.content.split(" ")[0];
                     if (topWord) {
                         const cleanedWord = topWord.trim().replace(/^[\p{P}]+|[\p{P}]+$/gu, "");
@@ -2554,13 +2529,11 @@ createButtonSection(positions) {
                 !stopwords.includes(word.toLowerCase())
             );
             
-            console.log("DEBUG: Filtered choices words:", filtered_choices);
             
             // PRIORITY 2: Only if we don't have enough words, add from logprobs
             let finalWords = [];
             if (filtered_choices.length < this.topKValue) {
-                console.log("DEBUG: Not enough words from choices, adding from logprobs");
-                
+            
                 // Extract tokens from logprobs as fallback
                 const logprobWords = logprobs
                     .map(item => item.token)
@@ -2574,7 +2547,6 @@ createButtonSection(positions) {
                     !stopwords.includes(word.toLowerCase())
                 );
                 
-                console.log("DEBUG: Filtered logprobs words:", filtered_logprobs);
                 
                 // Combine: choices first, then logprobs
                 finalWords = [...filtered_choices, ...filtered_logprobs];
@@ -2582,17 +2554,17 @@ createButtonSection(positions) {
                 finalWords = filtered_choices;
             }
             
-            console.log("DEBUG: Combined words before deduplication:", finalWords);
             
             // Deduplicate and limit to topKValue
             const uniqueSuggestedWords = Array.from(new Set(finalWords)).slice(0, Math.max(this.topKValue, 1));
             console.log("DEBUG: Unique suggestions to display:", uniqueSuggestedWords);
 
+            // Convert to lowercase
+            const lowercasedWords = uniqueSuggestedWords.map(word => word.toLowerCase());
+            
             // Update suggestions and UI
-            this.aiSuggestedWords = uniqueSuggestedWords;
-            console.log("[SUGGESTIONS DEBUG] Setting aiSuggestedWords to:", uniqueSuggestedWords);
-            this.showSuggestions(uniqueSuggestedWords);
-            console.log("[SUGGESTIONS DEBUG] Called showSuggestions with:", uniqueSuggestedWords);
+            this.aiSuggestedWords = lowercasedWords;
+            this.showSuggestions(lowercasedWords);
             
             // Force cache invalidation to ensure cursor updates (especially for empty suggestions)
             if (this._cachedValues) {
@@ -2601,7 +2573,6 @@ createButtonSection(positions) {
             
             // Always update cursor to reflect current state (including empty suggestions)
             this.updateCursor();
-            console.log("[SUGGESTIONS DEBUG] After updateCursor, aiSuggestedWords is:", this.aiSuggestedWords);
 
             // Only track performance issues
             const endTime = performance.now();
@@ -2889,7 +2860,6 @@ createButtonSection(positions) {
 
     // Handle space key
     handleSpaceKey(event, done) {
-        console.log("DEBUG: handleSpaceKey called");
         
         // Skip if we're processing mobile input to avoid double spaces
         if (this.isMobile && this._processingMobileInput) {
@@ -3248,14 +3218,12 @@ createButtonSection(positions) {
     
     // Helper for queue-aware async suggestion generation
     generateAISuggestionsWithQueue(done) {
-        console.log("DEBUG: generateAISuggestionsWithQueue called, userInput:", this.userInput);
         // Only generate suggestions if the last character is a space or linebreak
         const currentInput = this.userInput;
         if (
             currentInput &&
             (currentInput.endsWith(' ') || currentInput.endsWith('\n') || currentInput.endsWith('\r'))
         ) {
-            console.log("DEBUG: Input ends with whitespace, calling generateAISuggestions");
             // Call the async suggestion generator and call done when finished
             this.generateAISuggestions(currentInput).then(() => {
                 // Don't clear the flag here - it will be cleared when the next key is pressed
@@ -3844,23 +3812,9 @@ createButtonSection(positions) {
                     }
                 }
                 
-            // Update progress percentage and create visual effects
-            const oldPercentage = this.progressPercentage;
-            let newPercentage = isAIWord 
-                ? this.progressPercentage - this.progressIncrement 
-                : this.progressPercentage + this.progressIncrement;
-            
-            this.progressPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
-            
-            // Update UI elements and create success particles for mobile
+            // Update UI elements (no visual progress bar)
             this.updateWordCountDisplay();
             this.updateStreakCounter(!isAIWord);
-            this.updateProgressFill();
-            
-            // Create success particles on mobile when word is original
-            if (!isAIWord) {
-                this.createWordSuccessParticles();
-            }
             }
 
             // Update cursor immediately for mobile
@@ -4323,12 +4277,6 @@ createButtonSection(positions) {
         this.aiWordCount = 0;
         if (this.wordCountDisplay) {
             this.updateWordCountDisplay();
-        }
-        
-        // Reset progress percentage to initial value
-        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-        if (this.failsCounter) {
-            this.updateProgressFill();
         }
         
         // Reset word streak counter
@@ -4897,7 +4845,6 @@ createButtonSection(positions) {
      * Handle level change
      */
     onLevelChange() {
-        console.log("[DEBUG] onLevelChange called - resetting streaks and updating background");
         
         // Clear the user input text
         this.userInput = '';
@@ -4921,9 +4868,7 @@ createButtonSection(positions) {
         this.updatePromptBasedOnLevel();
         this.updateBackgroundForLevel();
         
-        // Reset progress and counters
-        this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
-        if (this.failsCounter) this.updateProgressFill();
+        // Reset counters (no progress bar visuals)
         this.aiWordCount = 0;
         
         // Clear AI suggestions
@@ -5644,19 +5589,16 @@ createButtonSection(positions) {
         // Make sure we have a scaling manager
         if (!this.scalingManager) {
             this.scalingManager = new ScalingManager(this);
-            console.log("[DEBUG] ScalingManager created in createWordCountDisplay");
         }
         const sm = this.scalingManager;
         
         // Force update scale ratios on mobile to ensure proper scaling
         if (this.isMobile) {
-            console.log("[DEBUG] Mobile detected in createWordCountDisplay, updating scale ratios");
             sm.updateBaseDimensions();
             sm.updateScaleRatios();
             
             // If no customWidth provided on mobile, calculate it here
             if (!customWidth || customWidth <= 0) {
-                console.log("[DEBUG] Mobile: No customWidth provided, calculating directly");
                 
                 // Replicate the width calculation from calculateUIPositions
                 const deviceType = detectDeviceType();
@@ -5714,8 +5656,7 @@ createButtonSection(positions) {
                 }
                 customWidth = Math.min(customWidth, configMax);
                 
-                console.log("[DEBUG] Mobile: Calculated customWidth:", customWidth);
-                console.log("[DEBUG] Mobile: contentBoxWidth:", contentBoxWidth, "minBoxWidth:", minBoxWidth);
+
             }
         }
         
@@ -6225,8 +6166,7 @@ this.aiCountText = this.add.text(
             }
         ).setOrigin(0.5).setDepth(51);
 
-        // Draw the initial segmented progress bar
-        this.updateProgressFill();
+
     }
 
     showTooltip(text, x, y) {
@@ -6353,25 +6293,12 @@ this.aiCountText = this.add.text(
 
 
     updateFailsCounter(success) {
-        const oldPercentage = this.progressPercentage;
-        let newPercentage;
-        // Use progress increment directly from DESIGN constant
-        this.progressIncrement = DESIGN.UI.PROGRESS_BAR.INCREMENT;
-        
+        // Keep tracking logic only - no visuals
         if (success) {
-            // Non-AI word - Create success effects!
-            newPercentage = this.progressPercentage + this.progressIncrement;
-            
-            // Get the last word from user input
-            const words = this.userInput.trim().split(/\s+/);
-            const lastWord = words[words.length - 1].replace(/[.,!?;:]$/, ''); // Remove punctuation
-            
-            // Create particle effects for successful word entry
-            this.createWordSuccessParticles();
+            // Non-AI word - just track it
+            // (No visual effects)
         } else {
-            // AI word - negative effects     
-            newPercentage = this.progressPercentage - this.progressIncrement;
-            // Update AI word count only
+            // AI word - update count
             this.aiWordCount++;
         }
         
@@ -6380,83 +6307,22 @@ this.aiCountText = this.add.text(
         
         // Update the streak counter - success means original word
         this.updateStreakCounter(success);
-        
-        newPercentage = Phaser.Math.Clamp(newPercentage, 0, 100);
-
-        this.progressPercentage = newPercentage;
-        
-        if (this.failsText) {
-            this.failsText.setText(` `);
-        }
-        
-        this.updateProgressFill();
-    }
-    
-    /**
-     * Create a floating effect for a successfully typed word
-     * @param {string} word - The word to animate
-     */
-    createRisingWordEffect(word) {
-        // Determine input position for the effect origin
-        const inputBoxY = this.cameras.main.centerY - 240 / 2;
-        const inputBoxHeight = 240;
-        const inputBoxCenterY = inputBoxY + inputBoxHeight / 2;
-        
-        // Create word text at cursor position
-        const deviceType = detectDeviceType();
-        const uiScale = this.scalingManager?.uiScale || 1;
-        const effectStyle = getTextStyle('effect', deviceType, this.mode || 'basic', uiScale);
-        
-        const wordText = this.add.text(
-            this.cameras.main.centerX,
-            inputBoxCenterY,
-            word,
-            {
-                ...effectStyle,
-                fill: '#00ff00', // Green for success
-                stroke: '#000000',
-                strokeThickness: 3,
-                shadow: {
-                    offsetX: 1,
-                    offsetY: 1,
-                    color: '#000',
-                    blur: 1,
-                    stroke: true
-                }
-            }
-        ).setOrigin(0.5).setDepth(100).setAlpha(0);
-        
-        // Generate a random rise direction slightly to the left or right
-        const randomX = this.cameras.main.centerX + Phaser.Math.Between(-100, 100);
-        
-        // Rising animation sequence
-        this.tweens.add({
-            targets: wordText,
-            y: inputBoxCenterY - 100, // Rise up
-            x: randomX, // Drift horizontally
-            alpha: { from: 0, to: 1, duration: 200, ease: 'Cubic.Out' },
-            scale: { from: 0.8, to: 1.2 },
-            angle: { from: Phaser.Math.Between(-10, 10), to: 0 },
-            duration: 800,
-            ease: 'Back.Out',
-            onComplete: () => {
-                // Fade out
-                this.fadeOut(wordText, 400, 'Cubic.In', () => wordText.destroy());
-                this.tweens.add({
-                    targets: wordText,
-                    y: '-=50',
-                    scale: 1.5,
-                    duration: 400,
-                    ease: 'Cubic.In'
-                });
-            }
-        });
     }
     
     /**
      * Create particle burst for successful word entry
+     * REMOVED: Performance optimization
      */
     createWordSuccessParticles() {
+        // Method removed for performance optimization
+        return;
+    }
+
+    /**
+     * Create a floating effect for a successfully typed word
+     * REMOVED: Performance optimization
+     */
+    createRisingWordEffect(word) {
         // Calculate cursor position based on current text
         let cursorX, cursorY;
         
@@ -7161,145 +7027,12 @@ this.aiCountText = this.add.text(
 
 
 
-    updateProgressFill() {
-        if (!this.failsCounter) return;
-
-        this.failsCounter.clear();
-
-        const scoreWidth = DESIGN.UI.BUTTON.WIDTH * 2 + DESIGN.UI.BUTTON.SPACING;
-        const scoreHeight = DESIGN.UI.BUTTON.HEIGHT;
-
-        const fillPercentage = Phaser.Math.Clamp(this.progressPercentage, 0, 100);
-        
-        // Background with rounded corners
-        this.failsCounter.fillStyle(0x000000, 0.5);
-        if (this.progressPercentage > 0) {
-            this.failsCounter.fillStyle(this.COLORS_HEX.BACKGROUND, 0.5);
-        }
-        
-        this.failsCounter.fillRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-        
-        // Calculate segment width based on the increment percentage
-        const incrementPercentage = DESIGN.UI.PROGRESS_BAR.INCREMENT;
-        const totalSegments = Math.ceil(100 / incrementPercentage);
-        
-        // Draw segments as individual rectangles
-        const segmentGap = 2; // Gap between segments
-        
-        // Calculate the exact width of each segment
-        const totalGapWidth = segmentGap * (totalSegments - 1);
-        const segmentWidth = (scoreWidth - totalGapWidth) / totalSegments;
-        
-        // Calculate how many segments to fill based on current progress
-        const segmentsToFill = Math.ceil(fillPercentage / incrementPercentage);
-        
-        // Draw each segment individually
-        for (let i = 0; i < segmentsToFill; i++) {
-            // Calculate color for this segment
-            const segmentPercentage = (i + 1) * incrementPercentage;
-            let color;
-            
-            if (segmentPercentage <= 50) {
-                // Interpolate between red and yellow (red at 0%, yellow at 50%)
-                const t = segmentPercentage / 50;
-                const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)));
-                const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.DANGER >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)));
-                const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.DANGER & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)));
-                color = (r << 16) | (g << 8) | b;
-            } else {
-                // Interpolate between yellow and green (yellow at 50%, green at 100%)
-                const t = (segmentPercentage - 50) / 50;
-                const r = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 16) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 16) & 0xFF)));
-                const g = Math.round(((1 - t) * ((DESIGN.UI.PROGRESS_BAR.COLORS.WARNING >> 8) & 0xFF)) + (t * ((DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS >> 8) & 0xFF)));
-                const b = Math.round(((1 - t) * (DESIGN.UI.PROGRESS_BAR.COLORS.WARNING & 0xFF)) + (t * (DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS & 0xFF)));
-                color = (r << 16) | (g << 8) | b;
-            }
-            
-            this.failsCounter.fillStyle(color, 1);
-            
-            // Calculate the position for this segment
-            const segmentX = i * (segmentWidth + segmentGap);
-            
-            // Make sure we're using the correct color
-            this.failsCounter.fillStyle(color, 1);
-            
-            // Draw the segment
-            if (i === 0 && segmentsToFill === 1) {
-                // Only one segment - round both sides (and narrower on both sides)
-                this.failsCounter.fillRoundedRect(
-                    segmentX, 
-                    0, 
-                    segmentWidth, 
-                    scoreHeight, 
-                    DESIGN.UI.BUTTON.CORNER_RADIUS
-                );
-            } else if (i === 0) {
-                // First segment - round left side only
-                this.failsCounter.fillRoundedRect(
-                    segmentX, 
-                    0, 
-                    segmentWidth, 
-                    scoreHeight, 
-                    {
-                        tl: DESIGN.UI.BUTTON.CORNER_RADIUS,
-                        bl: DESIGN.UI.BUTTON.CORNER_RADIUS,
-                        tr: 0,
-                        br: 0
-                    }
-                );
-            } else if (i === segmentsToFill - 1) {
-                // Last segment - round the right corners if this is at 100%
-                if (fillPercentage >= 99) {
-                    // Ensure we're using the correct green color for the rightmost segment at 100%
-                    // Force green color for the final segment when at 100%
-                    if (fillPercentage >= 99) {
-                        this.failsCounter.fillStyle(DESIGN.UI.PROGRESS_BAR.COLORS.SUCCESS, 1);
-                    }
-                    
-                    this.failsCounter.fillRoundedRect(
-                        segmentX, 
-                        0, 
-                        segmentWidth, 
-                        scoreHeight, 
-                        {
-                            tl: 0,
-                            bl: 0,
-                            tr: DESIGN.UI.BUTTON.CORNER_RADIUS,
-                            br: DESIGN.UI.BUTTON.CORNER_RADIUS
-                        }
-                    );
-                } else {
-                    // Otherwise keep square corners
-                    this.failsCounter.fillRect(
-                        segmentX, 
-                        0, 
-                        segmentWidth, 
-                        scoreHeight
-                    );
-                }
-            } else {
-                // Middle segment - no rounding
-                this.failsCounter.fillRect(
-                    segmentX, 
-                    0, 
-                    segmentWidth, 
-                    scoreHeight
-                );
-            }
-        }
-
-        // White outline for the entire bar - always has rounded corners
-        this.failsCounter.lineStyle(DESIGN.UI.BUTTON.OUTLINE_WIDTH, 0xffffff, 1);
-        this.failsCounter.strokeRoundedRect(0, 0, scoreWidth, scoreHeight, DESIGN.UI.BUTTON.CORNER_RADIUS);
-    }
 
     /**
      * Clean up all suggestion-related visual elements
      */
     cleanupAllSuggestions() {
-        console.log("[SUGGESTIONS DEBUG] cleanupAllSuggestions called");
-        console.log("[SUGGESTIONS DEBUG] Current suggestionBoxes length:", this.suggestionBoxes?.length || 0);
-        console.log("[SUGGESTIONS DEBUG] Current suggestionTexts length:", this.suggestionTexts?.length || 0);
+
         
         // First clean up tracked elements with null safety
         if (this.suggestionBoxes && Array.isArray(this.suggestionBoxes) && this.suggestionBoxes.length > 0) {
@@ -7361,21 +7094,20 @@ this.aiCountText = this.add.text(
         this.suggestionTexts = [];
     }
 
-    showSuggestions(words) {
-        console.log("[SUGGESTIONS DEBUG] showSuggestions called with:", words);
-        console.log("[SUGGESTIONS DEBUG] Current aiSuggestedWords before cleanup:", this.aiSuggestedWords);
+    showSuggestions(word) {
+        // Handle array input for backward compatibility (convert to single word)
+        if (Array.isArray(word)) {
+            word = word.length > 0 ? word[0] : null;
+        }
         
-        // Performance optimization - measure time for suggestion rendering
-        const startTime = performance.now();
+        // Early return if no word (before calling toLowerCase to avoid error)
+        if (!word) {
+            return;
+        }
+        
         
         // Use the comprehensive cleanup method
         this.cleanupAllSuggestions();
-        console.log("[SUGGESTIONS DEBUG] After cleanupAllSuggestions, aiSuggestedWords is:", this.aiSuggestedWords);
-
-        if (!words || words.length === 0) {
-            console.log("[SUGGESTIONS DEBUG] No words to show, returning early");
-            return;
-        }
 
         // Initialize scaling manager if not exists
         if (!this.scalingManager) {
@@ -7386,7 +7118,7 @@ this.aiCountText = this.add.text(
         // Scale all dimensions properly
         const padding = sm.scaleValue(20);
         const boxHeight = sm.scaleValue(30);
-        const boxSpacing = sm.scaleValue(10);
+        const labelSpacing = sm.scaleValue(10); // Space between label and box
         
         // Calculate position dynamically between prompt box and input box
         let suggestionsY;
@@ -7396,15 +7128,6 @@ this.aiCountText = this.add.text(
             const promptBottom = this.promptBoxInfo.boxBottom;
             const inputTop = this.inputBoxY;
             const availableSpace = inputTop - promptBottom;
-            
-            // Log spacing details for debugging
-            console.log("[SUGGESTIONS DEBUG] Space calculation:", {
-                promptBottom,
-                inputTop,
-                availableSpace,
-                boxHeight,
-                scaledBoxHeight: boxHeight
-            });
             
             // Position suggestions in the middle of available space
             const middlePoint = promptBottom + (availableSpace / 2);
@@ -7427,67 +7150,58 @@ this.aiCountText = this.add.text(
             }
         }
         
-        // Create a single temporary text object to measure widths instead of creating many
+        // Get text style and measure both label and word
         const deviceType = detectDeviceType();
         const uiScale = this.scalingManager?.uiScale || 1;
         const suggestionStyle = getTextStyle('tooltip', deviceType, this.mode || 'basic', uiScale);
-        const tempText = this.add.text(0, 0, '', suggestionStyle);
         
-        // Pre-calculate all word widths in one batch
-        const wordWidths = words.map(word => {
-            tempText.setText(word);
-            return tempText.width + padding * 2;
-        });
+        // Measure the "My suggestion: " label
+        const tempLabel = this.add.text(0, 0, "My suggestion: ", suggestionStyle);
+        const labelWidth = tempLabel.width;
+        tempLabel.destroy();
         
-        // Calculate total width in one pass
-        const totalWidth = wordWidths.reduce((acc, width, i) => 
-            acc + width + (i < words.length - 1 ? boxSpacing : 0), 0);
-        
-        // Calculate the starting X position
-        const startX = this.cameras.main.centerX - totalWidth / 2;
-        
-        // Calculate all box positions
-        let currentX = startX;
-        
-        // Create all suggestion boxes in a single pass
-        words.forEach((word, index) => {
-            const boxWidth = wordWidths[index];
-            
-            // Create box
-            const box = this.add.graphics();
-            box.fillStyle(0xff0000, 0.3);
-            box.fillRoundedRect(currentX, suggestionsY, boxWidth, boxHeight, 10);
-            box.lineStyle(2, 0xff0000, 0.8);
-            box.strokeRoundedRect(currentX, suggestionsY, boxWidth, boxHeight, 10);
-            
-            // Create text
-            const text = this.add.text(
-                currentX + padding, 
-                suggestionsY + boxHeight / 2, 
-                word,
-                {
-                    ...suggestionStyle,
-                    color: '#ffffff'
-                }
-            ).setOrigin(0, 0.5);
-            
-            // Set depths
-            box.setDepth(15);
-            text.setDepth(16);
-            
-            // Store for later cleanup
-            this.suggestionBoxes.push(box);
-            this.suggestionTexts.push(text);
-            
-            // Update X position for next box
-            currentX += boxWidth + boxSpacing;
-        });
-        
-        // Clean up the temporary text object
+        // Measure the word
+        const tempText = this.add.text(0, 0, word, suggestionStyle);
+        const boxWidth = tempText.width + padding * 2;
         tempText.destroy();
         
-        // Performance tracking
-        const duration = performance.now() - startTime;
+        // Calculate total width of label + spacing + box
+        const totalWidth = labelWidth + labelSpacing + boxWidth;
+        
+        // Calculate starting X position to center the entire group
+        const startX = this.cameras.main.centerX - totalWidth / 2;
+        
+        // Create the "My suggestion: " label (no box, just white text)
+        const labelText = this.add.text(
+            startX,
+            suggestionsY + boxHeight / 2,
+            "My suggestion: ",
+            { ...suggestionStyle, color: '#ffffff' }
+        ).setOrigin(0, 0.5).setDepth(16);
+        
+        // Calculate box position (to the right of the label)
+        const boxX = startX + labelWidth + labelSpacing;
+        
+        // Create the box
+        const box = this.add.graphics();
+        box.fillStyle(0xff0000, 0.3);
+        box.fillRoundedRect(boxX, suggestionsY, boxWidth, boxHeight, 10);
+        box.lineStyle(2, 0xff0000, 0.8);
+        box.strokeRoundedRect(boxX, suggestionsY, boxWidth, boxHeight, 10);
+        box.setDepth(15);
+        
+        // Create the word text inside the box
+        const text = this.add.text(
+            boxX + padding,
+            suggestionsY + boxHeight / 2,
+            word,
+            { ...suggestionStyle, color: '#ffffff' }
+        ).setOrigin(0, 0.5).setDepth(16);
+        
+        // Store for cleanup
+        this.suggestionBoxes.push(box);
+        this.suggestionTexts.push(labelText); // Store label for cleanup
+        this.suggestionTexts.push(text); // Store word text for cleanup
     }
 
     preload() {
