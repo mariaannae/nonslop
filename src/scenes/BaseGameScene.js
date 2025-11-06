@@ -779,7 +779,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.temperature = 0.5; // Add temperature for randomness control
         this.frequencyPenalty = 2.0; // Frequency penalty to reduce word repetition (range: 0.0 to 2.0, adjust in code)
         this.presencePenalty = 2.0; // Presence penalty for topic diversity (range: 0.0 to 2.0, adjust in code)
-        this.repetitionPenalty = 1.1; // Repetition penalty for token diversity (range: 1.0 to 2.0, 1.0 = no penalty)
+        this.repetitionPenalty = 1.7; // Repetition penalty for token diversity (range: 1.0 to 2.0, 1.0 = no penalty)
         this.isShuttingDown = false; // CRITICAL: Reset shutdown flag
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
