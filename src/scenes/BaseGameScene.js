@@ -779,7 +779,7 @@ export default class BaseGameScene extends Phaser.Scene {
         this.temperature = 0.5; // Add temperature for randomness control
         this.frequencyPenalty = 2.0; // Frequency penalty to reduce word repetition (range: 0.0 to 2.0, adjust in code)
         this.presencePenalty = 2.0; // Presence penalty for topic diversity (range: 0.0 to 2.0, adjust in code)
-        this.repetitionPenalty = 1.7; // Repetition penalty for token diversity (range: 1.0 to 2.0, 1.0 = no penalty)
+        this.repetitionPenalty = 1.5; // Repetition penalty for token diversity (range: 1.0 to 2.0, 1.0 = no penalty)
         this.isShuttingDown = false; // CRITICAL: Reset shutdown flag
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
@@ -7100,14 +7100,13 @@ this.aiCountText = this.add.text(
             word = word.length > 0 ? word[0] : null;
         }
         
-        // Early return if no word (before calling toLowerCase to avoid error)
+        // Always clean up existing suggestions first, even if no new suggestions
+        this.cleanupAllSuggestions();
+        
+        // Early return if no word
         if (!word) {
             return;
         }
-        
-        
-        // Use the comprehensive cleanup method
-        this.cleanupAllSuggestions();
 
         // Initialize scaling manager if not exists
         if (!this.scalingManager) {
