@@ -67,7 +67,8 @@
                 
                 // Use Qwen2.5-1.5B-Instruct - a larger model (3x the size of 0.5B)
                 // Using the pre-configured model from WebLLM's model list
-                const model_id = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
+                //const model_id = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
+                const model_id = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
                 
                 llmEngine = await CreateMLCEngine(model_id, {
                     logLevel: "INFO",

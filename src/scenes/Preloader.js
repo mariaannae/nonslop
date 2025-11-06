@@ -1299,7 +1299,7 @@ export default class Preloader extends Phaser.Scene {
         } catch (error) {
             console.error("Failed to initialize WebLLM:", error);
             // Show error in the typewriter box in red
-            const errorMsg = "Failed to initialize WebLLM: " + error;
+            const errorMsg = "Failed to initialize WebLLM (we recommend Chrome): " + error;
             this.createTypewriterIntroBox(undefined, errorMsg, COLORS_TEXT.ERROR);
             const errormsg = "Failed to initialize WebLLM:" + error;
             saveInteraction(errormsg, "preloader");
