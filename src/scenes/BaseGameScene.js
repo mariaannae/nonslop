@@ -2620,56 +2620,38 @@ createButtonSection(positions) {
         const promptStyle = this.getPromptTextStyle();
         const fontSize = parseInt(promptStyle.fontSize);
 
-        let promptTextObj, textHeight, boxHeight, boxStyle, promptY, textCenterY;
+        let promptTextObj, boxHeight, boxStyle, promptY;
         
-        // Use consistent and more generous padding for mobile
-        const effectivePadding = this.isMobile ? 20 : padding; // Increased mobile padding for better readability
+        // Use consistent padding for mobile and desktop, reduced by 25%
+        const effectivePadding = (this.isMobile ? 20 : padding) * 0.75;
         const style = {
             ...promptStyle,
             wordWrap: { width: textBoxWidth - effectivePadding * 2 }
         };
 
-        // Create text temporarily to measure height
-        promptTextObj = this.add.rexBBCodeText(
-            centerX,
-            0, // Temporary position
-            promptString,
-            style
-        ).setOrigin(0.5, 0.5);
-
-        textHeight = promptTextObj.height;
+        // Calculate fixed height for 2 lines of text (consistent positioning)
+        const lineHeight = fontSize * 1.2; // Standard line spacing
+        const minLinesHeight = lineHeight * 2; // Height for 2 lines
+        const minHeight = minLinesHeight + effectivePadding * 2;
         
-        // Dynamic height calculation with special handling for mobile
-        if (this.isMobile) {
-            // For mobile: ensure box is tall enough for 3 lines of text
-            const lineHeight = fontSize * 1.2; // Approximate line height with line spacing
-            const minLinesHeight = lineHeight * 3; // Height for 3 lines
-            const minPaddedHeight = minLinesHeight + effectivePadding * 2;
-            
-            // Use the larger of actual text height or 3-line minimum
-            boxHeight = Math.max(minPaddedHeight, textHeight + effectivePadding * 2);
-            
-            // Cap at a reasonable maximum
-            const maxHeight = 400;
-            boxHeight = Math.min(boxHeight, maxHeight);
-        } else {
-            // Desktop: use scaled logic for consistency with input offset
-            const sm = this.scalingManager;
-            const minHeight = sm.scaleValue(70);
-            const scaledPadding = sm.scaleValue(padding);
-            boxHeight = Math.max(minHeight, textHeight + scaledPadding * 2);
-            const maxHeight = sm.scaleValue(300);
-            boxHeight = Math.min(boxHeight, maxHeight);
-        }
-        console.log("boxheight: ", boxHeight);
-        
-        boxStyle = this.getPromptBoxStyle();
+        // Apply max height cap
+        const maxHeight = this.isMobile ? 300 : 220;
+        boxHeight = Math.min(minHeight, maxHeight);
         
         // yStart is the TOP EDGE of the box
         promptY = yStart;
-        // Calculate center position for the text
-        textCenterY = promptY + boxHeight / 2;
-
+        
+        // Create text with calculated position
+        const textCenterY = promptY + boxHeight / 2;
+        promptTextObj = this.add.rexBBCodeText(
+            centerX,
+            textCenterY,
+            promptString,
+            style
+        ).setOrigin(0.5, 0.5);
+        
+        boxStyle = this.getPromptBoxStyle();
+        
         // Draw the box
         this.promptTextBox.fillStyle(boxStyle.fillColor, boxStyle.fillAlpha);
         this.promptTextBox.fillRoundedRect(
@@ -2690,9 +2672,6 @@ createButtonSection(positions) {
             );
         }
         
-        // Set text position to center of box
-        promptTextObj.setY(textCenterY);
-
         this.promptText = promptTextObj;
         this.promptTextBox.setDepth(102);
         this.promptText.setDepth(103);

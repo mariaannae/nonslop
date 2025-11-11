@@ -41,22 +41,23 @@ export class BadgeGenerator {
             console.warn('[BadgeGenerator] Failed to load barcade3d font, will use fallback:', error);
         }
         
-        // Badge constraints - width scales, height is fixed
-        // Height reduced to 550px since QR code was removed
+        // Badge constraints - width and height both scale
         const BASE_WIDTH = 600;
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 550;
+        const MAX_WIDTH = 1000;
+        const BASE_HEIGHT = 550;
+        const MAX_HEIGHT = 1200;
         const padding = 24;
         
-        // Calculate required width for text
+        // Calculate required width and height for text
         let currentWidth = BASE_WIDTH;
+        let currentHeight = BASE_HEIGHT;
         let finalUserText = userText;
         
-        // Try progressively wider badges until text fits or we hit max width
-        // Carefully calculated to ensure QR code and URL always fit within 800px height
-        const availableTextHeight = 92; // 2 lines * 46px = 92px max for user text (reduced from 3 lines to fit QR code)
+        // Initial available height for user text (based on BASE_HEIGHT layout)
+        let availableTextHeight = 92; // Starting with 2 lines * 46px
         let textFits = false;
         
+        // Phase 1: Try progressively wider badges until text fits or we hit max width
         while (!textFits && currentWidth <= MAX_WIDTH) {
             const availableTextWidth = currentWidth - (padding * 4);
             const result = this.measureTextFit(userText, availableTextWidth, availableTextHeight);
@@ -69,18 +70,43 @@ export class BadgeGenerator {
             }
         }
         
-        // Force truncation if still doesn't fit at max width
+        // Phase 2: If text still doesn't fit at max width, try increasing height
+        if (!textFits && currentHeight < MAX_HEIGHT) {
+            currentWidth = MAX_WIDTH; // Lock width at maximum
+            
+            // Increase height and available text space
+            while (!textFits && currentHeight <= MAX_HEIGHT) {
+                // Calculate how much extra space we have for text
+                const extraHeight = currentHeight - BASE_HEIGHT;
+                availableTextHeight = 92 + extraHeight; // Original 92px plus extra space
+                
+                const availableTextWidth = currentWidth - (padding * 4);
+                const result = this.measureTextFit(userText, availableTextWidth, availableTextHeight);
+                
+                if (result.fits) {
+                    textFits = true;
+                    finalUserText = result.text;
+                } else {
+                    currentHeight += 50; // Increase height by 50px increments
+                }
+            }
+        }
+        
+        // Force truncation only if still doesn't fit at max width AND max height
         if (!textFits) {
             currentWidth = MAX_WIDTH;
+            currentHeight = MAX_HEIGHT;
             const availableTextWidth = currentWidth - (padding * 4);
+            const extraHeight = currentHeight - BASE_HEIGHT;
+            availableTextHeight = 92 + extraHeight;
             finalUserText = this.truncateText(userText, availableTextWidth, availableTextHeight);
         }
         
-        // Create canvas texture with calculated width
+        // Create canvas texture with calculated dimensions
         const textureKey = 'dynamicBadge_' + Date.now(); // Unique key
-        console.log('[BadgeGenerator] Creating canvas:', { width: currentWidth, height: MAX_HEIGHT });
+        console.log('[BadgeGenerator] Creating canvas:', { width: currentWidth, height: currentHeight });
         
-        const canvas = scene.textures.createCanvas(textureKey, currentWidth, MAX_HEIGHT);
+        const canvas = scene.textures.createCanvas(textureKey, currentWidth, currentHeight);
         const ctx = canvas.getContext();
         
         if (!ctx) {
@@ -98,14 +124,14 @@ export class BadgeGenerator {
         const bgColor = `#${colorsHex.BACKGROUND.toString(16).padStart(6, '0')}`;
         console.log('[BadgeGenerator] Drawing background:', bgColor);
         ctx.fillStyle = bgColor;
-        ctx.fillRect(0, 0, currentWidth, MAX_HEIGHT);
+        ctx.fillRect(0, 0, currentWidth, currentHeight);
         
         // Draw badge outline
         const outlineColor = `#${colorsHex.BOX_OUTLINE.toString(16).padStart(6, '0')}`;
         console.log('[BadgeGenerator] Drawing outline:', outlineColor);
         ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 5;
-        ctx.strokeRect(padding, padding, currentWidth - padding * 2, MAX_HEIGHT - padding * 2);
+        ctx.strokeRect(padding, padding, currentWidth - padding * 2, currentHeight - padding * 2);
         
         // Draw title - use barcade3d font to match game style
         console.log('[BadgeGenerator] Drawing title with barcade3d font');
@@ -128,7 +154,7 @@ export class BadgeGenerator {
         // Draw score - larger font with more spacing from title
         console.log('[BadgeGenerator] Drawing score:', score);
         ctx.fillStyle = colorsText.PRIMARY;
-        ctx.font = '36px monospace, "IBM Plex Mono"';
+        ctx.font = '42px monospace, "IBM Plex Mono"';
         ctx.fillText(`SCORE: ${score}/15`, currentWidth / 2, 165); // Moved from 150 to 165
         
         // Select and draw random badge text (like original badges)
@@ -203,7 +229,7 @@ export class BadgeGenerator {
             currentWidth - padding * 4, // Max width with padding
             colorsText.PRIMARY,
             true, // Return the height
-            '34px' // Increased font size
+            '38px' // Increased font size
         );
         console.log('[BadgeGenerator] User text height:', userTextHeight);
         console.log('[BadgeGenerator] Text drawing complete');
@@ -336,10 +362,10 @@ export class BadgeGenerator {
         let line = '';
         let lineY = y;
         const lineHeight = 46; // Increased from 38 to 46 to match larger font
-        const maxLines = 2; // Reduced from 3 to 2 to ensure QR code fits within badge with larger text
+        // No hardcoded maxLines - text will be drawn as needed (already truncated by measureTextFit/truncateText)
         let lineCount = 0;
         
-        for (let i = 0; i < words.length && lineCount < maxLines; i++) {
+        for (let i = 0; i < words.length; i++) {
             const testLine = line + words[i] + ' ';
             const metrics = ctx.measureText(testLine);
             const testWidth = metrics.width;
@@ -355,13 +381,9 @@ export class BadgeGenerator {
             }
         }
         
-        // Draw the last line if within max lines
-        if (lineCount < maxLines && line.trim() !== '') {
+        // Draw the last line
+        if (line.trim() !== '') {
             ctx.fillText(line.trim(), x, lineY);
-            lineCount++;
-        } else if (lineCount >= maxLines && line.trim() !== '') {
-            // Add ellipsis if text was truncated
-            ctx.fillText(line.trim() + '...', x, lineY);
             lineCount++;
         }
         

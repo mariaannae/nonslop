@@ -641,6 +641,7 @@ export default class DoneScene extends Phaser.Scene {
     }
     
     createPromptTextBox() {
+
         // Default Y for prompt box
         this.promptBoxY = this.scalingManager.scaleValue(130);
         console.log("Prompt box Y position:", this.promptBoxY);
