@@ -42,10 +42,10 @@ export class BadgeGenerator {
         }
         
         // Badge constraints - width scales, height is fixed
-        // Reduced height to 800px for better scaling in the scene
+        // Height reduced to 550px since QR code was removed
         const BASE_WIDTH = 600;
         const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 800;
+        const MAX_HEIGHT = 550;
         const padding = 24;
         
         // Calculate required width for text
@@ -207,68 +207,6 @@ export class BadgeGenerator {
         );
         console.log('[BadgeGenerator] User text height:', userTextHeight);
         console.log('[BadgeGenerator] Text drawing complete');
-        
-        // Calculate Y position for QR code (below user text) with more spacing
-        const qrY = yPosition + (userTextHeight || 0) + 40; // Increased from 30 to 40
-        const qrSize = 160; // Increased from 150 to 160
-        const urlHeight = 60; // Increased estimate for URL text and padding
-        console.log('[BadgeGenerator] QR code position:', qrY, 'User text height was:', userTextHeight);
-        console.log('[BadgeGenerator] Total content will end at:', qrY + qrSize + urlHeight, 'Canvas height:', MAX_HEIGHT);
-        
-        // Draw QR code if texture exists
-        if (scene.textures.exists('nonslop-qr-code')) {
-            console.log('[BadgeGenerator] QR code texture exists, attempting to draw');
-            try {
-                const qrTexture = scene.textures.get('nonslop-qr-code');
-                const qrImage = qrTexture.getSourceImage();
-                
-                console.log('[BadgeGenerator] QR image:', qrImage, 'Type:', typeof qrImage);
-                
-                // Check if the image is loaded
-                if (!qrImage) {
-                    console.error('[BadgeGenerator] QR image is null or undefined');
-                } else if (qrImage.width === 0 || qrImage.height === 0) {
-                    console.error('[BadgeGenerator] QR image dimensions are zero:', qrImage.width, 'x', qrImage.height);
-                } else {
-                    console.log('[BadgeGenerator] QR image dimensions:', qrImage.width, 'x', qrImage.height);
-                    
-                    // Calculate position
-                    const qrX = (currentWidth - qrSize) / 2;
-                    console.log('[BadgeGenerator] Drawing QR at:', { x: qrX, y: qrY, size: qrSize });
-                    
-                    // Ensure QR code fits within canvas
-                    if (qrY + qrSize + urlHeight <= MAX_HEIGHT) {
-                        // Draw QR code with explicit positioning
-                        ctx.drawImage(
-                            qrImage,
-                            qrX,
-                            qrY,
-                            qrSize,
-                            qrSize
-                        );
-                        console.log('[BadgeGenerator] QR code drawn');
-                        
-                        // Draw URL below QR code with increased font and spacing
-                        const urlY = qrY + qrSize + 35; // Increased from 30 to 35
-                        ctx.fillStyle = colorsText.PRIMARY;
-                        ctx.font = '24px monospace, "IBM Plex Mono"'; // Increased from 22px to 24px
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'top';
-                        ctx.fillText('nonslop.app', currentWidth / 2, urlY);
-                        console.log('[BadgeGenerator] URL drawn at y:', urlY);
-                    } else {
-                        console.warn('[BadgeGenerator] QR code would exceed canvas bounds, not drawing');
-                        console.log('[BadgeGenerator] Would end at:', qrY + qrSize + urlHeight, 'but max is:', MAX_HEIGHT);
-                    }
-                }
-            } catch (error) {
-                console.error('[BadgeGenerator] Error drawing QR code:', error);
-                console.error('[BadgeGenerator] Error stack:', error.stack);
-            }
-        } else {
-            console.warn('[BadgeGenerator] QR code texture "nonslop-qr-code" not found in scene textures');
-            console.log('[BadgeGenerator] Available textures:', Object.keys(scene.textures.list));
-        }
         
         // Refresh the canvas to apply all drawings
         console.log('[BadgeGenerator] Refreshing canvas');
