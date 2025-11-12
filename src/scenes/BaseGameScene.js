@@ -3425,8 +3425,10 @@ createButtonSection(positions) {
             // Skip if we're shutting down
             if (this.isShuttingDown) return;
 
-            // Prevent default browser behavior for Tab key immediately
-            if (event.key === "Tab" && typeof event.preventDefault === "function") {
+            // Prevent default browser behavior for all keys we handle to avoid browser shortcuts
+            // (e.g., Firefox Quick Find triggered by apostrophe, Chrome shortcuts, etc.)
+            const modifierKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'NumLock', 'ScrollLock'];
+            if (!modifierKeys.includes(event.key) && typeof event.preventDefault === "function") {
                 event.preventDefault();
             }
 
