@@ -11,4 +11,5 @@ src_backup
 .vscode
 .DS_Store
 src/.DS_Store
+experiment-webllm.html
 firebase-data/
