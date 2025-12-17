@@ -6019,10 +6019,9 @@ this.aiCountText = this.add.text(
             displayText = this._hiddenInput.value;
         }
         
-        // Append autocomplete or cursor
-        if (currentAutocomplete && this.cursorVisible) {
-            displayText += `[color=#ff0000]${currentAutocomplete}[/color]`;
-        } else if (this.cursorVisible) {
+        // TEMPORARILY DISABLED: Inline autocomplete hidden but still calculated in background
+        // Append cursor only (no autocomplete)
+        if (this.cursorVisible) {
             displayText += "_";
         } else {
             displayText += " ";
@@ -7076,6 +7075,9 @@ this.aiCountText = this.add.text(
     }
 
     showSuggestions(word) {
+        // TEMPORARILY DISABLED: Visual suggestions are hidden but AI still generates them (check console)
+        return;
+        
         // Handle array input for backward compatibility (convert to single word)
         if (Array.isArray(word)) {
             word = word.length > 0 ? word[0] : null;
