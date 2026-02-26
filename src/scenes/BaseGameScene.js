@@ -7075,8 +7075,7 @@ this.aiCountText = this.add.text(
     }
 
     showSuggestions(word) {
-        // TEMPORARILY DISABLED: Visual suggestions are hidden but AI still generates them (check console)
-        return;
+ 
         
         // Handle array input for backward compatibility (convert to single word)
         if (Array.isArray(word)) {
