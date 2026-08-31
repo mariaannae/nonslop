@@ -94,10 +94,12 @@ class RegistryManager {
         const WebLLM = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm');
         const { CreateMLCEngine } = WebLLM;
         
-        // Use Qwen2.5-1.5B-Instruct - a larger model (3x the size of 0.5B)
-        // Using the pre-configured model from WebLLM's model list
-        //const model_id = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
-        const model_id = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+        // Use Llama-3.2-1B-Instruct - a small step up from Qwen2.5-0.5B (2x the params)
+        // for better next-word coherence, while keeping VRAM modest (~880MB at q4f16_1).
+        // Previous options kept for reference:
+        //const model_id = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"; // 3x size, previously reverted for load cost
+        //const model_id = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC"; // prior default
+        const model_id = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
         
         const llmEngine = await CreateMLCEngine(model_id, {
             logLevel: "INFO",
