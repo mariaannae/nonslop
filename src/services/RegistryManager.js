@@ -136,11 +136,11 @@ class RegistryManager {
             chat: {
                 completions: {
                     create: async (options) => {
-                        const { 
-                            messages, 
-                            max_tokens = 5, 
+                        const {
+                            messages,
+                            max_tokens = 5,
                             temperature = 0.2,
-                            top_logprobs = 5
+                            n = 1
                         } = options;
                         
                         // Extract the last user message
@@ -152,28 +152,15 @@ class RegistryManager {
                             temperature: temperature,
                             do_sample: temperature > 0,
                             return_full_text: false,
-                            num_return_sequences: 1
+                            num_return_sequences: n
                         });
                         
-                        // Extract generated text
-                        const generatedText = result[0].generated_text.trim();
-                        
-                        // Split into words and create logprobs structure
-                        const words = generatedText.split(/\s+/).filter(w => w.length > 0);
-                        const topWords = words.slice(0, top_logprobs);
-                        
-                        // Create a response structure that matches the expected format
+                        // Match the chat completion shape the callers read: one choice per
+                        // returned sequence, each with the generated text on message.content.
                         return {
-                            choices: [{
-                                logprobs: {
-                                    content: [{
-                                        top_logprobs: topWords.map((token, index) => ({
-                                            token: token,
-                                            logprob: -0.1 - (index * 0.05)
-                                        }))
-                                    }]
-                                }
-                            }]
+                            choices: result.map(item => ({
+                                message: { content: (item.generated_text || '').trim() }
+                            }))
                         };
                     }
                 }

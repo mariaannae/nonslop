@@ -453,29 +453,71 @@ export default class BaseGameScene extends Phaser.Scene {
     deleteAIWord(blockedWord) {
         if (!this.userInput || !blockedWord) return;
 
-        // Check if the original input ended with a space
-        const endsWithSpace = /\s$/.test(this.userInput);
+        // Edit the raw string rather than doing a split/join round trip: joining on spaces
+        // would flatten the player's line breaks, leaving text that no longer matches what
+        // they typed - and that text is what the suggestion model is asked to continue.
+        const trailingWhitespace = this.userInput.match(/\s*$/)[0];
+        const withoutTrailing = this.userInput.slice(0, this.userInput.length - trailingWhitespace.length);
+        const lastBreakIndex = this._lastWordBoundaryIndex(withoutTrailing);
+        const lastWord = withoutTrailing.slice(lastBreakIndex + 1);
 
-        // Find the last word in the user input
-        const words = this.userInput.trim().split(/\s+/);
-        const lastWordIndex = words.length - 1;
+        // Only delete the word that was actually blocked
+        if (this._normalizeWord(lastWord) !== this._normalizeWord(blockedWord)) return;
 
-        if (lastWordIndex >= 0) {
-            const lastWord = words[lastWordIndex];
-            // Check if the last word matches the blocked word (case insensitive)
-            if (lastWord.toLowerCase() === blockedWord.toLowerCase()) {
-                // Remove the last word from the input
-                words.pop();
-                // Reconstruct the user input without the blocked word
-                this.userInput = words.join(' ');
-                // Only add a space if the original input ended with a space and there is still content
-                if (this.userInput.length > 0 && endsWithSpace) {
-                    this.userInput += ' ';
-                }
-                // Update the display
-                this.updateCursor();
-            }
-        }
+        // Leave the text exactly as it stood before the word was typed: everything up to and
+        // including the separator in front of it (so a word purged at the start of a line
+        // leaves the line break intact), and none of the boundary whitespace that followed,
+        // which belonged to the purged word.
+        this.userInput = withoutTrailing.slice(0, lastBreakIndex + 1);
+
+        // Update the display
+        this.updateCursor();
+    }
+
+    /**
+     * Index of the space or line break in front of the final word of a string, or -1 when
+     * the final word starts the string.
+     * @param {string} text
+     * @returns {number}
+     * @private
+     */
+    _lastWordBoundaryIndex(text) {
+        return Math.max(text.lastIndexOf(' '), text.lastIndexOf('\n'), text.lastIndexOf('\r'));
+    }
+
+    /**
+     * The final word of a string, ignoring trailing whitespace. Line breaks count as word
+     * boundaries, so a word typed at the start of a new line is returned on its own rather
+     * than glued to the word above it.
+     * @param {string} text
+     * @returns {string} The last word, or "" if there is none.
+     */
+    getLastWord(text) {
+        if (!text || typeof text !== 'string') return '';
+        const withoutTrailing = text.replace(/\s+$/, '');
+        return withoutTrailing.slice(this._lastWordBoundaryIndex(withoutTrailing) + 1);
+    }
+
+    /**
+     * Lowercase a word and drop trailing punctuation, so "Word." and "word" compare equal.
+     * @param {string} word
+     * @returns {string}
+     * @private
+     */
+    _normalizeWord(word) {
+        if (!word || typeof word !== 'string') return '';
+        return word.toLowerCase().replace(/[.,!?;:]+$/, '');
+    }
+
+    /**
+     * Whether a word is one of the suggestions currently on offer.
+     * @param {string} word
+     * @returns {boolean}
+     */
+    isAISuggestedWord(word) {
+        const normalized = this._normalizeWord(word);
+        if (!normalized || !Array.isArray(this.aiSuggestedWords)) return false;
+        return this.aiSuggestedWords.some(suggested => this._normalizeWord(suggested) === normalized);
     }
     
     /**
@@ -777,9 +819,10 @@ export default class BaseGameScene extends Phaser.Scene {
         this.levelValue = 1;
         this.topKValue = 1;
         this.temperature = 0.5; // Add temperature for randomness control
-        this.frequencyPenalty = 2.0; // Frequency penalty to reduce word repetition (range: 0.0 to 2.0, adjust in code)
-        this.presencePenalty = 2.0; // Presence penalty for topic diversity (range: 0.0 to 2.0, adjust in code)
-        this.repetitionPenalty = 1.5; // Repetition penalty for token diversity (range: 1.0 to 2.0, 1.0 = no penalty)
+        this.frequencyPenalty = 0.0; // Frequency penalty (range: 0.0 to 2.0). Kept at 0: on a short
+                                     // completion it mostly suppresses correct context words.
+        this.presencePenalty = 0.0; // Presence penalty (range: 0.0 to 2.0). Kept at 0 for the same reason.
+        this.repetitionPenalty = 1.0; // Carried in the mode-transition payload; no longer sent to the engine.
         this.isShuttingDown = false; // CRITICAL: Reset shutdown flag
         this.autocompleteText = null;
         this.progressPercentage = DESIGN.UI.PROGRESS_BAR.INITIAL;
@@ -2137,23 +2180,22 @@ createButtonSection(positions) {
         // Convert hex color to string for text fill
 
         if (!(/\s$/.test(this.userInput))) {
-            // If the last character is not whitespace    
-            const words = this.userInput.trim().split(" ");
-            // Use let instead of const for lastWord since we modify it below
-            let lastWord = words[words.length - 1];
-            
-            if (lastWord && lastWord.length > 0) {
-                if (/[.,!?;:]$/.test(lastWord)) {
-                    lastWord = lastWord.slice(0, -1);
-                }
-                // Convert to lowercase for case-insensitive comparison
-                const lastWordLower = lastWord.toLowerCase();
-                const isAIWord = this.aiSuggestedWords && 
-                    this.aiSuggestedWords.some(word => word.toLowerCase() === lastWordLower);
-                
-                if (isAIWord) {
+            // The player clicked Done without a trailing space/newline, so the final word was
+            // never run through the space/enter handlers. Check it here using the same helpers
+            // the in-game handlers use, so detection matches (start-of-line words, trailing
+            // punctuation, line breaks) rather than the old trim/split heuristic.
+            const lastWord = this.getLastWord(this.userInput);
+
+            if (lastWord) {
+                if (this.isAISuggestedWord(lastWord)) {
+                    // In hard mode, purge the AI word so it is excluded from the text sent for
+                    // evaluation and from the word counts, exactly as the space/enter handlers
+                    // would have done had the player typed a boundary before submitting.
+                    if (this.mode === 'hard' && typeof this.deleteAIWord === 'function') {
+                        this.deleteAIWord(lastWord);
+                    }
                     this.updateFailsCounter(false);
-                    // Call shakeScreen for mobile when an AI word is detected
+                    // Shake the screen to signal the blocked word
                     this.shakeScreen();
                 } else {
                     this.updateFailsCounter(true);
@@ -2292,7 +2334,9 @@ createButtonSection(positions) {
         });
 
         if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.statusText}`);
+            const errorData = await response.json().catch(() => null);
+            const errorMsg = errorData?.error || response.statusText || 'Unknown error';
+            throw new Error(`OpenAI API error: ${errorMsg}`);
         }
         
         const responseData = await response.json();
@@ -2362,7 +2406,6 @@ createButtonSection(positions) {
         
         // ALWAYS increment request ID to ensure no caching - force fresh generation every time
         const requestId = ++this.suggestionRequestId;
-        const inputAtRequest = userInput;
 
         // Don't generate suggestions for empty input
         if (!userInput) {
@@ -2379,10 +2422,7 @@ createButtonSection(positions) {
         }
     
         // Get all text up to the last word boundary
-        const lastSpaceIndex = userInput.lastIndexOf(' ');
-        const lastNewlineIndex = userInput.lastIndexOf('\n');
-        const lastBreakIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
-        const context = lastBreakIndex >= 0 ? userInput.slice(0, lastBreakIndex + 1) : userInput;
+        const context = this._contextUpToLastBoundary(userInput);
         
         // Don't show "Loading..." as it causes unnecessary clearing of existing suggestions
         // Suggestions will be displayed when ready
@@ -2422,7 +2462,7 @@ createButtonSection(positions) {
                     typeof recoveredEngine.chat.completions.create === 'function';
                     
                 if (isRecoveredValid) {
-                    // Use current user input instead of the old inputAtRequest
+                    // Use current user input instead of the input this request started from
                     // This ensures we generate suggestions for the current state
                     if (this.userInput && (this.userInput.endsWith(' ') || this.userInput.endsWith('\n') || this.userInput.endsWith('\r'))) {
                         this.generateAISuggestions(this.userInput);
@@ -2432,9 +2472,16 @@ createButtonSection(positions) {
             return;
         }
     
-        // Optimize context - only include last 50 characters of context to reduce token count
+        // Optimize context - only include the last 200 characters to reduce token count
         const optimizedContext = context.length > 200 ? '...' + context.slice(-200) : context;
-        const trimmedcontext = "question: " + this.currentPrompt + ": \nanswer: " + optimizedContext.trim();
+        // Keep the trailing word boundary: the model continues this text, so a trailing
+        // space is the signal that the next word starts fresh.
+        const answerSoFar = optimizedContext.replace(/^\s+/, '');
+        // Give the model the question as plain context followed by the answer in progress,
+        // with no meta-framing ("The following is...") and no "Question:/Answer:" labels.
+        // A meta-wrapper gets continued as meta-text and a Q&A record drifts into the next
+        // numbered item; plain prose lets the model simply continue the player's sentence.
+        const continuationPrompt = `${this.currentPrompt}\n\n${answerSoFar}`;
         // Add retry logic
         try {
             // Double-check the engine is still valid before calling it
@@ -2448,115 +2495,58 @@ createButtonSection(positions) {
                 throw new Error('LLM engine is not available or does not have required API');
             }
             
+            // Continue the player's answer rather than prompting the model about it.
+            const { texts, logprobs } = await this._requestSuggestionCompletions(llmEngine, continuationPrompt);
 
-
-            // Use the engine from registry manager (MLC-AI WebLLM engine)
-            // Note: We don't reset the chat session as it causes conversation state corruption.
-            // The temperature, frequency_penalty, and other parameters provide sufficient randomness.
-            
-            const response = await llmEngine.chat.completions.create({
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are a helpful AI that suggests the next possible words based on the given context. Use English only."
-                    },
-                    {
-                        role: "user",
-                        content: trimmedcontext
-                    }
-                    ],
-                max_tokens: 3,
-                n: 5,
-                top_logprobs: 5,
-                logprobs: true,
-                temperature: this.temperature,
-                frequency_penalty: this.frequencyPenalty,
-                presence_penalty: this.presencePenalty,
-                repetition_penalty: this.repetitionPenalty,
-                stream: false,
-                //seed: Math.floor(Math.random() * 10000000), // Different seed each time
-                // Add more randomization parameters
-                
-            });
-
-            console.log("DEBUG: LLM raw response:", response);
-            const choices = response.choices || [];
-            if (choices.length === 0) {
+            console.log("DEBUG: LLM completion texts:", texts);
+            if (texts.length === 0) {
                 throw new Error('LLM engine returned no choices');
             }
 
-
-
-            // Extract logprobs from the first choice
-            const logprobs = response.choices[0].logprobs.content[0].top_logprobs;
-
-            
-            
-            // Only process the result if this is the latest request AND input matches current userInput
-            if (requestId !== this.suggestionRequestId || inputAtRequest !== this.userInput) {
+            // Only process the result if this is the latest request AND the player has not
+            // crossed another word boundary since it went out. Characters typed within the
+            // word in progress do not change the text this completion continues, so they
+            // must not throw the suggestion away.
+            if (requestId !== this.suggestionRequestId || context !== this._contextUpToLastBoundary(this.userInput)) {
                 this.isProcessingQueuedKeys = false;
                 return;
             }
 
-            if (!logprobs || !Array.isArray(logprobs) || logprobs.length === 0) {
-                this.aiSuggestedWords = [];
-                this.showSuggestions([]);
-                if (this.autocompleteText) {
-                    this.autocompleteText.setText('');
+            // Score each candidate's first whole word by the model's own log probability,
+            // then surface the most likely word. Assembling the word from the per-token
+            // logprobs (rather than raw string position) means BPE fragments like
+            // "del" + "icious" are joined and scored as the single word "delicious".
+            const scoredWords = [];
+            texts.forEach((text, i) => {
+                const tokenLogprobs = (logprobs && logprobs[i]) || null;
+                const scored = this._scoreFirstWord(text, tokenLogprobs);
+                if (scored.word) {
+                    scoredWords.push(scored);
                 }
-                this.isProcessingQueuedKeys = false;
-                return;
-            }
+            });
 
-            // PRIORITY 1: Extract and filter words from choices FIRST
-            let words = [];
-            
-            // Log the actual tokens and their probabilities from choices
-            if (choices && Array.isArray(choices)) {
-                choices.forEach((item, index) => {
-                    const topWord = item.message.content.split(" ")[0];
-                    if (topWord) {
-                        const cleanedWord = topWord.trim().replace(/^[\p{P}]+|[\p{P}]+$/gu, "");
-                        words.push(cleanedWord);
-                    }
-                });
-            }
-            
-            // Filter the choices words
-            const filtered_choices = words.filter(word => 
-                word && 
-                word.length > 1 && 
+            // Filter out stopwords and one-character words.
+            const filtered_choices = scoredWords.filter(({ word }) =>
+                word &&
+                word.length > 1 &&
                 !stopwords.includes(word.toLowerCase())
             );
-            
-            
-            // PRIORITY 2: Only if we don't have enough words, add from logprobs
-            let finalWords = [];
-            if (filtered_choices.length < this.topKValue) {
-            
-                // Extract tokens from logprobs as fallback
-                const logprobWords = logprobs
-                    .map(item => item.token)
-                    .map(word => word.trim())
-                    .map(word => word.replace(/^[\p{P}]+|[\p{P}]+$/gu, ""));
-                
-                // Filter logprob words
-                const filtered_logprobs = logprobWords.filter(word => 
-                    word && 
-                    word.length > 1 && 
-                    !stopwords.includes(word.toLowerCase())
-                );
-                
-                
-                // Combine: choices first, then logprobs
-                finalWords = [...filtered_choices, ...filtered_logprobs];
-            } else {
-                finalWords = filtered_choices;
-            }
-            
-            
-            // Deduplicate and limit to topKValue
-            const uniqueSuggestedWords = Array.from(new Set(finalWords)).slice(0, Math.max(this.topKValue, 1));
+
+            // Deduplicate keeping the best (highest) score per word, then sort most likely
+            // first so the top suggestion is the model's most probable next word.
+            const bestByWord = new Map();
+            filtered_choices.forEach(({ word, score }) => {
+                const key = word.toLowerCase();
+                if (!bestByWord.has(key) || score > bestByWord.get(key).score) {
+                    bestByWord.set(key, { word, score });
+                }
+            });
+            const rankedWords = Array.from(bestByWord.values())
+                .sort((a, b) => b.score - a.score)
+                .map(entry => entry.word);
+
+            // Limit to topKValue
+            const uniqueSuggestedWords = rankedWords.slice(0, Math.max(this.topKValue, 1));
             console.log("DEBUG: Unique suggestions to display:", uniqueSuggestedWords);
 
             // Convert to lowercase
@@ -2587,6 +2577,158 @@ createButtonSection(positions) {
         // Don't reset isGeneratingAISuggestions here - let generateAISuggestionsWithQueue handle it
         
     }
+
+    /**
+     * The player's text up to and including the last word boundary - the part the model is
+     * asked to continue. Anything typed since that boundary belongs to the word in progress
+     * and is deliberately left out.
+     * @param {string} text - The player's input.
+     * @returns {string} The text the model should continue.
+     * @private
+     */
+    _contextUpToLastBoundary(text) {
+        if (!text) return '';
+        const lastBreakIndex = this._lastWordBoundaryIndex(text);
+        return lastBreakIndex >= 0 ? text.slice(0, lastBreakIndex + 1) : text;
+    }
+
+    /**
+     * Pull the first whole word out of a raw completion string.
+     * Skips leading whitespace and punctuation, so a completion that begins with a
+     * space (very common with BPE tokenizers) still yields a word. The match must start
+     * with a letter, so list markers and other stray digits never become suggestions.
+     * @param {string} text - Raw completion text.
+     * @returns {string} The first word, or "" if there is none.
+     * @private
+     */
+    _extractFirstWord(text) {
+        // Tokenize first, then take the first token that begins with a letter. Matching
+        // letters directly would cut a numeric token in half ("1990s" -> "s").
+        const tokens = (text || '').match(/[\p{L}\p{N}][\p{L}\p{N}'\u2019-]*/gu) || [];
+        const word = tokens.find(token => /^\p{L}/u.test(token));
+        return word ? word.replace(/^[\p{P}]+|[\p{P}]+$/gu, "") : "";
+    }
+
+    /**
+     * Extract a candidate's first whole word and score it by the model's log probability.
+     * BPE tokenizers split words into fragments ("del" + "icious"), so the word is
+     * reconstructed by walking the per-token logprob entries and summing the log
+     * probabilities of the tokens that make up that word. A higher (less negative) score
+     * means the model considered the word more likely. When token logprobs are missing
+     * (older engine, or an API that does not populate them), it falls back to extracting
+     * the word from the raw text with a neutral score of 0.
+     * @param {string} text - Raw completion text for this candidate.
+     * @param {Array<{token: string, logprob: number}>|null} tokenLogprobs - Per-token
+     *   logprob entries for this candidate, in generation order.
+     * @returns {{word: string, score: number}} The first word and its log-probability
+     *   score, or { word: "", score: -Infinity } if no word could be extracted.
+     * @private
+     */
+    _scoreFirstWord(text, tokenLogprobs) {
+        const word = this._extractFirstWord(text);
+        if (!word) {
+            return { word: "", score: -Infinity };
+        }
+
+        // Without token-level logprobs, keep the word but give it a neutral score so it
+        // still participates in ranking (it simply cannot be ordered by probability).
+        if (!Array.isArray(tokenLogprobs) || tokenLogprobs.length === 0) {
+            return { word, score: 0 };
+        }
+
+        // Walk the tokens in order, accumulating their decoded text until it covers the
+        // extracted word, summing the matching tokens' log probabilities on the way.
+        const target = word.toLowerCase();
+        let assembled = "";
+        let score = 0;
+        for (const entry of tokenLogprobs) {
+            if (!entry || typeof entry.token !== 'string') continue;
+            const cleanedToken = entry.token.replace(/[^\p{L}\p{N}'\u2019-]/gu, "").toLowerCase();
+            if (!cleanedToken) {
+                // Leading whitespace/punctuation token before the word starts: skip it,
+                // but stop once we have already begun assembling the word.
+                if (assembled) break;
+                continue;
+            }
+            assembled += cleanedToken;
+            if (typeof entry.logprob === 'number') {
+                score += entry.logprob;
+            }
+            if (assembled.length >= target.length) break;
+        }
+
+        // If the tokens never lined up with the word, fall back to a neutral score rather
+        // than dropping the candidate.
+        if (!assembled) {
+            return { word, score: 0 };
+        }
+        return { word, score };
+    }
+
+    /**
+     * Ask the engine for candidate continuations of the player's text.
+     * Prefers the raw text-completion API so that no chat template is applied and the
+     * model extends the sentence instead of replying to it. Falls back to the chat API
+     * for engines that only expose that (the Transformers.js mobile wrapper).
+     * @param {Object} llmEngine - The LLM engine from the registry manager.
+     * @param {string} promptText - The text to continue.
+     * @returns {Promise<{texts: string[]}>} Candidate completion strings.
+     * @private
+     */
+    async _requestSuggestionCompletions(llmEngine, promptText) {
+        const params = {
+            // Enough tokens to assemble one whole word from BPE fragments, but small so
+            // greedy decoding does not drift into a whole clause.
+            max_tokens: 3,
+            // Greedy decoding is deterministic, so a single candidate is all we need.
+            n: 1,
+            // Never cross a line break. New lines are where list markers and headings
+            // live, and those produce digits and structure rather than next words.
+            stop: ["\n"],
+            // Temperature 0: always the model's single most-probable continuation, so the
+            // suggestion is a deterministic, reproducible function of the player's text.
+            temperature: 0,
+            // Ask for per-token log probabilities so the next word can be assembled and
+            // scored from the model's actual token probabilities rather than raw position.
+            logprobs: true,
+            top_logprobs: 5,
+            frequency_penalty: this.frequencyPenalty,
+            presence_penalty: this.presencePenalty,
+            stream: false
+        };
+
+        if (llmEngine.completions && typeof llmEngine.completions.create === 'function') {
+            const response = await llmEngine.completions.create({
+                ...params,
+                prompt: promptText
+            });
+            const choices = response.choices || [];
+            return {
+                texts: choices.map(choice => choice.text || ''),
+                logprobs: choices.map(choice => choice.logprobs?.content || null)
+            };
+        }
+
+        const response = await llmEngine.chat.completions.create({
+            ...params,
+            messages: [
+                {
+                    role: "system",
+                    content: "Continue the user's text. Reply with only the next few words, in English. No preamble, quotes or explanation."
+                },
+                {
+                    role: "user",
+                    content: promptText
+                }
+            ]
+        });
+        const choices = response.choices || [];
+        return {
+            texts: choices.map(choice => choice.message?.content || ''),
+            logprobs: choices.map(choice => choice.logprobs?.content || null)
+        };
+    }
+
 
     // Template methods with customization hooks
     /**
@@ -2851,71 +2993,43 @@ createButtonSection(positions) {
         // Set flag immediately to indicate AI suggestions are being generated
         this.isGeneratingAISuggestions = true;
         
+        let wordWasBlocked = false;
+
         try {
             // Safely handle word checking with maximum safeguards
-            if (this.userInput && typeof this.userInput === 'string') {
-                const trimmedInput = this.userInput.trim();
-                if (trimmedInput && trimmedInput.length > 0) {
-                    const words = trimmedInput.split(" ");
-                    if (words && Array.isArray(words) && words.length > 0) {
-                        const lastWordIndex = words.length - 1;
-                        if (lastWordIndex >= 0) {
-                            const lastWord = words[lastWordIndex];
-                            if (lastWord && typeof lastWord === 'string' && lastWord.length > 0) {
-                                const lastWordLower = lastWord.toLowerCase();
-                                
-                                // Check if AI suggested words array exists and is an array before using .some()
-                                const aiWordsValid = this.aiSuggestedWords && 
-                                    Array.isArray(this.aiSuggestedWords) && 
-                                    this.aiSuggestedWords.length > 0;
-                                    
-                                let isAIWord = false;
-                                if (aiWordsValid) {
-                                    isAIWord = this.aiSuggestedWords.some(word => {
-                                        return word && typeof word === 'string' && word.toLowerCase && word.toLowerCase() === lastWordLower;
-                                    });
-                                }
-                                
-                                if (isAIWord) {
-                                    // In hard mode, delete the AI word immediately
-                                    if (this.mode && this.mode === 'hard') {
-                                        // Delete the word before showing feedback
-                                        if (typeof this.deleteAIWord === 'function') {
-                                            this.deleteAIWord(lastWord);
-                                        }
-                                        // Show feedback after deletion
-                                        if (typeof this.showBlockFeedback === 'function') {
-                                            this.showBlockFeedback(lastWord);
-                                        }
-                                        // Sync the hidden input after deletion
-                                        if (this._hiddenInput) {
-                                            this._hiddenInput.value = this.userInput;
-                                        }
-                                        // FIX: Still need to count AI word attempts and break streak
-                                        this.updateFailsCounter(false);
-                                    } else {
-                                        // Easy mode - just update counter and shake
-                                        this.updateFailsCounter(false);
-                                        this.shakeScreen();
-                                    }
-                                } else {
-                                    this.updateFailsCounter(true);
-                                }
-                            }
+            const lastWord = this.getLastWord(this.userInput);
+            if (lastWord) {
+                if (this.isAISuggestedWord(lastWord)) {
+                    // In hard mode, delete the AI word immediately
+                    if (this.mode && this.mode === 'hard') {
+                        // Delete the word before showing feedback
+                        if (typeof this.deleteAIWord === 'function') {
+                            const inputBeforePurge = this.userInput;
+                            this.deleteAIWord(lastWord);
+                            wordWasBlocked = this.userInput !== inputBeforePurge;
                         }
+                        // Show feedback after deletion
+                        if (typeof this.showBlockFeedback === 'function') {
+                            this.showBlockFeedback(lastWord);
+                        }
+                        // Sync the hidden input after deletion
+                        if (this._hiddenInput) {
+                            this._hiddenInput.value = this.userInput;
+                        }
+                        // FIX: Still need to count AI word attempts and break streak
+                        this.updateFailsCounter(false);
+                    } else {
+                        // Easy mode - just update counter and shake
+                        this.updateFailsCounter(false);
+                        this.shakeScreen();
                     }
+                } else {
+                    this.updateFailsCounter(true);
                 }
             }
         } catch (error) {
             console.error("Error processing space key:", error);
             // Continue even if there's an error with word checking
-        }
-        
-        // NOW clear old suggestions after checking the word
-        this.aiSuggestedWords = [];
-        this.showSuggestions([]);
-        if (this.autocompleteText) {
-            this.autocompleteText.setText('');
         }
         
         // Reset timer when space is pressed (hard mode only)
@@ -2925,8 +3039,34 @@ createButtonSection(positions) {
                 this.timerText.setText('0:20');
             }
         }
-        
-        // Only add space if not on mobile (mobile handles this through the hidden input)
+
+        if (wordWasBlocked) {
+            // Hard mode: the AI word was purged and the text reverted to exactly what it
+            // stood at before the word was typed. The existing suggestion still fits that
+            // context, so keep it on offer and re-render it rather than asking the model
+            // again - a fresh request here is slow and can desync the suggestion from the
+            // text. No space is appended: the text already ends at the prior boundary.
+            this.showSuggestions(this.aiSuggestedWords);
+            if (this._hiddenInput) {
+                this._hiddenInput.value = this.userInput;
+            }
+            this.updateCursor();
+            // Mirror generateAISuggestionsWithQueue's "no regeneration" branch so the
+            // key queue advances and no generation flag is left stuck on.
+            this.isGeneratingAISuggestions = false;
+            if (done) done();
+            return;
+        }
+
+        // Normal path: retire the previous word's suggestion, advance the text, and ask
+        // the model to continue the new context.
+        this.aiSuggestedWords = [];
+        this.showSuggestions([]);
+        if (this.autocompleteText) {
+            this.autocompleteText.setText('');
+        }
+
+        // Only add space if not on mobile (mobile handles this through the hidden input).
         if (!this.isMobile) {
             this.userInput += " ";
         }
@@ -3006,51 +3146,38 @@ createButtonSection(positions) {
         // Set flag immediately to indicate AI suggestions are being generated
         this.isGeneratingAISuggestions = true;
         
+        let wordWasBlocked = false;
+
         // Safely handle word checking with the same safety pattern
-        if (this.userInput && this.userInput.trim()) {
-            const words = this.userInput.trim().split(" ");
-            if (words && words.length > 0) {
-                const lastWord = words[words.length - 1];
-                if (lastWord && lastWord.length > 0) {
-                    const lastWordLower = lastWord.toLowerCase();
-                    // Check if AI suggested words array exists and is an array before using .some()
-                    const isAIWord = this.aiSuggestedWords && 
-                        Array.isArray(this.aiSuggestedWords) &&
-                        this.aiSuggestedWords.some(word => word && word.toLowerCase && word.toLowerCase() === lastWordLower);
-                    if (isAIWord) {
-                        // In hard mode, delete the AI word immediately
-                        if (this.mode === 'hard') {
-                            // Delete the word before showing feedback
-                            if (typeof this.deleteAIWord === 'function') {
-                                this.deleteAIWord(lastWord);
-                            }
-                            // Show feedback after deletion
-                            if (typeof this.showBlockFeedback === 'function') {
-                                this.showBlockFeedback(lastWord);
-                            }
-                            // Sync the hidden input after deletion
-                            if (this._hiddenInput) {
-                                this._hiddenInput.value = this.userInput;
-                            }
-                            // FIX: Still need to count AI word attempts and break streak
-                            this.updateFailsCounter(false);
-                        } else {
-                            // Easy mode - just update counter and shake
-                            this.updateFailsCounter(false);
-                            this.shakeScreen();
-                        }
-                    } else {
-                        this.updateFailsCounter(true);
+        const lastWord = this.getLastWord(this.userInput);
+        if (lastWord) {
+            if (this.isAISuggestedWord(lastWord)) {
+                // In hard mode, delete the AI word immediately
+                if (this.mode === 'hard') {
+                    // Delete the word before showing feedback
+                    if (typeof this.deleteAIWord === 'function') {
+                        const inputBeforePurge = this.userInput;
+                        this.deleteAIWord(lastWord);
+                        wordWasBlocked = this.userInput !== inputBeforePurge;
                     }
+                    // Show feedback after deletion
+                    if (typeof this.showBlockFeedback === 'function') {
+                        this.showBlockFeedback(lastWord);
+                    }
+                    // Sync the hidden input after deletion
+                    if (this._hiddenInput) {
+                        this._hiddenInput.value = this.userInput;
+                    }
+                    // FIX: Still need to count AI word attempts and break streak
+                    this.updateFailsCounter(false);
+                } else {
+                    // Easy mode - just update counter and shake
+                    this.updateFailsCounter(false);
+                    this.shakeScreen();
                 }
+            } else {
+                this.updateFailsCounter(true);
             }
-        }
-        
-        // NOW clear old suggestions after checking the word
-        this.aiSuggestedWords = [];
-        this.showSuggestions([]);
-        if (this.autocompleteText) {
-            this.autocompleteText.setText('');
         }
         
         // Reset timer when Enter is pressed (hard mode only)
@@ -3060,7 +3187,33 @@ createButtonSection(positions) {
                 this.timerText.setText('0:20');
             }
         }
-        
+
+        if (wordWasBlocked) {
+            // Hard mode: the AI word was purged and the text reverted to exactly what it
+            // stood at before the word was typed. The existing suggestion still fits that
+            // context, so keep it on offer and re-render it rather than asking the model
+            // again - a fresh request here is slow and can desync the suggestion from the
+            // text. No newline is appended: the text already ends at the prior boundary.
+            this.showSuggestions(this.aiSuggestedWords);
+            if (this._hiddenInput) {
+                this._hiddenInput.value = this.userInput;
+            }
+            this.updateCursor();
+            // Mirror generateAISuggestionsWithQueue's "no regeneration" branch so the
+            // key queue advances and no generation flag is left stuck on.
+            this.isGeneratingAISuggestions = false;
+            if (done) done();
+            return;
+        }
+
+        // Normal path: retire the previous word's suggestion, advance the text, and ask
+        // the model to continue the new context.
+        this.aiSuggestedWords = [];
+        this.showSuggestions([]);
+        if (this.autocompleteText) {
+            this.autocompleteText.setText('');
+        }
+
         // Only add newline if not on mobile (mobile handles this through the hidden input)
         if (!this.isMobile) {
             this.userInput += "\n";
@@ -3737,65 +3890,42 @@ createButtonSection(positions) {
             const previousInput = this.userInput;
             this.userInput = input.value;
 
-            // Only generate suggestions if the last character is a space or newline
+            // Check the word at the boundary BEFORE asking for new suggestions: in hard
+            // mode the word is purged from the text, and the model has to continue the text
+            // as it stands afterwards, not the version that still contains the AI word.
             const lastChar = this.userInput.slice(-1);
             if (lastChar === ' ' || lastChar === '\n' || lastChar === '\r') {
-                this.generateAISuggestionsWithQueue(() => {});
-            }
+                const lastWord = this.getLastWord(this.userInput);
+                const isAIWord = this.isAISuggestedWord(lastWord);
 
-            // For mobile, we'll handle word checking in the input handler
-            // but NOT trigger the visual effects to prevent duplication
-            if (lastChar === ' ' || lastChar === '\n') {
-                let isAIWord = false; // Declare isAIWord in the outer scope
-                
-                const words = this.userInput.trim().split(/\s+/);
-                if (words.length > 0) {
-                    // Get the last word and clean it
-                    let lastWord = words[words.length - 1];
-                    // Store original word for feedback
-                    const originalLastWord = lastWord;
-                    // Remove punctuation for comparison
-                    lastWord = lastWord.replace(/[.,!?;:]$/, '');
-                    const lastWordLower = lastWord.toLowerCase();
-                    
-                    // Check if it's an AI word
-                    isAIWord = this.aiSuggestedWords && 
-                        Array.isArray(this.aiSuggestedWords) &&
-                        this.aiSuggestedWords.some(word => word && word.toLowerCase() === lastWordLower);
-                    
-                    if (isAIWord) {
-                        // In hard mode, delete the AI word from input
-                        if (this.mode === 'hard') {
-                            // Remove the last word from the array
-                            words.pop();
-                            // Reconstruct the input without the AI word
-                            this.userInput = words.join(' ');
-                            // Only add space if there are remaining words
-                            if (this.userInput.length > 0) {
-                                if (lastChar === ' ') {
-                                    this.userInput += ' ';
-                                } else if (lastChar === '\n') {
-                                    this.userInput += '\n';
-                                }
-                            }
-                            // Update the hidden input value to match
-                            input.value = this.userInput;
-                            // Move cursor to end
-                            input.setSelectionRange(input.value.length, input.value.length);
-                            // Show feedback if the method exists
-                            if (typeof this.showBlockFeedback === 'function') {
-                                this.showBlockFeedback(lastWord);
-                            }
-                        } else {
-                            // Easy mode - just increment counter
-                            this.aiWordCount++;
+                if (isAIWord) {
+                    // In hard mode, delete the AI word from input
+                    if (this.mode === 'hard') {
+                        this.deleteAIWord(lastWord);
+                        // Update the hidden input value to match
+                        input.value = this.userInput;
+                        // Move cursor to end
+                        input.setSelectionRange(input.value.length, input.value.length);
+                        // Show feedback if the method exists
+                        if (typeof this.showBlockFeedback === 'function') {
+                            this.showBlockFeedback(lastWord);
                         }
+                    } else {
+                        // Easy mode - just increment counter
+                        this.aiWordCount++;
                     }
                 }
-                
-            // Update UI elements (no visual progress bar)
-            this.updateWordCountDisplay();
-            this.updateStreakCounter(!isAIWord);
+
+                // Update UI elements (no visual progress bar)
+                this.updateWordCountDisplay();
+                this.updateStreakCounter(!isAIWord);
+
+                // The old suggestion belongs to the previous word. Retire it before the new
+                // one arrives, otherwise it stays live and can be scored against the next
+                // word the player types.
+                this.aiSuggestedWords = [];
+                this.showSuggestions([]);
+                this.generateAISuggestionsWithQueue(() => {});
             }
 
             // Update cursor immediately for mobile
