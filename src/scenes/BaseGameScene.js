@@ -2694,6 +2694,14 @@ createButtonSection(positions) {
             top_logprobs: 5,
             frequency_penalty: this.frequencyPenalty,
             presence_penalty: this.presencePenalty,
+            // Discourage the model's most common failure on a small model: echoing a word
+            // the player just typed ("the planet ... -> planet"). Unlike frequency/presence
+            // penalty (which only see the tiny generated text), repetition_penalty also
+            // considers the prompt, so it penalises re-suggesting words already in the
+            // sentence. Kept mild (1.2): higher values start suppressing correct context
+            // words on such a short completion. Applied before the greedy argmax, so the
+            // suggestion stays deterministic.
+            repetition_penalty: 1.2,
             stream: false
         };
 
